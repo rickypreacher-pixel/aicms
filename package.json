@@ -1,0 +1,75 @@
+{
+  "name": "ntcc-church-app-2026",
+  "private": true,
+  "version": "5.0.0",
+  "type": "module",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "build:electron": "npx cross-env ELECTRON=1 vite build",
+    "preview": "vite preview",
+    "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5174 && npx cross-env NODE_ENV=development ELECTRON_IS_DEV=1 electron .\"",
+    "electron:build:win": "npm run build:electron && npx electron-builder --win",
+    "electron:build:mac": "npm run build:electron && npx electron-builder --mac",
+    "electron:build:linux": "npm run build:electron && npx electron-builder --linux",
+    "electron:build:all": "npm run build:electron && npx electron-builder --win --mac --linux"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.104.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.1",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.1",
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
+    "electron": "^41.3.0",
+    "electron-builder": "^26.8.1",
+    "typescript": "^5.5.3",
+    "vite": "^5.4.2",
+    "wait-on": "^9.0.5"
+  },
+  "build": {
+    "appId": "ntcc.com.ntcc.churchos",
+    "productName": "NTCC Church App",
+    "copyright": "Copyright © 2026 NTCC",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "win": {
+      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "icon": "electron/icon.ico"
+    },
+    "mac": {
+      "target": [{ "target": "dmg", "arch": ["x64", "arm64"] }],
+      "icon": "electron/icon.icns",
+      "category": "public.app-category.productivity"
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "icon": "electron/icon.png",
+      "category": "Office"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "NTCC Church App"
+    },
+    "dmg": {
+      "contents": [
+        { "x": 130, "y": 220 },
+        { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
+      ]
+    }
+  }
+}
+
