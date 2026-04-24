@@ -126,11 +126,14 @@ jobs:
 
       - name: Install Linux build dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y rpm fakeroot dpkg librsvg2-bin
+          sudo apt-get update -y
+          sudo apt-get install -y rpm fakeroot dpkg imagemagick librsvg2-bin
 
-      - name: Generate Linux icon
-        run: rsvg-convert -h 512 -w 512 electron/icon.svg > electron/icon.png
+      - name: Generate Linux icon from SVG
+        run: |
+          rsvg-convert -h 512 -w 512 electron/icon.svg -o electron/icon.png || \
+          convert -size 512x512 xc:'#1a2e5a' electron/icon.png
+        continue-on-error: true
 
       - name: Create .env file
         run: |
@@ -140,8 +143,8 @@ jobs:
       - name: Build React app (Electron mode)
         run: npx cross-env ELECTRON=1 npx vite build
 
-      - name: Build Linux installer
-        run: npx electron-builder --linux --publish never
+      - name: Build Linux AppImage
+        run: npx electron-builder --linux AppImage --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -149,10 +152,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: linux-installers
-          path: |
-            dist-electron/*.AppImage
-            dist-electron/*.deb
+          path: dist-electron/*.AppImage
           retention-days: 30
+          if-no-files-found: warn
 
   # ── Create GitHub Release (only on version tags) ────────────────────────────
   release:
