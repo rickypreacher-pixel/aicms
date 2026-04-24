@@ -107,12 +107,11 @@ jobs:
           path: dist-electron/*.dmg
           retention-days: 30
 
-  # ── Create GitHub Release (only on version tags) ────────────────────────────
+  # ── Create GitHub Release ────────────────────────────────────────────────────
   release:
     name: Publish Release
     needs: [build-windows, build-mac]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: write
     steps:
@@ -124,9 +123,10 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: NTCC Church App ${{ github.ref_name }}
+          tag_name: v5.0.0
+          name: NTCC Church App v5.0.0
           body: |
-            ## NTCC Church App ${{ github.ref_name }}
+            ## NTCC Church App v5.0.0
 
             ### Downloads
             | Platform | File |
