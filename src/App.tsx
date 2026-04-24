@@ -576,14 +576,23 @@ function SetupModal({onSave}){
   </div>);
 }
 
-function ChurchSettingsPage({cs,setCs,members,visitors,attendance,giving,prayers,groups,grpMeetings,visitRecords,checkIns,kidsCheckIns,children,pledgeDrives,pledges,weeklyReports,equipment,workOrders,schedMaint}){
+function ChurchSettingsPage({cs,setCs,members,setMembers,visitors,attendance,giving,prayers,groups,grpMeetings,visitRecords,checkIns,kidsCheckIns,children,pledgeDrives,pledges,weeklyReports,equipment,workOrders,schedMaint}:any){
   const [form,setForm]=useState({...cs});
   const [saved,setSaved]=useState(false);
+  const [stab,setStab]=useState('general');
   const sf=k=>v=>setForm(f=>({...f,[k]:v}));
   const save=()=>{setCs({...form});setSaved(true);setTimeout(()=>setSaved(false),2500);};
   const allData={members,visitors,attendance,giving,prayers,groups,grpMeetings,visitRecords,checkIns,kidsCheckIns,children,pledgeDrives,pledges,weeklyReports,equipment,workOrders,schedMaint};
   const logoInitials=(form.name||"AI").split(" ").filter(w=>w).slice(0,2).map(w=>w[0]).join("").toUpperCase();
   return (<div>
+    {/* Tab bar */}
+    <div style={{display:'flex',gap:4,marginBottom:20,borderBottom:'1.5px solid '+BR,paddingBottom:0}}>
+      {[{id:'general',label:'⚙ General'},{id:'merge',label:'🔀 Merge Tool'}].map(t=>(
+        <button key={t.id} onClick={()=>setStab(t.id)} style={{padding:'8px 18px',fontSize:13,fontWeight:stab===t.id?600:400,color:stab===t.id?N:MU,background:'none',border:'none',borderBottom:stab===t.id?'2.5px solid '+N:'2.5px solid transparent',cursor:'pointer',marginBottom:-1.5}}>{t.label}</button>
+      ))}
+    </div>
+    {stab==='merge'&&<MergeTool members={members} setMembers={setMembers}/>}
+    {stab==='general'&&<div>
     {saved&&<div style={{background:"#dcfce7",border:"0.5px solid #86efac",borderRadius:9,padding:"10px 16px",marginBottom:14,fontSize:13,color:"#14532d",fontWeight:500}}>Settings saved successfully.</div>}
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
       <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:18}}>
@@ -619,7 +628,202 @@ function ChurchSettingsPage({cs,setCs,members,visitors,attendance,giving,prayers
       <Btn onClick={save} v="success" style={{padding:"11px 24px",fontSize:14}}>Save Settings</Btn>
       <Btn onClick={()=>setForm({...cs})} v="ghost">Reset</Btn>
     </div>
+    </div>}
   </div>);
+}
+
+// ── MERGE TOOL ──
+function MergeTool({members,setMembers}:any){
+  const [step,setStep]=useState<'upload'|'preview'|'done'>('upload');
+  const [newOnes,setNewOnes]=useState<any[]>([]);
+  const [conflicts,setConflicts]=useState<any[]>([]);
+  const [acceptNew,setAcceptNew]=useState<Set<number>>(new Set());
+  const [acceptConflict,setAcceptConflict]=useState<Set<number>>(new Set());
+  const [choices,setChoices]=useState<any>({});
+  const [result,setResult]=useState<any>(null);
+  const [err,setErr]=useState('');
+  const MF=[
+    {key:'first',label:'First Name'},{key:'last',label:'Last Name'},
+    {key:'status',label:'Status'},{key:'phone',label:'Phone'},
+    {key:'email',label:'Email'},{key:'birthday',label:'Birthday'},
+    {key:'anniversary',label:'Anniversary'},{key:'spouseName',label:'Spouse'},
+    {key:'joined',label:'Join Date'},
+    {key:'address',label:'Address',fmt:(v:any)=>v?[v.street,v.city,v.state,v.zip].filter(Boolean).join(', '):''},
+    {key:'children',label:'Children',fmt:(v:any)=>Array.isArray(v)?v.map((c:any)=>c.name).join(', '):(v||'')},
+    {key:'gender',label:'Gender'},{key:'notes',label:'Notes'},
+  ];
+  function mapF(raw:any):any{
+    const get=(...keys:string[])=>{for(const k of keys){const found=Object.keys(raw).find(rk=>rk.toLowerCase().replace(/[^a-z]/g,'')===k.toLowerCase().replace(/[^a-z]/g,''));if(found&&raw[found])return String(raw[found]).trim();}return'';};
+    const first=get('first','firstname','fname','givenname');
+    const last=get('last','lastname','lname','surname','familyname');
+    if(!first&&!last)return null;
+    return{id:`mrg_${Date.now()}_${Math.random()}`,first,last,
+      status:get('status','membershipstatus','membership')||'Active',
+      phone:get('phone','phonenumber','mobile','cell','telephone'),
+      email:get('email','emailaddress'),
+      birthday:get('birthday','birthdate','dob','dateofbirth'),
+      anniversary:get('anniversary','anniversarydate','weddingdate'),
+      spouseName:get('spouse','spousename','partnername'),
+      joined:get('joined','joindate','datejoined','membershipdate','startdate'),
+      address:{street:get('address','street','streetaddress'),city:get('city'),state:get('state'),zip:get('zip','zipcode','postalcode')},
+      children:(()=>{const c=get('children','child','kids');if(!c)return[];return c.split(/[;|]/).filter(Boolean).map((n:string)=>({name:n.trim(),birthday:''}));})(),
+      gender:get('gender','sex'),notes:get('notes','note','comments','remarks'),
+      role:get('role','ministry','position','title'),
+    };
+  }
+  function parseCSV(text:string):any[]{
+    const lines=text.trim().split(/\r?\n/);if(lines.length<2)return[];
+    const headers=lines[0].split(',').map(h=>h.trim().replace(/^"|"$/g,''));
+    return lines.slice(1).filter(l=>l.trim()).map(line=>{
+      const vals:string[]=[]; let cur='',inQ=false;
+      for(const ch of line){if(ch==='"')inQ=!inQ;else if(ch===','&&!inQ){vals.push(cur);cur='';}else cur+=ch;}
+      vals.push(cur);
+      const obj:any={};headers.forEach((h,i)=>{obj[h]=(vals[i]||'').trim().replace(/^"|"$/g,'');});
+      return mapF(obj);
+    }).filter(Boolean);
+  }
+  function process(file:File){
+    setErr('');
+    const reader=new FileReader();
+    reader.onload=(e)=>{
+      const text=e.target?.result as string;
+      let records:any[]=[];
+      try{
+        if(file.name.toLowerCase().endsWith('.json')){const data=JSON.parse(text);const arr=Array.isArray(data)?data:(data.members||data.data||[]);records=arr.map(mapF).filter(Boolean);}
+        else{records=parseCSV(text);}
+      }catch{setErr('Could not parse file. Ensure it is valid CSV or JSON.');return;}
+      if(!records.length){setErr('No valid member records found in file.');return;}
+      const nw:any[]=[],cf:any[]=[];
+      records.forEach(inc=>{
+        const match=members.find((m:any)=>m.first?.trim().toLowerCase()===inc.first?.trim().toLowerCase()&&m.last?.trim().toLowerCase()===inc.last?.trim().toLowerCase());
+        if(match)cf.push({incoming:inc,existing:match});else nw.push(inc);
+      });
+      setNewOnes(nw);setConflicts(cf);
+      setAcceptNew(new Set(nw.map((_,i)=>i)));setAcceptConflict(new Set());
+      const defs:any={};cf.forEach((_,ci)=>{defs[ci]={};MF.forEach(f=>{defs[ci][f.key]='existing';});});
+      setChoices(defs);setStep('preview');
+    };
+    reader.readAsText(file);
+  }
+  function doMerge(){
+    let list=[...members];let added=0,upd=0;
+    newOnes.forEach((rec,i)=>{if(acceptNew.has(i)){list.push({...rec,id:Date.now()+Math.random()});added++;}});
+    conflicts.forEach((c,ci)=>{
+      if(acceptConflict.has(ci)){
+        const idx=list.findIndex((m:any)=>m.id===c.existing.id);
+        if(idx>=0){const u={...list[idx]};MF.forEach(f=>{if(choices[ci]?.[f.key]==='incoming')u[f.key]=c.incoming[f.key];});list[idx]=u;upd++;}
+      }
+    });
+    setMembers(list);setResult({added,merged:upd});setStep('done');
+  }
+  const fv=(f:any,rec:any)=>{if(f.fmt)return f.fmt(rec[f.key]);return String(rec[f.key]||'');};
+  if(step==='done')return(
+    <div style={{textAlign:'center',padding:48}}>
+      <div style={{fontSize:48,marginBottom:12}}>✅</div>
+      <h3 style={{fontSize:18,fontWeight:600,color:N,margin:'0 0 8px'}}>Merge Complete</h3>
+      <p style={{color:MU,fontSize:14}}><strong style={{color:GR}}>{result.added}</strong> member{result.added!==1?'s':''} added &nbsp;·&nbsp; <strong style={{color:BL}}>{result.merged}</strong> profile{result.merged!==1?'s':''} updated</p>
+      <Btn onClick={()=>{setStep('upload');setResult(null);}} v="ghost" style={{marginTop:16}}>Merge Another File</Btn>
+    </div>
+  );
+  if(step==='preview')return(
+    <div>
+      <div style={{display:'flex',gap:12,marginBottom:20,flexWrap:'wrap'}}>
+        <div style={{background:'#dcfce7',border:'0.5px solid #86efac',borderRadius:9,padding:'10px 16px',fontSize:13,color:'#14532d',fontWeight:500}}>{newOnes.length} new · {acceptNew.size} selected to add</div>
+        <div style={{background:'#fef9c3',border:'0.5px solid #fde047',borderRadius:9,padding:'10px 16px',fontSize:13,color:'#713f12',fontWeight:500}}>{conflicts.length} duplicate{conflicts.length!==1?'s':''} · {acceptConflict.size} to update</div>
+      </div>
+      {newOnes.length>0&&<div style={{background:W,border:'0.5px solid '+BR,borderRadius:12,padding:18,marginBottom:16}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+          <h3 style={{fontSize:14,fontWeight:600,color:N,margin:0}}>New Members to Add ({newOnes.length})</h3>
+          <div style={{display:'flex',gap:8}}>
+            <Btn v="ghost" onClick={()=>setAcceptNew(new Set(newOnes.map((_,i)=>i)))} style={{fontSize:11,padding:'4px 10px'}}>All</Btn>
+            <Btn v="ghost" onClick={()=>setAcceptNew(new Set())} style={{fontSize:11,padding:'4px 10px'}}>None</Btn>
+          </div>
+        </div>
+        <div style={{display:'flex',flexDirection:'column',gap:5}}>
+          {newOnes.map((rec,i)=>(
+            <label key={i} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',background:acceptNew.has(i)?'#f0fdf4':'#f9fafb',border:'0.5px solid '+(acceptNew.has(i)?'#86efac':BR),borderRadius:8,cursor:'pointer'}}>
+              <input type="checkbox" checked={acceptNew.has(i)} onChange={()=>{const s=new Set(acceptNew);s.has(i)?s.delete(i):s.add(i);setAcceptNew(s);}}/>
+              <span style={{fontWeight:500,color:TX}}>{rec.first} {rec.last}</span>
+              <span style={{fontSize:11,color:MU,marginLeft:6}}>{[rec.phone,rec.email,rec.status].filter(Boolean).join(' · ')}</span>
+            </label>
+          ))}
+        </div>
+      </div>}
+      {conflicts.length>0&&<div style={{background:W,border:'0.5px solid '+BR,borderRadius:12,padding:18,marginBottom:16}}>
+        <h3 style={{fontSize:14,fontWeight:600,color:N,margin:'0 0 4px'}}>Duplicate Members ({conflicts.length})</h3>
+        <p style={{fontSize:12,color:MU,marginBottom:14}}>Name already exists. Check to update and choose which field values to keep.</p>
+        {conflicts.map((c,ci)=>(
+          <div key={ci} style={{border:'0.5px solid '+(acceptConflict.has(ci)?'#93c5fd':BR),borderRadius:10,marginBottom:10,overflow:'hidden'}}>
+            <label style={{display:'flex',alignItems:'center',gap:10,padding:'10px 14px',background:acceptConflict.has(ci)?'#eff6ff':'#f9fafb',cursor:'pointer'}}>
+              <input type="checkbox" checked={acceptConflict.has(ci)} onChange={()=>{const s=new Set(acceptConflict);s.has(ci)?s.delete(ci):s.add(ci);setAcceptConflict(s);}}/>
+              <span style={{fontWeight:500,color:TX}}>{c.existing.first} {c.existing.last}</span>
+              <span style={{fontSize:11,color:MU,marginLeft:6}}>pick fields to update below</span>
+            </label>
+            {acceptConflict.has(ci)&&<div style={{padding:14,overflowX:'auto'}}>
+              <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+                <thead><tr>
+                  <th style={{padding:'6px 8px',textAlign:'left',color:MU,fontWeight:600,background:'#f9fafb',width:110}}>Field</th>
+                  <th style={{padding:'6px 8px',textAlign:'left',color:GR,fontWeight:600,background:'#f0fdf4'}}>✔ Keep Existing</th>
+                  <th style={{padding:'6px 8px',textAlign:'left',color:BL,fontWeight:600,background:'#eff6ff'}}>↩ Use Incoming</th>
+                </tr></thead>
+                <tbody>
+                  {MF.map(f=>{
+                    const ev=fv(f,c.existing),iv=fv(f,c.incoming);
+                    if(!ev&&!iv)return null;
+                    const sel=choices[ci]?.[f.key]||'existing';
+                    return(<tr key={f.key} style={{borderTop:'0.5px solid '+BR}}>
+                      <td style={{padding:'7px 8px',fontWeight:500,color:TX,whiteSpace:'nowrap'}}>{f.label}</td>
+                      <td style={{padding:'6px 8px',background:sel==='existing'?'#f0fdf4':''}}>
+                        <label style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer'}}>
+                          <input type="radio" name={`fld-${ci}-${f.key}`} checked={sel==='existing'} onChange={()=>setChoices((p:any)=>({...p,[ci]:{...p[ci],[f.key]:'existing'}}))}/>
+                          <span style={{fontSize:11,color:ev?TX:MU,fontStyle:ev?'normal':'italic'}}>{ev||'(empty)'}</span>
+                        </label>
+                      </td>
+                      <td style={{padding:'6px 8px',background:sel==='incoming'?'#eff6ff':''}}>
+                        <label style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer'}}>
+                          <input type="radio" name={`fld-${ci}-${f.key}`} checked={sel==='incoming'} onChange={()=>setChoices((p:any)=>({...p,[ci]:{...p[ci],[f.key]:'incoming'}}))}/>
+                          <span style={{fontSize:11,color:iv?TX:MU,fontStyle:iv?'normal':'italic'}}>{iv||'(empty)'}</span>
+                        </label>
+                      </td>
+                    </tr>);
+                  })}
+                </tbody>
+              </table>
+            </div>}
+          </div>
+        ))}
+      </div>}
+      <div style={{display:'flex',gap:10}}>
+        <Btn onClick={doMerge} v="success" style={{fontSize:14,padding:'10px 24px'}}>Confirm Merge ({acceptNew.size+acceptConflict.size} records)</Btn>
+        <Btn onClick={()=>setStep('upload')} v="ghost">← Back</Btn>
+      </div>
+    </div>
+  );
+  return(
+    <div>
+      <p style={{fontSize:13,color:MU,marginBottom:20,lineHeight:1.7}}>Import member profiles from another church's database. Detects duplicates by first+last name and lets you choose which field values to keep.</p>
+      {err&&<div style={{background:'#fee2e2',border:'0.5px solid #fca5a5',borderRadius:8,padding:'10px 14px',color:'#b91c1c',fontSize:13,marginBottom:14}}>{err}</div>}
+      <div
+        onDragOver={e=>e.preventDefault()}
+        onDrop={e=>{e.preventDefault();const f=e.dataTransfer.files[0];if(f)process(f);}}
+        onClick={()=>document.getElementById('merge-file-inp')?.click()}
+        style={{border:'2px dashed #c7d2fe',borderRadius:14,padding:48,textAlign:'center',background:'#f5f3ff',cursor:'pointer'}}
+      >
+        <div style={{fontSize:40,marginBottom:8}}>📂</div>
+        <div style={{fontWeight:600,color:N,fontSize:15,marginBottom:4}}>Drop CSV or JSON file here</div>
+        <div style={{color:MU,fontSize:12}}>or click to browse</div>
+        <input id="merge-file-inp" type="file" accept=".csv,.json" style={{display:'none'}} onChange={e=>{const f=e.target.files?.[0];if(f)process(f);(e.target as any).value='';}}/>
+      </div>
+      <div style={{marginTop:16,background:'#f8fafc',border:'0.5px solid '+BR,borderRadius:10,padding:14}}>
+        <div style={{fontWeight:500,color:N,fontSize:13,marginBottom:6}}>Expected CSV columns (flexible naming):</div>
+        <div style={{fontSize:11,color:MU,lineHeight:1.9,flexWrap:'wrap',display:'flex',gap:4}}>
+          {['First Name','Last Name','Phone','Email','Status','Birthday','Anniversary','Spouse','Children (semicolons)','Address','City','State','Zip','Gender','Join Date','Notes'].map(c=>(
+            <code key={c} style={{background:'#e0e7ff',borderRadius:3,padding:'1px 6px'}}>{c}</code>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ── MAIN APP ──
@@ -7371,7 +7575,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut}
         {/* Page content */}
         <div style={{flex:1,padding:isMobile?12:24,overflow:"auto"}}>
           {showSetup && <SetupModal onSave={s=>{setChurchSettings(s);setShowSetup(false);}}/>}
-          {view==="settings" && <ChurchSettingsPage cs={churchSettings} setCs={setChurchSettings} members={members} visitors={visitors} attendance={attendance} giving={giving} prayers={prayers} groups={groups} grpMeetings={grpMeetings} visitRecords={visitRecords} checkIns={checkIns} kidsCheckIns={kidsCheckIns} children={children} pledgeDrives={pledgeDrives} pledges={pledges} weeklyReports={weeklyReports} equipment={equipment} workOrders={workOrders} schedMaint={schedMaint}/>}
+          {view==="settings" && <ChurchSettingsPage cs={churchSettings} setCs={setChurchSettings} members={members} setMembers={setMembers} visitors={visitors} attendance={attendance} giving={giving} prayers={prayers} groups={groups} grpMeetings={grpMeetings} visitRecords={visitRecords} checkIns={checkIns} kidsCheckIns={kidsCheckIns} children={children} pledgeDrives={pledgeDrives} pledges={pledges} weeklyReports={weeklyReports} equipment={equipment} workOrders={workOrders} schedMaint={schedMaint}/>}
           {view==="dashboard" && <Dashboard members={members} visitors={visitors} attendance={attendance} giving={giving} prayers={prayers} setView={setView}/>}
           {view==="people" && <People members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} prayers={prayers} groups={groups} grpMeetings={grpMeetings} visitRecords={visitRecords} setVisitRecords={setVisitRecords} checkIns={checkIns}/>}
           {view==="groups" && <Groups members={members} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings}/>}
