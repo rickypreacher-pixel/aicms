@@ -32,6 +32,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Generate Windows icon
+        run: npx --yes electron-icon-builder --input=electron/icon.svg --output=electron/icons --flatten
+        shell: bash
+        continue-on-error: true
+
       - name: Create .env file
         run: |
           echo "VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}" > .env
@@ -69,6 +74,12 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Generate macOS icon
+        run: |
+          brew install librsvg
+          rsvg-convert -h 512 -w 512 electron/icon.svg > electron/icon.png
+        continue-on-error: true
 
       - name: Create .env file
         run: |
@@ -116,7 +127,10 @@ jobs:
       - name: Install Linux build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y rpm fakeroot dpkg
+          sudo apt-get install -y rpm fakeroot dpkg librsvg2-bin
+
+      - name: Generate Linux icon
+        run: rsvg-convert -h 512 -w 512 electron/icon.svg > electron/icon.png
 
       - name: Create .env file
         run: |

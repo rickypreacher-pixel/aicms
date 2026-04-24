@@ -44,17 +44,14 @@
       "electron/**/*"
     ],
     "win": {
-      "target": [{ "target": "nsis", "arch": ["x64"] }],
-      "icon": "electron/icon.ico"
+      "target": [{ "target": "nsis", "arch": ["x64"] }]
     },
     "mac": {
       "target": [{ "target": "dmg", "arch": ["x64", "arm64"] }],
-      "icon": "electron/icon.icns",
       "category": "public.app-category.productivity"
     },
     "linux": {
       "target": ["AppImage", "deb"],
-      "icon": "electron/icon.png",
       "category": "Office"
     },
     "nsis": {
