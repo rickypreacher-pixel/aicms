@@ -7373,6 +7373,292 @@ function Education({members,visitors,users,roles,children,setChildren,classrooms
   );
 }
 
+// ── ADD PERSON PAGE ──
+// Central intake form — the one place everyone enters the database.
+// Gated by Access Control: requires directory → create permission.
+const ALLERGY_OPTIONS=["Peanuts","Tree Nuts","Milk/Dairy","Eggs","Wheat/Gluten","Soy","Fish","Shellfish","Latex","Bee Stings","Penicillin","Aspirin","Ibuprofen","Sulfa Drugs"];
+const MEDICAL_OPTIONS=["Diabetes","High Blood Pressure","Heart Condition","Asthma","Epilepsy/Seizures","Mobility Impairment","Vision Impairment","Hearing Impairment","Cancer","Kidney Disease","Thyroid Disorder","Depression/Anxiety","PTSD","Autism Spectrum"];
+
+function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,roles,permissions,setView}:any){
+  const canAdd = checkPermission(currentUser,roles,permissions,"directory","create");
+  const addedByName = (()=>{
+    if(!currentUser) return "Unknown";
+    if(currentUser.memberId){
+      const m=[...members,...(visitors||[])].find((p:any)=>p.id===currentUser.memberId);
+      if(m) return m.first+" "+m.last;
+    }
+    return currentUser.email||"Staff";
+  })();
+
+  const [pType,setPType] = useState<"member"|"visitor">("member");
+  const blankForm=()=>({
+    first:"",last:"",phone:"",email:"",
+    // Member fields
+    status:"Active",role:"",joined:td(),family:"",
+    // Visitor fields
+    stage:"First Visit",sponsor:"",firstVisit:td(),
+    // Address
+    address:{street:"",city:"",state:"AZ",zip:""},
+    // Personal
+    birthday:"",anniversary:"",spouseName:"",
+    children:[] as any[],
+    // Emergency
+    emergencyName:"",emergencyPhone:"",emergencyRelation:"",
+    // Faith
+    salvationDate:"",baptismDate:"",
+    // Medical
+    allergies:[] as string[],medical:[] as string[],medicalNotes:"",
+    // Work
+    occupation:"",employer:"",
+    // Notes
+    notes:""
+  });
+  const [form,setForm] = useState(blankForm());
+  const [saved,setSaved] = useState<any>(null);
+  const [dupWarning,setDupWarning] = useState<any>(null);
+  const nid = useRef(Date.now());
+
+  const sf=(k:string)=>(v:any)=>setForm((f:any)=>({...f,[k]:v}));
+  const sfa=(k:string)=>(v:any)=>setForm((f:any)=>({...f,address:{...f.address,[k]:v}}));
+  const toggleArr=(field:string,item:string)=>setForm((f:any)=>{
+    const arr:string[]=f[field]||[];
+    return {...f,[field]:arr.includes(item)?arr.filter((x:string)=>x!==item):[...arr,item]};
+  });
+  const addChild=()=>setForm((f:any)=>({...f,children:[...f.children,{name:"",birthday:""}]}));
+  const updChild=(i:number,k:string,v:string)=>setForm((f:any)=>({...f,children:f.children.map((c:any,idx:number)=>idx===i?{...c,[k]:v}:c)}));
+  const remChild=(i:number)=>setForm((f:any)=>({...f,children:f.children.filter((_:any,idx:number)=>idx!==i)}));
+
+  const checkDups=()=>{
+    const fn=(form.first||"").trim().toLowerCase();
+    const ln=(form.last||"").trim().toLowerCase();
+    const ph=(form.phone||"").replace(/\D/g,"");
+    const all=[...members,...visitors];
+    return all.filter((p:any)=>{
+      const nameMatch=(p.first||"").trim().toLowerCase()===fn&&(p.last||"").trim().toLowerCase()===ln&&fn&&ln;
+      const phoneMatch=ph&&(p.phone||"").replace(/\D/g,"")===ph;
+      return nameMatch||phoneMatch;
+    });
+  };
+
+  const doSave=()=>{
+    const id=nid.current++;
+    const record={...form,id,addedBy:addedByName,addedDate:td()};
+    if(pType==="member"){
+      setMembers((ms:any[])=>[{...record,type:"Member"},...ms]);
+    } else {
+      setVisitors((vs:any[])=>[{...record,type:"Visitor"},...vs]);
+    }
+    setSaved({name:form.first+" "+form.last,type:pType});
+    setForm(blankForm());
+    setDupWarning(null);
+  };
+
+  const handleSave=()=>{
+    if(!form.first||!form.last){alert("First and last name are required.");return;}
+    const dups=checkDups();
+    if(dups.length>0){
+      setDupWarning(dups);
+    } else {
+      doSave();
+    }
+  };
+
+  // Section heading helper
+  const SH=({label,icon}:{label:string,icon:string})=>(
+    <div style={{display:"flex",alignItems:"center",gap:8,margin:"22px 0 12px",paddingBottom:6,borderBottom:"1.5px solid "+G+"44"}}>
+      <span style={{fontSize:16}}>{icon}</span>
+      <span style={{fontSize:13,fontWeight:600,color:N,textTransform:"uppercase",letterSpacing:0.6}}>{label}</span>
+    </div>
+  );
+  const ToggleChip=({label,active,onClick}:{label:string,active:boolean,onClick:()=>void})=>(
+    <button onClick={onClick} style={{padding:"4px 10px",borderRadius:20,border:"1px solid "+(active?N:BR),background:active?N:"transparent",color:active?"#fff":TX,fontSize:12,cursor:"pointer",fontWeight:active?500:400}}>{label}</button>
+  );
+
+  if(!canAdd){
+    return(
+      <div style={{maxWidth:600,margin:"60px auto",textAlign:"center",padding:32}}>
+        <div style={{fontSize:48,marginBottom:16}}>🔒</div>
+        <h2 style={{fontSize:20,fontWeight:500,color:N,marginBottom:8}}>Access Restricted</h2>
+        <p style={{fontSize:13,color:MU,marginBottom:24}}>Your current role does not have permission to add people to the database. Contact your administrator to request access.</p>
+        <Btn onClick={()=>setView("people")} v="outline">← Go to Members</Btn>
+      </div>
+    );
+  }
+
+  if(saved){
+    return(
+      <div style={{maxWidth:520,margin:"60px auto",textAlign:"center",padding:32}}>
+        <div style={{width:64,height:64,borderRadius:"50%",background:"#e8f5e9",display:"flex",alignItems:"center",justifyContent:"center",fontSize:28,margin:"0 auto 16px"}}>✓</div>
+        <h2 style={{fontSize:20,fontWeight:500,color:GR,marginBottom:6}}>{saved.name} added!</h2>
+        <p style={{fontSize:13,color:MU,marginBottom:24}}>{saved.name} has been added to the database as a {saved.type}.</p>
+        <div style={{display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"}}>
+          <Btn onClick={()=>setSaved(null)} v="gold">+ Add Another Person</Btn>
+          <Btn onClick={()=>setView("people")} v="outline">Go to Members →</Btn>
+        </div>
+      </div>
+    );
+  }
+
+  return(
+    <div style={{maxWidth:800,margin:"0 auto"}}>
+      {/* Page Header */}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20,flexWrap:"wrap",gap:10}}>
+        <div>
+          <h2 style={{fontSize:20,fontWeight:500,color:N,margin:0}}>Add Person to Database</h2>
+          <div style={{fontSize:12,color:MU,marginTop:2}}>This is the central intake form. All new members and visitors start here.</div>
+        </div>
+        <div style={{fontSize:11,color:MU,background:BG,border:"0.5px solid "+BR,borderRadius:8,padding:"6px 12px"}}>
+          Added by: <strong style={{color:N}}>{addedByName}</strong>
+        </div>
+      </div>
+
+      {/* Duplicate warning */}
+      {dupWarning&&(
+        <div style={{background:"#fff8e1",border:"1.5px solid "+AM,borderRadius:10,padding:16,marginBottom:20}}>
+          <div style={{fontWeight:600,color:"#7a4200",fontSize:14,marginBottom:8}}>⚠ Possible Duplicate Found</div>
+          <div style={{fontSize:13,color:"#7a4200",marginBottom:10}}>The following {dupWarning.length===1?"person":"people"} already exist with the same name or phone number:</div>
+          {dupWarning.map((p:any)=>(
+            <div key={p.id} style={{background:W,border:"0.5px solid "+AM+"88",borderRadius:8,padding:"8px 12px",marginBottom:6,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div>
+                <strong style={{color:N}}>{p.first} {p.last}</strong>
+                <span style={{fontSize:11,color:MU,marginLeft:8}}>{p.phone||""} {p.email||""}</span>
+              </div>
+              <span style={{fontSize:11,background:BG,borderRadius:6,padding:"2px 8px",color:MU}}>{p.type||p.stage||"Member"}</span>
+            </div>
+          ))}
+          <div style={{display:"flex",gap:8,marginTop:12}}>
+            <Btn onClick={doSave} v="gold" style={{fontSize:12}}>Save Anyway (New Record)</Btn>
+            <Btn onClick={()=>setDupWarning(null)} v="ghost" style={{fontSize:12}}>Cancel — Go Back to Edit</Btn>
+          </div>
+        </div>
+      )}
+
+      <div style={{background:W,border:"0.5px solid "+BR,borderRadius:14,padding:24}}>
+        {/* Type Switcher */}
+        <div style={{display:"flex",gap:0,background:BG,borderRadius:10,padding:4,marginBottom:20,width:"fit-content",border:"0.5px solid "+BR}}>
+          <button onClick={()=>setPType("member")} style={{padding:"8px 24px",borderRadius:8,border:"none",background:pType==="member"?N:"transparent",color:pType==="member"?"#fff":MU,fontSize:13,fontWeight:pType==="member"?500:400,cursor:"pointer"}}>Church Member</button>
+          <button onClick={()=>setPType("visitor")} style={{padding:"8px 24px",borderRadius:8,border:"none",background:pType==="visitor"?G:"transparent",color:pType==="visitor"?"#fff":MU,fontSize:13,fontWeight:pType==="visitor"?500:400,cursor:"pointer"}}>Visitor / Guest</button>
+        </div>
+
+        {/* ── SECTION 1: Basic Info ── */}
+        <SH label="Basic Information" icon="👤"/>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:4}}>
+          <Fld label="First Name *"><Inp value={form.first} onChange={sf("first")} placeholder="First name"/></Fld>
+          <Fld label="Last Name *"><Inp value={form.last} onChange={sf("last")} placeholder="Last name"/></Fld>
+          <Fld label="Phone"><Inp value={form.phone} onChange={sf("phone")} placeholder="(602) 555-0100"/></Fld>
+          <Fld label="Email"><Inp value={form.email} onChange={sf("email")} placeholder="email@example.com"/></Fld>
+        </div>
+        <Fld label="Family / Household"><Inp value={form.family} onChange={sf("family")} placeholder="e.g. Smith Household"/></Fld>
+
+        {/* ── SECTION 2: Member or Visitor Status ── */}
+        {pType==="member"?(
+          <>
+            <SH label="Membership Details" icon="⛪"/>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+              <Fld label="Status"><Slt value={form.status} onChange={sf("status")} opts={["Active","Inactive","New Member","On Leave","Transferred"]}/></Fld>
+              <Fld label="Role / Ministry"><Inp value={form.role} onChange={sf("role")} placeholder="Deacon, Choir, Usher…"/></Fld>
+              <Fld label="Join Date"><Inp type="date" value={form.joined} onChange={sf("joined")}/></Fld>
+            </div>
+          </>
+        ):(
+          <>
+            <SH label="Visitor Details" icon="🤝"/>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+              <Fld label="Stage"><Slt value={form.stage} onChange={sf("stage")} opts={["First Visit","Follow-Up Needed","Returning","Prospect","Member"]}/></Fld>
+              <Fld label="Sponsor / Greeter"><Inp value={form.sponsor} onChange={sf("sponsor")} placeholder="Who brought them?"/></Fld>
+              <Fld label="First Visit Date"><Inp type="date" value={form.firstVisit} onChange={sf("firstVisit")}/></Fld>
+            </div>
+          </>
+        )}
+
+        {/* ── SECTION 3: Address ── */}
+        <SH label="Address" icon="📍"/>
+        <Fld label="Street Address"><Inp value={form.address.street} onChange={sfa("street")} placeholder="123 Main St"/></Fld>
+        <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr",gap:12}}>
+          <Fld label="City"><Inp value={form.address.city} onChange={sfa("city")} placeholder="Phoenix"/></Fld>
+          <Fld label="State"><Inp value={form.address.state} onChange={sfa("state")} placeholder="AZ"/></Fld>
+          <Fld label="ZIP"><Inp value={form.address.zip} onChange={sfa("zip")} placeholder="85001"/></Fld>
+        </div>
+
+        {/* ── SECTION 4: Personal ── */}
+        <SH label="Personal Information" icon="🎂"/>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <Fld label="Birthday"><Inp type="date" value={form.birthday} onChange={sf("birthday")}/></Fld>
+          <Fld label="Anniversary"><Inp type="date" value={form.anniversary} onChange={sf("anniversary")}/></Fld>
+          <Fld label="Spouse Name"><Inp value={form.spouseName} onChange={sf("spouseName")} placeholder="Spouse's full name"/></Fld>
+        </div>
+        {/* Children */}
+        <div style={{marginTop:12}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+            <span style={{fontSize:12,fontWeight:500,color:N}}>Children</span>
+            <Btn onClick={addChild} v="outline" style={{fontSize:11,padding:"3px 10px"}}>+ Add Child</Btn>
+          </div>
+          {form.children.map((c:any,i:number)=>(
+            <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 1fr auto",gap:8,marginBottom:8,alignItems:"end"}}>
+              <Fld label={`Child ${i+1} Name`}><Inp value={c.name} onChange={v=>updChild(i,"name",v)} placeholder="Full name"/></Fld>
+              <Fld label="Birthday"><Inp type="date" value={c.birthday} onChange={v=>updChild(i,"birthday",v)}/></Fld>
+              <button onClick={()=>remChild(i)} style={{height:34,marginBottom:2,border:"none",background:"transparent",cursor:"pointer",color:RE,fontSize:18,padding:"0 6px"}}>×</button>
+            </div>
+          ))}
+          {form.children.length===0&&<div style={{fontSize:11,color:MU,fontStyle:"italic"}}>No children added yet.</div>}
+        </div>
+
+        {/* ── SECTION 5: Emergency Contact ── */}
+        <SH label="Emergency Contact" icon="🚨"/>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
+          <Fld label="Contact Name"><Inp value={form.emergencyName} onChange={sf("emergencyName")} placeholder="Full name"/></Fld>
+          <Fld label="Contact Phone"><Inp value={form.emergencyPhone} onChange={sf("emergencyPhone")} placeholder="(602) 555-…"/></Fld>
+          <Fld label="Relationship"><Inp value={form.emergencyRelation} onChange={sf("emergencyRelation")} placeholder="Spouse, Parent…"/></Fld>
+        </div>
+
+        {/* ── SECTION 6: Faith Journey ── */}
+        <SH label="Faith Journey" icon="✝"/>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <Fld label="Salvation Date"><Inp type="date" value={form.salvationDate} onChange={sf("salvationDate")}/></Fld>
+          <Fld label="Baptism Date"><Inp type="date" value={form.baptismDate} onChange={sf("baptismDate")}/></Fld>
+        </div>
+
+        {/* ── SECTION 7: Medical & Allergies ── */}
+        <SH label="Medical & Allergies" icon="🏥"/>
+        <div style={{marginBottom:10}}>
+          <div style={{fontSize:11,color:MU,fontWeight:500,marginBottom:6}}>Allergies (select all that apply)</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+            {ALLERGY_OPTIONS.map(a=>(
+              <ToggleChip key={a} label={a} active={form.allergies.includes(a)} onClick={()=>toggleArr("allergies",a)}/>
+            ))}
+          </div>
+        </div>
+        <div style={{marginBottom:10}}>
+          <div style={{fontSize:11,color:MU,fontWeight:500,marginBottom:6}}>Medical Conditions</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+            {MEDICAL_OPTIONS.map(m=>(
+              <ToggleChip key={m} label={m} active={form.medical.includes(m)} onClick={()=>toggleArr("medical",m)}/>
+            ))}
+          </div>
+        </div>
+        <Fld label="Medical Notes"><textarea value={form.medicalNotes} onChange={e=>sf("medicalNotes")(e.target.value)} rows={2} placeholder="Any additional medical information…" style={{width:"100%",padding:"8px 10px",border:"1px solid "+BR,borderRadius:8,fontSize:13,fontFamily:"inherit",resize:"vertical",boxSizing:"border-box" as any}}/></Fld>
+
+        {/* ── SECTION 8: Occupation ── */}
+        <SH label="Occupation" icon="💼"/>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <Fld label="Occupation / Job Title"><Inp value={form.occupation} onChange={sf("occupation")} placeholder="Teacher, Engineer…"/></Fld>
+          <Fld label="Employer"><Inp value={form.employer} onChange={sf("employer")} placeholder="Company / Organization"/></Fld>
+        </div>
+
+        {/* ── SECTION 9: Notes ── */}
+        <SH label="Notes" icon="📝"/>
+        <Fld label="General Notes"><textarea value={form.notes} onChange={e=>sf("notes")(e.target.value)} rows={3} placeholder="Any pastoral notes, special needs, or context…" style={{width:"100%",padding:"8px 10px",border:"1px solid "+BR,borderRadius:8,fontSize:13,fontFamily:"inherit",resize:"vertical",boxSizing:"border-box" as any}}/></Fld>
+
+        {/* Save Row */}
+        <div style={{display:"flex",gap:10,marginTop:24,paddingTop:16,borderTop:"0.5px solid "+BR,justifyContent:"flex-end",flexWrap:"wrap"}}>
+          <Btn onClick={()=>setForm(blankForm())} v="ghost">Clear Form</Btn>
+          <Btn onClick={handleSave} style={{minWidth:160,justifyContent:"center"}}>Save {pType==="member"?"Member":"Visitor"} to Database</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── MAIN APP ──
 export default function App({churchId,churchName,adminFirst,adminLast,onSignOut}:any={}) {
   const _I = window.__NTCC_INIT__ || {};
@@ -7505,6 +7791,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut}
 
   const NAV = [
     {id:"dashboard",label:"Dashboard",icon:"D"},
+    {id:"addperson",label:"Add Person",icon:"➕"},
     {id:"people",label:"Members Profile",icon:"P"},
     {id:"visitation",label:"Visitation",icon:"V"},
     {id:"groups",label:"Groups Ministry",icon:"G2"},
@@ -7520,7 +7807,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut}
     {id:"ai",label:"AI Assistant",icon:"AI"},
     {id:"settings",label:"Settings",icon:"⚙"},
   ];
-  const TITLES = {dashboard:"Dashboard",people:"Members Profile",visitation:"Visitation & Follow-Up",education:"Education Department",maintenance:"Maintenance & Equipment",attendance:"Attendance",giving:"Giving Records",prayer:"Prayer Wall",email:"Email Center",sms:"SMS Center",access:"Access Control",ai:"AI Assistant",settings:"Church Settings"};
+  const TITLES = {dashboard:"Dashboard",addperson:"Add Person to Database",people:"Members Profile",visitation:"Visitation & Follow-Up",education:"Education Department",maintenance:"Maintenance & Equipment",attendance:"Attendance",giving:"Giving Records",prayer:"Prayer Wall",email:"Email Center",sms:"SMS Center",access:"Access Control",ai:"AI Assistant",settings:"Church Settings"};
   const pending = users.filter(u=>u.status==="Pending").length;
   const fu = visitors.filter(v=>v.stage==="Follow-Up Needed").length;
   const inVis = visitRecords.filter(r=>r.stage!=="Complete").length;
@@ -7614,6 +7901,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut}
           {showSetup && <SetupModal onSave={s=>{setChurchSettings(s);setShowSetup(false);}}/>}
           {view==="settings" && <ChurchSettingsPage cs={churchSettings} setCs={setChurchSettings} members={members} setMembers={setMembers} visitors={visitors} attendance={attendance} giving={giving} prayers={prayers} groups={groups} grpMeetings={grpMeetings} visitRecords={visitRecords} checkIns={checkIns} kidsCheckIns={kidsCheckIns} children={children} pledgeDrives={pledgeDrives} pledges={pledges} weeklyReports={weeklyReports} equipment={equipment} workOrders={workOrders} schedMaint={schedMaint}/>}
           {view==="dashboard" && <Dashboard members={members} visitors={visitors} attendance={attendance} giving={giving} prayers={prayers} setView={setView}/>}
+          {view==="addperson" && <AddMemberPage members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} currentUser={currentUser} roles={roles} permissions={permissions} setView={setView}/>}
           {view==="people" && <People members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} prayers={prayers} groups={groups} grpMeetings={grpMeetings} visitRecords={visitRecords} setVisitRecords={setVisitRecords} checkIns={checkIns}/>}
           {view==="groups" && <Groups members={members} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings}/>}
           {view==="education" && <Education members={members} visitors={visitors} users={users} roles={roles} children={children} setChildren={setChildren} classrooms={classrooms} setClassrooms={setClassrooms} teacherSchedule={teacherSchedule} setTeacherSchedule={setTeacherSchedule} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckIns} checkIns={checkIns} incidents={incidents} setIncidents={setIncidents} rollCalls={rollCalls} setRollCalls={setRollCalls} progressNotes={progressNotes} setProgressNotes={setProgressNotes} cs={churchSettings}/>}
