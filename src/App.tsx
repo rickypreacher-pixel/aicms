@@ -1000,28 +1000,24 @@ function buildSys(members, visitors, attend, giving, prayers, mem) {
 async function callAI(messages, members, visitors, attend, giving, prayers, mem) {
   const AI_KEY = localStorage.getItem("ntcc_ai_api_key") || "";
   if (!AI_KEY) throw new Error("No API key");
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method:"POST",
-    headers:{
-      "Content-Type":"application/json",
-      "x-api-key":AI_KEY,
-      "anthropic-version":"2023-06-01",
-      "anthropic-dangerous-allow-browser":"true"
-    },
-    body:JSON.stringify({
-      model:"claude-3-5-sonnet-20241022",
-      max_tokens:1500,
-      system:typeof messages==="string"?"You are NTCC AI, a helpful church assistant for Pastor Hall.":buildSys(members, visitors, attend, giving, prayers, mem),
-      messages:(typeof messages==="string"?[{role:"user",content:messages}]:messages).map(m=>({role:m.role,content:m.content}))
-    })
+  const systemPrompt = typeof messages === "string"
+    ? "You are NTCC AI, a helpful church assistant for Pastor Hall."
+    : buildSys(members, visitors, attend, giving, prayers, mem);
+  const msgList = typeof messages === "string"
+    ? [{role:"user", content:messages}]
+    : messages.map(m => ({role:m.role, content:m.content}));
+  const res = await fetch("/api/ai", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({messages: msgList, system: systemPrompt, apiKey: AI_KEY})
   });
   if (!res.ok) {
-    const err = await res.text().catch(()=>"");
-    console.error("AI API error:", res.status, err);
-    throw new Error("AI API " + res.status);
+    const err = await res.json().catch(() => ({}));
+    const status = res.status;
+    throw new Error("AI API " + status + (err?.error ? " — " + err.error : ""));
   }
   const d = await res.json();
-  return d.content?.find(c=>c.type==="text")?.text || "I do apologize, Pastor Hall — something went wrong. Please try again, Sir.";
+  return d.content?.find(c => c.type === "text")?.text || "I do apologize, Pastor Hall — something went wrong. Please try again, Sir.";
 }
 
 function parseAction(text) {
