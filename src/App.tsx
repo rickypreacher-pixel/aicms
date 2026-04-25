@@ -830,8 +830,16 @@ const N="#1a2e5a",G="#c9a84c",GL="#f5e9c8",BG="#f4f6fb",W="#fff",BR="#e2e5ec";
 const MU="#6b7280",TX="#1f2937",GR="#16a34a",RE="#dc2626",AM="#d97706",BL="#2563eb",PU="#7c3aed",TE="#0891b2";
 
 const EL_KEY="sk_7fd85f85f4f23d141576c41114a2bd693939b9b8ecc81efd";
-// Tiny silent WAV to unlock browser autoplay policy on user gesture
 const SILENT_WAV="data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
+// AudioContext singleton — stays unlocked after first user-gesture resume
+let _elCtx:AudioContext|null=null;
+let _elSrc:AudioBufferSourceNode|null=null;
+function unlockEL(){
+  try{
+    if(!_elCtx)_elCtx=new((window as any).AudioContext||(window as any).webkitAudioContext)();
+    if(_elCtx.state==="suspended")_elCtx.resume().catch(()=>{});
+  }catch(e){}
+}
 const EL_VOICES=[
   {id:"flq6f7ib4F8Sfv2nltCn",name:"Michael",desc:"American Male — Deep & Pastoral (Recommended)"},
   {id:"onwK4e9ZLuTAKqWW03F9",name:"Daniel",desc:"British Male — Deep & Authoritative"},
@@ -953,7 +961,7 @@ const BDGE={
 
 // ── ElevenLabs TTS ──
 async function speakEL(text, voiceId, audioRef) {
-  if (!text || !voiceId || !audioRef.current) return false;
+  if (!text || !voiceId) return false;
   const clean = text.replace(/\*\*|__|##|#|\[[\s\S]*?\]/g,"").replace(/\n+/g," ").substring(0,600);
   try {
     const res = await fetch("https://api.elevenlabs.io/v1/text-to-speech/" + voiceId, {
@@ -965,13 +973,26 @@ async function speakEL(text, voiceId, audioRef) {
       const errBody = await res.text().catch(()=>"");
       throw new Error("ElevenLabs " + res.status + (errBody?" — "+errBody.substring(0,120):""));
     }
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const audio = audioRef.current;
-    audio.pause();
-    try { URL.revokeObjectURL(audio.src); } catch(e) {}
-    audio.src = url;
-    await audio.play();
+    const arrayBuffer = await res.arrayBuffer();
+    if (_elCtx) {
+      if (_elCtx.state==="suspended") await _elCtx.resume();
+      if (_elSrc) { try{_elSrc.stop();}catch(e){} _elSrc=null; }
+      const buffer = await _elCtx.decodeAudioData(arrayBuffer.slice(0));
+      _elSrc = _elCtx.createBufferSource();
+      _elSrc.buffer = buffer;
+      _elSrc.connect(_elCtx.destination);
+      _elSrc.start();
+    } else {
+      const blob = new Blob([arrayBuffer],{type:"audio/mpeg"});
+      const url = URL.createObjectURL(blob);
+      if (audioRef?.current) {
+        const audio = audioRef.current;
+        audio.pause();
+        try{URL.revokeObjectURL(audio.src);}catch(e){}
+        audio.src=url;
+        await audio.play();
+      }
+    }
     return true;
   } catch(e) {
     console.error("ElevenLabs TTS error:", e);
@@ -6444,10 +6465,9 @@ function AIAssist({aiChat,setAiChat,members,setMembers,visitors,setVisitors,atte
           <div onClick={()=>{
             const willBeOn = !ttsOn;
             if (willBeOn) {
-              // Play silent audio on user gesture to unlock autoplay policy
-              audioRef.current.src = SILENT_WAV;
-              audioRef.current.play().catch(()=>{});
+              unlockEL();
             } else {
+              if (_elSrc) { try{_elSrc.stop();}catch(e){} _elSrc=null; }
               audioRef.current.pause();
             }
             setTtsOn(willBeOn);
@@ -6486,7 +6506,7 @@ function AIAssist({aiChat,setAiChat,members,setMembers,visitors,setVisitors,atte
         <div style={{width:210,background:W,border:"0.5px solid "+BR,borderRadius:12,display:"flex",flexDirection:"column",flexShrink:0,overflowY:"auto",padding:14}}>
           <div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:0.5,marginBottom:8}}>Quick Commands</div>
           {QUICK.map((cmd,i)=>(
-            <button key={i} onClick={()=>send(cmd)} style={{width:"100%",padding:"7px 9px",borderRadius:7,border:"0.5px solid "+BR,background:BG,color:TX,fontSize:11,cursor:"pointer",textAlign:"left",marginBottom:5,lineHeight:1.4}}>{cmd}</button>
+            <button key={i} onClick={()=>{unlockEL();send(cmd);}} style={{width:"100%",padding:"7px 9px",borderRadius:7,border:"0.5px solid "+BR,background:BG,color:TX,fontSize:11,cursor:"pointer",textAlign:"left",marginBottom:5,lineHeight:1.4}}>{cmd}</button>
           ))}
           {topCmds.length>0 && (
             <div>
@@ -6562,7 +6582,7 @@ function AIAssist({aiChat,setAiChat,members,setMembers,visitors,setVisitors,atte
               <button onClick={startListening} style={{width:38,height:38,borderRadius:"50%",border:"none",background:listening?"#fee2e2":N+"18",cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",color:listening?RE:N}}>
                 {listening?"Stop":"Mic"}
               </button>
-              <Btn onClick={()=>send()} disabled={load||!input.trim()} style={{padding:"9px 18px"}}>{load?"...":"Send"}</Btn>
+              <Btn onClick={()=>{unlockEL();send();}} disabled={load||!input.trim()} style={{padding:"9px 18px"}}>{load?"...":"Send"}</Btn>
             </div>
           </div>
           <div style={{fontSize:11,color:MU,marginTop:6,textAlign:"center"}}>Enter to send - Shift+Enter for new line - Mic for voice input - commands execute live</div>
