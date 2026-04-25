@@ -831,8 +831,8 @@ const MU="#6b7280",TX="#1f2937",GR="#16a34a",RE="#dc2626",AM="#d97706",BL="#2563
 
 const EL_KEY="sk_7fd85f85f4f23d141576c41114a2bd693939b9b8ecc81efd";
 const EL_VOICES=[
-  {id:"Yko7PKHZNXotIFUBG7I9",name:"Matthew",desc:"Southern American Male — Warm & Pastoral (Recommended)"},
-  {id:"onwK4e9ZLuTAKqWW03F9",name:"Daniel",desc:"American Male — Deep & Authoritative"},
+  {id:"flq6f7ib4F8Sfv2nltCn",name:"Michael",desc:"American Male — Deep & Pastoral (Recommended)"},
+  {id:"onwK4e9ZLuTAKqWW03F9",name:"Daniel",desc:"British Male — Deep & Authoritative"},
   {id:"pNInz6obpgDQGcFmaJgB",name:"Adam",desc:"American Male — Narration Style"},
   {id:"TxGEqnHWrfWFTfGW9XjX",name:"Josh",desc:"American Male — Deep & Commanding"},
   {id:"ErXwobaYiN019PkySvjV",name:"Antoni",desc:"American Male — Well-Rounded"},
@@ -951,15 +951,18 @@ const BDGE={
 
 // ── ElevenLabs TTS ──
 async function speakEL(text, voiceId, audioRef) {
-  if (!text || !voiceId) return;
+  if (!text || !voiceId) return false;
   const clean = text.replace(/\*\*|__|##|#|\[[\s\S]*?\]/g,"").replace(/\n+/g," ").substring(0,600);
   try {
     const res = await fetch("https://api.elevenlabs.io/v1/text-to-speech/" + voiceId, {
       method:"POST",
       headers:{"Accept":"audio/mpeg","Content-Type":"application/json","xi-api-key":EL_KEY},
-      body:JSON.stringify({text:clean,model_id:"eleven_multilingual_v2",voice_settings:{stability:0.5,similarity_boost:0.78}})
+      body:JSON.stringify({text:clean,model_id:"eleven_turbo_v2_5",voice_settings:{stability:0.5,similarity_boost:0.75,use_speaker_boost:true}})
     });
-    if (!res.ok) throw new Error("EL " + res.status);
+    if (!res.ok) {
+      const errBody = await res.text().catch(()=>"");
+      throw new Error("ElevenLabs " + res.status + (errBody?" — "+errBody.substring(0,120):""));
+    }
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     if (audioRef.current) {
@@ -969,11 +972,10 @@ async function speakEL(text, voiceId, audioRef) {
     const audio = new Audio(url);
     audioRef.current = audio;
     audio.play();
+    return true;
   } catch(e) {
-    if (window.speechSynthesis) {
-      const u = new SpeechSynthesisUtterance(clean.substring(0,300));
-      window.speechSynthesis.speak(u);
-    }
+    console.error("ElevenLabs TTS error:", e);
+    return false;
   }
 }
 
@@ -6272,6 +6274,7 @@ function AIAssist({aiChat,setAiChat,members,setMembers,visitors,setVisitors,atte
   const [mem,setMem] = useState({preferences:"",commands:"",style:""});
   const [cmdCount,setCmdCount] = useState({});
   const [banner,setBanner] = useState(null);
+  const [ttsError,setTtsError] = useState(null);
   const [listening,setListening] = useState(false);
   const [showMem,setShowMem] = useState(false);
   const endRef = useRef(null);
@@ -6310,7 +6313,19 @@ function AIAssist({aiChat,setAiChat,members,setMembers,visitors,setVisitors,atte
     try { localStorage.setItem("ntcc_ai_voice", v); } catch(e) {}
   };
 
-  const speak = text => { if(ttsOn) speakEL(text, elVoice, audioRef); };
+  const speak = async text => {
+    if (!ttsOn) return;
+    const ok = await speakEL(text, elVoice, audioRef);
+    if (!ok) {
+      setTtsError("ElevenLabs voice failed — verify API key & credits at elevenlabs.io, then try a different voice.");
+      if (window.speechSynthesis) {
+        const clean = text.replace(/\*\*|__|##|#|\[[\s\S]*?\]/g,"").replace(/\n+/g," ").substring(0,300);
+        window.speechSynthesis.speak(new SpeechSynthesisUtterance(clean));
+      }
+    } else {
+      setTtsError(null);
+    }
+  };
 
   const updateMem = actionType => {
     const nc = {...cmdCount};
@@ -6401,6 +6416,12 @@ function AIAssist({aiChat,setAiChat,members,setMembers,visitors,setVisitors,atte
         <div style={{background:GR,color:"#fff",padding:"9px 16px",fontSize:13,fontWeight:500,display:"flex",alignItems:"center",gap:8,borderRadius:8,marginBottom:10,flexShrink:0}}>
           Done: {banner}
           <button onClick={()=>setBanner(null)} style={{marginLeft:"auto",background:"none",border:"none",color:"#fff",cursor:"pointer",fontSize:16}}>x</button>
+        </div>
+      )}
+      {ttsError && (
+        <div style={{background:"#fee2e2",border:"0.5px solid #fca5a5",color:RE,padding:"9px 16px",fontSize:12,fontWeight:500,display:"flex",alignItems:"center",gap:8,borderRadius:8,marginBottom:10,flexShrink:0}}>
+          Voice Error: {ttsError}
+          <button onClick={()=>setTtsError(null)} style={{marginLeft:"auto",background:"none",border:"none",color:RE,cursor:"pointer",fontSize:16}}>x</button>
         </div>
       )}
       {showMem && (
