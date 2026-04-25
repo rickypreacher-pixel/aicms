@@ -19,7 +19,7 @@ export default async function handler(req, res) {
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-3-haiku-20240307",
+        model: "claude-3-5-haiku-20241022",
         max_tokens: 1024,
         system: system || "You are NTCC AI, a helpful church assistant for Pastor Hall.",
         messages,
@@ -29,7 +29,8 @@ export default async function handler(req, res) {
     const data = await response.json();
 
     if (!response.ok) {
-      return res.status(response.status).json({ error: data?.error?.message || "Anthropic API error" });
+      const detail = JSON.stringify(data?.error || data);
+      return res.status(response.status).json({ error: "Anthropic " + response.status + ": " + detail });
     }
 
     return res.status(200).json(data);
