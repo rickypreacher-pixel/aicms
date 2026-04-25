@@ -831,15 +831,9 @@ const MU="#6b7280",TX="#1f2937",GR="#16a34a",RE="#dc2626",AM="#d97706",BL="#2563
 
 const EL_KEY="sk_7fd85f85f4f23d141576c41114a2bd693939b9b8ecc81efd";
 const SILENT_WAV="data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
-// AudioContext singleton — stays unlocked after first user-gesture resume
-let _elCtx:AudioContext|null=null;
-let _elSrc:AudioBufferSourceNode|null=null;
-function unlockEL(){
-  try{
-    if(!_elCtx)_elCtx=new((window as any).AudioContext||(window as any).webkitAudioContext)();
-    if(_elCtx.state==="suspended")_elCtx.resume().catch(()=>{});
-  }catch(e){}
-}
+// Module-level audio element — unlocked once by user gesture, reused forever
+const _elAudio = typeof window !== "undefined" ? new Audio() : null as any;
+if (_elAudio) { _elAudio.volume = 1; _elAudio.preload = "auto"; }
 const EL_VOICES=[
   {id:"flq6f7ib4F8Sfv2nltCn",name:"Michael",desc:"American Male — Deep & Pastoral (Recommended)"},
   {id:"onwK4e9ZLuTAKqWW03F9",name:"Daniel",desc:"British Male — Deep & Authoritative"},
@@ -960,8 +954,8 @@ const BDGE={
 };
 
 // ── ElevenLabs TTS ──
-async function speakEL(text, voiceId, audioRef) {
-  if (!text || !voiceId) return false;
+async function speakEL(text, voiceId) {
+  if (!text || !voiceId || !_elAudio) return false;
   const clean = text.replace(/\*\*|__|##|#|\[[\s\S]*?\]/g,"").replace(/\n+/g," ").substring(0,600);
   try {
     const res = await fetch("https://api.elevenlabs.io/v1/text-to-speech/" + voiceId, {
@@ -973,26 +967,12 @@ async function speakEL(text, voiceId, audioRef) {
       const errBody = await res.text().catch(()=>"");
       throw new Error("ElevenLabs " + res.status + (errBody?" — "+errBody.substring(0,120):""));
     }
-    const arrayBuffer = await res.arrayBuffer();
-    if (_elCtx) {
-      if (_elCtx.state==="suspended") await _elCtx.resume();
-      if (_elSrc) { try{_elSrc.stop();}catch(e){} _elSrc=null; }
-      const buffer = await _elCtx.decodeAudioData(arrayBuffer.slice(0));
-      _elSrc = _elCtx.createBufferSource();
-      _elSrc.buffer = buffer;
-      _elSrc.connect(_elCtx.destination);
-      _elSrc.start();
-    } else {
-      const blob = new Blob([arrayBuffer],{type:"audio/mpeg"});
-      const url = URL.createObjectURL(blob);
-      if (audioRef?.current) {
-        const audio = audioRef.current;
-        audio.pause();
-        try{URL.revokeObjectURL(audio.src);}catch(e){}
-        audio.src=url;
-        await audio.play();
-      }
-    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    _elAudio.pause();
+    try { URL.revokeObjectURL(_elAudio.src); } catch(e) {}
+    _elAudio.src = url;
+    await _elAudio.play();
     return true;
   } catch(e) {
     console.error("ElevenLabs TTS error:", e);
@@ -6364,7 +6344,7 @@ function AIAssist({aiChat,setAiChat,members,setMembers,visitors,setVisitors,atte
 
   const speak = async text => {
     if (!ttsOn) return;
-    const ok = await speakEL(text, elVoice, audioRef);
+    const ok = await speakEL(text, elVoice);
     if (!ok) {
       setTtsError("ElevenLabs voice failed — verify API key & credits at elevenlabs.io, then try a different voice.");
       if (window.speechSynthesis) {
@@ -6465,10 +6445,9 @@ function AIAssist({aiChat,setAiChat,members,setMembers,visitors,setVisitors,atte
           <div onClick={()=>{
             const willBeOn = !ttsOn;
             if (willBeOn) {
-              unlockEL();
+              _elAudio.src=SILENT_WAV; _elAudio.play().catch(()=>{});
             } else {
-              if (_elSrc) { try{_elSrc.stop();}catch(e){} _elSrc=null; }
-              audioRef.current.pause();
+              _elAudio.pause();
             }
             setTtsOn(willBeOn);
           }} style={{display:"flex",alignItems:"center",gap:5,padding:"5px 13px",borderRadius:20,border:"1.5px solid "+(ttsOn?"#4ade80":"#ffffff44"),cursor:"pointer",background:ttsOn?"#16a34a44":"transparent",color:ttsOn?"#4ade80":"#ffffff99",fontSize:12,fontWeight:ttsOn?600:400,transition:"all 0.2s"}}>
@@ -6506,7 +6485,7 @@ function AIAssist({aiChat,setAiChat,members,setMembers,visitors,setVisitors,atte
         <div style={{width:210,background:W,border:"0.5px solid "+BR,borderRadius:12,display:"flex",flexDirection:"column",flexShrink:0,overflowY:"auto",padding:14}}>
           <div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:0.5,marginBottom:8}}>Quick Commands</div>
           {QUICK.map((cmd,i)=>(
-            <button key={i} onClick={()=>{unlockEL();send(cmd);}} style={{width:"100%",padding:"7px 9px",borderRadius:7,border:"0.5px solid "+BR,background:BG,color:TX,fontSize:11,cursor:"pointer",textAlign:"left",marginBottom:5,lineHeight:1.4}}>{cmd}</button>
+            <button key={i} onClick={()=>{_elAudio.src=SILENT_WAV;_elAudio.play().catch(()=>{});send(cmd);}} style={{width:"100%",padding:"7px 9px",borderRadius:7,border:"0.5px solid "+BR,background:BG,color:TX,fontSize:11,cursor:"pointer",textAlign:"left",marginBottom:5,lineHeight:1.4}}>{cmd}</button>
           ))}
           {topCmds.length>0 && (
             <div>
@@ -6582,7 +6561,7 @@ function AIAssist({aiChat,setAiChat,members,setMembers,visitors,setVisitors,atte
               <button onClick={startListening} style={{width:38,height:38,borderRadius:"50%",border:"none",background:listening?"#fee2e2":N+"18",cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",color:listening?RE:N}}>
                 {listening?"Stop":"Mic"}
               </button>
-              <Btn onClick={()=>{unlockEL();send();}} disabled={load||!input.trim()} style={{padding:"9px 18px"}}>{load?"...":"Send"}</Btn>
+              <Btn onClick={()=>{_elAudio.src=SILENT_WAV;_elAudio.play().catch(()=>{});send();}} disabled={load||!input.trim()} style={{padding:"9px 18px"}}>{load?"...":"Send"}</Btn>
             </div>
           </div>
           <div style={{fontSize:11,color:MU,marginTop:6,textAlign:"center"}}>Enter to send - Shift+Enter for new line - Mic for voice input - commands execute live</div>
@@ -6594,8 +6573,8 @@ function AIAssist({aiChat,setAiChat,members,setMembers,visitors,setVisitors,atte
           <div style={{fontSize:12,color:MU,textTransform:"uppercase",letterSpacing:0.5,marginBottom:10}}>Voice Output</div>
           <div onClick={()=>{
             const willBeOn = !ttsOn;
-            if(willBeOn){audioRef.current.src=SILENT_WAV;audioRef.current.play().catch(()=>{});}
-            else audioRef.current.pause();
+            if(willBeOn){_elAudio.src=SILENT_WAV;_elAudio.play().catch(()=>{});}
+            else _elAudio.pause();
             setTtsOn(willBeOn);
           }} style={{display:"flex",alignItems:"center",gap:12,padding:"14px 16px",borderRadius:10,border:"0.5px solid "+BR,cursor:"pointer",background:ttsOn?"#f0fdf4":BG,marginBottom:12}}>
             <div style={{width:44,height:24,borderRadius:12,background:ttsOn?GR:BR,position:"relative",transition:"background 0.2s",flexShrink:0}}>
@@ -6617,7 +6596,8 @@ function AIAssist({aiChat,setAiChat,members,setMembers,visitors,setVisitors,atte
               </div>
               <button onClick={async e=>{
                 e.stopPropagation();
-                await speakEL("Good day Pastor Hall, I am your NTCC AI Assistant, ready to serve the ministry.", v.id, audioRef);
+                _elAudio.src=SILENT_WAV; _elAudio.play().catch(()=>{});
+                await speakEL("Good day Pastor Hall, I am your NTCC AI Assistant, ready to serve the ministry.", v.id);
               }} style={{padding:"6px 12px",background:N,color:"#fff",border:"none",borderRadius:6,fontSize:11,cursor:"pointer",flexShrink:0}}>Preview</button>
             </div>
           ))}
