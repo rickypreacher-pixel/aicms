@@ -4297,14 +4297,16 @@ function Dashboard({members,visitors,attendance,giving,prayers,setView}) {
   const [iLoad,setILoad] = useState(false);
   const [alerts,setAlerts] = useState([]);
   const [aLoad,setALoad] = useState(false);
-  const totalG = giving.filter(g=>g.date.startsWith("2026-04")).reduce((a,g)=>a+g.amount,0);
+  const nowYM = new Date().toISOString().slice(0,7); // e.g. "2026-04"
+  const monthLabel = new Date().toLocaleDateString("en-US",{month:"long",year:"numeric"});
+  const totalG = giving.filter((g:any)=>g.date.startsWith(nowYM)).reduce((a:number,g:any)=>a+g.amount,0);
   const lastSvc = attendance[0];
-  const activeM = members.filter(m=>m.status==="Active").length;
-  const fu = visitors.filter(v=>v.stage==="Follow-Up Needed").length;
+  const activeM = members.filter((m:any)=>m.status==="Active").length;
+  const fu = visitors.filter((v:any)=>v.stage==="Follow-Up Needed").length;
 
   const genInsight = async () => {
     setILoad(true);
-    const prompt = "Give Pastor Hall a brief 3-4 sentence warm pastoral church health summary. Members:"+members.length+" ("+activeM+" active). Visitors:"+visitors.length+" ("+fu+" need follow-up). Last service:"+(lastSvc?lastSvc.count:0)+". April giving:$"+totalG+".";
+    const prompt = "Give Pastor Hall a brief 3-4 sentence warm pastoral church health summary. Members:"+members.length+" ("+activeM+" active). Visitors:"+visitors.length+" ("+fu+" need follow-up). Last service:"+(lastSvc?lastSvc.count:0)+". "+monthLabel+" giving:$"+totalG+".";
     const txt = await callAI([{role:"user",content:prompt}],[],[],[],[],[],{});
     setInsight(txt); setILoad(false);
   };
@@ -4320,17 +4322,26 @@ function Dashboard({members,visitors,attendance,giving,prayers,setView}) {
     setALoad(false);
   };
 
-  const pc = p => p==="high"?RE:p==="medium"?AM:GR;
-  const qnav=[["People","Directory","people"],["Hands","Visitation","visitation"],["List","Attendance","attendance"],["Money","Giving","giving"],["Prayer","Prayer Wall","prayer"],["Lock","Access Control","access"],["Star","AI Assistant","ai"]];
+  const pc = (p:string) => p==="high"?RE:p==="medium"?AM:GR;
+  const qnav=[["Directory","people"],["Visitation","visitation"],["Attendance","attendance"],["Giving","giving"],["Prayer Wall","prayer"],["Access Control","access"],["AI Assistant","ai"],["Settings","settings"]];
 
   return (
     <div>
+      {/* Add Person Banner */}
+      <div onClick={()=>setView("addperson")} style={{background:"linear-gradient(135deg,"+N+",#2a4a8a)",borderRadius:12,padding:"16px 22px",marginBottom:20,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div>
+          <div style={{color:G,fontSize:11,fontWeight:600,textTransform:"uppercase",letterSpacing:1.5,marginBottom:3}}>Central Intake</div>
+          <div style={{color:"#fff",fontSize:16,fontWeight:500}}>➕ Add New Person to Database</div>
+          <div style={{color:"#7a9acc",fontSize:12,marginTop:3}}>Members · Visitors · Full intake form with all fields</div>
+        </div>
+        <div style={{color:"#fff",fontSize:28,opacity:0.5}}>→</div>
+      </div>
       <div style={{display:"flex",gap:12,marginBottom:20,flexWrap:"wrap"}}>
         <Stat label="Active Members" value={activeM} sub={"of "+members.length+" total"}/>
         <Stat label="Visitors" value={visitors.length} sub={fu+" need follow-up"} color={AM}/>
         <Stat label="Last Service" value={lastSvc?lastSvc.count:0} sub={lastSvc?lastSvc.service:""} color={BL}/>
-        <Stat label="April Giving" value={f$(totalG)} sub="Tithes and offerings" color={GR}/>
-        <Stat label="Prayer Requests" value={prayers.filter(p=>p.status==="Active").length} sub="Active" color={PU}/>
+        <Stat label={monthLabel+" Giving"} value={f$(totalG)} sub="Tithes and offerings" color={GR}/>
+        <Stat label="Prayer Requests" value={prayers.filter((p:any)=>p.status==="Active").length} sub="Active" color={PU}/>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
         <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:18}}>
@@ -4357,27 +4368,32 @@ function Dashboard({members,visitors,attendance,giving,prayers,setView}) {
         <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:18}}>
           <h3 style={{fontSize:14,fontWeight:500,color:N,margin:"0 0 14px"}}>Quick Navigation</h3>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-            {qnav.map(([icon,label,id])=>(
-              <button key={id} onClick={()=>setView(id)} style={{padding:12,border:"0.5px solid "+BR,borderRadius:8,background:BG,cursor:"pointer",textAlign:"left",fontSize:13,color:TX,display:"flex",alignItems:"center",gap:8}}>
+            {qnav.map(([label,id])=>(
+              <button key={id} onClick={()=>setView(id)} style={{padding:"10px 12px",border:"0.5px solid "+BR,borderRadius:8,background:BG,cursor:"pointer",textAlign:"left",fontSize:13,color:TX,display:"flex",alignItems:"center",gap:8}}>
                 {label}
+                {id==="people"&&fu>0&&<span style={{marginLeft:"auto",background:RE,color:"#fff",borderRadius:10,fontSize:10,padding:"1px 6px"}}>{fu}</span>}
               </button>
             ))}
           </div>
         </div>
         <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:18}}>
           <h3 style={{fontSize:14,fontWeight:500,color:N,margin:"0 0 14px"}}>Recent Activity</h3>
-          {[...members.slice(0,2).map(m=>({text:m.first+" "+m.last+" Member",sub:"Active member",color:GR})),
-            ...visitors.slice(0,2).map(v=>({text:v.first+" "+v.last+" Visitor",sub:v.stage,color:AM})),
-            ...giving.slice(0,2).map(g=>({text:g.name+" gave "+f$(g.amount),sub:fd(g.date),color:G}))
-          ].map((r,i)=>(
-            <div key={i} style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
-              <div style={{width:8,height:8,borderRadius:"50%",background:r.color,flexShrink:0}}></div>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:13,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{r.text}</div>
-                <div style={{fontSize:11,color:MU}}>{r.sub}</div>
+          {(()=>{
+            const allGiving=[...giving].sort((a:any,b:any)=>b.date.localeCompare(a.date)).slice(0,3).map((g:any)=>({text:g.name+" gave "+f$(g.amount),sub:fd(g.date),color:G}));
+            const recentM=[...members].sort((a:any,b:any)=>(b.joined||b.addedDate||"").localeCompare(a.joined||a.addedDate||"")).slice(0,2).map((m:any)=>({text:m.first+" "+m.last,sub:"Member"+((m.role)?": "+m.role:""),color:GR}));
+            const recentV=[...visitors].sort((a:any,b:any)=>(b.firstVisit||b.addedDate||"").localeCompare(a.firstVisit||a.addedDate||"")).slice(0,1).map((v:any)=>({text:v.first+" "+v.last,sub:"Visitor · "+v.stage,color:AM}));
+            const items=[...recentM,...recentV,...allGiving].slice(0,6);
+            if(items.length===0) return <p style={{fontSize:13,color:MU,fontStyle:"italic",margin:0}}>No recent activity yet.</p>;
+            return items.map((r:any,i:number)=>(
+              <div key={i} style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+                <div style={{width:8,height:8,borderRadius:"50%",background:r.color,flexShrink:0}}></div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:13,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{r.text}</div>
+                  <div style={{fontSize:11,color:MU}}>{r.sub}</div>
+                </div>
               </div>
-            </div>
-          ))}
+            ));
+          })()}
         </div>
       </div>
     </div>
