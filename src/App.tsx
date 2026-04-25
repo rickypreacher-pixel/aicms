@@ -1121,6 +1121,14 @@ const SEED_ROLES=[
   {id:"role_pastor",name:"Pastor",description:"Pastoral oversight and reports",color:"#1a2e5a",isSystem:false},
   {id:"role_staff",name:"Staff",description:"Day-to-day operations",color:"#2563eb",isSystem:false},
   {id:"role_volunteer",name:"Volunteer",description:"Limited task-specific access",color:"#16a34a",isSystem:false},
+  {id:"role_team_leader",name:"Team Leader",description:"Leads a ministry team or small group",color:"#7c3aed",isSystem:false},
+  {id:"role_sponsor",name:"Sponsor",description:"Mentors and sponsors new visitors",color:"#0891b2",isSystem:false},
+  {id:"role_helper",name:"Helper",description:"General ministry helper",color:"#d97706",isSystem:false},
+  {id:"role_musician",name:"Musician",description:"Worship team musician",color:"#be185d",isSystem:false},
+  {id:"role_usher",name:"Usher",description:"Door and seating ministry",color:"#065f46",isSystem:false},
+  {id:"role_checkin",name:"Check-in",description:"Kids and event check-in station",color:"#ea580c",isSystem:false},
+  {id:"role_kitchen",name:"Kitchen",description:"Kitchen and hospitality ministry",color:"#854d0e",isSystem:false},
+  {id:"role_nursery",name:"Nursery",description:"Nursery care team",color:"#4f46e5",isSystem:false},
 ];
 const makeFullPerms=()=>{const p={};MODULES.forEach(m=>{p[m.key]={};m.actions.forEach(a=>p[m.key][a]=true);});return p;};
 const makeEmptyPerms=()=>{const p={};MODULES.forEach(m=>{p[m.key]={};m.actions.forEach(a=>p[m.key][a]=false);});return p;};
@@ -1129,6 +1137,14 @@ const SEED_PERMS={
   role_pastor: (()=>{const p=makeFullPerms();p.settings={view:true,create:false,edit:false,delete:false};return p;})(),
   role_staff: (()=>{const p=makeEmptyPerms();["directory","visitation","groups","education","events","attendance","giving","prayer","reports","media"].forEach(k=>{p[k]={view:true,create:true,edit:true,delete:false};});return p;})(),
   role_volunteer: (()=>{const p=makeEmptyPerms();["directory","events","attendance","prayer"].forEach(k=>{p[k]={view:true,create:false,edit:false,delete:false};});p.education={view:true,create:true,edit:false,delete:false};return p;})(),
+  role_team_leader: makeEmptyPerms(),
+  role_sponsor: makeEmptyPerms(),
+  role_helper: makeEmptyPerms(),
+  role_musician: makeEmptyPerms(),
+  role_usher: makeEmptyPerms(),
+  role_checkin: makeEmptyPerms(),
+  role_kitchen: makeEmptyPerms(),
+  role_nursery: makeEmptyPerms(),
 };
 
 // Toggle Switch
@@ -7694,8 +7710,22 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut}
   const [prayers,setPrayers] = useState(lsGet('prayers') ?? _I.prayers ?? []);
   const [aiChat,setAiChat] = useState([]);
   const [users,setUsers] = useState([{id:1,memberId:5,roleId:"role_admin",password:"pastor2026",pin:"1234",status:"Active",superAdmin:true,overrides:{}}]);
-  const [roles,setRoles] = useState(SEED_ROLES);
-  const [permissions,setPermissions] = useState(SEED_PERMS);
+  const [roles,setRoles] = useState(()=>{
+    const saved = lsGet('roles');
+    if(!saved || saved.length===0) return SEED_ROLES;
+    // Merge any new SEED_ROLES not already in saved list
+    const savedIds = new Set(saved.map((r:any)=>r.id));
+    const newOnes = SEED_ROLES.filter(r=>!savedIds.has(r.id));
+    return [...saved, ...newOnes];
+  });
+  const [permissions,setPermissions] = useState(()=>{
+    const saved = lsGet('permissions');
+    const base = saved || SEED_PERMS;
+    // Ensure any new roles have entries
+    const result = {...base};
+    SEED_ROLES.forEach(r=>{ if(!result[r.id]) result[r.id]=makeEmptyPerms(); });
+    return result;
+  });
   const currentUser = users.find(u=>u.superAdmin) || users[0];
   window.__CS__ = churchSettings;
   useEffect(()=>{
@@ -7776,6 +7806,8 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut}
   useEffect(()=>{lsSave('progressNotes',progressNotes);},[JSON.stringify(progressNotes)]);
   useEffect(()=>{lsSave('teacherSchedule',teacherSchedule);},[JSON.stringify(teacherSchedule)]);
   useEffect(()=>{lsSave('kidsCheckIns',kidsCheckIns);},[JSON.stringify(kidsCheckIns)]);
+  useEffect(()=>{lsSave('roles',roles);},[JSON.stringify(roles)]);
+  useEffect(()=>{lsSave('permissions',permissions);},[JSON.stringify(permissions)]);
 
   const nidEmail = useRef(8000);
   const logEmail = (data) => {
