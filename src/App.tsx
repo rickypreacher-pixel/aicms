@@ -12,26 +12,9 @@ const WO_STATUS_COLORS={"Open":"#2563eb","In Progress":"#d97706","On Hold":"#6b7
 const MAINT_FREQS=["Weekly","Bi-Weekly","Monthly","Quarterly","Semi-Annually","Yearly"];
 const FREQ_DAYS={"Weekly":7,"Bi-Weekly":14,"Monthly":30,"Quarterly":90,"Semi-Annually":180,"Yearly":365};
 
-const ISEED_EQUIP=[
-  {id:1001,name:"Yamaha TF5 Mixing Console",category:"Audio",location:"Sanctuary",serial:"TF5-2023-0847",purchaseDate:"2023-03-15",warrantyExpires:"2026-03-15",vendor:"Sweetwater Sound",manufacturer:"Yamaha",cost:5499,status:"Active",notes:"Primary sanctuary mixer"},
-  {id:1002,name:"Trane XR17 HVAC Unit",category:"HVAC",location:"Sanctuary",serial:"TR-XR17-889231",purchaseDate:"2022-06-10",warrantyExpires:"2027-06-10",vendor:"Cooper Climate Control",manufacturer:"Trane",cost:8900,status:"Active",notes:"Main sanctuary A/C"},
-  {id:1003,name:"Ford Transit Church Van",category:"Vehicles",location:"Parking Lot",serial:"1FBAX2CM2NKA12345",purchaseDate:"2022-01-20",warrantyExpires:"2025-01-20",vendor:"Peoria Ford",manufacturer:"Ford",cost:45000,status:"Active",notes:"15 passenger van"},
-  {id:1004,name:"Epson Pro L1500UH Projector",category:"Video",location:"Sanctuary",serial:"EPS-L1500-224",purchaseDate:"2024-02-05",warrantyExpires:"2026-05-10",vendor:"B&H Photo",manufacturer:"Epson",cost:6499,status:"Active",notes:"Main sanctuary projector"},
-  {id:1005,name:"Vulcan 6-Burner Range",category:"Kitchen",location:"Kitchen",serial:"VK-6B-441",purchaseDate:"2020-09-14",warrantyExpires:"2023-09-14",vendor:"Restaurant Depot",manufacturer:"Vulcan",cost:3200,status:"Active",notes:""},
-  {id:1006,name:"Yamaha P-125 Digital Piano",category:"Musical Instruments",location:"Sanctuary",serial:"YP125-88421",purchaseDate:"2023-11-02",warrantyExpires:"2026-11-02",vendor:"Sweetwater Sound",manufacturer:"Yamaha",cost:699,status:"Active",notes:""},
-];
-const ISEED_SCHED=[
-  {id:2001,equipmentId:1001,taskName:"Quarterly cleaning & firmware check",frequency:"Quarterly",lastService:"2026-01-15",nextService:"2026-04-15",assignedType:"free",assignedUserId:null,assignedMemberId:null,assignedName:"Bro. Jackson",active:true,notes:""},
-  {id:2002,equipmentId:1002,taskName:"Filter replacement & coil cleaning",frequency:"Monthly",lastService:"2026-03-20",nextService:"2026-04-19",assignedType:"free",assignedUserId:null,assignedMemberId:null,assignedName:"Cooper Climate Control",active:true,notes:"Replace filters, clean coils"},
-  {id:2003,equipmentId:1003,taskName:"Oil change & tire inspection",frequency:"Quarterly",lastService:"2026-01-10",nextService:"2026-04-10",assignedType:"free",assignedUserId:null,assignedMemberId:null,assignedName:"Valvoline",active:true,notes:"Use 5W-30 synthetic"},
-  {id:2004,equipmentId:1005,taskName:"Deep clean & safety inspection",frequency:"Monthly",lastService:"2026-02-28",nextService:"2026-03-30",assignedType:"free",assignedUserId:null,assignedMemberId:null,assignedName:"Sis. Carter",active:true,notes:""},
-  {id:2005,equipmentId:1004,taskName:"Lamp replacement check",frequency:"Semi-Annually",lastService:"2026-01-05",nextService:"2026-07-04",assignedType:"free",assignedUserId:null,assignedMemberId:null,assignedName:"Bro. Jackson",active:true,notes:""},
-];
-const ISEED_WO=[
-  {id:3001,title:"Replace blown speaker in Fellowship Hall",description:"Left-side JBL speaker has no output. Suspect blown driver.",equipmentId:null,priority:"High",status:"Open",assignedType:"free",assignedUserId:null,assignedMemberId:null,assignedName:"Bro. Jackson",createdDate:"2026-04-18",completedDate:null,updates:[]},
-  {id:3002,title:"Sanctuary lighting flickering",description:"Back rows of sanctuary pendants flicker during service. Check ballast.",equipmentId:null,priority:"Medium",status:"In Progress",assignedType:"free",assignedUserId:null,assignedMemberId:null,assignedName:"Parker Electric",createdDate:"2026-04-15",completedDate:null,updates:[{date:"2026-04-17",note:"Parker Electric scheduled for 4/22"}]},
-  {id:3003,title:"Kitchen faucet replacement",description:"Pre-rinse sprayer leaking at base",equipmentId:1005,priority:"Low",status:"Completed",assignedType:"free",assignedUserId:null,assignedMemberId:null,assignedName:"Bro. Wilson",createdDate:"2026-04-05",completedDate:"2026-04-12",updates:[{date:"2026-04-12",note:"Replaced with Moen commercial unit from Home Depot. $89"}]},
-];
+const ISEED_EQUIP:any[]=[];
+const ISEED_SCHED:any[]=[];
+const ISEED_WO:any[]=[];
 
 function maintStatus(sched){
   const today=td();
@@ -628,6 +611,19 @@ function ChurchSettingsPage({cs,setCs,members,setMembers,visitors,attendance,giv
       <Btn onClick={save} v="success" style={{padding:"11px 24px",fontSize:14}}>Save Settings</Btn>
       <Btn onClick={()=>setForm({...cs})} v="ghost">Reset</Btn>
     </div>
+    <div style={{marginTop:24,background:"#fef2f2",border:"1.5px solid "+RE+"55",borderRadius:12,padding:18}}>
+      <h3 style={{fontSize:14,fontWeight:600,color:RE,margin:"0 0 6px"}}>Clear All Data — Go Live</h3>
+      <p style={{fontSize:12,color:"#7f1d1d",marginBottom:14,lineHeight:1.6}}>This permanently removes ALL records from this browser (members, visitors, giving, attendance, groups, children, prayer, equipment, work orders, etc.) and resets the app to a clean slate. This cannot be undone. Use this to clear test data before going live with real information.</p>
+      <Btn onClick={()=>{
+        if(!confirm("PERMANENTLY delete ALL data from this browser? This cannot be undone.")) return;
+        if(!confirm("Are you absolutely sure? All members, visitors, giving, attendance, and every other record will be erased.")) return;
+        const prefix = cs._churchId ? `ntcc_${cs._churchId}_` : "ntcc_";
+        const keysToRemove = [];
+        for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&(k.startsWith(prefix)||k.startsWith("ntcc_")))keysToRemove.push(k);}
+        keysToRemove.forEach(k=>localStorage.removeItem(k));
+        window.location.reload();
+      }} v="danger" style={{fontSize:13}}>Clear All Data & Reload</Btn>
+    </div>
     </div>}
   </div>);
 }
@@ -846,100 +842,17 @@ const EL_VOICES=[
 
 const EMPTY_ADDR={street:"",city:"",state:"AZ",zip:""};
 const EMPTY_PERSON_FIELDS={address:{...EMPTY_ADDR},birthday:"",anniversary:"",spouseName:"",children:[],emergencyName:"",emergencyPhone:"",emergencyRelation:"",baptismDate:"",salvationDate:"",allergies:[],medical:[],medicalNotes:"",occupation:"",employer:""};
-const IMEMBERS=[
-  {id:1,first:"Robert",last:"Lee",status:"Active",phone:"(623)555-0388",email:"rlee@ntcc.org",joined:"2024-01-15",role:"Choir",notes:"Strong tenor voice, serves faithfully",family:"Lee Household",
-    address:{street:"7823 W Glendale Ave",city:"Glendale",state:"AZ",zip:"85301"},
-    birthday:"1965-04-18",anniversary:"1992-06-27",spouseName:"Mary Lee",
-    children:[{name:"David Lee",birthday:"1995-08-12"},{name:"Ruth Lee",birthday:"1998-03-05"}],
-    emergencyName:"Mary Lee",emergencyPhone:"(623)555-0389",emergencyRelation:"Wife",
-    baptismDate:"1985-05-12",salvationDate:"1984-11-03",
-    allergies:[],medical:["Heart Condition"],medicalNotes:"Takes daily medication for blood pressure",
-    occupation:"Carpenter",employer:"Self-Employed"},
-  {id:2,first:"Dorothy",last:"Harris",status:"Active",phone:"(602)555-0372",email:"dharris@ntcc.org",joined:"2023-09-10",role:"Sunday School Teacher",notes:"Teaches children's class, gifted teacher",family:"Harris Household",
-    address:{street:"4521 N 43rd Ave",city:"Phoenix",state:"AZ",zip:"85019"},
-    birthday:"1958-11-22",anniversary:"",spouseName:"",children:[],
-    emergencyName:"James Harris",emergencyPhone:"(602)555-0373",emergencyRelation:"Son",
-    baptismDate:"1978-08-20",salvationDate:"1977-12-25",
-    allergies:["Penicillin"],medical:["Diabetes"],medicalNotes:"Type 2 diabetes — controlled with medication",
-    occupation:"Retired Teacher",employer:""},
-  {id:3,first:"James",last:"Wilson",status:"Active",phone:"(623)555-0455",email:"jwilson@ntcc.org",joined:"2023-06-20",role:"Deacon",notes:"Senior deacon, wise counsel",family:"Wilson Household",
-    address:{street:"8912 W Peoria Ave",city:"Peoria",state:"AZ",zip:"85345"},
-    birthday:"1960-07-15",anniversary:"1985-09-14",spouseName:"Patricia Wilson",
-    children:[{name:"Michael Wilson",birthday:"1988-02-20"}],
-    emergencyName:"Patricia Wilson",emergencyPhone:"(623)555-0456",emergencyRelation:"Wife",
-    baptismDate:"1980-06-08",salvationDate:"1979-04-15",
-    allergies:[],medical:[],medicalNotes:"",
-    occupation:"Construction Foreman",employer:"Tri-City Construction"},
-  {id:4,first:"Angela",last:"Brown",status:"Inactive",phone:"(480)555-0129",email:"abrown@email.com",joined:"2022-03-15",role:"",notes:"Needs pastoral contact — hasn't attended in 6 weeks",family:"Brown Household",
-    address:{street:"1745 E Southern Ave",city:"Mesa",state:"AZ",zip:"85204"},
-    birthday:"1982-03-10",anniversary:"",spouseName:"",children:[],
-    emergencyName:"",emergencyPhone:"",emergencyRelation:"",
-    baptismDate:"2015-07-12",salvationDate:"2015-04-05",
-    allergies:[],medical:[],medicalNotes:"",occupation:"Nurse",employer:"Banner Health"},
-  {id:5,first:"Charles",last:"Thompson",status:"Active",phone:"(602)555-0511",email:"cthompson@ntcc.org",joined:"2021-08-01",role:"Elder",notes:"Elder and mentor to young men",family:"Thompson Household",
-    address:{street:"3321 E Thomas Rd",city:"Phoenix",state:"AZ",zip:"85018"},
-    birthday:"1955-02-08",anniversary:"1980-06-21",spouseName:"Eleanor Thompson",
-    children:[{name:"Jonathan Thompson",birthday:"1985-10-14"},{name:"Sarah Martinez",birthday:"1988-05-22"}],
-    emergencyName:"Eleanor Thompson",emergencyPhone:"(602)555-0512",emergencyRelation:"Wife",
-    baptismDate:"1975-04-13",salvationDate:"1974-08-30",
-    allergies:[],medical:["Arthritis"],medicalNotes:"",
-    occupation:"Retired Pastor",employer:""},
-  {id:6,first:"Michelle",last:"Carter",status:"Active",phone:"(623)555-0622",email:"mcarter@ntcc.org",joined:"2022-05-10",role:"Usher",notes:"",family:"Carter Household",
-    ...EMPTY_PERSON_FIELDS,birthday:"1975-09-12",occupation:"Administrative Assistant",employer:"Maricopa County"},
-  {id:7,first:"David",last:"Jackson",status:"Active",phone:"(480)555-0733",email:"djackson@ntcc.org",joined:"2023-01-08",role:"Musician",notes:"Plays piano and keyboard",family:"Jackson Household",
-    ...EMPTY_PERSON_FIELDS,birthday:"1990-11-03",occupation:"Music Teacher",employer:"Phoenix Union HSD"},
-  {id:8,first:"Sandra",last:"Moore",status:"Active",phone:"(602)555-0844",email:"smoore@ntcc.org",joined:"2023-11-20",role:"",notes:"",family:"Moore Household",
-    ...EMPTY_PERSON_FIELDS},
-];
-const IVISITORS=[
-  {id:101,first:"Marcus",last:"Johnson",stage:"First Visit",phone:"(623)555-0191",email:"marcus.j@email.com",firstVisit:"2026-04-20",sponsor:"Deacon Wilson",notes:"Met at outreach — searching for a church home",
-    address:{street:"1234 W Northern Ave",city:"Phoenix",state:"AZ",zip:"85021"},
-    birthday:"1992-05-18",anniversary:"",spouseName:"",children:[],
-    emergencyName:"",emergencyPhone:"",emergencyRelation:"",
-    baptismDate:"",salvationDate:"",allergies:[],medical:[],medicalNotes:"",
-    occupation:"Warehouse Manager",employer:"Amazon"},
-  {id:102,first:"Patricia",last:"Davis",stage:"Follow-Up Needed",phone:"(602)555-0247",email:"pdavis@email.com",firstVisit:"2026-04-13",sponsor:"Sis. Harris",notes:"Interested in Bible study, going through family difficulty",
-    ...EMPTY_PERSON_FIELDS,birthday:"1978-08-30",occupation:"Accountant",employer:""},
-  {id:103,first:"Kevin",last:"Martinez",stage:"Returning",phone:"(480)555-0218",email:"kmart@email.com",firstVisit:"2026-03-30",sponsor:"Bro. Lee",notes:"Questions about membership — attended 3 times",
-    ...EMPTY_PERSON_FIELDS,occupation:"Electrician",employer:""},
-  {id:104,first:"Tanya",last:"Thomas",stage:"Prospect",phone:"(623)555-0374",email:"tthomas@email.com",firstVisit:"2026-03-16",sponsor:"Bro. Wilson",notes:"Asked about classes — brought her two daughters",
-    ...EMPTY_PERSON_FIELDS,occupation:"Hairstylist",employer:""},
-];
-const IATTEND=[
-  {id:1,date:"2026-04-20",service:"Sunday Morning Worship",count:87,members:62,visitors:25,notes:"Easter Sunday"},
-  {id:2,date:"2026-04-16",service:"Wednesday Bible Study",count:44,members:42,visitors:2,notes:""},
-  {id:3,date:"2026-04-13",service:"Sunday Morning Worship",count:74,members:58,visitors:16,notes:""},
-  {id:4,date:"2026-04-09",service:"Wednesday Bible Study",count:39,members:37,visitors:2,notes:""},
-];
-const IGIVING=[
-  {id:1,date:"2026-04-20",name:"Robert Lee",category:"Tithe",amount:350,method:"Check",notes:""},
-  {id:2,date:"2026-04-20",name:"Dorothy Harris",category:"Tithe",amount:200,method:"Cash",notes:""},
-  {id:3,date:"2026-04-20",name:"James Wilson",category:"Offering",amount:150,method:"Online",notes:"Building Fund"},
-  {id:4,date:"2026-04-20",name:"Charles Thompson",category:"Tithe",amount:500,method:"Check",notes:""},
-  {id:5,date:"2026-04-13",name:"Robert Lee",category:"Tithe",amount:350,method:"Check",notes:""},
-  {id:6,date:"2026-04-13",name:"Dorothy Harris",category:"Tithe",amount:200,method:"Cash",notes:""},
-  {id:7,date:"2026-04-13",name:"Charles Thompson",category:"Tithe",amount:500,method:"Check",notes:""},
-];
-const IPRAYERS=[
-  {id:1,name:"Anonymous",request:"Pray for healing for my mother who is ill.",date:"2026-04-20",status:"Active"},
-  {id:2,name:"Marcus Johnson",request:"Pray God guides me in finding stable employment.",date:"2026-04-13",status:"Active"},
-  {id:3,name:"Patricia Davis",request:"Peace and reconciliation in my family.",date:"2026-04-06",status:"Answered"},
-];
+const IMEMBERS:any[]=[];
+const IVISITORS:any[]=[];
+const IATTEND:any[]=[];
+const IGIVING:any[]=[];
+const IPRAYERS:any[]=[];
 
 const GROUP_TYPES=["Bible Study","Prayer Group","Ministry Team","Youth Group","Outreach","Worship","Custom"];
 const GROUP_COLORS=["#1a2e5a","#c9a84c","#16a34a","#2563eb","#7c3aed","#dc2626","#d97706","#0891b2","#be185d","#065f46"];
 const DAYS=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
-const IGROUPS=[
-  {id:1,name:"Men's Bible Study",type:"Bible Study",description:"Weekly men's fellowship and scripture study",color:"#1a2e5a",day:"Wednesday",time:"7:00 PM",location:"Fellowship Hall",leaderId:3,memberIds:[1,3,5,7],created:"2025-09-01"},
-  {id:2,name:"Prayer Warriors",type:"Prayer Group",description:"Intercessory prayer team",color:"#7c3aed",day:"Tuesday",time:"6:30 AM",location:"Sanctuary",leaderId:5,memberIds:[2,4,5,6,8],created:"2025-06-15"},
-  {id:3,name:"Worship Team",type:"Ministry Team",description:"Choir and musicians ministry",color:"#c9a84c",day:"Sunday",time:"8:00 AM",location:"Choir Loft",leaderId:7,memberIds:[1,2,7],created:"2024-01-10"},
-];
-const IMEETINGS=[
-  {id:1,groupId:1,date:"2026-04-16",presentIds:[1,3,5],absentIds:[7],walkIns:1,notes:"Studied Romans 8",total:4},
-  {id:2,groupId:1,date:"2026-04-09",presentIds:[1,3,7],absentIds:[5],walkIns:0,notes:"James 1",total:3},
-  {id:3,groupId:2,date:"2026-04-14",presentIds:[2,4,5,6,8],absentIds:[],walkIns:2,notes:"Prayed for community revival",total:7},
-  {id:4,groupId:3,date:"2026-04-20",presentIds:[1,2,7],absentIds:[],walkIns:0,notes:"Easter Sunday worship",total:3},
-];
+const IGROUPS:any[]=[];
+const IMEETINGS:any[]=[];
 
 // ── Education Department Constants ──
 const CL_COLORS=["#1a2e5a","#c9a84c","#16a34a","#2563eb","#7c3aed","#dc2626","#d97706","#0891b2","#be185d","#065f46","#ea580c","#4f46e5","#db2777","#0e7490"];
@@ -954,13 +867,7 @@ const CHURCH_LEVELS=[
   {id:7,name:"Young Adult",grade:"Young Adult",ageMin:18,ageMax:99,label:"Young Adult (ages 18+)",location:"Room 107",capacity:25,color:"#d97706",checkin:false},
 ];
 const ICLASSROOMS=CHURCH_LEVELS.map(l=>({...l}));
-const ICHILDREN=[
-  {id:501,first:"David",last:"Lee",dob:"2015-08-12",grade:"Elementary",parentMemberId:1,parentName:"Robert Lee",parentPhone:"(623)555-0388",allergies:["Peanuts"],medical:[],medicalNotes:"Auto-injector in backpack",emergencyPickup:"Mary Lee (mother)",status:"Active"},
-  {id:502,first:"Ruth",last:"Lee",dob:"2018-03-05",grade:"Elementary",parentMemberId:1,parentName:"Robert Lee",parentPhone:"(623)555-0388",allergies:[],medical:[],medicalNotes:"",emergencyPickup:"Mary Lee (mother)",status:"Active"},
-  {id:503,first:"Michael",last:"Wilson",dob:"2016-02-20",grade:"Elementary",parentMemberId:3,parentName:"James Wilson",parentPhone:"(623)555-0455",allergies:[],medical:[],medicalNotes:"",emergencyPickup:"Patricia Wilson (mother)",status:"Active"},
-  {id:504,first:"Jonathan",last:"Thompson",dob:"2017-10-14",grade:"Elementary",parentMemberId:5,parentName:"Charles Thompson",parentPhone:"(602)555-0511",allergies:[],medical:["Asthma"],medicalNotes:"Rescue inhaler required in class",emergencyPickup:"Eleanor Thompson",status:"Active"},
-  {id:505,first:"Sarah",last:"Johnson",dob:"2014-06-22",grade:"Middle School",parentMemberId:null,parentName:"Marcus Johnson",parentPhone:"(623)555-0191",allergies:[],medical:[],medicalNotes:"Visitor family - first Sunday",emergencyPickup:"",status:"Active"},
-];
+const ICHILDREN:any[]=[];
 const ITEACHERSCHEDULE=[];
 const IKIDSCHECKINS=[];
 function genCode(){const c="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";let s="";for(let i=0;i<4;i++)s+=c[Math.floor(Math.random()*c.length)];return s;}
@@ -7687,6 +7594,8 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut}
   const _I = window.__NTCC_INIT__ || {};
   // Namespace localStorage by churchId so each church's data is isolated
   const LS = (key:string) => churchId ? `ntcc_${churchId}_${key}` : `ntcc_${key}`;
+  const lsGet = (key:string) => { try { const r=localStorage.getItem(LS(key)); return r?JSON.parse(r):null; } catch(e){ return null; } };
+  const lsSave = (key:string, val:any) => { try { localStorage.setItem(LS(key),JSON.stringify(val)); } catch(e){} };
   const [isMobile,setIsMobile] = useState(window.innerWidth<768);
   const [navOpen,setNavOpen] = useState(false);
   useEffect(()=>{
@@ -7697,11 +7606,11 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut}
   const [churchSettings,setChurchSettings] = useState(_I.churchSettings || DEFAULT_CS);
   const [showSetup,setShowSetup] = useState(false);
   const [view,setView] = useState("dashboard");
-  const [members,setMembers] = useState(_I.members || IMEMBERS);
-  const [visitors,setVisitors] = useState(_I.visitors || IVISITORS);
-  const [attendance,setAttendance] = useState(_I.attendance || IATTEND);
-  const [giving,setGiving] = useState(_I.giving || IGIVING);
-  const [prayers,setPrayers] = useState(_I.prayers || IPRAYERS);
+  const [members,setMembers] = useState(lsGet('members') ?? _I.members ?? []);
+  const [visitors,setVisitors] = useState(lsGet('visitors') ?? _I.visitors ?? []);
+  const [attendance,setAttendance] = useState(lsGet('attendance') ?? _I.attendance ?? []);
+  const [giving,setGiving] = useState(lsGet('giving') ?? _I.giving ?? []);
+  const [prayers,setPrayers] = useState(lsGet('prayers') ?? _I.prayers ?? []);
   const [aiChat,setAiChat] = useState([]);
   const [users,setUsers] = useState([{id:1,memberId:5,roleId:"role_admin",password:"pastor2026",pin:"1234",status:"Active",superAdmin:true,overrides:{}}]);
   const [roles,setRoles] = useState(SEED_ROLES);
@@ -7727,36 +7636,65 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut}
     try{localStorage.setItem(LS('church_settings'),JSON.stringify(churchSettings));}catch(e){}
   },[JSON.stringify(churchSettings)]);
   const [portalMembers,setPortalMembers] = useState([]);
-  const [visitRecords,setVisitRecords] = useState([]);
-  const [groups,setGroups] = useState(IGROUPS);
-  const [grpMeetings,setGrpMeetings] = useState(IMEETINGS);
-  const [recurring,setRecurring] = useState(INIT_RECURRING);
-  const [custom,setCustom] = useState([]);
-  const [checkIns,setCheckIns] = useState([]);
-  const _storedCL=_I.classrooms;const _hasOldCL=_storedCL&&(_storedCL.length>7||_storedCL.some((c:any)=>["K","1st","2nd","3rd","4th","5th","6th","7th"].includes(c.grade)));
+  const [groups,setGroups] = useState(lsGet('groups') ?? _I.groups ?? []);
+  const [grpMeetings,setGrpMeetings] = useState(lsGet('grpMeetings') ?? _I.grpMeetings ?? []);
+  const [recurring,setRecurring] = useState(lsGet('recurring') ?? INIT_RECURRING);
+  const [custom,setCustom] = useState(lsGet('custom') ?? []);
+  const [checkIns,setCheckIns] = useState(lsGet('checkIns') ?? []);
+  const _storedCL=lsGet('classrooms')||_I.classrooms;const _hasOldCL=_storedCL&&(_storedCL.length>7||_storedCL.some((c:any)=>["","1st","2nd","3rd","4th","5th","6th","7th"].includes(c.grade)));
   const [classrooms,setClassrooms] = useState(_hasOldCL?ICLASSROOMS:(_storedCL||ICLASSROOMS));
-  const _storedKids=_I.children;const _migratedKids=_storedKids?_storedKids.map((c:any)=>({...c,grade:CHURCH_LEVELS.find((l:any)=>l.name===c.grade)?c.grade:levelFromAge(typeof calcAge(c.dob)==="number"?calcAge(c.dob) as number:6)})):ICHILDREN;
+  const _storedKids=lsGet('children')||_I.children;const _migratedKids=_storedKids?_storedKids.map((c:any)=>({...c,grade:CHURCH_LEVELS.find((l:any)=>l.name===c.grade)?c.grade:levelFromAge(typeof calcAge(c.dob)==="number"?calcAge(c.dob) as number:6)})):[];
   const [children,setChildren] = useState(_migratedKids);
-  const [teacherSchedule,setTeacherSchedule] = useState(ITEACHERSCHEDULE);
-  const [kidsCheckIns,setKidsCheckIns] = useState(IKIDSCHECKINS);
-  const [incidents,setIncidents] = useState(_I.incidents || []);
-  const [rollCalls,setRollCalls] = useState(_I.rollCalls || []);
-  const [progressNotes,setProgressNotes] = useState(_I.progressNotes || []);
-  const [equipment,setEquipment] = useState(window.__NTCC_INIT__?.equipment || ISEED_EQUIP);
-  const [workOrders,setWorkOrders] = useState(window.__NTCC_INIT__?.workOrders || ISEED_WO);
-  const [schedMaint,setSchedMaint] = useState(window.__NTCC_INIT__?.schedMaint || ISEED_SCHED);
-  const [pledgeDrives,setPledgeDrives] = useState(_I.pledgeDrives || []);
-  const [pledges,setPledges] = useState(_I.pledges || []);
-  const [weeklyReports,setWeeklyReports] = useState(_I.weeklyReports || []);
+  const [teacherSchedule,setTeacherSchedule] = useState(lsGet('teacherSchedule') ?? []);
+  const [kidsCheckIns,setKidsCheckIns] = useState(lsGet('kidsCheckIns') ?? []);
+  const [incidents,setIncidents] = useState(lsGet('incidents') ?? _I.incidents ?? []);
+  const [rollCalls,setRollCalls] = useState(lsGet('rollCalls') ?? _I.rollCalls ?? []);
+  const [progressNotes,setProgressNotes] = useState(lsGet('progressNotes') ?? _I.progressNotes ?? []);
+  const [equipment,setEquipment] = useState(lsGet('equipment') ?? window.__NTCC_INIT__?.equipment ?? []);
+  const [workOrders,setWorkOrders] = useState(lsGet('workOrders') ?? window.__NTCC_INIT__?.workOrders ?? []);
+  const [schedMaint,setSchedMaint] = useState(lsGet('schedMaint') ?? window.__NTCC_INIT__?.schedMaint ?? []);
+  const [pledgeDrives,setPledgeDrives] = useState(lsGet('pledgeDrives') ?? _I.pledgeDrives ?? []);
+  const [pledges,setPledges] = useState(lsGet('pledges') ?? _I.pledges ?? []);
+  const [weeklyReports,setWeeklyReports] = useState(lsGet('weeklyReports') ?? _I.weeklyReports ?? []);
+  const [visitRecords,setVisitRecords] = useState(lsGet('visitRecords') ?? []);
 
   // Email system state
-  const [emailLog,setEmailLog] = useState(_I.emailLog || []);
-  const [emailTemplates,setEmailTemplates] = useState(_I.emailTemplates || DEFAULT_EMAIL_TEMPLATES);
-  const [emailConfig,setEmailConfig] = useState(_I.emailConfig || {provider:"",apiKey:"",fromEmail:"",fromName:""});
+  const [emailLog,setEmailLog] = useState(lsGet('emailLog') ?? _I.emailLog ?? []);
+  const [emailTemplates,setEmailTemplates] = useState(lsGet('emailTemplates') ?? _I.emailTemplates ?? DEFAULT_EMAIL_TEMPLATES);
+  const [emailConfig,setEmailConfig] = useState(lsGet('emailConfig') ?? _I.emailConfig ?? {provider:"",apiKey:"",fromEmail:"",fromName:""});
   const [composerOpen,setComposerOpen] = useState(false);
   const [composerProps,setComposerProps] = useState({});
   const [bulkComposerOpen,setBulkComposerOpen] = useState(false);
   const [bulkComposerProps,setBulkComposerProps] = useState({});
+
+  // ── Auto-save all data to localStorage on every change ──
+  useEffect(()=>{lsSave('members',members);},[JSON.stringify(members)]);
+  useEffect(()=>{lsSave('visitors',visitors);},[JSON.stringify(visitors)]);
+  useEffect(()=>{lsSave('attendance',attendance);},[JSON.stringify(attendance)]);
+  useEffect(()=>{lsSave('giving',giving);},[JSON.stringify(giving)]);
+  useEffect(()=>{lsSave('prayers',prayers);},[JSON.stringify(prayers)]);
+  useEffect(()=>{lsSave('groups',groups);},[JSON.stringify(groups)]);
+  useEffect(()=>{lsSave('grpMeetings',grpMeetings);},[JSON.stringify(grpMeetings)]);
+  useEffect(()=>{lsSave('visitRecords',visitRecords);},[JSON.stringify(visitRecords)]);
+  useEffect(()=>{lsSave('children',children);},[JSON.stringify(children)]);
+  useEffect(()=>{lsSave('classrooms',classrooms);},[JSON.stringify(classrooms)]);
+  useEffect(()=>{lsSave('equipment',equipment);},[JSON.stringify(equipment)]);
+  useEffect(()=>{lsSave('workOrders',workOrders);},[JSON.stringify(workOrders)]);
+  useEffect(()=>{lsSave('schedMaint',schedMaint);},[JSON.stringify(schedMaint)]);
+  useEffect(()=>{lsSave('pledgeDrives',pledgeDrives);},[JSON.stringify(pledgeDrives)]);
+  useEffect(()=>{lsSave('pledges',pledges);},[JSON.stringify(pledges)]);
+  useEffect(()=>{lsSave('weeklyReports',weeklyReports);},[JSON.stringify(weeklyReports)]);
+  useEffect(()=>{lsSave('emailLog',emailLog);},[JSON.stringify(emailLog)]);
+  useEffect(()=>{lsSave('emailTemplates',emailTemplates);},[JSON.stringify(emailTemplates)]);
+  useEffect(()=>{lsSave('emailConfig',emailConfig);},[JSON.stringify(emailConfig)]);
+  useEffect(()=>{lsSave('recurring',recurring);},[JSON.stringify(recurring)]);
+  useEffect(()=>{lsSave('custom',custom);},[JSON.stringify(custom)]);
+  useEffect(()=>{lsSave('checkIns',checkIns);},[JSON.stringify(checkIns)]);
+  useEffect(()=>{lsSave('incidents',incidents);},[JSON.stringify(incidents)]);
+  useEffect(()=>{lsSave('rollCalls',rollCalls);},[JSON.stringify(rollCalls)]);
+  useEffect(()=>{lsSave('progressNotes',progressNotes);},[JSON.stringify(progressNotes)]);
+  useEffect(()=>{lsSave('teacherSchedule',teacherSchedule);},[JSON.stringify(teacherSchedule)]);
+  useEffect(()=>{lsSave('kidsCheckIns',kidsCheckIns);},[JSON.stringify(kidsCheckIns)]);
 
   const nidEmail = useRef(8000);
   const logEmail = (data) => {
