@@ -3052,7 +3052,7 @@ function SmsCenter({smsLog,setSmsLog,smsTemplates,setSmsTemplates,smsConfig,setS
 }
 
 // ── VISITATION ──
-function Visitation({visitors,setVisitors,members,users,visitRecords,setVisitRecords}) {
+function Visitation({visitors,setVisitors,members,users,visitRecords,setVisitRecords,setView}:any) {
   const [tab,setTab] = useState("pipeline");
   const [logModal,setLogModal] = useState(null);
   const [assignModal,setAssignModal] = useState(null);
@@ -3172,15 +3172,18 @@ function Visitation({visitors,setVisitors,members,users,visitRecords,setVisitRec
         </div>
       )}
 
-      <div style={{display:"flex",marginBottom:20,background:W,borderRadius:10,border:"0.5px solid "+BR,overflow:"hidden"}}>
-        {[["pipeline","Pipeline"],["ongoing","Ongoing Care"],["tracker","Visitor Tracker"],["reports","Reports"]].map(([id,label])=>(
-          <button key={id} onClick={()=>setTab(id)} style={{flex:1,padding:"10px 8px",border:"none",borderBottom:"2px solid "+(tab===id?G:"transparent"),background:tab===id?"#f8f9fc":W,fontSize:13,fontWeight:tab===id?500:400,color:tab===id?N:MU,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
-            {label}
-            {id==="ongoing" && overdueRecords.length>0 && <span style={{background:RE,color:"#fff",borderRadius:10,fontSize:10,padding:"1px 6px",fontWeight:600}}>{overdueRecords.length}</span>}
-            {id==="ongoing" && overdueRecords.length===0 && ongoingRecords.length>0 && <span style={{background:G,color:"#fff",borderRadius:10,fontSize:10,padding:"1px 6px",fontWeight:500}}>{ongoingRecords.length}</span>}
-            {id==="reports" && visitRecords.filter(r=>r.stage==="Complete").length>0 && <span style={{marginLeft:6,background:GR+"22",color:GR,borderRadius:10,fontSize:10,padding:"1px 6px"}}>{visitRecords.filter(r=>r.stage==="Complete").length}</span>}
-          </button>
-        ))}
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:20}}>
+        <div style={{flex:1,display:"flex",background:W,borderRadius:10,border:"0.5px solid "+BR,overflow:"hidden"}}>
+          {[["pipeline","Pipeline"],["ongoing","Ongoing Care"],["tracker","Visitor Tracker"],["reports","Reports"]].map(([id,label])=>(
+            <button key={id} onClick={()=>setTab(id)} style={{flex:1,padding:"10px 8px",border:"none",borderBottom:"2px solid "+(tab===id?G:"transparent"),background:tab===id?"#f8f9fc":W,fontSize:13,fontWeight:tab===id?500:400,color:tab===id?N:MU,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
+              {label}
+              {id==="ongoing" && overdueRecords.length>0 && <span style={{background:RE,color:"#fff",borderRadius:10,fontSize:10,padding:"1px 6px",fontWeight:600}}>{overdueRecords.length}</span>}
+              {id==="ongoing" && overdueRecords.length===0 && ongoingRecords.length>0 && <span style={{background:G,color:"#fff",borderRadius:10,fontSize:10,padding:"1px 6px",fontWeight:500}}>{ongoingRecords.length}</span>}
+              {id==="reports" && visitRecords.filter((r:any)=>r.stage==="Complete").length>0 && <span style={{marginLeft:6,background:GR+"22",color:GR,borderRadius:10,fontSize:10,padding:"1px 6px"}}>{visitRecords.filter((r:any)=>r.stage==="Complete").length}</span>}
+            </button>
+          ))}
+        </div>
+        <Btn onClick={()=>setView("addperson")} v="gold" style={{flexShrink:0,fontSize:12}}>+ Add Visitor</Btn>
       </div>
 
       {/* PIPELINE TAB */}
@@ -4401,7 +4404,7 @@ function Dashboard({members,visitors,attendance,giving,prayers,setView}) {
 }
 
 // ── PEOPLE ──
-function People({members,setMembers,visitors,setVisitors,attendance,giving,prayers,groups,grpMeetings,visitRecords,setVisitRecords,checkIns}) {
+function People({members,setMembers,visitors,setVisitors,attendance,giving,prayers,groups,grpMeetings,visitRecords,setVisitRecords,checkIns,setView}:any) {
   const [tab,setTab] = useState("members");
   const [search,setSearch] = useState("");
   const [modal,setModal] = useState(false);
@@ -4539,7 +4542,7 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,praye
           </button>
         ))}
         <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search..." style={{flex:1,padding:"8px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}/>
-        <Btn onClick={()=>{setForm(blankForm());setModal(true);}}>+ Add {tab==="members"?"Member":"Visitor"}</Btn>
+        <Btn onClick={()=>setView("addperson")}>+ Add {tab==="members"?"Member":"Visitor"}</Btn>
       </div>
       <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,overflow:"hidden"}}>
         <table style={{width:"100%",borderCollapse:"collapse"}}>
@@ -4988,7 +4991,7 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,praye
 }
 
 // ── ATTENDANCE ──
-function Attendance({attendance,setAttendance}) {
+function Attendance({attendance,setAttendance,setView}:any) {
   const [modal,setModal] = useState(false);
   const [form,setForm] = useState({date:td(),service:"Sunday Morning Worship",count:"",members:"",visitors:"",notes:""});
   const [insight,setInsight] = useState("");
@@ -5026,7 +5029,10 @@ function Attendance({attendance,setAttendance}) {
       </div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
         <h3 style={{fontSize:14,fontWeight:500,color:N,margin:0}}>Service Log</h3>
-        <Btn onClick={()=>setModal(true)}>+ Log Service</Btn>
+        <div style={{display:"flex",gap:8}}>
+          {setView && <Btn onClick={()=>setView("addperson")} v="gold" style={{fontSize:12}}>+ Add New Person</Btn>}
+          <Btn onClick={()=>setModal(true)}>+ Log Service</Btn>
+        </div>
       </div>
       <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,overflow:"hidden"}}>
         <table style={{width:"100%",borderCollapse:"collapse"}}>
@@ -7509,7 +7515,8 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
         <p style={{fontSize:13,color:MU,marginBottom:24}}>{saved.name} has been added to the database as a {saved.type}.</p>
         <div style={{display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"}}>
           <Btn onClick={()=>setSaved(null)} v="gold">+ Add Another Person</Btn>
-          <Btn onClick={()=>setView("people")} v="outline">Go to Members →</Btn>
+          <Btn onClick={()=>setView("people")} v="outline">Go to {saved.type==="member"?"Members":"Visitation"} →</Btn>
+          {saved.type==="visitor"&&<Btn onClick={()=>setView("visitation")} v="outline">Go to Visitation →</Btn>}
         </div>
       </div>
     );
@@ -7918,7 +7925,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut}
           {view==="settings" && <ChurchSettingsPage cs={churchSettings} setCs={setChurchSettings} members={members} setMembers={setMembers} visitors={visitors} attendance={attendance} giving={giving} prayers={prayers} groups={groups} grpMeetings={grpMeetings} visitRecords={visitRecords} checkIns={checkIns} kidsCheckIns={kidsCheckIns} children={children} pledgeDrives={pledgeDrives} pledges={pledges} weeklyReports={weeklyReports} equipment={equipment} workOrders={workOrders} schedMaint={schedMaint}/>}
           {view==="dashboard" && <Dashboard members={members} visitors={visitors} attendance={attendance} giving={giving} prayers={prayers} setView={setView}/>}
           {view==="addperson" && <AddMemberPage members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} currentUser={currentUser} roles={roles} permissions={permissions} setView={setView}/>}
-          {view==="people" && <People members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} prayers={prayers} groups={groups} grpMeetings={grpMeetings} visitRecords={visitRecords} setVisitRecords={setVisitRecords} checkIns={checkIns}/>}
+          {view==="people" && <People members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} prayers={prayers} groups={groups} grpMeetings={grpMeetings} visitRecords={visitRecords} setVisitRecords={setVisitRecords} checkIns={checkIns} setView={setView}/>}
           {view==="groups" && <Groups members={members} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings}/>}
           {view==="education" && <Education members={members} visitors={visitors} users={users} roles={roles} children={children} setChildren={setChildren} classrooms={classrooms} setClassrooms={setClassrooms} teacherSchedule={teacherSchedule} setTeacherSchedule={setTeacherSchedule} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckIns} checkIns={checkIns} incidents={incidents} setIncidents={setIncidents} rollCalls={rollCalls} setRollCalls={setRollCalls} progressNotes={progressNotes} setProgressNotes={setProgressNotes} cs={churchSettings}/>}
           {view==="maintenance" && <Maintenance users={users} members={members} currentUser={currentUser} roles={roles} permissions={permissions} equipment={equipment} setEquipment={setEquipment} workOrders={workOrders} setWorkOrders={setWorkOrders} schedMaint={schedMaint} setSchedMaint={setSchedMaint}/>}
@@ -7940,8 +7947,8 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut}
               />
             </div>
           )}
-          {view==="visitation" && <Visitation visitors={visitors} setVisitors={setVisitors} members={members} users={users} visitRecords={visitRecords} setVisitRecords={setVisitRecords}/>}
-          {view==="attendance" && <Attendance attendance={attendance} setAttendance={setAttendance}/>}
+          {view==="visitation" && <Visitation visitors={visitors} setVisitors={setVisitors} members={members} users={users} visitRecords={visitRecords} setVisitRecords={setVisitRecords} setView={setView}/>}
+          {view==="attendance" && <Attendance attendance={attendance} setAttendance={setAttendance} setView={setView}/>}
           {view==="giving" && <Giving giving={giving} setGiving={setGiving} pledgeDrives={pledgeDrives} setPledgeDrives={setPledgeDrives} pledges={pledges} setPledges={setPledges} members={members} visitors={visitors} weeklyReports={weeklyReports} setWeeklyReports={setWeeklyReports} emailTemplates={emailTemplates}/>}
           {view==="prayer" && <Prayer prayers={prayers} setPrayers={setPrayers}/>}
           {view==="sms" && <SmsCenter smsLog={smsLog} setSmsLog={setSmsLog} smsTemplates={smsTemplates} setSmsTemplates={setSmsTemplates} smsConfig={smsConfig} setSmsConfig={setSmsConfig} members={members} visitors={visitors} cs={churchSettings} onCompose={()=>openSmsComposer({})} onBulkCompose={()=>openBulkSmsComposer({recipients:[...members,...visitors].filter(p=>p.phone).map(p=>({...p,first:p.first,last:p.last,name:p.first+" "+p.last}))})}/>}
