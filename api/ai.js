@@ -21,14 +21,16 @@ export default async function handler(req, res) {
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-3-5-haiku-20241022",
+        model: "claude-3-7-sonnet-20250219",
         max_tokens: 1024,
         system: system || "You are NTCC AI, a helpful church assistant for Pastor Hall.",
         messages,
       }),
     });
 
-    const data = await response.json();
+    const text = await response.text();
+    let data;
+    try { data = JSON.parse(text); } catch(e) { return res.status(500).json({ error: "Non-JSON response from Anthropic: " + text.substring(0,200) }); }
 
     if (!response.ok) {
       const detail = JSON.stringify(data?.error || data);
