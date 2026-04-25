@@ -998,16 +998,28 @@ function buildSys(members, visitors, attend, giving, prayers, mem) {
 }
 
 async function callAI(messages, members, visitors, attend, giving, prayers, mem) {
+  const AI_KEY = localStorage.getItem("ntcc_ai_api_key") || "";
+  if (!AI_KEY) throw new Error("No API key");
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method:"POST",
-    headers:{"Content-Type":"application/json"},
+    headers:{
+      "Content-Type":"application/json",
+      "x-api-key":AI_KEY,
+      "anthropic-version":"2023-06-01",
+      "anthropic-dangerous-allow-browser":"true"
+    },
     body:JSON.stringify({
-      model:"claude-sonnet-4-20250514",
+      model:"claude-3-5-sonnet-20241022",
       max_tokens:1500,
-      system:buildSys(members, visitors, attend, giving, prayers, mem),
-      messages:messages.map(m=>({role:m.role,content:m.content}))
+      system:typeof messages==="string"?"You are NTCC AI, a helpful church assistant for Pastor Hall.":buildSys(members, visitors, attend, giving, prayers, mem),
+      messages:(typeof messages==="string"?[{role:"user",content:messages}]:messages).map(m=>({role:m.role,content:m.content}))
     })
   });
+  if (!res.ok) {
+    const err = await res.text().catch(()=>"");
+    console.error("AI API error:", res.status, err);
+    throw new Error("AI API " + res.status);
+  }
   const d = await res.json();
   return d.content?.find(c=>c.type==="text")?.text || "I do apologize, Pastor Hall — something went wrong. Please try again, Sir.";
 }
@@ -6275,6 +6287,8 @@ function AIAssist({aiChat,setAiChat,members,setMembers,visitors,setVisitors,atte
   const [cmdCount,setCmdCount] = useState({});
   const [banner,setBanner] = useState(null);
   const [ttsError,setTtsError] = useState(null);
+  const [aiApiKey,setAiApiKey] = useState(()=>localStorage.getItem("ntcc_ai_api_key")||"");
+  const [apiKeySaved,setApiKeySaved] = useState(false);
   const [listening,setListening] = useState(false);
   const [showMem,setShowMem] = useState(false);
   const endRef = useRef(null);
@@ -6424,6 +6438,11 @@ function AIAssist({aiChat,setAiChat,members,setMembers,visitors,setVisitors,atte
           <button onClick={()=>setTtsError(null)} style={{marginLeft:"auto",background:"none",border:"none",color:RE,cursor:"pointer",fontSize:16}}>x</button>
         </div>
       )}
+      {!aiApiKey && (
+        <div style={{background:"#fef3c7",border:"0.5px solid #fde68a",color:"#92400e",padding:"9px 16px",fontSize:12,fontWeight:500,display:"flex",alignItems:"center",gap:8,borderRadius:8,marginBottom:10,flexShrink:0}}>
+          ⚠ No Anthropic API key — open <strong>Voice Settings</strong> to add your key and enable AI chat.
+        </div>
+      )}
       {showMem && (
         <div style={{background:"#f0fdf4",border:"0.5px solid #86efac",borderRadius:10,padding:"10px 14px",marginBottom:10,fontSize:12,color:"#166534",flexShrink:0}}>
           <div style={{fontWeight:500,marginBottom:4}}>AI Memory - What I know about you, Pastor Hall</div>
@@ -6548,6 +6567,16 @@ function AIAssist({aiChat,setAiChat,members,setMembers,visitors,setVisitors,atte
               }} style={{padding:"6px 12px",background:N,color:"#fff",border:"none",borderRadius:6,fontSize:11,cursor:"pointer",flexShrink:0}}>Preview</button>
             </div>
           ))}
+        </div>
+        <div style={{background:"#f0f9ff",border:"0.5px solid #7dd3fc",borderRadius:10,padding:"12px 14px",marginBottom:16}}>
+          <div style={{fontSize:13,fontWeight:500,color:BL,marginBottom:4}}>Anthropic API Key (AI Brain)</div>
+          <div style={{fontSize:11,color:MU,marginBottom:10}}>Required for AI chat. Get yours free at console.anthropic.com → API Keys.</div>
+          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            <input type="password" value={aiApiKey} onChange={e=>setAiApiKey(e.target.value)} placeholder="sk-ant-api03-..." style={{flex:1,padding:"8px 10px",border:"1.5px solid "+(aiApiKey?"#7dd3fc":RE),borderRadius:7,fontSize:12,outline:"none",fontFamily:"monospace"}}/>
+            <button onClick={()=>{localStorage.setItem("ntcc_ai_api_key",aiApiKey);setApiKeySaved(true);setTimeout(()=>setApiKeySaved(false),2500);}} style={{padding:"8px 14px",background:apiKeySaved?GR:BL,color:"#fff",border:"none",borderRadius:7,fontSize:12,cursor:"pointer",fontWeight:500,whiteSpace:"nowrap"}}>{apiKeySaved?"✓ Saved!":"Save Key"}</button>
+          </div>
+          {!aiApiKey&&<div style={{fontSize:11,color:RE,marginTop:6}}>⚠ No key saved — AI chat will not work until a key is entered.</div>}
+          {aiApiKey&&<div style={{fontSize:11,color:GR,marginTop:6}}>✓ API key saved.</div>}
         </div>
         <div style={{background:"#fff5f5",border:"0.5px solid #fca5a5",borderRadius:10,padding:"12px 14px"}}>
           <div style={{fontSize:13,fontWeight:500,color:RE,marginBottom:4}}>Clear AI Memory</div>
