@@ -7,7 +7,9 @@ export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   const { messages, system, apiKey } = req.body || {};
-  if (!apiKey) return res.status(400).json({ error: "No API key provided" });
+  // Use key from client (localStorage) OR server environment variable
+  const resolvedKey = apiKey || process.env.ANTHROPIC_API_KEY || "";
+  if (!resolvedKey) return res.status(400).json({ error: "No API key provided" });
   if (!messages || messages.length === 0) return res.status(400).json({ error: "No messages provided" });
 
   try {
@@ -15,7 +17,7 @@ export default async function handler(req, res) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": apiKey,
+        "x-api-key": resolvedKey,
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
