@@ -983,13 +983,16 @@ async function speakEL(text, voiceId) {
 // ── AI ──
 function buildSys(members, visitors, attend, giving, prayers, mem) {
   const aprilGiving = giving.filter(g=>g.date.startsWith("2026-04")).reduce((a,g)=>a+g.amount,0);
+  const recentAttend = attend.slice(0,12).map(a=>({date:a.date,service:a.service,count:a.count}));
+  const recentGiving = giving.slice(0,20).map(g=>({date:g.date,name:g.name,category:g.category,amount:g.amount,method:g.method}));
+  const recentPrayers = prayers.slice(0,15).map(p=>({name:p.name||"",request:p.request||"",status:p.status||""}));
   return "You are "+(window.__CS__?.name||"NTCC")+" AI — an intelligence at IQ 250, combining Elon Musk's first-principles brilliance, Nikola Tesla's inventive genius, and a warm Southern American pastor's heart. You serve "+(window.__CS__?.pastorName||"Pastor Hall")+" of "+(window.__CS__?.name||"New Testament Christian Church")+", "+(window.__CS__?.address||"Glendale AZ")+". Call them "+(window.__CS__?.pastorName||"Pastor Hall")+" or Sir. Speak warmly and naturally.\n\n" +
     "LIVE DATABASE:\n" +
-    "Members(" + members.length + "): " + JSON.stringify(members.map(m=>({id:m.id,name:m.first+" "+m.last,status:m.status,role:m.role,phone:m.phone,email:m.email}))) + "\n" +
-    "Visitors(" + visitors.length + "): " + JSON.stringify(visitors.map(v=>({id:v.id,name:v.first+" "+v.last,stage:v.stage,phone:v.phone,firstVisit:v.firstVisit}))) + "\n" +
-    "Attendance(" + attend.length + "): " + JSON.stringify(attend.map(a=>({date:a.date,service:a.service,count:a.count}))) + "\n" +
-    "April Giving: $" + aprilGiving + " | Records: " + JSON.stringify(giving) + "\n" +
-    "Prayer Requests: " + JSON.stringify(prayers) + "\n\n" +
+    "Members(" + members.length + "): " + JSON.stringify(members.slice(0,60).map(m=>({id:m.id,name:m.first+" "+m.last,status:m.status,role:m.role,phone:m.phone,email:m.email}))) + "\n" +
+    "Visitors(" + visitors.length + "): " + JSON.stringify(visitors.slice(0,30).map(v=>({id:v.id,name:v.first+" "+v.last,stage:v.stage,phone:v.phone,firstVisit:v.firstVisit}))) + "\n" +
+    "Attendance(" + attend.length + " records, recent 12): " + JSON.stringify(recentAttend) + "\n" +
+    "April Giving: $" + aprilGiving + " | Recent Giving: " + JSON.stringify(recentGiving) + "\n" +
+    "Prayer Requests (recent 15): " + JSON.stringify(recentPrayers) + "\n\n" +
     "MEMORY: " + (mem.preferences||"Learning...") + " | Commands: " + (mem.commands||"Building...") + "\n\n" +
     "COMMAND EXECUTION: When Pastor Hall gives an executable command, respond naturally first, then on its own line append:\n" +
     "[ACTION:{\"type\":\"TYPE\",\"data\":{},\"confirm\":\"Plain English confirmation\"}]\n\n" +
@@ -1006,19 +1009,24 @@ async function callAI(messages, members, visitors, attend, giving, prayers, mem)
     : buildSys(members, visitors, attend, giving, prayers, mem);
   const msgList = typeof messages === "string"
     ? [{role:"user", content:messages}]
-    : messages.map(m => ({role:m.role, content:m.content}));
+    : messages
+        .filter(m => m.role === "user" || m.role === "assistant")
+        .filter(m => !String(m.content).startsWith("Error:"))
+        .map(m => ({role:m.role, content:m.content}));
   const res = await fetch("/api/ai", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify({messages: msgList, system: systemPrompt, apiKey: AI_KEY})
   });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    const status = res.status;
-    throw new Error("AI API " + status + (err?.error ? " — " + err.error : ""));
+  const text = await res.text();
+  let d: any;
+  try { d = JSON.parse(text); } catch(e) {
+    throw new Error("AI API returned unexpected response (status " + res.status + "). The /api/ai function may not be deployed — check Vercel Functions tab.");
   }
-  const d = await res.json();
-  return d.content?.find(c => c.type === "text")?.text || "I do apologize, Pastor Hall — something went wrong. Please try again, Sir.";
+  if (!res.ok) {
+    throw new Error("AI API " + res.status + (d?.error ? " — " + d.error : ""));
+  }
+  return d.content?.find((c:any) => c.type === "text")?.text || "I do apologize, Pastor Hall — something went wrong. Please try again, Sir.";
 }
 
 function parseAction(text) {
