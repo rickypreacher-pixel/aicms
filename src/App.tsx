@@ -7319,6 +7319,11 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
     return currentUser.email||"Staff";
   })();
 
+  // Build unique city/zip lists from all existing records
+  const allPeople = [...(members||[]),...(visitors||[])];
+  const knownCities = Array.from(new Set(allPeople.map((p:any)=>p.address?.city).filter(Boolean))).sort() as string[];
+  const knownZips   = Array.from(new Set(allPeople.map((p:any)=>p.address?.zip).filter(Boolean))).sort() as string[];
+
   const [pType,setPType] = useState<"member"|"visitor">("member");
   const blankForm=()=>({
     first:"",last:"",phone:"",email:"",
@@ -7505,9 +7510,31 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
         <SH label="Address" icon="📍"/>
         <Fld label="Street Address"><Inp value={form.address.street} onChange={sfa("street")} placeholder="123 Main St"/></Fld>
         <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr",gap:12}}>
-          <Fld label="City"><Inp value={form.address.city} onChange={sfa("city")} placeholder="Phoenix"/></Fld>
+          <Fld label="City">
+            <input
+              list="addr-city-list"
+              value={form.address.city}
+              onChange={e=>sfa("city")(e.target.value)}
+              placeholder="Phoenix"
+              style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",boxSizing:"border-box" as any,background:W}}
+            />
+            <datalist id="addr-city-list">
+              {knownCities.map((c:string)=><option key={c} value={c}/>)}
+            </datalist>
+          </Fld>
           <Fld label="State"><Inp value={form.address.state} onChange={sfa("state")} placeholder="AZ"/></Fld>
-          <Fld label="ZIP"><Inp value={form.address.zip} onChange={sfa("zip")} placeholder="85001"/></Fld>
+          <Fld label="ZIP">
+            <input
+              list="addr-zip-list"
+              value={form.address.zip}
+              onChange={e=>sfa("zip")(e.target.value)}
+              placeholder="85001"
+              style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",boxSizing:"border-box" as any,background:W}}
+            />
+            <datalist id="addr-zip-list">
+              {knownZips.map((z:string)=><option key={z} value={z}/>)}
+            </datalist>
+          </Fld>
         </div>
 
         {/* ── SECTION 4: Personal ── */}
