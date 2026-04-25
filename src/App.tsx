@@ -6385,7 +6385,15 @@ function AIAssist({aiChat,setAiChat,members,setMembers,visitors,setVisitors,atte
       if(action) execAction(action); else updateMem(null);
       speak(clean);
     } catch(e) {
-      setAiChat([...nc,{role:"assistant",content:"I do apologize, Pastor Hall — something went wrong. Please try again, Sir."}]);
+      const msg = (e as any)?.message||String(e);
+      let friendly = "I do apologize, Pastor Hall — something went wrong. Please try again, Sir.";
+      if(msg.includes("No API key")) friendly = "No Anthropic API key found. Open Voice Settings and paste your key under \"Anthropic API Key\", then click Save Key.";
+      else if(msg.includes("401")) friendly = "API key rejected (401). Please check your Anthropic key in Voice Settings — it may be invalid or revoked.";
+      else if(msg.includes("429")) friendly = "Rate limit reached (429). Please wait a moment and try again, Sir.";
+      else if(msg.includes("500")||msg.includes("529")) friendly = "Anthropic servers are temporarily unavailable. Please try again in a moment, Sir.";
+      else if(msg.includes("Failed to fetch")||msg.includes("NetworkError")) friendly = "Network error — please check your internet connection, Sir.";
+      console.error("AI error:", msg);
+      setAiChat([...nc,{role:"assistant",content:friendly}]);
     }
     setLoad(false);
   };
