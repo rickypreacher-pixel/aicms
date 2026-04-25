@@ -6401,7 +6401,7 @@ function AIAssist({aiChat,setAiChat,members,setMembers,visitors,setVisitors,atte
       speak(clean);
     } catch(e) {
       const msg = (e as any)?.message||String(e);
-      let friendly = "I do apologize, Pastor Hall — something went wrong. Please try again, Sir.";
+      let friendly = "Error: " + msg + " — Please open Voice Settings and check your Anthropic API key.";
       if(msg.includes("No API key")) friendly = "No Anthropic API key found. Open Voice Settings and paste your key under \"Anthropic API Key\", then click Save Key.";
       else if(msg.includes("401")) friendly = "API key rejected (401). Please check your Anthropic key in Voice Settings — it may be invalid or revoked.";
       else if(msg.includes("429")) friendly = "Rate limit reached (429). Please wait a moment and try again, Sir.";
