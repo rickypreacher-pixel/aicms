@@ -6439,8 +6439,8 @@ function AIAssist({aiChat,setAiChat,members,setMembers,visitors,setVisitors,atte
           </div>
         </div>
         <div style={{display:"flex",gap:8}}>
-          <div onClick={()=>{if(ttsOn&&audioRef.current)audioRef.current.pause();setTtsOn(v=>!v);}} style={{display:"flex",alignItems:"center",gap:5,padding:"5px 11px",borderRadius:20,border:"0.5px solid #ffffff44",cursor:"pointer",background:ttsOn?"#ffffff22":"transparent",color:"#fff",fontSize:12}}>
-            {ttsOn?"Voice On":"Voice Off"}
+          <div onClick={()=>{if(ttsOn&&audioRef.current)audioRef.current.pause();setTtsOn(v=>!v);}} style={{display:"flex",alignItems:"center",gap:5,padding:"5px 13px",borderRadius:20,border:"1.5px solid "+(ttsOn?"#4ade80":"#ffffff44"),cursor:"pointer",background:ttsOn?"#16a34a44":"transparent",color:ttsOn?"#4ade80":"#ffffff99",fontSize:12,fontWeight:ttsOn?600:400,transition:"all 0.2s"}}>
+            {ttsOn?"🔊 Voice On":"🔇 Voice Off"}
           </div>
           <button onClick={()=>setShowMem(v=>!v)} style={{background:showMem?"#ffffff22":"#ffffff12",border:"0.5px solid #ffffff44",borderRadius:8,padding:"5px 11px",cursor:"pointer",color:"#fff",fontSize:12}}>Memory</button>
           <button onClick={()=>setShowSettings(true)} style={{background:"#ffffff12",border:"0.5px solid #ffffff44",borderRadius:8,padding:"5px 11px",cursor:"pointer",color:"#fff",fontSize:12}}>Voice Settings</button>
@@ -6580,10 +6580,7 @@ function AIAssist({aiChat,setAiChat,members,setMembers,visitors,setVisitors,atte
               </div>
               <button onClick={async e=>{
                 e.stopPropagation();
-                const prev = ttsOn;
-                setTtsOn(true);
                 await speakEL("Good day Pastor Hall, I am your NTCC AI Assistant, ready to serve the ministry.", v.id, audioRef);
-                if(!prev) setTimeout(()=>setTtsOn(false),4000);
               }} style={{padding:"6px 12px",background:N,color:"#fff",border:"none",borderRadius:6,fontSize:11,cursor:"pointer",flexShrink:0}}>Preview</button>
             </div>
           ))}
