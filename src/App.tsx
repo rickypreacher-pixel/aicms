@@ -2994,7 +2994,7 @@ function SmsCenter({smsLog,setSmsLog,smsTemplates,setSmsTemplates,smsConfig,setS
 }
 
 // ── VISITATION ──
-function Visitation({visitors,setVisitors,members,users,visitRecords,setVisitRecords,setView}:any) {
+function Visitation({visitors,setVisitors,members,setMembers,users,visitRecords,setVisitRecords,setView}:any) {
   const [tab,setTab] = useState("pipeline");
   const [logModal,setLogModal] = useState(null);
   const [assignModal,setAssignModal] = useState(null);
@@ -3080,6 +3080,31 @@ function Visitation({visitors,setVisitors,members,users,visitRecords,setVisitRec
   const stopOngoing = recId => {
     if(!confirm("Stop ongoing care? Record will be marked Complete.")) return;
     setVisitRecords(rs=>rs.map(r=>r.id===recId?{...r,stage:"Complete",completedDate:td()}:r));
+  };
+
+  const convertToMember = (rec) => {
+    const v = getV(rec.visitorId);
+    if(!v) return;
+    const careContacts = (rec.contacts||[]).filter(c=>c.stage==="OngoingCare");
+    if(!confirm(`Convert ${v.first} ${v.last} to an Active Member?\n\nThis will:\n• Add them to the Members directory as Active\n• Mark their visitation record as Converted\n\nThey have completed ${careContacts.length} ongoing care check-ins.`)) return;
+    // Add to members
+    const newMemberId = Date.now();
+    setMembers(ms=>[...ms,{
+      id: newMemberId,
+      first: v.first,
+      last: v.last,
+      phone: v.phone||"",
+      email: v.email||"",
+      status: "Active",
+      role: "Member",
+      joined: td(),
+      notes: "Converted from Visitation after Ongoing Sponsor Care.",
+      family: ""
+    }]);
+    // Mark visitor record as Converted
+    setVisitRecords(rs=>rs.map(r=>r.id===rec.id?{...r,stage:"Converted",completedDate:td(),convertedMemberId:newMemberId}:r));
+    // Update visitor stage
+    setVisitors(vs=>vs.map(v2=>v2.id===v.id?{...v2,stage:"Member"}:v2));
   };
 
   const genReport = async () => {
@@ -3192,6 +3217,19 @@ function Visitation({visitors,setVisitors,members,users,visitRecords,setVisitRec
       {/* ONGOING CARE TAB */}
       {tab==="ongoing" && (
         <div>
+          {/* Ready to Convert Alert */}
+          {ongoingRecords.filter(r=>(r.contacts||[]).filter(c=>c.stage==="OngoingCare").length>=5).length>0 && (
+            <div style={{background:"#f0fdf4",border:"1.5px solid #86efac",borderRadius:10,padding:"12px 16px",marginBottom:14,display:"flex",alignItems:"center",gap:12}}>
+              <div style={{width:36,height:36,borderRadius:"50%",background:GR+"22",color:GR,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:18,flexShrink:0}}>✓</div>
+              <div style={{flex:1}}>
+                <div style={{fontSize:13,fontWeight:600,color:GR}}>Ready to Convert to Member</div>
+                <div style={{fontSize:12,color:"#166534",marginTop:2}}>
+                  {ongoingRecords.filter(r=>(r.contacts||[]).filter(c=>c.stage==="OngoingCare").length>=5).map(r=>{const v=getV(r.visitorId);return v?v.first+" "+v.last:null;}).filter(Boolean).join(", ")} — completed 5+ ongoing care check-ins and {ongoingRecords.filter(r=>(r.contacts||[]).filter(c=>c.stage==="OngoingCare").length>=5).length===1?"is":"are"} ready to join the church family!
+                </div>
+              </div>
+            </div>
+          )}
+
           <div style={{background:G+"0a",border:"1px solid "+G+"33",borderRadius:10,padding:"12px 16px",marginBottom:16,fontSize:13,color:"#5f4909",lineHeight:1.6}}>
             <strong style={{color:G}}>Ongoing Sponsor Care</strong> — After Pastor Hall, Team Leader, and Sponsor each complete their initial follow-up, the sponsor enters a recurring <strong>14-day care cycle</strong>. Each completed text/call/visit resets the 14-day timer. Care continues until the visitor is converted to a member.
           </div>
@@ -3232,6 +3270,9 @@ function Visitation({visitors,setVisitors,members,users,visitRecords,setVisitRec
                           <span style={{fontSize:11,background:cs.bg,color:cs.color,borderRadius:20,padding:"2px 10px",fontWeight:500}}>
                             {cs.label}{cs.label==="Overdue" && " by "+cs.days+" day"+(cs.days!==1?"s":"")}
                           </span>
+                          {careContacts.length>=5 && (
+                            <span style={{fontSize:11,background:"#dcfce7",color:GR,borderRadius:20,padding:"2px 10px",fontWeight:600}}>✓ Ready to Convert</span>
+                          )}
                         </div>
                         <div style={{fontSize:12,color:MU}}>Sponsor: <strong style={{color:TX}}>{sponsor}</strong> · First visit {fd(v.firstVisit)} · {careContacts.length} ongoing contact{careContacts.length!==1?"s":""} logged</div>
                       </div>
@@ -3249,11 +3290,14 @@ function Visitation({visitors,setVisitors,members,users,visitRecords,setVisitRec
                         {last.notes && <span style={{fontStyle:"italic"}}>— "{last.notes.slice(0,60)}{last.notes.length>60?"...":""}"</span>}
                       </div>
                     )}
-                    <div style={{display:"flex",gap:8,marginTop:12}}>
+                    <div style={{display:"flex",gap:8,marginTop:12,flexWrap:"wrap"}}>
                       <Btn onClick={()=>{setLogModal(rec);setLogForm({method:"Call",date:td(),notes:"",completed:true});}} v="ai">Log Check-In</Btn>
                       {v.phone && <a href={"tel:"+v.phone} style={{textDecoration:"none"}}><Btn v="ghost" style={{fontSize:12}}>Call</Btn></a>}
                       {v.phone && <a href={"sms:"+v.phone} style={{textDecoration:"none"}}><Btn v="ghost" style={{fontSize:12}}>Text</Btn></a>}
                       <div style={{flex:1}}></div>
+                      {careContacts.length>=5 && (
+                        <Btn onClick={()=>convertToMember(rec)} v="gold" style={{fontSize:12,fontWeight:600}}>Convert to Member</Btn>
+                      )}
                       <Btn onClick={()=>stopOngoing(rec.id)} v="ghost" style={{fontSize:12}}>Mark Complete</Btn>
                     </div>
                   </div>
@@ -8020,7 +8064,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut}
               />
             </div>
           )}
-          {view==="visitation" && <Visitation visitors={visitors} setVisitors={setVisitors} members={members} users={users} visitRecords={visitRecords} setVisitRecords={setVisitRecords} setView={setView}/>}
+          {view==="visitation" && <Visitation visitors={visitors} setVisitors={setVisitors} members={members} setMembers={setMembers} users={users} visitRecords={visitRecords} setVisitRecords={setVisitRecords} setView={setView}/>}
           {view==="attendance" && <Attendance attendance={attendance} setAttendance={setAttendance} setView={setView}/>}
           {view==="giving" && <Giving giving={giving} setGiving={setGiving} pledgeDrives={pledgeDrives} setPledgeDrives={setPledgeDrives} pledges={pledges} setPledges={setPledges} members={members} visitors={visitors} weeklyReports={weeklyReports} setWeeklyReports={setWeeklyReports} emailTemplates={emailTemplates}/>}
           {view==="prayer" && <Prayer prayers={prayers} setPrayers={setPrayers}/>}
