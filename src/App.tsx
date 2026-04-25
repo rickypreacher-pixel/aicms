@@ -5374,18 +5374,20 @@ function PledgeDrives({pledgeDrives,setPledgeDrives,pledges,setPledges,giving,me
 
 // Tithe calculation helpers
 // Church Tithe = 10% of everything NOT 'Tithe' and NOT 'Sunday Morning Offering'
-// Pastor Tithe = 10% of 'Tithe' + 'Sunday Morning Offering'
-function calcTithes(givingRecords){
-  const tithe = givingRecords.filter(g=>g.category==="Tithe").reduce((a,g)=>a+g.amount,0);
-  const sundayMorning = givingRecords.filter(g=>g.category==="Sunday Morning Offering").reduce((a,g)=>a+g.amount,0);
-  const otherOfferings = givingRecords.filter(g=>g.category!=="Tithe"&&g.category!=="Sunday Morning Offering").reduce((a,g)=>a+g.amount,0);
+// Pastor's Draw = 60% of Tithe + Sunday Morning Offering (weekly)
+function calcTithes(givingRecords:any){
+  const tithe = givingRecords.filter((g:any)=>g.category==="Tithe").reduce((a:number,g:any)=>a+g.amount,0);
+  const sundayMorning = givingRecords.filter((g:any)=>g.category==="Sunday Morning Offering").reduce((a:number,g:any)=>a+g.amount,0);
+  const otherOfferings = givingRecords.filter((g:any)=>g.category!=="Tithe"&&g.category!=="Sunday Morning Offering").reduce((a:number,g:any)=>a+g.amount,0);
+  const pastorBase = tithe + sundayMorning;
   return {
     tithe,
     sundayMorning,
     otherOfferings,
-    pastorBase: tithe + sundayMorning,
+    pastorBase,
     churchBase: otherOfferings,
-    pastorTithe: Math.round((tithe + sundayMorning) * 0.10 * 100) / 100,
+    pastorDraw: Math.round(pastorBase * 0.60 * 100) / 100,
+    pastorTithe: Math.round(pastorBase * 0.60 * 100) / 100, // alias for backward compat
     churchTithe: Math.round(otherOfferings * 0.10 * 100) / 100
   };
 }
@@ -5537,12 +5539,12 @@ function WeeklyReports({giving,weeklyReports,setWeeklyReports}){
                     </div>
                   </div>
                   <div style={{background:W,border:"0.5px solid "+G,borderRadius:8,padding:"12px 14px"}}>
-                    <div style={{fontSize:11,color:"#7a5c10",fontWeight:600,textTransform:"uppercase",letterSpacing:0.5,marginBottom:6}}>Pastor Weekly Tithe</div>
-                    <div style={{fontSize:26,fontWeight:700,color:N,marginBottom:8}}>{f$(r.tithes.pastorTithe)}</div>
+                    <div style={{fontSize:11,color:"#7a5c10",fontWeight:600,textTransform:"uppercase",letterSpacing:0.5,marginBottom:6}}>Pastor's Draw</div>
+                    <div style={{fontSize:26,fontWeight:700,color:N,marginBottom:8}}>{f$(r.tithes.pastorDraw??r.tithes.pastorTithe)}</div>
                     <div style={{fontSize:11,color:MU,lineHeight:1.6}}>
                       <div style={{display:"flex",justifyContent:"space-between"}}><span>Tithe collected:</span><strong>{f$(r.tithes.tithe)}</strong></div>
                       <div style={{display:"flex",justifyContent:"space-between"}}><span>Sun. Morning Offering:</span><strong>{f$(r.tithes.sundayMorning)}</strong></div>
-                      <div style={{display:"flex",justifyContent:"space-between"}}><span>10% of combined:</span><strong style={{color:GR}}>{f$(r.tithes.pastorTithe)}</strong></div>
+                      <div style={{display:"flex",justifyContent:"space-between"}}><span>60% of combined:</span><strong style={{color:GR}}>{f$(r.tithes.pastorDraw??r.tithes.pastorTithe)}</strong></div>
                     </div>
                   </div>
                 </div>
@@ -5713,8 +5715,8 @@ function TithesView({giving,weeklyReports}){
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:10}}>
         <div>
-          <h3 style={{fontSize:15,fontWeight:500,color:N,margin:0}}>Church & Pastor Tithes</h3>
-          <div style={{fontSize:12,color:MU,marginTop:2}}>Auto-calculated 10% tithes on giving</div>
+          <h3 style={{fontSize:15,fontWeight:500,color:N,margin:0}}>Church Tithe & Pastor's Draw</h3>
+          <div style={{fontSize:12,color:MU,marginTop:2}}>Church: 10% of offerings · Pastor's Draw: 60% of tithes + Sunday morning offering</div>
         </div>
         <div style={{display:"flex",gap:6,background:W,borderRadius:8,border:"0.5px solid "+BR,padding:3}}>
           {[["week","This Week"],["month","This Month"],["ytd","Year to Date"],["all","All Time"]].map(([id,label])=>(
@@ -5756,11 +5758,11 @@ function TithesView({giving,weeklyReports}){
 
         <div style={{background:W,border:"1.5px solid "+G,borderRadius:12,overflow:"hidden"}}>
           <div style={{background:G,color:"#fff",padding:"14px 18px"}}>
-            <div style={{fontSize:11,color:"#fff",textTransform:"uppercase",letterSpacing:1.5,fontWeight:600,marginBottom:2,opacity:0.85}}>Pastor Weekly Tithe</div>
-            <div style={{fontSize:13}}>10% of Tithe + Sunday Morning Offering</div>
+            <div style={{fontSize:11,color:"#fff",textTransform:"uppercase",letterSpacing:1.5,fontWeight:600,marginBottom:2,opacity:0.85}}>Pastor's Draw (Weekly)</div>
+            <div style={{fontSize:13}}>60% of Tithes + Sunday Morning Offering</div>
           </div>
           <div style={{padding:20}}>
-            <div style={{fontSize:36,fontWeight:700,color:N,marginBottom:16}}>{f$(tithes.pastorTithe)}</div>
+            <div style={{fontSize:36,fontWeight:700,color:N,marginBottom:16}}>{f$(tithes.pastorDraw??tithes.pastorTithe)}</div>
             <div style={{fontSize:12,color:MU,textTransform:"uppercase",letterSpacing:0.5,marginBottom:10,fontWeight:500}}>Calculation</div>
             <div style={{background:BG,borderRadius:8,padding:14,border:"0.5px solid "+BR}}>
               <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0",fontSize:13}}>
@@ -5776,12 +5778,12 @@ function TithesView({giving,weeklyReports}){
                 <span>{f$(tithes.pastorBase)}</span>
               </div>
               <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0",fontSize:13,color:MU}}>
-                <span>× 10%</span>
+                <span>× 60%</span>
                 <span></span>
               </div>
               <div style={{display:"flex",justifyContent:"space-between",padding:"8px 0 0",fontSize:14,fontWeight:600,borderTop:"0.5px solid "+BR,marginTop:4}}>
-                <span style={{color:N}}>Pastor Tithe Owed</span>
-                <span style={{color:GR}}>{f$(tithes.pastorTithe)}</span>
+                <span style={{color:N}}>Pastor's Draw</span>
+                <span style={{color:GR}}>{f$(tithes.pastorDraw??tithes.pastorTithe)}</span>
               </div>
             </div>
           </div>
@@ -5792,9 +5794,9 @@ function TithesView({giving,weeklyReports}){
       <div style={{background:GL+"44",border:"1px solid "+G,borderRadius:10,padding:"14px 18px",marginBottom:20,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
         <div>
           <div style={{fontSize:11,color:"#7a5c10",textTransform:"uppercase",letterSpacing:1,fontWeight:600}}>Total Tithes for {rangeLabel}</div>
-          <div style={{fontSize:12,color:"#7a5c10",marginTop:2}}>Church Tithe + Pastor Tithe combined</div>
+          <div style={{fontSize:12,color:"#7a5c10",marginTop:2}}>Church Tithe + Pastor's Draw combined</div>
         </div>
-        <div style={{fontSize:30,fontWeight:700,color:N}}>{f$(tithes.churchTithe + tithes.pastorTithe)}</div>
+        <div style={{fontSize:30,fontWeight:700,color:N}}>{f$(tithes.churchTithe + (tithes.pastorDraw??tithes.pastorTithe))}</div>
       </div>
 
       {/* Weekly history */}
@@ -5805,7 +5807,7 @@ function TithesView({giving,weeklyReports}){
             <div style={{fontSize:11,color:MU,marginTop:2}}>Tithes calculated for each saved weekly report</div>
           </div>
           <table style={{width:"100%",borderCollapse:"collapse"}}>
-            <thead><tr style={{background:"#f8f9fc"}}>{["Week","Total Giving","Church Tithe","Pastor Tithe","Combined"].map(h=><th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:11,fontWeight:500,color:MU,textTransform:"uppercase",letterSpacing:0.5,borderBottom:"0.5px solid "+BR}}>{h}</th>)}</tr></thead>
+            <thead><tr style={{background:"#f8f9fc"}}>{["Week","Total Giving","Church Tithe","Pastor's Draw","Combined"].map(h=><th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:11,fontWeight:500,color:MU,textTransform:"uppercase",letterSpacing:0.5,borderBottom:"0.5px solid "+BR}}>{h}</th>)}</tr></thead>
             <tbody>
               {sortedWeeks.map(r=>{
                 const t = r.tithes || calcTithes([]);
@@ -5817,8 +5819,8 @@ function TithesView({giving,weeklyReports}){
                     </td>
                     <td style={{padding:"10px 14px",fontSize:13,fontWeight:500,color:N}}>{f$(r.total)}</td>
                     <td style={{padding:"10px 14px",fontSize:13,fontWeight:500,color:N}}>{f$(t.churchTithe)}</td>
-                    <td style={{padding:"10px 14px",fontSize:13,fontWeight:500,color:G}}>{f$(t.pastorTithe)}</td>
-                    <td style={{padding:"10px 14px",fontSize:13,fontWeight:600,color:GR}}>{f$(t.churchTithe + t.pastorTithe)}</td>
+                    <td style={{padding:"10px 14px",fontSize:13,fontWeight:500,color:G}}>{f$(t.pastorDraw??t.pastorTithe)}</td>
+                    <td style={{padding:"10px 14px",fontSize:13,fontWeight:600,color:GR}}>{f$(t.churchTithe + (t.pastorDraw??t.pastorTithe))}</td>
                   </tr>
                 );
               })}
@@ -5826,8 +5828,8 @@ function TithesView({giving,weeklyReports}){
                 <td style={{padding:"10px 14px",fontSize:13,color:N}}>Grand Total</td>
                 <td style={{padding:"10px 14px",fontSize:13,color:N}}>{f$(sortedWeeks.reduce((a,r)=>a+r.total,0))}</td>
                 <td style={{padding:"10px 14px",fontSize:13,color:N}}>{f$(sortedWeeks.reduce((a,r)=>a+(r.tithes?.churchTithe||0),0))}</td>
-                <td style={{padding:"10px 14px",fontSize:13,color:G}}>{f$(sortedWeeks.reduce((a,r)=>a+(r.tithes?.pastorTithe||0),0))}</td>
-                <td style={{padding:"10px 14px",fontSize:13,color:GR}}>{f$(sortedWeeks.reduce((a,r)=>a+(r.tithes?.churchTithe||0)+(r.tithes?.pastorTithe||0),0))}</td>
+                <td style={{padding:"10px 14px",fontSize:13,color:G}}>{f$(sortedWeeks.reduce((a:number,r:any)=>a+(r.tithes?.pastorDraw??r.tithes?.pastorTithe??0),0))}</td>
+                <td style={{padding:"10px 14px",fontSize:13,color:GR}}>{f$(sortedWeeks.reduce((a:number,r:any)=>a+(r.tithes?.churchTithe||0)+(r.tithes?.pastorDraw??r.tithes?.pastorTithe??0),0))}</td>
               </tr>
             </tbody>
           </table>
@@ -6111,12 +6113,47 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
         <PledgeDrives pledgeDrives={pledgeDrives} setPledgeDrives={setPledgeDrives} pledges={pledges} setPledges={setPledges} giving={giving} members={members} visitors={visitors}/>
       ) : (
       <div>
-      <div style={{display:"flex",gap:12,marginBottom:20}}>
+      <div style={{display:"flex",gap:12,marginBottom:16,flexWrap:"wrap"}}>
         <Stat label="April Total" value={f$(total)} color={GR}/>
         <Stat label="Tithes" value={f$(tithe)} sub="This month"/>
         <Stat label="Offerings" value={f$(offering)} sub="This month" color={G}/>
         <Stat label="Records" value={giving.length} sub="All time"/>
       </div>
+      {/* Pastor's Draw Card */}
+      {(()=>{
+        const todayMon = getMondayOf(td());
+        const last5 = [...weeklyReports].sort((a,b)=>b.weekStart.localeCompare(a.weekStart)).slice(0,5);
+        const currentWeek = weeklyReports.find(r=>r.weekStart===todayMon);
+        const cwTithes = currentWeek ? calcTithes(giving.filter((g:any)=>g.date>=todayMon&&g.date<=getSundayOf(todayMon))) : calcTithes([]);
+        const draw = cwTithes.pastorDraw??cwTithes.pastorTithe;
+        return(
+          <div style={{background:W,border:"1.5px solid "+G,borderRadius:12,padding:18,marginBottom:16}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14,flexWrap:"wrap",gap:8}}>
+              <div>
+                <div style={{fontSize:11,color:"#7a5c10",textTransform:"uppercase",letterSpacing:1.5,fontWeight:600,marginBottom:2}}>Pastor's Draw — Current Week</div>
+                <div style={{fontSize:11,color:MU}}>Week of {fd(todayMon)} · 60% of Tithes + Sunday Morning Offering</div>
+              </div>
+              <Btn onClick={()=>setTab("tithes")} v="gold" style={{fontSize:11,padding:"5px 12px"}}>Full Tithes View →</Btn>
+            </div>
+            <div style={{fontSize:38,fontWeight:700,color:N,marginBottom:4}}>{f$(draw)}</div>
+            <div style={{fontSize:11,color:MU,marginBottom:14}}>Based on {f$(cwTithes.tithe)} tithes + {f$(cwTithes.sundayMorning)} Sunday morning offering = {f$(cwTithes.pastorBase)} × 60%</div>
+            {last5.length>0&&<div style={{borderTop:"0.5px solid "+BR,paddingTop:12}}>
+              <div style={{fontSize:11,color:MU,fontWeight:600,textTransform:"uppercase",letterSpacing:0.5,marginBottom:8}}>Last {last5.length} Weeks</div>
+              <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                {last5.map(r=>{
+                  const t=r.tithes||calcTithes([]);
+                  const d=t.pastorDraw??t.pastorTithe;
+                  const isThis=r.weekStart===todayMon;
+                  return(<div key={r.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 8px",background:isThis?GL+"44":"transparent",borderRadius:6,border:isThis?"0.5px solid "+G:"none"}}>
+                    <span style={{fontSize:12,color:isThis?"#7a5c10":MU,fontWeight:isThis?500:400}}>{fd(r.weekStart)} – {fd(r.weekEnd)}{isThis?" (current)":""}</span>
+                    <span style={{fontSize:13,fontWeight:600,color:isThis?N:TX}}>{f$(d)}</span>
+                  </div>);
+                })}
+              </div>
+            </div>}
+          </div>
+        );
+      })()}
       <div style={{background:GL+"33",border:"1px solid "+G,borderRadius:10,padding:"12px 16px",marginBottom:16,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
         <div style={{flex:1,minWidth:200}}>
           <div style={{fontSize:13,fontWeight:600,color:"#7a5c10",marginBottom:2}}>Weekly Giving Report</div>
