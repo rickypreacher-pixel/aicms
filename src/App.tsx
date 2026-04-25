@@ -830,6 +830,8 @@ const N="#1a2e5a",G="#c9a84c",GL="#f5e9c8",BG="#f4f6fb",W="#fff",BR="#e2e5ec";
 const MU="#6b7280",TX="#1f2937",GR="#16a34a",RE="#dc2626",AM="#d97706",BL="#2563eb",PU="#7c3aed",TE="#0891b2";
 
 const EL_KEY="sk_7fd85f85f4f23d141576c41114a2bd693939b9b8ecc81efd";
+// Tiny silent WAV to unlock browser autoplay policy on user gesture
+const SILENT_WAV="data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
 const EL_VOICES=[
   {id:"flq6f7ib4F8Sfv2nltCn",name:"Michael",desc:"American Male — Deep & Pastoral (Recommended)"},
   {id:"onwK4e9ZLuTAKqWW03F9",name:"Daniel",desc:"British Male — Deep & Authoritative"},
@@ -951,7 +953,7 @@ const BDGE={
 
 // ── ElevenLabs TTS ──
 async function speakEL(text, voiceId, audioRef) {
-  if (!text || !voiceId) return false;
+  if (!text || !voiceId || !audioRef.current) return false;
   const clean = text.replace(/\*\*|__|##|#|\[[\s\S]*?\]/g,"").replace(/\n+/g," ").substring(0,600);
   try {
     const res = await fetch("https://api.elevenlabs.io/v1/text-to-speech/" + voiceId, {
@@ -965,13 +967,11 @@ async function speakEL(text, voiceId, audioRef) {
     }
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
-    if (audioRef.current) {
-      audioRef.current.pause();
-      try { URL.revokeObjectURL(audioRef.current.src); } catch(e) {}
-    }
-    const audio = new Audio(url);
-    audioRef.current = audio;
-    audio.play();
+    const audio = audioRef.current;
+    audio.pause();
+    try { URL.revokeObjectURL(audio.src); } catch(e) {}
+    audio.src = url;
+    await audio.play();
     return true;
   } catch(e) {
     console.error("ElevenLabs TTS error:", e);
@@ -6305,8 +6305,10 @@ function AIAssist({aiChat,setAiChat,members,setMembers,visitors,setVisitors,atte
   const [showMem,setShowMem] = useState(false);
   const endRef = useRef(null);
   const inputRef = useRef(null);
-  const audioRef = useRef(null);
+  const audioRef = useRef<HTMLAudioElement>(new Audio());
   const nid = useRef(600);
+  // Initialize audio element once so autoplay unlock persists
+  useEffect(()=>{ audioRef.current.volume=1; },[]);
   const mRef = useRef(members);
   const vRef = useRef(visitors);
   const aRef = useRef(attendance);
@@ -6439,7 +6441,17 @@ function AIAssist({aiChat,setAiChat,members,setMembers,visitors,setVisitors,atte
           </div>
         </div>
         <div style={{display:"flex",gap:8}}>
-          <div onClick={()=>{if(ttsOn&&audioRef.current)audioRef.current.pause();setTtsOn(v=>!v);}} style={{display:"flex",alignItems:"center",gap:5,padding:"5px 13px",borderRadius:20,border:"1.5px solid "+(ttsOn?"#4ade80":"#ffffff44"),cursor:"pointer",background:ttsOn?"#16a34a44":"transparent",color:ttsOn?"#4ade80":"#ffffff99",fontSize:12,fontWeight:ttsOn?600:400,transition:"all 0.2s"}}>
+          <div onClick={()=>{
+            const willBeOn = !ttsOn;
+            if (willBeOn) {
+              // Play silent audio on user gesture to unlock autoplay policy
+              audioRef.current.src = SILENT_WAV;
+              audioRef.current.play().catch(()=>{});
+            } else {
+              audioRef.current.pause();
+            }
+            setTtsOn(willBeOn);
+          }} style={{display:"flex",alignItems:"center",gap:5,padding:"5px 13px",borderRadius:20,border:"1.5px solid "+(ttsOn?"#4ade80":"#ffffff44"),cursor:"pointer",background:ttsOn?"#16a34a44":"transparent",color:ttsOn?"#4ade80":"#ffffff99",fontSize:12,fontWeight:ttsOn?600:400,transition:"all 0.2s"}}>
             {ttsOn?"🔊 Voice On":"🔇 Voice Off"}
           </div>
           <button onClick={()=>setShowMem(v=>!v)} style={{background:showMem?"#ffffff22":"#ffffff12",border:"0.5px solid #ffffff44",borderRadius:8,padding:"5px 11px",cursor:"pointer",color:"#fff",fontSize:12}}>Memory</button>
@@ -6560,7 +6572,12 @@ function AIAssist({aiChat,setAiChat,members,setMembers,visitors,setVisitors,atte
       <Modal open={showSettings} onClose={()=>setShowSettings(false)} title="ElevenLabs Voice Settings" width={520}>
         <div style={{marginBottom:20}}>
           <div style={{fontSize:12,color:MU,textTransform:"uppercase",letterSpacing:0.5,marginBottom:10}}>Voice Output</div>
-          <div onClick={()=>{if(ttsOn&&audioRef.current)audioRef.current.pause();setTtsOn(v=>!v);}} style={{display:"flex",alignItems:"center",gap:12,padding:"14px 16px",borderRadius:10,border:"0.5px solid "+BR,cursor:"pointer",background:ttsOn?"#f0fdf4":BG,marginBottom:12}}>
+          <div onClick={()=>{
+            const willBeOn = !ttsOn;
+            if(willBeOn){audioRef.current.src=SILENT_WAV;audioRef.current.play().catch(()=>{});}
+            else audioRef.current.pause();
+            setTtsOn(willBeOn);
+          }} style={{display:"flex",alignItems:"center",gap:12,padding:"14px 16px",borderRadius:10,border:"0.5px solid "+BR,cursor:"pointer",background:ttsOn?"#f0fdf4":BG,marginBottom:12}}>
             <div style={{width:44,height:24,borderRadius:12,background:ttsOn?GR:BR,position:"relative",transition:"background 0.2s",flexShrink:0}}>
               <div style={{position:"absolute",top:3,left:ttsOn?22:3,width:18,height:18,borderRadius:"50%",background:"#fff",transition:"left 0.2s"}}></div>
             </div>
