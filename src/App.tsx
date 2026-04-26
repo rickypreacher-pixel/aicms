@@ -573,13 +573,30 @@ function SetupModal({onSave}){
   </div>);
 }
 
-function ChurchSettingsPage({cs,setCs,members,visitors,attendance,giving,prayers,groups,grpMeetings,visitRecords,checkIns,kidsCheckIns,children,pledgeDrives,pledges,weeklyReports,equipment,workOrders,schedMaint}){
+const SEED_IDS={members:new Set([1,2,3,4,5,6,7,8]),visitors:new Set([101,102,103,104]),attendance:new Set([1,2,3,4]),giving:new Set([1,2,3,4,5,6,7]),prayers:new Set([1,2,3]),groups:new Set([1,2,3]),meetings:new Set([1,2,3,4]),children:new Set([501,502,503,504]),equipment:new Set([1001,1002,1003,1004,1005,1006]),schedMaint:new Set([2001,2002,2003,2004,2005]),workOrders:new Set([3001,3002,3003])};
+
+function ChurchSettingsPage({cs,setCs,members,setMembers,visitors,setVisitors,attendance,setAttendance,giving,setGiving,prayers,setPrayers,groups,setGroups,grpMeetings,setGrpMeetings,visitRecords,setVisitRecords,checkIns,kidsCheckIns,children,setChildren,pledgeDrives,pledges,weeklyReports,equipment,setEquipment,workOrders,setWorkOrders,schedMaint,setSchedMaint}){
   const [form,setForm]=useState({...cs});
   const [saved,setSaved]=useState(false);
   const sf=k=>v=>setForm(f=>({...f,[k]:v}));
   const save=()=>{setCs({...form});setSaved(true);setTimeout(()=>setSaved(false),2500);};
   const allData={members,visitors,attendance,giving,prayers,groups,grpMeetings,visitRecords,checkIns,kidsCheckIns,children,pledgeDrives,pledges,weeklyReports,equipment,workOrders,schedMaint};
   const logoInitials=(form.name||"AI").split(" ").filter(w=>w).slice(0,2).map(w=>w[0]).join("").toUpperCase();
+  const clearTestData=()=>{
+    if(!confirm("Clear all pre-loaded sample data?\n\nMembers, visitors, giving, attendance, prayers, groups, equipment, and work orders that came pre-installed will be removed. Any records you added yourself will be kept.\n\nThis cannot be undone.")) return;
+    setMembers(ms=>ms.filter(m=>!SEED_IDS.members.has(m.id)));
+    setVisitors(vs=>vs.filter(v=>!SEED_IDS.visitors.has(v.id)));
+    setAttendance(as=>as.filter(a=>!SEED_IDS.attendance.has(a.id)));
+    setGiving(gs=>gs.filter(g=>!SEED_IDS.giving.has(g.id)));
+    setPrayers(ps=>ps.filter(p=>!SEED_IDS.prayers.has(p.id)));
+    setGroups(gs=>gs.filter(g=>!SEED_IDS.groups.has(g.id)));
+    setGrpMeetings(ms=>ms.filter(m=>!SEED_IDS.meetings.has(m.id)));
+    setChildren(cs=>cs.filter(c=>!SEED_IDS.children.has(c.id)));
+    setEquipment(es=>es.filter(e=>!SEED_IDS.equipment.has(e.id)));
+    setSchedMaint(ss=>ss.filter(s=>!SEED_IDS.schedMaint.has(s.id)));
+    setWorkOrders(ws=>ws.filter(w=>!SEED_IDS.workOrders.has(w.id)));
+    setVisitRecords(rs=>rs.filter(r=>!SEED_IDS.visitors.has(r.visitorId)));
+  };
   return (<div>
     {saved&&<div style={{background:"#dcfce7",border:"0.5px solid #86efac",borderRadius:9,padding:"10px 16px",marginBottom:14,fontSize:13,color:"#14532d",fontWeight:500}}>Settings saved successfully.</div>}
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
@@ -612,9 +629,14 @@ function ChurchSettingsPage({cs,setCs,members,visitors,attendance,giving,prayers
         <span style={{fontSize:11,color:MU}}>{members.length} members · {visitors.length} visitors · {giving.length} giving records · {equipment.length} equipment items</span>
       </div>
     </div>
+    <div style={{background:W,border:"1.5px solid "+RE+"55",borderRadius:12,padding:18,marginBottom:16}}>
+      <h3 style={{fontSize:14,fontWeight:500,color:RE,margin:"0 0 6px"}}>Clear Sample Data</h3>
+      <p style={{fontSize:12,color:MU,margin:"0 0 12px",lineHeight:1.6}}>Removes all pre-loaded demo records (members, visitors, giving, attendance, prayers, groups, equipment). Any records <strong>you added yourself</strong> will be kept. This cannot be undone.</p>
+      <Btn onClick={clearTestData} style={{background:RE,color:"#fff",borderColor:RE,fontSize:13,padding:"8px 18px"}}>Clear Sample Data</Btn>
+    </div>
     <div style={{display:"flex",gap:8}}>
       <Btn onClick={save} v="success" style={{padding:"11px 24px",fontSize:14}}>Save Settings</Btn>
-      <Btn onClick={()=>setForm({...cs})} v="ghost">Reset</Btn>
+      <Btn onClick={()=>setForm({...cs})} v="ghost">Reset Form</Btn>
     </div>
   </div>);
 }
@@ -6415,7 +6437,7 @@ export default function App() {
         {/* Page content */}
         <div style={{flex:1,padding:isMobile?12:24,overflow:"auto"}}>
           {showSetup && <SetupModal onSave={s=>{setChurchSettings(s);setShowSetup(false);}}/>}
-          {view==="settings" && <ChurchSettingsPage cs={churchSettings} setCs={setChurchSettings} members={members} visitors={visitors} attendance={attendance} giving={giving} prayers={prayers} groups={groups} grpMeetings={grpMeetings} visitRecords={visitRecords} checkIns={checkIns} kidsCheckIns={kidsCheckIns} children={children} pledgeDrives={pledgeDrives} pledges={pledges} weeklyReports={weeklyReports} equipment={equipment} workOrders={workOrders} schedMaint={schedMaint}/>}
+          {view==="settings" && <ChurchSettingsPage cs={churchSettings} setCs={setChurchSettings} members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} setAttendance={setAttendance} giving={giving} setGiving={setGiving} prayers={prayers} setPrayers={setPrayers} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings} visitRecords={visitRecords} setVisitRecords={setVisitRecords} checkIns={checkIns} kidsCheckIns={kidsCheckIns} children={children} setChildren={setChildren} pledgeDrives={pledgeDrives} pledges={pledges} weeklyReports={weeklyReports} equipment={equipment} setEquipment={setEquipment} workOrders={workOrders} setWorkOrders={setWorkOrders} schedMaint={schedMaint} setSchedMaint={setSchedMaint}/>}
           {view==="dashboard" && <Dashboard members={members} visitors={visitors} attendance={attendance} giving={giving} prayers={prayers} setView={setView}/>}
           {view==="people" && <People members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} prayers={prayers} groups={groups} grpMeetings={grpMeetings} visitRecords={visitRecords} setVisitRecords={setVisitRecords} checkIns={checkIns}/>}
           {view==="groups" && <Groups members={members} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings}/>}
