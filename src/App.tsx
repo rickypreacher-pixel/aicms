@@ -2352,9 +2352,47 @@ function Visitation({visitors,setVisitors,members,users,visitRecords,setVisitRec
   const [assignUid,setAssignUid] = useState("");
   const [expandedId,setExpandedId] = useState(null);
   const [careAlertDismissed,setCareAlertDismissed] = useState(false);
+  const [letterBannerDismissed,setLetterBannerDismissed] = useState(false);
   const [aiRep,setAiRep] = useState("");
   const [aiLoad,setAiLoad] = useState(false);
   const nid = useRef(700);
+
+  const printWelcomeLetter = (v) => {
+    const cs = window.__CS__ || {};
+    const today = new Date().toLocaleDateString("en-US",{year:"numeric",month:"long",day:"numeric"});
+    const addr = v.address ? [v.address.street, (v.address.city&&v.address.state) ? v.address.city+", "+v.address.state+" "+(v.address.zip||"") : (v.address.city||"")].filter(Boolean) : [];
+    const body = `Dear ${v.first},\n\nIt was a joy to have you with us at ${cs.name||"our church"}! Thank you for visiting and worshiping with our church family.\n\nWe pray that you felt the presence of the Lord and the warmth of our fellowship. If there is anything we can do for you — whether it is a prayer need, a question about our church, or simply a conversation — please do not hesitate to reach out.\n\nWe would love to see you again soon. Our service times are:\n        Sunday Morning Worship  —  11:00 AM\n        Sunday Evening Service  —  6:00 PM\n        Tuesday Bible Study  —  7:30 PM\n        Thursday Worship  —  7:30 PM\n\nMay God richly bless you and your family.\n\nIn His Service,\n\n\n${cs.pastorName||"Pastor"}\n${cs.name||""}`;
+    const logoHtml = cs.logoUrl ? `<img src="${cs.logoUrl}" style="height:56px;object-fit:contain;margin-bottom:10px;" alt="logo">` : `<div style="width:52px;height:52px;border-radius:12px;background:#c9a84c22;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:bold;color:#c9a84c;">✦</div>`;
+    const win = window.open("","_blank","width=820,height=960");
+    if(!win){alert("Please allow popups for this site to print letters.");return;}
+    win.document.write(`<!DOCTYPE html><html><head><title>Welcome Letter — ${v.first} ${v.last}</title><style>
+      *{box-sizing:border-box;} body{font-family:"Times New Roman",Times,serif;margin:0;padding:0;background:#f4f6fb;}
+      @media print{body{background:white;} .no-print{display:none!important;} .page{box-shadow:none!important;margin:0!important;}}
+      .no-print{text-align:center;padding:20px 0 4px;}
+      .print-btn{padding:11px 32px;background:#1a2e5a;color:white;border:none;border-radius:8px;font-size:15px;cursor:pointer;font-family:sans-serif;}
+      .page{max-width:700px;margin:8px auto 40px;background:white;box-shadow:0 2px 24px rgba(0,0,0,.13);}
+      .hdr{background:#1a2e5a;padding:30px 40px;text-align:center;border-bottom:4px solid #c9a84c;}
+      .cname{color:#fff;font-size:22px;font-weight:bold;letter-spacing:.5px;margin:0;font-family:Georgia,serif;}
+      .cpastor{color:#c9a84c;font-size:13px;margin-top:6px;}
+      .ccontact{color:#7a9acc;font-size:11px;margin-top:4px;}
+      .body{padding:38px 52px 32px;}
+      .date{font-size:13px;color:#555;margin-bottom:22px;}
+      .to{font-size:14px;line-height:1.8;color:#222;margin-bottom:26px;}
+      .letter{font-size:14.5px;line-height:2;color:#222;white-space:pre-wrap;}
+      .ftr{padding:14px 52px;border-top:1px solid #e2e5ec;text-align:center;font-size:11px;color:#999;font-family:sans-serif;}
+    </style></head><body>
+    <div class="no-print"><button class="print-btn" onclick="window.print()">🖨&nbsp; Print Letter</button></div>
+    <div class="page">
+      <div class="hdr">${logoHtml}<div class="cname">${cs.name||"Our Church"}</div>${cs.pastorName?`<div class="cpastor">${cs.pastorName}</div>`:""}<div class="ccontact">${[cs.address,cs.phone,cs.email].filter(Boolean).join(" &nbsp;·&nbsp; ")}</div></div>
+      <div class="body">
+        <div class="date">${today}</div>
+        <div class="to">${v.first} ${v.last}${addr.length?"<br>"+addr.join("<br>"):""}</div>
+        <div class="letter">${body.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}</div>
+      </div>
+      <div class="ftr">${cs.name||""}&nbsp;·&nbsp;${cs.address||""}${cs.phone?" &nbsp;·&nbsp; "+cs.phone:""}</div>
+    </div></body></html>`);
+    win.document.close();
+  };
 
   useEffect(()=>{
     const missing = visitors.filter(v=>!visitRecords.find(r=>r.visitorId===v.id));
@@ -2464,6 +2502,24 @@ function Visitation({visitors,setVisitors,members,users,visitRecords,setVisitRec
         </div>
       )}
 
+      {/* New Visitors Today — Print Welcome Letter Banner */}
+      {visitors.filter(v=>v.firstVisit===td()).length>0 && !letterBannerDismissed && (
+        <div style={{background:"#f0f9ff",border:"1.5px solid #7dd3fc",borderRadius:10,padding:"12px 16px",marginBottom:16,display:"flex",alignItems:"flex-start",gap:12}}>
+          <div style={{width:36,height:36,borderRadius:"50%",background:"#bae6fd",color:"#0369a1",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:18,flexShrink:0}}>✉</div>
+          <div style={{flex:1}}>
+            <div style={{fontSize:13,fontWeight:600,color:"#0369a1",marginBottom:4}}>New Visitors Today — Print Welcome Letters</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+              {visitors.filter(v=>v.firstVisit===td()).map(v=>(
+                <button key={v.id} onClick={()=>printWelcomeLetter(v)} style={{background:"#0369a1",color:"#fff",border:"none",borderRadius:6,padding:"5px 12px",fontSize:12,cursor:"pointer",fontWeight:500}}>
+                  🖨 {v.first} {v.last}
+                </button>
+              ))}
+            </div>
+          </div>
+          <button onClick={()=>setLetterBannerDismissed(true)} style={{background:"none",border:"none",cursor:"pointer",color:MU,fontSize:16}}>x</button>
+        </div>
+      )}
+
       <div style={{display:"flex",marginBottom:20,background:W,borderRadius:10,border:"0.5px solid "+BR,overflow:"hidden"}}>
         {[["pipeline","Pipeline"],["ongoing","Ongoing Care"],["tracker","Visitor Tracker"],["reports","Reports"]].map(([id,label])=>(
           <button key={id} onClick={()=>setTab(id)} style={{flex:1,padding:"10px 8px",border:"none",borderBottom:"2px solid "+(tab===id?G:"transparent"),background:tab===id?"#f8f9fc":W,fontSize:13,fontWeight:tab===id?500:400,color:tab===id?N:MU,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
@@ -2525,6 +2581,7 @@ function Visitation({visitors,setVisitors,members,users,visitRecords,setVisitRec
                         <div style={{fontSize:11,color:MU,marginBottom:8}}>To: {getAssigned(rec)}</div>
                         {stage!=="Complete" && <Btn onClick={()=>{setLogModal(rec);setLogForm({method:"Call",date:td(),notes:"",completed:false});}} v="ai" style={{fontSize:11,padding:"4px 8px",width:"100%",justifyContent:"center"}}>Log Contact</Btn>}
                         {stage==="Complete" && <div style={{fontSize:11,color:TE,fontWeight:500,textAlign:"center"}}>Fully Complete</div>}
+                        <Btn onClick={()=>printWelcomeLetter(v)} v="ghost" style={{fontSize:10,padding:"3px 8px",width:"100%",justifyContent:"center",marginTop:5}}>🖨 Print Welcome Letter</Btn>
                       </div>
                     );
                   })}
@@ -2660,6 +2717,7 @@ function Visitation({visitors,setVisitors,members,users,visitRecords,setVisitRec
                         <div style={{display:"flex",gap:6}}>
                           {rec.stage!=="Complete" && <Btn onClick={()=>{setLogModal(rec);setLogForm({method:"Call",date:td(),notes:"",completed:false});}} v="ai" style={{fontSize:11,padding:"4px 8px"}}>Log</Btn>}
                           <Btn onClick={()=>setExpandedId(expandedId===v.id?null:v.id)} v="ghost" style={{fontSize:11,padding:"4px 8px"}}>{expandedId===v.id?"Hide":"History"}</Btn>
+                          <Btn onClick={()=>printWelcomeLetter(v)} v="ghost" style={{fontSize:11,padding:"4px 8px"}}>🖨 Letter</Btn>
                         </div>
                       </td>
                     </tr>
