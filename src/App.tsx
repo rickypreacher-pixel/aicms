@@ -1,3 +1,7 @@
+// @ts-nocheck
+import { useState, useEffect, useRef } from 'react';
+import { supabase } from './lib/supabase';
+
 // ── MAINTENANCE & EQUIPMENT ──
 const MAINT_CATS=["Audio","Video","HVAC","Vehicles","Electrical","Plumbing","Kitchen","Office","Musical Instruments","Grounds/Landscaping","Other"];
 const MCAT_COLORS={"Audio":"#7c3aed","Video":"#2563eb","HVAC":"#0891b2","Vehicles":"#ea580c","Electrical":"#d97706","Plumbing":"#0e7490","Kitchen":"#dc2626","Office":"#6b7280","Musical Instruments":"#c9a84c","Grounds/Landscaping":"#16a34a","Other":"#6b7280"};
@@ -9,26 +13,9 @@ const WO_STATUS_COLORS={"Open":"#2563eb","In Progress":"#d97706","On Hold":"#6b7
 const MAINT_FREQS=["Weekly","Bi-Weekly","Monthly","Quarterly","Semi-Annually","Yearly"];
 const FREQ_DAYS={"Weekly":7,"Bi-Weekly":14,"Monthly":30,"Quarterly":90,"Semi-Annually":180,"Yearly":365};
 
-const ISEED_EQUIP=[
-  {id:1001,name:"Yamaha TF5 Mixing Console",category:"Audio",location:"Sanctuary",serial:"TF5-2023-0847",purchaseDate:"2023-03-15",warrantyExpires:"2026-03-15",vendor:"Sweetwater Sound",manufacturer:"Yamaha",cost:5499,status:"Active",notes:"Primary sanctuary mixer"},
-  {id:1002,name:"Trane XR17 HVAC Unit",category:"HVAC",location:"Sanctuary",serial:"TR-XR17-889231",purchaseDate:"2022-06-10",warrantyExpires:"2027-06-10",vendor:"Cooper Climate Control",manufacturer:"Trane",cost:8900,status:"Active",notes:"Main sanctuary A/C"},
-  {id:1003,name:"Ford Transit Church Van",category:"Vehicles",location:"Parking Lot",serial:"1FBAX2CM2NKA12345",purchaseDate:"2022-01-20",warrantyExpires:"2025-01-20",vendor:"Peoria Ford",manufacturer:"Ford",cost:45000,status:"Active",notes:"15 passenger van"},
-  {id:1004,name:"Epson Pro L1500UH Projector",category:"Video",location:"Sanctuary",serial:"EPS-L1500-224",purchaseDate:"2024-02-05",warrantyExpires:"2026-05-10",vendor:"B&H Photo",manufacturer:"Epson",cost:6499,status:"Active",notes:"Main sanctuary projector"},
-  {id:1005,name:"Vulcan 6-Burner Range",category:"Kitchen",location:"Kitchen",serial:"VK-6B-441",purchaseDate:"2020-09-14",warrantyExpires:"2023-09-14",vendor:"Restaurant Depot",manufacturer:"Vulcan",cost:3200,status:"Active",notes:""},
-  {id:1006,name:"Yamaha P-125 Digital Piano",category:"Musical Instruments",location:"Sanctuary",serial:"YP125-88421",purchaseDate:"2023-11-02",warrantyExpires:"2026-11-02",vendor:"Sweetwater Sound",manufacturer:"Yamaha",cost:699,status:"Active",notes:""},
-];
-const ISEED_SCHED=[
-  {id:2001,equipmentId:1001,taskName:"Quarterly cleaning & firmware check",frequency:"Quarterly",lastService:"2026-01-15",nextService:"2026-04-15",assignedType:"free",assignedUserId:null,assignedMemberId:null,assignedName:"Bro. Jackson",active:true,notes:""},
-  {id:2002,equipmentId:1002,taskName:"Filter replacement & coil cleaning",frequency:"Monthly",lastService:"2026-03-20",nextService:"2026-04-19",assignedType:"free",assignedUserId:null,assignedMemberId:null,assignedName:"Cooper Climate Control",active:true,notes:"Replace filters, clean coils"},
-  {id:2003,equipmentId:1003,taskName:"Oil change & tire inspection",frequency:"Quarterly",lastService:"2026-01-10",nextService:"2026-04-10",assignedType:"free",assignedUserId:null,assignedMemberId:null,assignedName:"Valvoline",active:true,notes:"Use 5W-30 synthetic"},
-  {id:2004,equipmentId:1005,taskName:"Deep clean & safety inspection",frequency:"Monthly",lastService:"2026-02-28",nextService:"2026-03-30",assignedType:"free",assignedUserId:null,assignedMemberId:null,assignedName:"Sis. Carter",active:true,notes:""},
-  {id:2005,equipmentId:1004,taskName:"Lamp replacement check",frequency:"Semi-Annually",lastService:"2026-01-05",nextService:"2026-07-04",assignedType:"free",assignedUserId:null,assignedMemberId:null,assignedName:"Bro. Jackson",active:true,notes:""},
-];
-const ISEED_WO=[
-  {id:3001,title:"Replace blown speaker in Fellowship Hall",description:"Left-side JBL speaker has no output. Suspect blown driver.",equipmentId:null,priority:"High",status:"Open",assignedType:"free",assignedUserId:null,assignedMemberId:null,assignedName:"Bro. Jackson",createdDate:"2026-04-18",completedDate:null,updates:[]},
-  {id:3002,title:"Sanctuary lighting flickering",description:"Back rows of sanctuary pendants flicker during service. Check ballast.",equipmentId:null,priority:"Medium",status:"In Progress",assignedType:"free",assignedUserId:null,assignedMemberId:null,assignedName:"Parker Electric",createdDate:"2026-04-15",completedDate:null,updates:[{date:"2026-04-17",note:"Parker Electric scheduled for 4/22"}]},
-  {id:3003,title:"Kitchen faucet replacement",description:"Pre-rinse sprayer leaking at base",equipmentId:1005,priority:"Low",status:"Completed",assignedType:"free",assignedUserId:null,assignedMemberId:null,assignedName:"Bro. Wilson",createdDate:"2026-04-05",completedDate:"2026-04-12",updates:[{date:"2026-04-12",note:"Replaced with Moen commercial unit from Home Depot. $89"}]},
-];
+const ISEED_EQUIP:any[]=[];
+const ISEED_SCHED:any[]=[];
+const ISEED_WO:any[]=[];
 
 function maintStatus(sched){
   const today=td();
@@ -395,7 +382,7 @@ function Maintenance({users,members,currentUser,roles,permissions,equipment,setE
 }
 
 // ── CHURCH SETTINGS & DOWNLOAD ──
-const DEFAULT_CS={name:"",pastorName:"",address:"",phone:"",email:"",logoUrl:""};
+const DEFAULT_CS={name:"New Testament Christian Church",pastorName:"Pastor R. E. Hall",address:"Glendale, AZ",phone:"",email:"",logoUrl:""};
 
 async function downloadApp(cs, d) {
   const today = new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric",year:"numeric"});
@@ -573,31 +560,23 @@ function SetupModal({onSave}){
   </div>);
 }
 
-const SEED_IDS={members:new Set([1,2,3,4,5,6,7,8]),visitors:new Set([101,102,103,104]),attendance:new Set([1,2,3,4]),giving:new Set([1,2,3,4,5,6,7]),prayers:new Set([1,2,3]),groups:new Set([1,2,3]),meetings:new Set([1,2,3,4]),children:new Set([501,502,503,504]),equipment:new Set([1001,1002,1003,1004,1005,1006]),schedMaint:new Set([2001,2002,2003,2004,2005]),workOrders:new Set([3001,3002,3003])};
-
-function ChurchSettingsPage({cs,setCs,members,setMembers,visitors,setVisitors,attendance,setAttendance,giving,setGiving,prayers,setPrayers,groups,setGroups,grpMeetings,setGrpMeetings,visitRecords,setVisitRecords,checkIns,kidsCheckIns,children,setChildren,pledgeDrives,pledges,weeklyReports,equipment,setEquipment,workOrders,setWorkOrders,schedMaint,setSchedMaint}){
+function ChurchSettingsPage({cs,setCs,members,setMembers,visitors,attendance,giving,prayers,groups,grpMeetings,visitRecords,checkIns,kidsCheckIns,children,pledgeDrives,pledges,weeklyReports,equipment,workOrders,schedMaint}:any){
   const [form,setForm]=useState({...cs});
   const [saved,setSaved]=useState(false);
+  const [stab,setStab]=useState('general');
   const sf=k=>v=>setForm(f=>({...f,[k]:v}));
   const save=()=>{setCs({...form});setSaved(true);setTimeout(()=>setSaved(false),2500);};
   const allData={members,visitors,attendance,giving,prayers,groups,grpMeetings,visitRecords,checkIns,kidsCheckIns,children,pledgeDrives,pledges,weeklyReports,equipment,workOrders,schedMaint};
   const logoInitials=(form.name||"AI").split(" ").filter(w=>w).slice(0,2).map(w=>w[0]).join("").toUpperCase();
-  const clearTestData=()=>{
-    if(!confirm("Clear all pre-loaded sample data?\n\nMembers, visitors, giving, attendance, prayers, groups, equipment, and work orders that came pre-installed will be removed. Any records you added yourself will be kept.\n\nThis cannot be undone.")) return;
-    setMembers(ms=>ms.filter(m=>!SEED_IDS.members.has(m.id)));
-    setVisitors(vs=>vs.filter(v=>!SEED_IDS.visitors.has(v.id)));
-    setAttendance(as=>as.filter(a=>!SEED_IDS.attendance.has(a.id)));
-    setGiving(gs=>gs.filter(g=>!SEED_IDS.giving.has(g.id)));
-    setPrayers(ps=>ps.filter(p=>!SEED_IDS.prayers.has(p.id)));
-    setGroups(gs=>gs.filter(g=>!SEED_IDS.groups.has(g.id)));
-    setGrpMeetings(ms=>ms.filter(m=>!SEED_IDS.meetings.has(m.id)));
-    setChildren(cs=>cs.filter(c=>!SEED_IDS.children.has(c.id)));
-    setEquipment(es=>es.filter(e=>!SEED_IDS.equipment.has(e.id)));
-    setSchedMaint(ss=>ss.filter(s=>!SEED_IDS.schedMaint.has(s.id)));
-    setWorkOrders(ws=>ws.filter(w=>!SEED_IDS.workOrders.has(w.id)));
-    setVisitRecords(rs=>rs.filter(r=>!SEED_IDS.visitors.has(r.visitorId)));
-  };
   return (<div>
+    {/* Tab bar */}
+    <div style={{display:'flex',gap:4,marginBottom:20,borderBottom:'1.5px solid '+BR,paddingBottom:0}}>
+      {[{id:'general',label:'⚙ General'},{id:'merge',label:'🔀 Merge Tool'}].map(t=>(
+        <button key={t.id} onClick={()=>setStab(t.id)} style={{padding:'8px 18px',fontSize:13,fontWeight:stab===t.id?600:400,color:stab===t.id?N:MU,background:'none',border:'none',borderBottom:stab===t.id?'2.5px solid '+N:'2.5px solid transparent',cursor:'pointer',marginBottom:-1.5}}>{t.label}</button>
+      ))}
+    </div>
+    {stab==='merge'&&<MergeTool members={members} setMembers={setMembers}/>}
+    {stab==='general'&&<div>
     {saved&&<div style={{background:"#dcfce7",border:"0.5px solid #86efac",borderRadius:9,padding:"10px 16px",marginBottom:14,fontSize:13,color:"#14532d",fontWeight:500}}>Settings saved successfully.</div>}
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
       <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:18}}>
@@ -629,29 +608,236 @@ function ChurchSettingsPage({cs,setCs,members,setMembers,visitors,setVisitors,at
         <span style={{fontSize:11,color:MU}}>{members.length} members · {visitors.length} visitors · {giving.length} giving records · {equipment.length} equipment items</span>
       </div>
     </div>
-    <div style={{background:W,border:"1.5px solid "+RE+"55",borderRadius:12,padding:18,marginBottom:16}}>
-      <h3 style={{fontSize:14,fontWeight:500,color:RE,margin:"0 0 6px"}}>Clear Sample Data</h3>
-      <p style={{fontSize:12,color:MU,margin:"0 0 12px",lineHeight:1.6}}>Removes all pre-loaded demo records (members, visitors, giving, attendance, prayers, groups, equipment). Any records <strong>you added yourself</strong> will be kept. This cannot be undone.</p>
-      <Btn onClick={clearTestData} style={{background:RE,color:"#fff",borderColor:RE,fontSize:13,padding:"8px 18px"}}>Clear Sample Data</Btn>
-    </div>
     <div style={{display:"flex",gap:8}}>
       <Btn onClick={save} v="success" style={{padding:"11px 24px",fontSize:14}}>Save Settings</Btn>
-      <Btn onClick={()=>setForm({...cs})} v="ghost">Reset Form</Btn>
+      <Btn onClick={()=>setForm({...cs})} v="ghost">Reset</Btn>
     </div>
+    <div style={{marginTop:24,background:"#fef2f2",border:"1.5px solid "+RE+"55",borderRadius:12,padding:18}}>
+      <h3 style={{fontSize:14,fontWeight:600,color:RE,margin:"0 0 6px"}}>Clear All Data — Go Live</h3>
+      <p style={{fontSize:12,color:"#7f1d1d",marginBottom:14,lineHeight:1.6}}>This permanently removes ALL records from this browser (members, visitors, giving, attendance, groups, children, prayer, equipment, work orders, etc.) and resets the app to a clean slate. This cannot be undone. Use this to clear test data before going live with real information.</p>
+      <Btn onClick={()=>{
+        if(!confirm("PERMANENTLY delete ALL data from this browser? This cannot be undone.")) return;
+        if(!confirm("Are you absolutely sure? All members, visitors, giving, attendance, and every other record will be erased.")) return;
+        const prefix = cs._churchId ? `ntcc_${cs._churchId}_` : "ntcc_";
+        const keysToRemove = [];
+        for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&(k.startsWith(prefix)||k.startsWith("ntcc_")))keysToRemove.push(k);}
+        keysToRemove.forEach(k=>localStorage.removeItem(k));
+        window.location.reload();
+      }} v="danger" style={{fontSize:13}}>Clear All Data & Reload</Btn>
+    </div>
+    </div>}
   </div>);
+}
+
+// ── MERGE TOOL ──
+function MergeTool({members,setMembers}:any){
+  const [step,setStep]=useState<'upload'|'preview'|'done'>('upload');
+  const [newOnes,setNewOnes]=useState<any[]>([]);
+  const [conflicts,setConflicts]=useState<any[]>([]);
+  const [acceptNew,setAcceptNew]=useState<Set<number>>(new Set());
+  const [acceptConflict,setAcceptConflict]=useState<Set<number>>(new Set());
+  const [choices,setChoices]=useState<any>({});
+  const [result,setResult]=useState<any>(null);
+  const [err,setErr]=useState('');
+  const MF=[
+    {key:'first',label:'First Name'},{key:'last',label:'Last Name'},
+    {key:'status',label:'Status'},{key:'phone',label:'Phone'},
+    {key:'email',label:'Email'},{key:'birthday',label:'Birthday'},
+    {key:'anniversary',label:'Anniversary'},{key:'spouseName',label:'Spouse'},
+    {key:'joined',label:'Join Date'},
+    {key:'address',label:'Address',fmt:(v:any)=>v?[v.street,v.city,v.state,v.zip].filter(Boolean).join(', '):''},
+    {key:'children',label:'Children',fmt:(v:any)=>Array.isArray(v)?v.map((c:any)=>c.name).join(', '):(v||'')},
+    {key:'gender',label:'Gender'},{key:'notes',label:'Notes'},
+  ];
+  function mapF(raw:any):any{
+    const get=(...keys:string[])=>{for(const k of keys){const found=Object.keys(raw).find(rk=>rk.toLowerCase().replace(/[^a-z]/g,'')===k.toLowerCase().replace(/[^a-z]/g,''));if(found&&raw[found])return String(raw[found]).trim();}return'';};
+    const first=get('first','firstname','fname','givenname');
+    const last=get('last','lastname','lname','surname','familyname');
+    if(!first&&!last)return null;
+    return{id:`mrg_${Date.now()}_${Math.random()}`,first,last,
+      status:get('status','membershipstatus','membership')||'Active',
+      phone:get('phone','phonenumber','mobile','cell','telephone'),
+      email:get('email','emailaddress'),
+      birthday:get('birthday','birthdate','dob','dateofbirth'),
+      anniversary:get('anniversary','anniversarydate','weddingdate'),
+      spouseName:get('spouse','spousename','partnername'),
+      joined:get('joined','joindate','datejoined','membershipdate','startdate'),
+      address:{street:get('address','street','streetaddress'),city:get('city'),state:get('state'),zip:get('zip','zipcode','postalcode')},
+      children:(()=>{const c=get('children','child','kids');if(!c)return[];return c.split(/[;|]/).filter(Boolean).map((n:string)=>({name:n.trim(),birthday:''}));})(),
+      gender:get('gender','sex'),notes:get('notes','note','comments','remarks'),
+      role:get('role','ministry','position','title'),
+    };
+  }
+  function parseCSV(text:string):any[]{
+    const lines=text.trim().split(/\r?\n/);if(lines.length<2)return[];
+    const headers=lines[0].split(',').map(h=>h.trim().replace(/^"|"$/g,''));
+    return lines.slice(1).filter(l=>l.trim()).map(line=>{
+      const vals:string[]=[]; let cur='',inQ=false;
+      for(const ch of line){if(ch==='"')inQ=!inQ;else if(ch===','&&!inQ){vals.push(cur);cur='';}else cur+=ch;}
+      vals.push(cur);
+      const obj:any={};headers.forEach((h,i)=>{obj[h]=(vals[i]||'').trim().replace(/^"|"$/g,'');});
+      return mapF(obj);
+    }).filter(Boolean);
+  }
+  function process(file:File){
+    setErr('');
+    const reader=new FileReader();
+    reader.onload=(e)=>{
+      const text=e.target?.result as string;
+      let records:any[]=[];
+      try{
+        if(file.name.toLowerCase().endsWith('.json')){const data=JSON.parse(text);const arr=Array.isArray(data)?data:(data.members||data.data||[]);records=arr.map(mapF).filter(Boolean);}
+        else{records=parseCSV(text);}
+      }catch{setErr('Could not parse file. Ensure it is valid CSV or JSON.');return;}
+      if(!records.length){setErr('No valid member records found in file.');return;}
+      const nw:any[]=[],cf:any[]=[];
+      records.forEach(inc=>{
+        const match=members.find((m:any)=>m.first?.trim().toLowerCase()===inc.first?.trim().toLowerCase()&&m.last?.trim().toLowerCase()===inc.last?.trim().toLowerCase());
+        if(match)cf.push({incoming:inc,existing:match});else nw.push(inc);
+      });
+      setNewOnes(nw);setConflicts(cf);
+      setAcceptNew(new Set(nw.map((_,i)=>i)));setAcceptConflict(new Set());
+      const defs:any={};cf.forEach((_,ci)=>{defs[ci]={};MF.forEach(f=>{defs[ci][f.key]='existing';});});
+      setChoices(defs);setStep('preview');
+    };
+    reader.readAsText(file);
+  }
+  function doMerge(){
+    let list=[...members];let added=0,upd=0;
+    newOnes.forEach((rec,i)=>{if(acceptNew.has(i)){list.push({...rec,id:Date.now()+Math.random()});added++;}});
+    conflicts.forEach((c,ci)=>{
+      if(acceptConflict.has(ci)){
+        const idx=list.findIndex((m:any)=>m.id===c.existing.id);
+        if(idx>=0){const u={...list[idx]};MF.forEach(f=>{if(choices[ci]?.[f.key]==='incoming')u[f.key]=c.incoming[f.key];});list[idx]=u;upd++;}
+      }
+    });
+    setMembers(list);setResult({added,merged:upd});setStep('done');
+  }
+  const fv=(f:any,rec:any)=>{if(f.fmt)return f.fmt(rec[f.key]);return String(rec[f.key]||'');};
+  if(step==='done')return(
+    <div style={{textAlign:'center',padding:48}}>
+      <div style={{fontSize:48,marginBottom:12}}>✅</div>
+      <h3 style={{fontSize:18,fontWeight:600,color:N,margin:'0 0 8px'}}>Merge Complete</h3>
+      <p style={{color:MU,fontSize:14}}><strong style={{color:GR}}>{result.added}</strong> member{result.added!==1?'s':''} added &nbsp;·&nbsp; <strong style={{color:BL}}>{result.merged}</strong> profile{result.merged!==1?'s':''} updated</p>
+      <Btn onClick={()=>{setStep('upload');setResult(null);}} v="ghost" style={{marginTop:16}}>Merge Another File</Btn>
+    </div>
+  );
+  if(step==='preview')return(
+    <div>
+      <div style={{display:'flex',gap:12,marginBottom:20,flexWrap:'wrap'}}>
+        <div style={{background:'#dcfce7',border:'0.5px solid #86efac',borderRadius:9,padding:'10px 16px',fontSize:13,color:'#14532d',fontWeight:500}}>{newOnes.length} new · {acceptNew.size} selected to add</div>
+        <div style={{background:'#fef9c3',border:'0.5px solid #fde047',borderRadius:9,padding:'10px 16px',fontSize:13,color:'#713f12',fontWeight:500}}>{conflicts.length} duplicate{conflicts.length!==1?'s':''} · {acceptConflict.size} to update</div>
+      </div>
+      {newOnes.length>0&&<div style={{background:W,border:'0.5px solid '+BR,borderRadius:12,padding:18,marginBottom:16}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+          <h3 style={{fontSize:14,fontWeight:600,color:N,margin:0}}>New Members to Add ({newOnes.length})</h3>
+          <div style={{display:'flex',gap:8}}>
+            <Btn v="ghost" onClick={()=>setAcceptNew(new Set(newOnes.map((_,i)=>i)))} style={{fontSize:11,padding:'4px 10px'}}>All</Btn>
+            <Btn v="ghost" onClick={()=>setAcceptNew(new Set())} style={{fontSize:11,padding:'4px 10px'}}>None</Btn>
+          </div>
+        </div>
+        <div style={{display:'flex',flexDirection:'column',gap:5}}>
+          {newOnes.map((rec,i)=>(
+            <label key={i} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',background:acceptNew.has(i)?'#f0fdf4':'#f9fafb',border:'0.5px solid '+(acceptNew.has(i)?'#86efac':BR),borderRadius:8,cursor:'pointer'}}>
+              <input type="checkbox" checked={acceptNew.has(i)} onChange={()=>{const s=new Set(acceptNew);s.has(i)?s.delete(i):s.add(i);setAcceptNew(s);}}/>
+              <span style={{fontWeight:500,color:TX}}>{rec.first} {rec.last}</span>
+              <span style={{fontSize:11,color:MU,marginLeft:6}}>{[rec.phone,rec.email,rec.status].filter(Boolean).join(' · ')}</span>
+            </label>
+          ))}
+        </div>
+      </div>}
+      {conflicts.length>0&&<div style={{background:W,border:'0.5px solid '+BR,borderRadius:12,padding:18,marginBottom:16}}>
+        <h3 style={{fontSize:14,fontWeight:600,color:N,margin:'0 0 4px'}}>Duplicate Members ({conflicts.length})</h3>
+        <p style={{fontSize:12,color:MU,marginBottom:14}}>Name already exists. Check to update and choose which field values to keep.</p>
+        {conflicts.map((c,ci)=>(
+          <div key={ci} style={{border:'0.5px solid '+(acceptConflict.has(ci)?'#93c5fd':BR),borderRadius:10,marginBottom:10,overflow:'hidden'}}>
+            <label style={{display:'flex',alignItems:'center',gap:10,padding:'10px 14px',background:acceptConflict.has(ci)?'#eff6ff':'#f9fafb',cursor:'pointer'}}>
+              <input type="checkbox" checked={acceptConflict.has(ci)} onChange={()=>{const s=new Set(acceptConflict);s.has(ci)?s.delete(ci):s.add(ci);setAcceptConflict(s);}}/>
+              <span style={{fontWeight:500,color:TX}}>{c.existing.first} {c.existing.last}</span>
+              <span style={{fontSize:11,color:MU,marginLeft:6}}>pick fields to update below</span>
+            </label>
+            {acceptConflict.has(ci)&&<div style={{padding:14,overflowX:'auto'}}>
+              <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+                <thead><tr>
+                  <th style={{padding:'6px 8px',textAlign:'left',color:MU,fontWeight:600,background:'#f9fafb',width:110}}>Field</th>
+                  <th style={{padding:'6px 8px',textAlign:'left',color:GR,fontWeight:600,background:'#f0fdf4'}}>✔ Keep Existing</th>
+                  <th style={{padding:'6px 8px',textAlign:'left',color:BL,fontWeight:600,background:'#eff6ff'}}>↩ Use Incoming</th>
+                </tr></thead>
+                <tbody>
+                  {MF.map(f=>{
+                    const ev=fv(f,c.existing),iv=fv(f,c.incoming);
+                    if(!ev&&!iv)return null;
+                    const sel=choices[ci]?.[f.key]||'existing';
+                    return(<tr key={f.key} style={{borderTop:'0.5px solid '+BR}}>
+                      <td style={{padding:'7px 8px',fontWeight:500,color:TX,whiteSpace:'nowrap'}}>{f.label}</td>
+                      <td style={{padding:'6px 8px',background:sel==='existing'?'#f0fdf4':''}}>
+                        <label style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer'}}>
+                          <input type="radio" name={`fld-${ci}-${f.key}`} checked={sel==='existing'} onChange={()=>setChoices((p:any)=>({...p,[ci]:{...p[ci],[f.key]:'existing'}}))}/>
+                          <span style={{fontSize:11,color:ev?TX:MU,fontStyle:ev?'normal':'italic'}}>{ev||'(empty)'}</span>
+                        </label>
+                      </td>
+                      <td style={{padding:'6px 8px',background:sel==='incoming'?'#eff6ff':''}}>
+                        <label style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer'}}>
+                          <input type="radio" name={`fld-${ci}-${f.key}`} checked={sel==='incoming'} onChange={()=>setChoices((p:any)=>({...p,[ci]:{...p[ci],[f.key]:'incoming'}}))}/>
+                          <span style={{fontSize:11,color:iv?TX:MU,fontStyle:iv?'normal':'italic'}}>{iv||'(empty)'}</span>
+                        </label>
+                      </td>
+                    </tr>);
+                  })}
+                </tbody>
+              </table>
+            </div>}
+          </div>
+        ))}
+      </div>}
+      <div style={{display:'flex',gap:10}}>
+        <Btn onClick={doMerge} v="success" style={{fontSize:14,padding:'10px 24px'}}>Confirm Merge ({acceptNew.size+acceptConflict.size} records)</Btn>
+        <Btn onClick={()=>setStep('upload')} v="ghost">← Back</Btn>
+      </div>
+    </div>
+  );
+  return(
+    <div>
+      <p style={{fontSize:13,color:MU,marginBottom:20,lineHeight:1.7}}>Import member profiles from another church's database. Detects duplicates by first+last name and lets you choose which field values to keep.</p>
+      {err&&<div style={{background:'#fee2e2',border:'0.5px solid #fca5a5',borderRadius:8,padding:'10px 14px',color:'#b91c1c',fontSize:13,marginBottom:14}}>{err}</div>}
+      <div
+        onDragOver={e=>e.preventDefault()}
+        onDrop={e=>{e.preventDefault();const f=e.dataTransfer.files[0];if(f)process(f);}}
+        onClick={()=>document.getElementById('merge-file-inp')?.click()}
+        style={{border:'2px dashed #c7d2fe',borderRadius:14,padding:48,textAlign:'center',background:'#f5f3ff',cursor:'pointer'}}
+      >
+        <div style={{fontSize:40,marginBottom:8}}>📂</div>
+        <div style={{fontWeight:600,color:N,fontSize:15,marginBottom:4}}>Drop CSV or JSON file here</div>
+        <div style={{color:MU,fontSize:12}}>or click to browse</div>
+        <input id="merge-file-inp" type="file" accept=".csv,.json" style={{display:'none'}} onChange={e=>{const f=e.target.files?.[0];if(f)process(f);(e.target as any).value='';}}/>
+      </div>
+      <div style={{marginTop:16,background:'#f8fafc',border:'0.5px solid '+BR,borderRadius:10,padding:14}}>
+        <div style={{fontWeight:500,color:N,fontSize:13,marginBottom:6}}>Expected CSV columns (flexible naming):</div>
+        <div style={{fontSize:11,color:MU,lineHeight:1.9,flexWrap:'wrap',display:'flex',gap:4}}>
+          {['First Name','Last Name','Phone','Email','Status','Birthday','Anniversary','Spouse','Children (semicolons)','Address','City','State','Zip','Gender','Join Date','Notes'].map(c=>(
+            <code key={c} style={{background:'#e0e7ff',borderRadius:3,padding:'1px 6px'}}>{c}</code>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ── MAIN APP ──
 
-import { useState, useEffect, useRef } from "react";
+
 
 const N="#1a2e5a",G="#c9a84c",GL="#f5e9c8",BG="#f4f6fb",W="#fff",BR="#e2e5ec";
 const MU="#6b7280",TX="#1f2937",GR="#16a34a",RE="#dc2626",AM="#d97706",BL="#2563eb",PU="#7c3aed",TE="#0891b2";
 
 const EL_KEY="sk_7fd85f85f4f23d141576c41114a2bd693939b9b8ecc81efd";
+const SILENT_WAV="data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
+// Module-level audio element — unlocked once by user gesture, reused forever
+const _elAudio = typeof window !== "undefined" ? new Audio() : null as any;
+if (_elAudio) { _elAudio.volume = 1; _elAudio.preload = "auto"; }
 const EL_VOICES=[
-  {id:"Yko7PKHZNXotIFUBG7I9",name:"Matthew",desc:"Southern American Male — Warm & Pastoral (Recommended)"},
-  {id:"onwK4e9ZLuTAKqWW03F9",name:"Daniel",desc:"American Male — Deep & Authoritative"},
+  {id:"flq6f7ib4F8Sfv2nltCn",name:"Michael",desc:"American Male — Deep & Pastoral (Recommended)"},
+  {id:"onwK4e9ZLuTAKqWW03F9",name:"Daniel",desc:"British Male — Deep & Authoritative"},
   {id:"pNInz6obpgDQGcFmaJgB",name:"Adam",desc:"American Male — Narration Style"},
   {id:"TxGEqnHWrfWFTfGW9XjX",name:"Josh",desc:"American Male — Deep & Commanding"},
   {id:"ErXwobaYiN019PkySvjV",name:"Antoni",desc:"American Male — Well-Rounded"},
@@ -661,112 +847,32 @@ const EL_VOICES=[
 
 const EMPTY_ADDR={street:"",city:"",state:"AZ",zip:""};
 const EMPTY_PERSON_FIELDS={address:{...EMPTY_ADDR},birthday:"",anniversary:"",spouseName:"",children:[],emergencyName:"",emergencyPhone:"",emergencyRelation:"",baptismDate:"",salvationDate:"",allergies:[],medical:[],medicalNotes:"",occupation:"",employer:""};
-const IMEMBERS=[
-  {id:1,first:"Robert",last:"Lee",status:"Active",phone:"(623)555-0388",email:"rlee@ntcc.org",joined:"2024-01-15",role:"Choir",notes:"Strong tenor voice, serves faithfully",family:"Lee Household",
-    address:{street:"7823 W Glendale Ave",city:"Glendale",state:"AZ",zip:"85301"},
-    birthday:"1965-04-18",anniversary:"1992-06-27",spouseName:"Mary Lee",
-    children:[{name:"David Lee",birthday:"1995-08-12"},{name:"Ruth Lee",birthday:"1998-03-05"}],
-    emergencyName:"Mary Lee",emergencyPhone:"(623)555-0389",emergencyRelation:"Wife",
-    baptismDate:"1985-05-12",salvationDate:"1984-11-03",
-    allergies:[],medical:["Heart Condition"],medicalNotes:"Takes daily medication for blood pressure",
-    occupation:"Carpenter",employer:"Self-Employed"},
-  {id:2,first:"Dorothy",last:"Harris",status:"Active",phone:"(602)555-0372",email:"dharris@ntcc.org",joined:"2023-09-10",role:"Sunday School Teacher",notes:"Teaches children's class, gifted teacher",family:"Harris Household",
-    address:{street:"4521 N 43rd Ave",city:"Phoenix",state:"AZ",zip:"85019"},
-    birthday:"1958-11-22",anniversary:"",spouseName:"",children:[],
-    emergencyName:"James Harris",emergencyPhone:"(602)555-0373",emergencyRelation:"Son",
-    baptismDate:"1978-08-20",salvationDate:"1977-12-25",
-    allergies:["Penicillin"],medical:["Diabetes"],medicalNotes:"Type 2 diabetes — controlled with medication",
-    occupation:"Retired Teacher",employer:""},
-  {id:3,first:"James",last:"Wilson",status:"Active",phone:"(623)555-0455",email:"jwilson@ntcc.org",joined:"2023-06-20",role:"Deacon",notes:"Senior deacon, wise counsel",family:"Wilson Household",
-    address:{street:"8912 W Peoria Ave",city:"Peoria",state:"AZ",zip:"85345"},
-    birthday:"1960-07-15",anniversary:"1985-09-14",spouseName:"Patricia Wilson",
-    children:[{name:"Michael Wilson",birthday:"1988-02-20"}],
-    emergencyName:"Patricia Wilson",emergencyPhone:"(623)555-0456",emergencyRelation:"Wife",
-    baptismDate:"1980-06-08",salvationDate:"1979-04-15",
-    allergies:[],medical:[],medicalNotes:"",
-    occupation:"Construction Foreman",employer:"Tri-City Construction"},
-  {id:4,first:"Angela",last:"Brown",status:"Inactive",phone:"(480)555-0129",email:"abrown@email.com",joined:"2022-03-15",role:"",notes:"Needs pastoral contact — hasn't attended in 6 weeks",family:"Brown Household",
-    address:{street:"1745 E Southern Ave",city:"Mesa",state:"AZ",zip:"85204"},
-    birthday:"1982-03-10",anniversary:"",spouseName:"",children:[],
-    emergencyName:"",emergencyPhone:"",emergencyRelation:"",
-    baptismDate:"2015-07-12",salvationDate:"2015-04-05",
-    allergies:[],medical:[],medicalNotes:"",occupation:"Nurse",employer:"Banner Health"},
-  {id:5,first:"Charles",last:"Thompson",status:"Active",phone:"(602)555-0511",email:"cthompson@ntcc.org",joined:"2021-08-01",role:"Elder",notes:"Elder and mentor to young men",family:"Thompson Household",
-    address:{street:"3321 E Thomas Rd",city:"Phoenix",state:"AZ",zip:"85018"},
-    birthday:"1955-02-08",anniversary:"1980-06-21",spouseName:"Eleanor Thompson",
-    children:[{name:"Jonathan Thompson",birthday:"1985-10-14"},{name:"Sarah Martinez",birthday:"1988-05-22"}],
-    emergencyName:"Eleanor Thompson",emergencyPhone:"(602)555-0512",emergencyRelation:"Wife",
-    baptismDate:"1975-04-13",salvationDate:"1974-08-30",
-    allergies:[],medical:["Arthritis"],medicalNotes:"",
-    occupation:"Retired Pastor",employer:""},
-  {id:6,first:"Michelle",last:"Carter",status:"Active",phone:"(623)555-0622",email:"mcarter@ntcc.org",joined:"2022-05-10",role:"Usher",notes:"",family:"Carter Household",
-    ...EMPTY_PERSON_FIELDS,birthday:"1975-09-12",occupation:"Administrative Assistant",employer:"Maricopa County"},
-  {id:7,first:"David",last:"Jackson",status:"Active",phone:"(480)555-0733",email:"djackson@ntcc.org",joined:"2023-01-08",role:"Musician",notes:"Plays piano and keyboard",family:"Jackson Household",
-    ...EMPTY_PERSON_FIELDS,birthday:"1990-11-03",occupation:"Music Teacher",employer:"Phoenix Union HSD"},
-  {id:8,first:"Sandra",last:"Moore",status:"Active",phone:"(602)555-0844",email:"smoore@ntcc.org",joined:"2023-11-20",role:"",notes:"",family:"Moore Household",
-    ...EMPTY_PERSON_FIELDS},
-];
-const IVISITORS=[
-  {id:101,first:"Marcus",last:"Johnson",stage:"First Visit",phone:"(623)555-0191",email:"marcus.j@email.com",firstVisit:"2026-04-20",sponsor:"Deacon Wilson",notes:"Met at outreach — searching for a church home",
-    address:{street:"1234 W Northern Ave",city:"Phoenix",state:"AZ",zip:"85021"},
-    birthday:"1992-05-18",anniversary:"",spouseName:"",children:[],
-    emergencyName:"",emergencyPhone:"",emergencyRelation:"",
-    baptismDate:"",salvationDate:"",allergies:[],medical:[],medicalNotes:"",
-    occupation:"Warehouse Manager",employer:"Amazon"},
-  {id:102,first:"Patricia",last:"Davis",stage:"Follow-Up Needed",phone:"(602)555-0247",email:"pdavis@email.com",firstVisit:"2026-04-13",sponsor:"Sis. Harris",notes:"Interested in Bible study, going through family difficulty",
-    ...EMPTY_PERSON_FIELDS,birthday:"1978-08-30",occupation:"Accountant",employer:""},
-  {id:103,first:"Kevin",last:"Martinez",stage:"Returning",phone:"(480)555-0218",email:"kmart@email.com",firstVisit:"2026-03-30",sponsor:"Bro. Lee",notes:"Questions about membership — attended 3 times",
-    ...EMPTY_PERSON_FIELDS,occupation:"Electrician",employer:""},
-  {id:104,first:"Tanya",last:"Thomas",stage:"Prospect",phone:"(623)555-0374",email:"tthomas@email.com",firstVisit:"2026-03-16",sponsor:"Bro. Wilson",notes:"Asked about classes — brought her two daughters",
-    ...EMPTY_PERSON_FIELDS,occupation:"Hairstylist",employer:""},
-];
-const IATTEND=[
-  {id:1,date:"2026-04-20",service:"Sunday Morning Worship",count:87,members:62,visitors:25,notes:"Easter Sunday"},
-  {id:2,date:"2026-04-16",service:"Wednesday Bible Study",count:44,members:42,visitors:2,notes:""},
-  {id:3,date:"2026-04-13",service:"Sunday Morning Worship",count:74,members:58,visitors:16,notes:""},
-  {id:4,date:"2026-04-09",service:"Wednesday Bible Study",count:39,members:37,visitors:2,notes:""},
-];
-const IGIVING=[
-  {id:1,date:"2026-04-20",name:"Robert Lee",category:"Tithe",amount:350,method:"Check",notes:""},
-  {id:2,date:"2026-04-20",name:"Dorothy Harris",category:"Tithe",amount:200,method:"Cash",notes:""},
-  {id:3,date:"2026-04-20",name:"James Wilson",category:"Offering",amount:150,method:"Online",notes:"Building Fund"},
-  {id:4,date:"2026-04-20",name:"Charles Thompson",category:"Tithe",amount:500,method:"Check",notes:""},
-  {id:5,date:"2026-04-13",name:"Robert Lee",category:"Tithe",amount:350,method:"Check",notes:""},
-  {id:6,date:"2026-04-13",name:"Dorothy Harris",category:"Tithe",amount:200,method:"Cash",notes:""},
-  {id:7,date:"2026-04-13",name:"Charles Thompson",category:"Tithe",amount:500,method:"Check",notes:""},
-];
-const IPRAYERS=[
-  {id:1,name:"Anonymous",request:"Pray for healing for my mother who is ill.",date:"2026-04-20",status:"Active"},
-  {id:2,name:"Marcus Johnson",request:"Pray God guides me in finding stable employment.",date:"2026-04-13",status:"Active"},
-  {id:3,name:"Patricia Davis",request:"Peace and reconciliation in my family.",date:"2026-04-06",status:"Answered"},
-];
+const IMEMBERS:any[]=[];
+const IVISITORS:any[]=[];
+const IATTEND:any[]=[];
+const IGIVING:any[]=[];
+const IPRAYERS:any[]=[];
 
 const GROUP_TYPES=["Bible Study","Prayer Group","Ministry Team","Youth Group","Outreach","Worship","Custom"];
 const GROUP_COLORS=["#1a2e5a","#c9a84c","#16a34a","#2563eb","#7c3aed","#dc2626","#d97706","#0891b2","#be185d","#065f46"];
 const DAYS=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
-const IGROUPS=[
-  {id:1,name:"Men's Bible Study",type:"Bible Study",description:"Weekly men's fellowship and scripture study",color:"#1a2e5a",day:"Wednesday",time:"7:00 PM",location:"Fellowship Hall",leaderId:3,memberIds:[1,3,5,7],created:"2025-09-01"},
-  {id:2,name:"Prayer Warriors",type:"Prayer Group",description:"Intercessory prayer team",color:"#7c3aed",day:"Tuesday",time:"6:30 AM",location:"Sanctuary",leaderId:5,memberIds:[2,4,5,6,8],created:"2025-06-15"},
-  {id:3,name:"Worship Team",type:"Ministry Team",description:"Choir and musicians ministry",color:"#c9a84c",day:"Sunday",time:"8:00 AM",location:"Choir Loft",leaderId:7,memberIds:[1,2,7],created:"2024-01-10"},
-];
-const IMEETINGS=[
-  {id:1,groupId:1,date:"2026-04-16",presentIds:[1,3,5],absentIds:[7],walkIns:1,notes:"Studied Romans 8",total:4},
-  {id:2,groupId:1,date:"2026-04-09",presentIds:[1,3,7],absentIds:[5],walkIns:0,notes:"James 1",total:3},
-  {id:3,groupId:2,date:"2026-04-14",presentIds:[2,4,5,6,8],absentIds:[],walkIns:2,notes:"Prayed for community revival",total:7},
-  {id:4,groupId:3,date:"2026-04-20",presentIds:[1,2,7],absentIds:[],walkIns:0,notes:"Easter Sunday worship",total:3},
-];
+const IGROUPS:any[]=[];
+const IMEETINGS:any[]=[];
 
 // ── Education Department Constants ──
-const GRADES=["Pre-K","K","1st","2nd","3rd","4th","5th","6th","7th","8th","9th","10th","11th","12th"];
 const CL_COLORS=["#1a2e5a","#c9a84c","#16a34a","#2563eb","#7c3aed","#dc2626","#d97706","#0891b2","#be185d","#065f46","#ea580c","#4f46e5","#db2777","#0e7490"];
-const ICLASSROOMS=GRADES.map((g,i)=>({id:i+1,grade:g,name:g==="Pre-K"?"Pre-K":g==="K"?"Kindergarten":g+" Grade",location:"Room "+(101+i),capacity:i<2?10:i<6?15:18,color:CL_COLORS[i]}));
-const ICHILDREN=[
-  {id:501,first:"David",last:"Lee",dob:"2015-08-12",grade:"4th",parentMemberId:1,parentName:"Robert Lee",parentPhone:"(623)555-0388",allergies:["Peanuts"],medical:[],medicalNotes:"Auto-injector in backpack",emergencyPickup:"Mary Lee (mother)",status:"Active"},
-  {id:502,first:"Ruth",last:"Lee",dob:"2018-03-05",grade:"1st",parentMemberId:1,parentName:"Robert Lee",parentPhone:"(623)555-0388",allergies:[],medical:[],medicalNotes:"",emergencyPickup:"Mary Lee (mother)",status:"Active"},
-  {id:503,first:"Michael",last:"Wilson",dob:"2016-02-20",grade:"3rd",parentMemberId:3,parentName:"James Wilson",parentPhone:"(623)555-0455",allergies:[],medical:[],medicalNotes:"",emergencyPickup:"Patricia Wilson (mother)",status:"Active"},
-  {id:504,first:"Jonathan",last:"Thompson",dob:"2017-10-14",grade:"2nd",parentMemberId:5,parentName:"Charles Thompson",parentPhone:"(602)555-0511",allergies:[],medical:["Asthma"],medicalNotes:"Rescue inhaler required in class",emergencyPickup:"Eleanor Thompson",status:"Active"},
-  {id:505,first:"Sarah",last:"Johnson",dob:"2014-06-22",grade:"5th",parentMemberId:null,parentName:"Marcus Johnson",parentPhone:"(623)555-0191",allergies:[],medical:[],medicalNotes:"Visitor family - first Sunday",emergencyPickup:"",status:"Active"},
+function levelFromAge(age){if(age<=2)return"Nursery";if(age<=4)return"Pre-K";if(age===5)return"Kindergarten";if(age<=10)return"Elementary";if(age<=13)return"Middle School";if(age<=17)return"High School";return"Young Adult";}
+const CHURCH_LEVELS=[
+  {id:1,name:"Nursery",grade:"Nursery",ageMin:0,ageMax:2,label:"Nursery (ages 0-2)",location:"Room 101",capacity:10,color:"#1a2e5a",checkin:true},
+  {id:2,name:"Pre-K",grade:"Pre-K",ageMin:3,ageMax:4,label:"Pre-K (ages 3-4)",location:"Room 102",capacity:12,color:"#c9a84c",checkin:true},
+  {id:3,name:"Kindergarten",grade:"Kindergarten",ageMin:5,ageMax:5,label:"Kindergarten (age 5)",location:"Room 103",capacity:15,color:"#16a34a",checkin:true},
+  {id:4,name:"Elementary",grade:"Elementary",ageMin:6,ageMax:10,label:"Elementary (grades 1-5, ages 6-10)",location:"Room 104",capacity:20,color:"#2563eb",checkin:true},
+  {id:5,name:"Middle School",grade:"Middle School",ageMin:11,ageMax:13,label:"Middle School (grades 6-8, ages 11-13)",location:"Room 105",capacity:20,color:"#7c3aed",checkin:true},
+  {id:6,name:"High School",grade:"High School",ageMin:14,ageMax:17,label:"High School (grades 9-12, ages 14-18)",location:"Room 106",capacity:20,color:"#dc2626",checkin:true},
+  {id:7,name:"Young Adult",grade:"Young Adult",ageMin:18,ageMax:99,label:"Young Adult (ages 18+)",location:"Room 107",capacity:25,color:"#d97706",checkin:false},
 ];
+const ICLASSROOMS=CHURCH_LEVELS.map(l=>({...l}));
+const ICHILDREN:any[]=[];
 const ITEACHERSCHEDULE=[];
 const IKIDSCHECKINS=[];
 function genCode(){const c="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";let s="";for(let i=0;i<4;i++)s+=c[Math.floor(Math.random()*c.length)];return s;}
@@ -849,46 +955,47 @@ const BDGE={
 };
 
 // ── ElevenLabs TTS ──
-async function speakEL(text, voiceId, audioRef) {
-  if (!text || !voiceId) return;
+async function speakEL(text, voiceId) {
+  if (!text || !voiceId || !_elAudio) return false;
   const clean = text.replace(/\*\*|__|##|#|\[[\s\S]*?\]/g,"").replace(/\n+/g," ").substring(0,600);
   try {
     const res = await fetch("https://api.elevenlabs.io/v1/text-to-speech/" + voiceId, {
       method:"POST",
       headers:{"Accept":"audio/mpeg","Content-Type":"application/json","xi-api-key":EL_KEY},
-      body:JSON.stringify({text:clean,model_id:"eleven_multilingual_v2",voice_settings:{stability:0.5,similarity_boost:0.78}})
+      body:JSON.stringify({text:clean,model_id:"eleven_turbo_v2_5",voice_settings:{stability:0.5,similarity_boost:0.75,use_speaker_boost:true}})
     });
-    if (!res.ok) throw new Error("EL " + res.status);
+    if (!res.ok) {
+      const errBody = await res.text().catch(()=>"");
+      throw new Error("ElevenLabs " + res.status + (errBody?" — "+errBody.substring(0,120):""));
+    }
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
-    if (audioRef.current) {
-      audioRef.current.pause();
-      try { URL.revokeObjectURL(audioRef.current.src); } catch(e) {}
-    }
-    const audio = new Audio(url);
-    audioRef.current = audio;
-    audio.play();
+    _elAudio.pause();
+    try { URL.revokeObjectURL(_elAudio.src); } catch(e) {}
+    _elAudio.src = url;
+    await _elAudio.play();
+    return true;
   } catch(e) {
-    if (window.speechSynthesis) {
-      const u = new SpeechSynthesisUtterance(clean.substring(0,300));
-      window.speechSynthesis.speak(u);
-    }
+    console.error("ElevenLabs TTS error:", e);
+    return false;
   }
 }
 
 // ── AI ──
 function buildSys(members, visitors, attend, giving, prayers, mem) {
   const aprilGiving = giving.filter(g=>g.date.startsWith("2026-04")).reduce((a,g)=>a+g.amount,0);
-  const csName=window.__CS__?.name||"your church"; const csPastor=window.__CS__?.pastorName||"Pastor"; const csAddr=window.__CS__?.address||"";
-  return "You are "+csName+" AI — an intelligent assistant for church management. You serve "+csPastor+(csAddr?", of "+csName+" in "+csAddr:", of "+csName)+". Address them as "+csPastor+" or Sir. Speak warmly and naturally.\n\n" +
+  const recentAttend = attend.slice(0,12).map(a=>({date:a.date,service:a.service,count:a.count}));
+  const recentGiving = giving.slice(0,20).map(g=>({date:g.date,name:g.name,category:g.category,amount:g.amount,method:g.method}));
+  const recentPrayers = prayers.slice(0,15).map(p=>({name:p.name||"",request:p.request||"",status:p.status||""}));
+  return "You are "+(window.__CS__?.name||"NTCC")+" AI — an intelligence at IQ 250, combining Elon Musk's first-principles brilliance, Nikola Tesla's inventive genius, and a warm Southern American pastor's heart. You serve "+(window.__CS__?.pastorName||"Pastor Hall")+" of "+(window.__CS__?.name||"New Testament Christian Church")+", "+(window.__CS__?.address||"Glendale AZ")+". Call them "+(window.__CS__?.pastorName||"Pastor Hall")+" or Sir. Speak warmly and naturally.\n\n" +
     "LIVE DATABASE:\n" +
-    "Members(" + members.length + "): " + JSON.stringify(members.map(m=>({id:m.id,name:m.first+" "+m.last,status:m.status,role:m.role,phone:m.phone,email:m.email}))) + "\n" +
-    "Visitors(" + visitors.length + "): " + JSON.stringify(visitors.map(v=>({id:v.id,name:v.first+" "+v.last,stage:v.stage,phone:v.phone,firstVisit:v.firstVisit}))) + "\n" +
-    "Attendance(" + attend.length + "): " + JSON.stringify(attend.map(a=>({date:a.date,service:a.service,count:a.count}))) + "\n" +
-    "April Giving: $" + aprilGiving + " | Records: " + JSON.stringify(giving) + "\n" +
-    "Prayer Requests: " + JSON.stringify(prayers) + "\n\n" +
+    "Members(" + members.length + "): " + JSON.stringify(members.slice(0,60).map(m=>({id:m.id,name:m.first+" "+m.last,status:m.status,role:m.role,phone:m.phone,email:m.email}))) + "\n" +
+    "Visitors(" + visitors.length + "): " + JSON.stringify(visitors.slice(0,30).map(v=>({id:v.id,name:v.first+" "+v.last,stage:v.stage,phone:v.phone,firstVisit:v.firstVisit}))) + "\n" +
+    "Attendance(" + attend.length + " records, recent 12): " + JSON.stringify(recentAttend) + "\n" +
+    "April Giving: $" + aprilGiving + " | Recent Giving: " + JSON.stringify(recentGiving) + "\n" +
+    "Prayer Requests (recent 15): " + JSON.stringify(recentPrayers) + "\n\n" +
     "MEMORY: " + (mem.preferences||"Learning...") + " | Commands: " + (mem.commands||"Building...") + "\n\n" +
-    "COMMAND EXECUTION: When "+csPastor+" gives an executable command, respond naturally first, then on its own line append:\n" +
+    "COMMAND EXECUTION: When Pastor Hall gives an executable command, respond naturally first, then on its own line append:\n" +
     "[ACTION:{\"type\":\"TYPE\",\"data\":{},\"confirm\":\"Plain English confirmation\"}]\n\n" +
     "Types: ADD_MEMBER(first,last,phone,email,role,status,joined) | ADD_VISITOR(first,last,phone,email,stage,firstVisit,notes) | LOG_ATTENDANCE(date,service,count,members,visitors,notes) | RECORD_GIVING(name,date,category,amount,method,notes) | UPDATE_MEMBER(id,status,role) | DELETE_MEMBER(id) | DELETE_VISITOR(id) | NAVIGATE(section)\n\n" +
     "Sections: people, visitation, attendance, giving, prayer, access\n\n" +
@@ -896,18 +1003,31 @@ function buildSys(members, visitors, attend, giving, prayers, mem) {
 }
 
 async function callAI(messages, members, visitors, attend, giving, prayers, mem) {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({
-      model:"claude-sonnet-4-20250514",
-      max_tokens:1500,
-      system:buildSys(members, visitors, attend, giving, prayers, mem),
-      messages:messages.map(m=>({role:m.role,content:m.content}))
-    })
+  const AI_KEY = localStorage.getItem("ntcc_ai_api_key") || "";
+  if (!AI_KEY) throw new Error("No API key");
+  const systemPrompt = typeof messages === "string"
+    ? "You are NTCC AI, a helpful church assistant for Pastor Hall."
+    : buildSys(members, visitors, attend, giving, prayers, mem);
+  const msgList = typeof messages === "string"
+    ? [{role:"user", content:messages}]
+    : messages
+        .filter(m => m.role === "user" || m.role === "assistant")
+        .filter(m => !String(m.content).startsWith("Error:"))
+        .map(m => ({role:m.role, content:m.content}));
+  const res = await fetch("/api/ai", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({messages: msgList, system: systemPrompt, apiKey: AI_KEY})
   });
-  const d = await res.json();
-  const fp=window.__CS__?.pastorName||"Pastor"; return d.content?.find(c=>c.type==="text")?.text || "I do apologize, "+fp+" — something went wrong. Please try again, Sir.";
+  const text = await res.text();
+  let d: any;
+  try { d = JSON.parse(text); } catch(e) {
+    throw new Error("AI API returned unexpected response (status " + res.status + "). The /api/ai function may not be deployed — check Vercel Functions tab.");
+  }
+  if (!res.ok) {
+    throw new Error("AI API " + res.status + (d?.error ? " — " + d.error : ""));
+  }
+  return d.content?.find((c:any) => c.type === "text")?.text || "I do apologize, Pastor Hall — something went wrong. Please try again, Sir.";
 }
 
 function parseAction(text) {
@@ -1011,6 +1131,14 @@ const SEED_ROLES=[
   {id:"role_pastor",name:"Pastor",description:"Pastoral oversight and reports",color:"#1a2e5a",isSystem:false},
   {id:"role_staff",name:"Staff",description:"Day-to-day operations",color:"#2563eb",isSystem:false},
   {id:"role_volunteer",name:"Volunteer",description:"Limited task-specific access",color:"#16a34a",isSystem:false},
+  {id:"role_team_leader",name:"Team Leader",description:"Leads a ministry team or small group",color:"#7c3aed",isSystem:false},
+  {id:"role_sponsor",name:"Sponsor",description:"Mentors and sponsors new visitors",color:"#0891b2",isSystem:false},
+  {id:"role_helper",name:"Helper",description:"General ministry helper",color:"#d97706",isSystem:false},
+  {id:"role_musician",name:"Musician",description:"Worship team musician",color:"#be185d",isSystem:false},
+  {id:"role_usher",name:"Usher",description:"Door and seating ministry",color:"#065f46",isSystem:false},
+  {id:"role_checkin",name:"Check-in",description:"Kids and event check-in station",color:"#ea580c",isSystem:false},
+  {id:"role_kitchen",name:"Kitchen",description:"Kitchen and hospitality ministry",color:"#854d0e",isSystem:false},
+  {id:"role_nursery",name:"Nursery",description:"Nursery care team",color:"#4f46e5",isSystem:false},
 ];
 const makeFullPerms=()=>{const p={};MODULES.forEach(m=>{p[m.key]={};m.actions.forEach(a=>p[m.key][a]=true);});return p;};
 const makeEmptyPerms=()=>{const p={};MODULES.forEach(m=>{p[m.key]={};m.actions.forEach(a=>p[m.key][a]=false);});return p;};
@@ -1019,6 +1147,14 @@ const SEED_PERMS={
   role_pastor: (()=>{const p=makeFullPerms();p.settings={view:true,create:false,edit:false,delete:false};return p;})(),
   role_staff: (()=>{const p=makeEmptyPerms();["directory","visitation","groups","education","events","attendance","giving","prayer","reports","media"].forEach(k=>{p[k]={view:true,create:true,edit:true,delete:false};});return p;})(),
   role_volunteer: (()=>{const p=makeEmptyPerms();["directory","events","attendance","prayer"].forEach(k=>{p[k]={view:true,create:false,edit:false,delete:false};});p.education={view:true,create:true,edit:false,delete:false};return p;})(),
+  role_team_leader: makeEmptyPerms(),
+  role_sponsor: makeEmptyPerms(),
+  role_helper: makeEmptyPerms(),
+  role_musician: makeEmptyPerms(),
+  role_usher: makeEmptyPerms(),
+  role_checkin: makeEmptyPerms(),
+  role_kitchen: makeEmptyPerms(),
+  role_nursery: makeEmptyPerms(),
 };
 
 // Toggle Switch
@@ -2365,8 +2501,501 @@ function BulkEmailComposer({open,onClose,recipients,initialSubject,initialBody,i
   );
 }
 
+// ── SMS SYSTEM ──
+const SMS_CATEGORIES=["General","Follow-Up","Welcome","Prayer","Event","Pastoral","Birthday","Announcement","Emergency"];
+
+const DEFAULT_SMS_TEMPLATES=[
+  {id:"sms_1",name:"First-Visit Welcome",category:"Welcome",isDefault:true,body:"Hi {first}! We're so glad you joined us at {church} this Sunday. Pastor {pastor} and the whole family are praying for you. We'd love to see you again soon!"},
+  {id:"sms_2",name:"Missed You Follow-Up",category:"Follow-Up",isDefault:true,body:"Hi {first}, this is {church}. We've missed you! You're in our prayers. Please reach out anytime if you need anything. — Pastor {pastor}"},
+  {id:"sms_3",name:"Event Reminder",category:"Event",isDefault:true,body:"Hi {first}! Just a reminder about service this Sunday at {church}. We'd love to see you there. Blessings!"},
+  {id:"sms_4",name:"Birthday Blessing",category:"Birthday",isDefault:true,body:"Happy Birthday {first}! May God fill this year with grace, favor, and joy. We're celebrating you! Love, {church}"},
+  {id:"sms_5",name:"Prayer Response",category:"Prayer",isDefault:true,body:"Hi {first}, we received your prayer request and are standing with you before God. He hears every prayer. — {church}"},
+  {id:"sms_6",name:"Absent Member",category:"Follow-Up",isDefault:true,body:"Hi {first}, we've missed seeing you at {church}. You are loved and prayed for. Please reach out if you need anything. God bless!"},
+];
+
+function smsStats(text){
+  const len=text.length;
+  const hasUnicode=/[^\u0000-\u00FF]/.test(text);
+  const singleMax=hasUnicode?70:160;
+  const multiMax=hasUnicode?67:153;
+  if(len<=singleMax) return{chars:len,segments:1,remaining:singleMax-len};
+  const segments=Math.ceil(len/multiMax);
+  return{chars:len,segments,remaining:segments*multiMax-len};
+}
+
+function smsPersonalize(text,person,cs){
+  const first=(person?.first||(person?.name||"").split(" ")[0]||"Friend");
+  const last=(person?.last||(person?.name||"").split(" ").slice(1).join(" ")||"");
+  const church=cs?.name||"our church";
+  const pastorRaw=cs?.pastorName||"our Pastor";
+  const pastor=pastorRaw.replace(/^Pastor\s*/i,"").trim()||pastorRaw;
+  return text
+    .replace(/\{first\}/g,first)
+    .replace(/\{last\}/g,last)
+    .replace(/\{full\}/g,(first+" "+last).trim())
+    .replace(/\{church\}/g,church)
+    .replace(/\{pastor\}/g,pastor);
+}
+
+// ── SMS COMPOSER (Single Recipient) ──
+function SmsComposer({open,onClose,initialPhone,initialName,initialBody,initialCategory,relatedType,relatedId,cs,templates,members,visitors,onSend}){
+  const [phone,setPhone]=useState("");
+  const [toName,setToName]=useState("");
+  const [body,setBody]=useState("");
+  const [category,setCategory]=useState("General");
+  const [showTpl,setShowTpl]=useState(false);
+  const [pickerMode,setPickerMode]=useState("manual");
+  const [pickerId,setPickerId]=useState("");
+  const [aiLoad,setAiLoad]=useState(false);
+  const [copied,setCopied]=useState(false);
+  const [errorMsg,setErrorMsg]=useState("");
+
+  const stats=smsStats(body);
+
+  useEffect(()=>{
+    if(open){
+      setPhone(initialPhone||"");
+      setToName(initialName||"");
+      setBody(initialBody||"");
+      setCategory(initialCategory||"General");
+      setShowTpl(false);setCopied(false);setErrorMsg("");
+      setPickerMode("manual");setPickerId("");
+    }
+  },[open,initialPhone,initialName,initialBody,initialCategory]);
+
+  const allPeople=[
+    ...members.filter(m=>m.phone).map(m=>({...m,_type:"member",label:m.first+" "+m.last+" (Member)"})),
+    ...visitors.filter(v=>v.phone).map(v=>({...v,_type:"visitor",label:v.first+" "+v.last+" (Visitor)"})),
+  ];
+
+  const pickPerson=id=>{
+    const p=allPeople.find(x=>String(x.id)===id);
+    if(p){setPhone(p.phone);setToName(p.first+" "+(p.last||""));}
+    setPickerId(id);
+  };
+
+  const applyTemplate=tpl=>{
+    const person={first:(toName||"").split(" ")[0]||"Friend",last:(toName||"").split(" ").slice(1).join(" ")};
+    setBody(smsPersonalize(tpl.body,person,cs));
+    setCategory(tpl.category);setShowTpl(false);
+  };
+
+  const genAI=async()=>{
+    setAiLoad(true);
+    try{
+      const name=toName||"a church member";
+      const prompt=`Write a warm, brief pastoral SMS (max 155 chars) from ${cs?.pastorName||"Pastor"} at ${cs?.name||"our church"} to ${name}. Category: ${category}. Faith-filled, personal, conversational. Output only the message text, no quotes.`;
+      const result=await callAI(prompt,members,visitors,[],[],[],{});
+      setBody(result.slice(0,320));
+    }catch(e){setBody("Praying for you today, "+((toName||"").split(" ")[0]||"friend")+"! May God's grace surround you. — "+(cs?.name||"our church"));}
+    setAiLoad(false);
+  };
+
+  const doSmsLink=()=>{
+    if(!phone.trim()){setErrorMsg("Phone number required.");return;}
+    if(!body.trim()){setErrorMsg("Message required.");return;}
+    setErrorMsg("");
+    const clean=phone.replace(/\D/g,"");
+    window.open("sms:"+clean+"?body="+encodeURIComponent(body),"_blank");
+    if(onSend) onSend({to:phone,toName,body,category,method:"sms-link",status:"Opened in SMS App",relatedType,relatedId});
+    onClose();
+  };
+
+  const doCopy=()=>{
+    if(!body.trim()){setErrorMsg("Message required.");return;}
+    setErrorMsg("");
+    const text=toName?"To: "+toName+(phone?" ("+phone+")":"")+"\n\n"+body:body;
+    navigator.clipboard.writeText(text).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2500);});
+    if(onSend) onSend({to:phone,toName,body,category,method:"copy",status:"Copied to clipboard",relatedType,relatedId});
+  };
+
+  if(!open) return null;
+  const segColor=stats.segments===1?GR:stats.segments===2?AM:RE;
+
+  return(
+    <div onClick={onClose} style={{position:"fixed",inset:0,background:"#00000055",zIndex:350,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:W,borderRadius:12,width:520,maxWidth:"100%",maxHeight:"92vh",overflowY:"auto",padding:22,boxSizing:"border-box",border:"0.5px solid "+BR}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,paddingBottom:14,borderBottom:"0.5px solid "+BR}}>
+          <div>
+            <h2 style={{fontSize:17,fontWeight:500,color:N,margin:0}}>Compose SMS</h2>
+            <div style={{fontSize:11,color:MU,marginTop:2}}>{toName?"To "+toName:"New text message"}</div>
+          </div>
+          <button onClick={onClose} style={{background:"none",border:"none",fontSize:22,cursor:"pointer",color:MU,lineHeight:1}}>×</button>
+        </div>
+
+        {/* Recipient picker */}
+        <div style={{marginBottom:14}}>
+          <div style={{display:"flex",gap:5,marginBottom:8}}>
+            {[["manual","Type Number"],["pick","Pick from Directory"]].map(([m,lbl])=>(
+              <button key={m} onClick={()=>setPickerMode(m)} style={{flex:1,padding:"7px 10px",borderRadius:7,border:"0.5px solid "+(pickerMode===m?N:BR),background:pickerMode===m?N:W,color:pickerMode===m?"#fff":TX,fontSize:12,cursor:"pointer",fontWeight:pickerMode===m?500:400}}>{lbl}</button>
+            ))}
+          </div>
+          {pickerMode==="manual"?(
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <Fld label="Phone Number *"><Inp value={phone} onChange={setPhone} placeholder="(623) 555-0100"/></Fld>
+              <Fld label="Name (optional)"><Inp value={toName} onChange={setToName} placeholder="First Last"/></Fld>
+            </div>
+          ):(
+            <Fld label="Select Member or Visitor">
+              <select value={pickerId} onChange={e=>pickPerson(e.target.value)} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}>
+                <option value="">— Choose person —</option>
+                {allPeople.map(p=><option key={p._type+p.id} value={String(p.id)}>{p.label} — {p.phone}</option>)}
+              </select>
+            </Fld>
+          )}
+          {phone&&<div style={{fontSize:11,color:MU,marginTop:4}}>📱 {phone}</div>}
+        </div>
+
+        <Fld label="Category">
+          <select value={category} onChange={e=>setCategory(e.target.value)} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}>
+            {SMS_CATEGORIES.map(c=><option key={c} value={c}>{c}</option>)}
+          </select>
+        </Fld>
+
+        <div style={{display:"flex",gap:8,marginBottom:10,alignItems:"center"}}>
+          <button onClick={()=>setShowTpl(v=>!v)} style={{background:N+"14",border:"0.5px solid "+N+"44",borderRadius:7,padding:"6px 12px",fontSize:12,color:N,cursor:"pointer",fontWeight:500}}>{showTpl?"Hide":"Use"} Template ({templates.length})</button>
+          <button onClick={genAI} disabled={aiLoad} style={{background:GL,border:"1px solid "+G,borderRadius:7,padding:"6px 12px",fontSize:12,color:"#7a5c10",cursor:"pointer",fontWeight:500}}>{aiLoad?"Writing...":"✦ AI Draft"}</button>
+        </div>
+
+        {showTpl&&(
+          <div style={{maxHeight:180,overflowY:"auto",border:"0.5px solid "+BR,borderRadius:8,padding:8,marginBottom:12,background:BG}}>
+            {templates.map(tpl=>(
+              <div key={tpl.id} onClick={()=>applyTemplate(tpl)} style={{padding:"8px 11px",borderRadius:6,cursor:"pointer",background:W,marginBottom:5,border:"0.5px solid "+BR}} onMouseEnter={e=>e.currentTarget.style.background=N+"08"} onMouseLeave={e=>e.currentTarget.style.background=W}>
+                <div style={{fontSize:12,fontWeight:500,color:N,marginBottom:2}}>{tpl.name} <span style={{fontSize:10,color:MU}}>— {tpl.category}</span></div>
+                <div style={{fontSize:11,color:MU,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis"}}>{tpl.body.slice(0,90)}...</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <Fld label="Message *">
+          <textarea value={body} onChange={e=>setBody(e.target.value)} rows={5} placeholder={"Type your message... Use {first}, {church}, {pastor} as merge fields"} style={{width:"100%",padding:"10px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",fontFamily:"inherit",resize:"vertical",boxSizing:"border-box",lineHeight:1.7}}/>
+        </Fld>
+
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+          <div style={{fontSize:11,color:MU}}>Merge fields: {"{first}"} {"{church}"} {"{pastor}"}</div>
+          <div style={{fontSize:11,fontWeight:500,color:segColor}}>{stats.chars} chars · {stats.segments} segment{stats.segments!==1?"s":""} · {stats.remaining} left</div>
+        </div>
+
+        {errorMsg&&<div style={{background:"#fee2e2",border:"0.5px solid #fca5a5",borderRadius:8,padding:"10px 12px",marginBottom:12,fontSize:12,color:RE}}>{errorMsg}</div>}
+
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          <Btn onClick={doSmsLink} v="primary" style={{flex:1,justifyContent:"center",minWidth:140}}>📱 Open SMS App</Btn>
+          <Btn onClick={doCopy} v={copied?"success":"outline"} style={{flex:1,justifyContent:"center",minWidth:120}}>{copied?"✓ Copied!":"Copy Message"}</Btn>
+          <Btn onClick={onClose} v="ghost" style={{padding:"10px 16px"}}>Cancel</Btn>
+        </div>
+        <div style={{fontSize:10,color:MU,marginTop:10,lineHeight:1.5}}>"Open SMS App" pre-fills your phone's messaging app. "Copy Message" puts it on your clipboard. Twilio direct-send can be wired in from SMS Service config when ready.</div>
+      </div>
+    </div>
+  );
+}
+
+// ── BULK SMS COMPOSER ──
+function BulkSmsComposer({open,onClose,recipients,initialBody,initialCategory,relatedType,cs,templates,members,visitors,onSend}){
+  const [body,setBody]=useState("");
+  const [category,setCategory]=useState("General");
+  const [showTpl,setShowTpl]=useState(false);
+  const [preview,setPreview]=useState(null);
+  const [aiLoad,setAiLoad]=useState(false);
+  const [allCopied,setAllCopied]=useState(false);
+  const [errorMsg,setErrorMsg]=useState("");
+
+  useEffect(()=>{
+    if(open){setBody(initialBody||"");setCategory(initialCategory||"General");setShowTpl(false);setPreview(null);setAllCopied(false);setErrorMsg("");}
+  },[open,initialBody,initialCategory]);
+
+  const pool=(recipients&&recipients.length>0)?recipients:[
+    ...members.filter(m=>m.phone).map(m=>({...m,_type:"member"})),
+    ...visitors.filter(v=>v.phone).map(v=>({...v,_type:"visitor"})),
+  ];
+  const withPhone=pool.filter(p=>p.phone);
+  const noPhone=pool.filter(p=>!p.phone);
+  const stats=smsStats(body);
+  const personalize=p=>smsPersonalize(body,p,cs);
+
+  const applyTemplate=tpl=>{setBody(tpl.body);setCategory(tpl.category);setShowTpl(false);};
+
+  const genAI=async()=>{
+    setAiLoad(true);
+    try{
+      const prompt=`Write a warm, brief pastoral SMS (under 155 chars) from ${cs?.pastorName||"Pastor"} at ${cs?.name||"our church"} to multiple members. Category: ${category}. Use {first} as name placeholder. Faith-filled and conversational. Output only the message text.`;
+      const result=await callAI(prompt,members,visitors,[],[],[],{});
+      setBody(result.slice(0,320));
+    }catch(e){setBody("Hi {first}, greetings from "+(cs?.name||"our church")+"! You are loved and prayed for. God bless you today.");}
+    setAiLoad(false);
+  };
+
+  const copyAll=()=>{
+    if(!body.trim()){setErrorMsg("Message required.");return;}
+    setErrorMsg("");
+    const lines=withPhone.map(p=>"To: "+((p.first||"")+" "+(p.last||"")).trim()+" ("+p.phone+")\n"+personalize(p));
+    navigator.clipboard.writeText(lines.join("\n\n---\n\n")).then(()=>{setAllCopied(true);setTimeout(()=>setAllCopied(false),3000);});
+    if(onSend) onSend({recipients:withPhone,body,category,isBulk:true,recipientCount:withPhone.length,method:"copy-all",status:"All "+withPhone.length+" messages copied",relatedType});
+  };
+
+  if(!open) return null;
+  const segColor=stats.segments===1?GR:stats.segments===2?AM:RE;
+
+  return(
+    <div onClick={onClose} style={{position:"fixed",inset:0,background:"#00000055",zIndex:350,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:W,borderRadius:12,width:680,maxWidth:"100%",maxHeight:"92vh",overflowY:"auto",padding:22,boxSizing:"border-box",border:"0.5px solid "+BR}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,paddingBottom:14,borderBottom:"0.5px solid "+BR}}>
+          <div>
+            <h2 style={{fontSize:17,fontWeight:500,color:N,margin:0}}>Bulk SMS</h2>
+            <div style={{fontSize:11,color:MU,marginTop:2}}>{withPhone.length} recipient{withPhone.length!==1?"s":""} with phone · {noPhone.length} missing phone</div>
+          </div>
+          <button onClick={onClose} style={{background:"none",border:"none",fontSize:22,cursor:"pointer",color:MU,lineHeight:1}}>×</button>
+        </div>
+
+        <div style={{background:BG,border:"0.5px solid "+BR,borderRadius:8,padding:"8px 12px",marginBottom:14,maxHeight:72,overflowY:"auto"}}>
+          <div style={{fontSize:10,color:MU,fontWeight:500,textTransform:"uppercase",letterSpacing:0.5,marginBottom:3}}>Recipients ({withPhone.length} with phone)</div>
+          <div style={{fontSize:11,color:TX,lineHeight:1.7}}>{withPhone.slice(0,20).map(p=>((p.first||"")+" "+(p.last||"")).trim()).join(", ")}{withPhone.length>20?" ... and "+(withPhone.length-20)+" more":""}</div>
+          {noPhone.length>0&&<div style={{fontSize:10,color:AM,marginTop:3}}><strong>{noPhone.length} skipped (no phone):</strong> {noPhone.slice(0,5).map(p=>p.first||p.name||"").join(", ")}{noPhone.length>5?"...":""}</div>}
+        </div>
+
+        <Fld label="Category">
+          <select value={category} onChange={e=>setCategory(e.target.value)} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}>
+            {SMS_CATEGORIES.map(c=><option key={c} value={c}>{c}</option>)}
+          </select>
+        </Fld>
+
+        <div style={{display:"flex",gap:8,marginBottom:10}}>
+          <button onClick={()=>setShowTpl(v=>!v)} style={{background:N+"14",border:"0.5px solid "+N+"44",borderRadius:7,padding:"6px 12px",fontSize:12,color:N,cursor:"pointer",fontWeight:500}}>{showTpl?"Hide":"Use"} Template</button>
+          <button onClick={genAI} disabled={aiLoad} style={{background:GL,border:"1px solid "+G,borderRadius:7,padding:"6px 12px",fontSize:12,color:"#7a5c10",cursor:"pointer",fontWeight:500}}>{aiLoad?"Writing...":"✦ AI Draft"}</button>
+        </div>
+
+        {showTpl&&(
+          <div style={{maxHeight:160,overflowY:"auto",border:"0.5px solid "+BR,borderRadius:8,padding:8,marginBottom:10,background:BG}}>
+            {templates.map(tpl=>(
+              <div key={tpl.id} onClick={()=>applyTemplate(tpl)} style={{padding:"8px 11px",borderRadius:6,cursor:"pointer",background:W,marginBottom:4,border:"0.5px solid "+BR}} onMouseEnter={e=>e.currentTarget.style.background=N+"08"} onMouseLeave={e=>e.currentTarget.style.background=W}>
+                <div style={{fontSize:12,fontWeight:500,color:N,marginBottom:2}}>{tpl.name}</div>
+                <div style={{fontSize:11,color:MU,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis"}}>{tpl.body.slice(0,100)}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <Fld label={"Message * — use {first}, {church}, {pastor}"}>
+          <textarea value={body} onChange={e=>setBody(e.target.value)} rows={5} placeholder={"Hi {first}, greetings from {church}! ..."} style={{width:"100%",padding:"10px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",fontFamily:"inherit",resize:"vertical",boxSizing:"border-box",lineHeight:1.7}}/>
+        </Fld>
+
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+          <button onClick={()=>setPreview(preview?null:withPhone[0])} style={{background:"none",border:"0.5px solid "+BR,borderRadius:6,padding:"4px 10px",fontSize:11,color:N,cursor:"pointer"}}>{preview?"Hide":"Preview"} personalized</button>
+          <div style={{fontSize:11,fontWeight:500,color:segColor}}>{stats.chars} chars · {stats.segments} segment{stats.segments!==1?"s":""} · {stats.remaining} left</div>
+        </div>
+
+        {preview&&body&&(
+          <div style={{background:"#f0fdf4",border:"0.5px solid #86efac",borderRadius:8,padding:"10px 14px",marginBottom:12,fontSize:12,lineHeight:1.7}}>
+            <div style={{fontSize:10,color:MU,fontWeight:500,marginBottom:4}}>PREVIEW — {((preview.first||"")+" "+(preview.last||"")).trim()} ({preview.phone})</div>
+            <div style={{whiteSpace:"pre-wrap"}}>{personalize(preview)}</div>
+            <div style={{display:"flex",gap:8,marginTop:8,alignItems:"center"}}>
+              {withPhone.indexOf(preview)>0&&<button onClick={()=>setPreview(withPhone[withPhone.indexOf(preview)-1])} style={{fontSize:11,padding:"2px 8px",borderRadius:5,border:"0.5px solid "+BR,background:W,cursor:"pointer"}}>← Prev</button>}
+              {withPhone.indexOf(preview)<withPhone.length-1&&<button onClick={()=>setPreview(withPhone[withPhone.indexOf(preview)+1])} style={{fontSize:11,padding:"2px 8px",borderRadius:5,border:"0.5px solid "+BR,background:W,cursor:"pointer"}}>Next →</button>}
+              <span style={{fontSize:10,color:MU,marginLeft:"auto"}}>{withPhone.indexOf(preview)+1} of {withPhone.length}</span>
+            </div>
+          </div>
+        )}
+
+        {errorMsg&&<div style={{background:"#fee2e2",border:"0.5px solid #fca5a5",borderRadius:8,padding:"10px 12px",marginBottom:12,fontSize:12,color:RE}}>{errorMsg}</div>}
+
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          <Btn onClick={copyAll} v={allCopied?"success":"gold"} style={{flex:1,justifyContent:"center",minWidth:180}}>{allCopied?"✓ All "+withPhone.length+" Copied!":"Copy All "+withPhone.length+" Messages"}</Btn>
+          <Btn onClick={onClose} v="ghost" style={{padding:"10px 16px"}}>Cancel</Btn>
+        </div>
+        <div style={{fontSize:10,color:MU,marginTop:10,lineHeight:1.6}}>"Copy All" copies every personalized message with the recipient's name and phone, separated by dividers — ready to paste into Notepad, Excel, or your SMS tool. Twilio batch-send can be wired in from SMS Service config when ready.</div>
+      </div>
+    </div>
+  );
+}
+
+// ── SMS CENTER PAGE ──
+function SmsCenter({smsLog,setSmsLog,smsTemplates,setSmsTemplates,smsConfig,setSmsConfig,members,visitors,cs,onCompose,onBulkCompose}){
+  const [tab,setTab]=useState("log");
+  const [search,setSearch]=useState("");
+  const [detail,setDetail]=useState(null);
+  const [tplModal,setTplModal]=useState(false);
+  const [editTpl,setEditTpl]=useState(null);
+  const [tplForm,setTplForm]=useState({name:"",category:"General",body:""});
+  const [cfgSaved,setCfgSaved]=useState(false);
+
+  const stats={
+    total:smsLog.length,
+    individual:smsLog.filter(s=>!s.isBulk).length,
+    bulk:smsLog.filter(s=>s.isBulk).length,
+    thisMonth:smsLog.filter(s=>s.timestamp?.startsWith(new Date().toISOString().slice(0,7))).length,
+  };
+  const filtered=smsLog.filter(s=>{
+    if(!search) return true;
+    return (s.toName||"").toLowerCase().includes(search.toLowerCase())||(s.to||"").includes(search)||(s.body||"").toLowerCase().includes(search.toLowerCase())||(s.category||"").toLowerCase().includes(search.toLowerCase());
+  });
+
+  const openAddTpl=()=>{setEditTpl(null);setTplForm({name:"",category:"General",body:""});setTplModal(true);};
+  const openEditTpl=t=>{setEditTpl(t);setTplForm({name:t.name,category:t.category,body:t.body});setTplModal(true);};
+  const saveTpl=()=>{
+    if(!tplForm.name||!tplForm.body){alert("Name and body required.");return;}
+    if(editTpl) setSmsTemplates(ts=>ts.map(t=>t.id===editTpl.id?{...t,...tplForm}:t));
+    else setSmsTemplates(ts=>[...ts,{...tplForm,id:"sms_custom_"+Date.now(),isDefault:false}]);
+    setTplModal(false);
+  };
+  const delTpl=t=>{if(t.isDefault){alert("Built-in templates can be edited but not deleted.");return;}if(confirm("Delete?")) setSmsTemplates(ts=>ts.filter(x=>x.id!==t.id));};
+
+  const TABS=[{id:"log",label:"SMS Log",count:smsLog.length},{id:"templates",label:"Templates",count:smsTemplates.length},{id:"service",label:"SMS Service"}];
+
+  return(
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:10}}>
+        <div>
+          <h3 style={{fontSize:15,fontWeight:500,color:N,margin:0}}>SMS Center</h3>
+          <div style={{fontSize:12,color:MU,marginTop:2}}>Compose, track, and template every text message sent from this app</div>
+        </div>
+        <div style={{display:"flex",gap:8}}>
+          <Btn onClick={onCompose} v="primary">+ Compose SMS</Btn>
+          <Btn onClick={onBulkCompose} v="gold">Bulk SMS</Btn>
+        </div>
+      </div>
+
+      <div style={{display:"flex",marginBottom:18,background:W,borderRadius:10,border:"0.5px solid "+BR,overflow:"hidden"}}>
+        {TABS.map(t=>(
+          <button key={t.id} onClick={()=>setTab(t.id)} style={{flex:1,padding:"10px 8px",border:"none",borderBottom:"2px solid "+(tab===t.id?G:"transparent"),background:tab===t.id?"#f8f9fc":W,fontSize:13,fontWeight:tab===t.id?500:400,color:tab===t.id?N:MU,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+            {t.label}
+            {t.count!==undefined&&t.count>0&&<span style={{background:N+"22",color:N,borderRadius:10,fontSize:10,padding:"1px 6px"}}>{t.count}</span>}
+          </button>
+        ))}
+      </div>
+
+      {tab==="log"&&(
+        <div>
+          <div style={{display:"flex",gap:10,marginBottom:16,flexWrap:"wrap"}}>
+            <Stat label="Total Sent" value={stats.total}/>
+            <Stat label="Individual" value={stats.individual} color={BL}/>
+            <Stat label="Bulk" value={stats.bulk} color={G}/>
+            <Stat label="This Month" value={stats.thisMonth} color={GR}/>
+          </div>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search messages, recipients..." style={{width:"100%",padding:"9px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",marginBottom:12,boxSizing:"border-box"}}/>
+          {filtered.length===0?(
+            <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:48,textAlign:"center"}}>
+              <h3 style={{fontSize:15,fontWeight:500,color:N,marginBottom:6}}>{smsLog.length===0?"No SMS sent yet":"No messages match your search"}</h3>
+              <p style={{fontSize:13,color:MU,marginBottom:16}}>{smsLog.length===0?"Click Compose SMS to send your first text.":""}</p>
+              {smsLog.length===0&&<Btn onClick={onCompose}>+ Compose First SMS</Btn>}
+            </div>
+          ):(
+            <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,overflow:"hidden"}}>
+              <table style={{width:"100%",borderCollapse:"collapse"}}>
+                <thead><tr style={{background:"#f8f9fc"}}>{["When","To","Message","Category","Method","Status"].map(h=><th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:11,fontWeight:500,color:MU,textTransform:"uppercase",letterSpacing:0.5,borderBottom:"0.5px solid "+BR}}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {filtered.map(s=>{
+                    const dt=new Date(s.timestamp);
+                    return(
+                      <tr key={s.id} onClick={()=>setDetail(s)} style={{borderBottom:"0.5px solid "+BR,cursor:"pointer"}} onMouseEnter={ev=>ev.currentTarget.style.background="#f8f9fc"} onMouseLeave={ev=>ev.currentTarget.style.background=W}>
+                        <td style={{padding:"10px 14px",fontSize:12}}><div style={{fontWeight:500}}>{dt.toLocaleDateString("en-US",{month:"short",day:"numeric"})}</div><div style={{fontSize:10,color:MU}}>{dt.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})}</div></td>
+                        <td style={{padding:"10px 14px",fontSize:13}}>{s.isBulk?<div><div style={{fontWeight:500}}>{s.recipientCount} recipients</div><div style={{fontSize:10,color:MU}}>bulk</div></div>:<div><div style={{fontWeight:500}}>{s.toName||s.to}</div>{s.toName&&<div style={{fontSize:10,color:MU}}>{s.to}</div>}</div>}</td>
+                        <td style={{padding:"10px 14px",fontSize:12,maxWidth:220}}><div style={{whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",color:TX}}>{(s.body||"").slice(0,70)}</div></td>
+                        <td style={{padding:"10px 14px"}}><span style={{fontSize:11,background:"#ede9fe",color:PU,borderRadius:20,padding:"2px 9px",fontWeight:500}}>{s.category}</span></td>
+                        <td style={{padding:"10px 14px",fontSize:11,fontWeight:500,color:s.method==="sms-link"?GR:BL}}>{s.method==="sms-link"?"SMS App":s.method==="copy"?"Copied":"Bulk Copy"}</td>
+                        <td style={{padding:"10px 14px"}}><span style={{fontSize:10,background:"#dcfce7",color:GR,borderRadius:20,padding:"2px 8px",fontWeight:500}}>{s.status||"Sent"}</span></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab==="templates"&&(
+        <div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+            <div style={{fontSize:12,color:MU}}>{smsTemplates.length} templates ({smsTemplates.filter(t=>t.isDefault).length} built-in, {smsTemplates.filter(t=>!t.isDefault).length} custom)</div>
+            <Btn onClick={openAddTpl} v="gold">+ New Template</Btn>
+          </div>
+          <div style={{background:"#eff6ff",border:"0.5px solid "+BL+"44",borderRadius:8,padding:"10px 14px",marginBottom:14,fontSize:11,color:BL,lineHeight:1.7}}>
+            <strong>Merge fields:</strong> Use <strong>{"{first}"}</strong> (first name), <strong>{"{church}"}</strong> (church name), <strong>{"{pastor}"}</strong> (pastor name). Keep under 160 chars for a single SMS segment.
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:12}}>
+            {smsTemplates.map(tpl=>(
+              <div key={tpl.id} style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:14}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+                  <div style={{flex:1,minWidth:0}}><div style={{fontSize:14,fontWeight:500,color:N}}>{tpl.name}</div><div style={{fontSize:11,color:MU,marginTop:2}}>{tpl.category}</div></div>
+                  <span style={{fontSize:10,background:tpl.isDefault?GL+"44":"#e3f2fd",color:tpl.isDefault?"#7a5c10":BL,borderRadius:10,padding:"2px 7px",fontWeight:500,flexShrink:0,marginLeft:8}}>{tpl.isDefault?"Built-in":"Custom"}</span>
+                </div>
+                <div style={{fontSize:12,color:TX,background:BG,borderRadius:6,padding:"8px 10px",lineHeight:1.6,marginBottom:10,border:"0.5px solid "+BR,minHeight:50}}>{tpl.body}</div>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <span style={{fontSize:10,color:tpl.body.length>160?RE:MU}}>{tpl.body.length} chars</span>
+                  <div style={{display:"flex",gap:5}}>
+                    <Btn onClick={()=>openEditTpl(tpl)} v="ghost" style={{fontSize:11,padding:"3px 9px"}}>Edit</Btn>
+                    {!tpl.isDefault&&<Btn onClick={()=>delTpl(tpl)} v="danger" style={{fontSize:11,padding:"3px 9px"}}>X</Btn>}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {tab==="service"&&(
+        <div>
+          {cfgSaved&&<div style={{background:"#dcfce7",border:"0.5px solid #86efac",borderRadius:9,padding:"10px 16px",marginBottom:14,fontSize:13,color:"#14532d",fontWeight:500}}>SMS service configuration saved.</div>}
+          <div style={{background:GL+"22",border:"1px solid "+G,borderRadius:10,padding:"14px 18px",marginBottom:16,fontSize:13,color:"#7a5c10",lineHeight:1.8}}>
+            <div style={{fontSize:14,fontWeight:600,marginBottom:6}}>About SMS Sending</div>
+            <strong>1. Open in SMS App (always works)</strong> — Pre-fills your phone's native messaging app with the text ready to send.<br/>
+            <strong>2. Copy Message (always works)</strong> — Copies text to clipboard so you can paste into any messaging tool.<br/>
+            <strong>3. Twilio Direct Send (requires credentials)</strong> — Sends SMS from within the app using your Twilio account. Paste credentials below — a developer will wire the send function.
+          </div>
+          <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:18,marginBottom:14}}>
+            <h3 style={{fontSize:14,fontWeight:500,color:N,margin:"0 0 14px"}}>Twilio Configuration</h3>
+            <Fld label="Account SID"><Inp value={smsConfig.accountSid||""} onChange={v=>setSmsConfig(c=>({...c,accountSid:v}))} placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"/></Fld>
+            <Fld label="Auth Token"><Inp type="password" value={smsConfig.authToken||""} onChange={v=>setSmsConfig(c=>({...c,authToken:v}))} placeholder="Your Twilio auth token"/></Fld>
+            <Fld label="From Phone Number"><Inp value={smsConfig.fromPhone||""} onChange={v=>setSmsConfig(c=>({...c,fromPhone:v}))} placeholder="+16235550100"/></Fld>
+            <Btn onClick={()=>{setCfgSaved(true);setTimeout(()=>setCfgSaved(false),2500);}} v="success">Save Configuration</Btn>
+          </div>
+          <div style={{background:"#fff5f5",border:"0.5px solid #fca5a5",borderRadius:10,padding:"12px 16px",fontSize:12,color:RE,lineHeight:1.7}}>
+            <strong>Developer Note:</strong> Once credentials are saved, wire <code>sendDirectSms(smsConfig, to, body)</code> to call the Twilio Messages API (<code>POST /2010-04-01/Accounts/{"{SID}"}/Messages.json</code>). "Open in SMS App" and "Copy" work immediately with zero setup.
+          </div>
+        </div>
+      )}
+
+      <Modal open={!!detail} onClose={()=>setDetail(null)} title="" width={500}>
+        {detail&&(()=>{const dt=new Date(detail.timestamp);return(
+          <div style={{marginTop:-14}}>
+            <div style={{paddingBottom:14,borderBottom:"0.5px solid "+BR,marginBottom:14}}>
+              <div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:0.5,fontWeight:600,marginBottom:6}}>SMS Sent</div>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                <span style={{fontSize:11,background:"#ede9fe",color:PU,borderRadius:20,padding:"2px 10px",fontWeight:500}}>{detail.category}</span>
+                <span style={{fontSize:11,background:"#dcfce7",color:GR,borderRadius:20,padding:"2px 10px",fontWeight:500}}>{detail.status||"Sent"}</span>
+              </div>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+              {[["Sent",dt.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"})+" at "+dt.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})],["Method",detail.method==="sms-link"?"SMS App":detail.method==="copy"?"Copied to clipboard":"Bulk copy"],["To",detail.isBulk?detail.recipientCount+" recipients":(detail.toName?detail.toName+" ("+detail.to+")":detail.to)]].map(([k,v])=>v?<div key={k} style={{background:BG,borderRadius:8,padding:"8px 12px",border:"0.5px solid "+BR}}><div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:0.5}}>{k}</div><div style={{fontSize:12,fontWeight:500,marginTop:2}}>{v}</div></div>:null)}
+            </div>
+            <div>
+              <div style={{fontSize:11,color:MU,fontWeight:500,marginBottom:6,textTransform:"uppercase",letterSpacing:0.5}}>Message</div>
+              <div style={{background:W,border:"0.5px solid "+BR,borderRadius:8,padding:"12px 14px",fontSize:13,lineHeight:1.7,whiteSpace:"pre-wrap"}}>{detail.body}</div>
+            </div>
+          </div>
+        );})()}
+      </Modal>
+
+      <Modal open={tplModal} onClose={()=>setTplModal(false)} title={editTpl?"Edit SMS Template":"New SMS Template"} width={460}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <Fld label="Template Name *"><Inp value={tplForm.name} onChange={v=>setTplForm(f=>({...f,name:v}))} placeholder="e.g. Birthday Blessing"/></Fld>
+          <Fld label="Category"><select value={tplForm.category} onChange={e=>setTplForm(f=>({...f,category:e.target.value}))} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}>{SMS_CATEGORIES.map(c=><option key={c} value={c}>{c}</option>)}</select></Fld>
+        </div>
+        <Fld label={"Message Body * (use {first}, {church}, {pastor})"}>
+          <textarea value={tplForm.body} onChange={e=>setTplForm(f=>({...f,body:e.target.value}))} rows={4} placeholder={"Hi {first}, ..."} style={{width:"100%",padding:"10px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",fontFamily:"inherit",resize:"vertical",boxSizing:"border-box",lineHeight:1.7}}/>
+          <div style={{fontSize:11,color:tplForm.body.length>160?RE:MU,marginTop:4,textAlign:"right"}}>{tplForm.body.length} / 160 chars{tplForm.body.length>160?" ("+Math.ceil(tplForm.body.length/153)+" segments)":""}</div>
+        </Fld>
+        <div style={{display:"flex",gap:8}}>
+          <Btn onClick={saveTpl} v="success" style={{flex:1,justifyContent:"center"}}>Save Template</Btn>
+          <Btn onClick={()=>setTplModal(false)} v="ghost" style={{flex:1,justifyContent:"center"}}>Cancel</Btn>
+        </div>
+      </Modal>
+    </div>
+  );
+}
+
 // ── VISITATION ──
-function Visitation({visitors,setVisitors,members,users,visitRecords,setVisitRecords}) {
+function Visitation({visitors,setVisitors,members,setMembers,users,visitRecords,setVisitRecords,setView}:any) {
   const [tab,setTab] = useState("pipeline");
   const [logModal,setLogModal] = useState(null);
   const [assignModal,setAssignModal] = useState(null);
@@ -2374,47 +3003,9 @@ function Visitation({visitors,setVisitors,members,users,visitRecords,setVisitRec
   const [assignUid,setAssignUid] = useState("");
   const [expandedId,setExpandedId] = useState(null);
   const [careAlertDismissed,setCareAlertDismissed] = useState(false);
-  const [letterBannerDismissed,setLetterBannerDismissed] = useState(false);
   const [aiRep,setAiRep] = useState("");
   const [aiLoad,setAiLoad] = useState(false);
   const nid = useRef(700);
-
-  const printWelcomeLetter = (v) => {
-    const cs = window.__CS__ || {};
-    const today = new Date().toLocaleDateString("en-US",{year:"numeric",month:"long",day:"numeric"});
-    const addr = v.address ? [v.address.street, (v.address.city&&v.address.state) ? v.address.city+", "+v.address.state+" "+(v.address.zip||"") : (v.address.city||"")].filter(Boolean) : [];
-    const body = `Dear ${v.first},\n\nIt was a joy to have you with us at ${cs.name||"our church"}! Thank you for visiting and worshiping with our church family.\n\nWe pray that you felt the presence of the Lord and the warmth of our fellowship. If there is anything we can do for you — whether it is a prayer need, a question about our church, or simply a conversation — please do not hesitate to reach out.\n\nWe would love to see you again soon. Our service times are:\n        Sunday Morning Worship  —  11:00 AM\n        Sunday Evening Service  —  6:00 PM\n        Tuesday Bible Study  —  7:30 PM\n        Thursday Worship  —  7:30 PM\n\nMay God richly bless you and your family.\n\nIn His Service,\n\n\n${cs.pastorName||"Pastor"}\n${cs.name||""}`;
-    const logoHtml = cs.logoUrl ? `<img src="${cs.logoUrl}" style="height:56px;object-fit:contain;margin-bottom:10px;" alt="logo">` : `<div style="width:52px;height:52px;border-radius:12px;background:#c9a84c22;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:bold;color:#c9a84c;">✦</div>`;
-    const win = window.open("","_blank","width=820,height=960");
-    if(!win){alert("Please allow popups for this site to print letters.");return;}
-    win.document.write(`<!DOCTYPE html><html><head><title>Welcome Letter — ${v.first} ${v.last}</title><style>
-      *{box-sizing:border-box;} body{font-family:"Times New Roman",Times,serif;margin:0;padding:0;background:#f4f6fb;}
-      @media print{body{background:white;} .no-print{display:none!important;} .page{box-shadow:none!important;margin:0!important;}}
-      .no-print{text-align:center;padding:20px 0 4px;}
-      .print-btn{padding:11px 32px;background:#1a2e5a;color:white;border:none;border-radius:8px;font-size:15px;cursor:pointer;font-family:sans-serif;}
-      .page{max-width:700px;margin:8px auto 40px;background:white;box-shadow:0 2px 24px rgba(0,0,0,.13);}
-      .hdr{background:#1a2e5a;padding:30px 40px;text-align:center;border-bottom:4px solid #c9a84c;}
-      .cname{color:#fff;font-size:22px;font-weight:bold;letter-spacing:.5px;margin:0;font-family:Georgia,serif;}
-      .cpastor{color:#c9a84c;font-size:13px;margin-top:6px;}
-      .ccontact{color:#7a9acc;font-size:11px;margin-top:4px;}
-      .body{padding:38px 52px 32px;}
-      .date{font-size:13px;color:#555;margin-bottom:22px;}
-      .to{font-size:14px;line-height:1.8;color:#222;margin-bottom:26px;}
-      .letter{font-size:14.5px;line-height:2;color:#222;white-space:pre-wrap;}
-      .ftr{padding:14px 52px;border-top:1px solid #e2e5ec;text-align:center;font-size:11px;color:#999;font-family:sans-serif;}
-    </style></head><body>
-    <div class="no-print"><button class="print-btn" onclick="window.print()">🖨&nbsp; Print Letter</button></div>
-    <div class="page">
-      <div class="hdr">${logoHtml}<div class="cname">${cs.name||"Our Church"}</div>${cs.pastorName?`<div class="cpastor">${cs.pastorName}</div>`:""}<div class="ccontact">${[cs.address,cs.phone,cs.email].filter(Boolean).join(" &nbsp;·&nbsp; ")}</div></div>
-      <div class="body">
-        <div class="date">${today}</div>
-        <div class="to">${v.first} ${v.last}${addr.length?"<br>"+addr.join("<br>"):""}</div>
-        <div class="letter">${body.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}</div>
-      </div>
-      <div class="ftr">${cs.name||""}&nbsp;·&nbsp;${cs.address||""}${cs.phone?" &nbsp;·&nbsp; "+cs.phone:""}</div>
-    </div></body></html>`);
-    win.document.close();
-  };
 
   useEffect(()=>{
     const missing = visitors.filter(v=>!visitRecords.find(r=>r.visitorId===v.id));
@@ -2492,6 +3083,31 @@ function Visitation({visitors,setVisitors,members,users,visitRecords,setVisitRec
     setVisitRecords(rs=>rs.map(r=>r.id===recId?{...r,stage:"Complete",completedDate:td()}:r));
   };
 
+  const convertToMember = (rec) => {
+    const v = getV(rec.visitorId);
+    if(!v) return;
+    const careContacts = (rec.contacts||[]).filter(c=>c.stage==="OngoingCare");
+    if(!confirm(`Convert ${v.first} ${v.last} to an Active Member?\n\nThis will:\n• Add them to the Members directory as Active\n• Mark their visitation record as Converted\n\nThey have completed ${careContacts.length} ongoing care check-ins.`)) return;
+    // Add to members
+    const newMemberId = Date.now();
+    setMembers(ms=>[...ms,{
+      id: newMemberId,
+      first: v.first,
+      last: v.last,
+      phone: v.phone||"",
+      email: v.email||"",
+      status: "Active",
+      role: "Member",
+      joined: td(),
+      notes: "Converted from Visitation after Ongoing Sponsor Care.",
+      family: ""
+    }]);
+    // Mark visitor record as Converted
+    setVisitRecords(rs=>rs.map(r=>r.id===rec.id?{...r,stage:"Converted",completedDate:td(),convertedMemberId:newMemberId}:r));
+    // Update visitor stage
+    setVisitors(vs=>vs.map(v2=>v2.id===v.id?{...v2,stage:"Member"}:v2));
+  };
+
   const genReport = async () => {
     setAiLoad(true);
     const total = visitRecords.length;
@@ -2524,33 +3140,18 @@ function Visitation({visitors,setVisitors,members,users,visitRecords,setVisitRec
         </div>
       )}
 
-      {/* New Visitors Today — Print Welcome Letter Banner */}
-      {visitors.filter(v=>v.firstVisit===td()).length>0 && !letterBannerDismissed && (
-        <div style={{background:"#f0f9ff",border:"1.5px solid #7dd3fc",borderRadius:10,padding:"12px 16px",marginBottom:16,display:"flex",alignItems:"flex-start",gap:12}}>
-          <div style={{width:36,height:36,borderRadius:"50%",background:"#bae6fd",color:"#0369a1",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:18,flexShrink:0}}>✉</div>
-          <div style={{flex:1}}>
-            <div style={{fontSize:13,fontWeight:600,color:"#0369a1",marginBottom:4}}>New Visitors Today — Print Welcome Letters</div>
-            <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
-              {visitors.filter(v=>v.firstVisit===td()).map(v=>(
-                <button key={v.id} onClick={()=>printWelcomeLetter(v)} style={{background:"#0369a1",color:"#fff",border:"none",borderRadius:6,padding:"5px 12px",fontSize:12,cursor:"pointer",fontWeight:500}}>
-                  🖨 {v.first} {v.last}
-                </button>
-              ))}
-            </div>
-          </div>
-          <button onClick={()=>setLetterBannerDismissed(true)} style={{background:"none",border:"none",cursor:"pointer",color:MU,fontSize:16}}>x</button>
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:20}}>
+        <div style={{flex:1,display:"flex",background:W,borderRadius:10,border:"0.5px solid "+BR,overflow:"hidden"}}>
+          {[["pipeline","Pipeline"],["ongoing","Ongoing Care"],["tracker","Visitor Tracker"],["reports","Reports"]].map(([id,label])=>(
+            <button key={id} onClick={()=>setTab(id)} style={{flex:1,padding:"10px 8px",border:"none",borderBottom:"2px solid "+(tab===id?G:"transparent"),background:tab===id?"#f8f9fc":W,fontSize:13,fontWeight:tab===id?500:400,color:tab===id?N:MU,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
+              {label}
+              {id==="ongoing" && overdueRecords.length>0 && <span style={{background:RE,color:"#fff",borderRadius:10,fontSize:10,padding:"1px 6px",fontWeight:600}}>{overdueRecords.length}</span>}
+              {id==="ongoing" && overdueRecords.length===0 && ongoingRecords.length>0 && <span style={{background:G,color:"#fff",borderRadius:10,fontSize:10,padding:"1px 6px",fontWeight:500}}>{ongoingRecords.length}</span>}
+              {id==="reports" && visitRecords.filter((r:any)=>r.stage==="Complete").length>0 && <span style={{marginLeft:6,background:GR+"22",color:GR,borderRadius:10,fontSize:10,padding:"1px 6px"}}>{visitRecords.filter((r:any)=>r.stage==="Complete").length}</span>}
+            </button>
+          ))}
         </div>
-      )}
-
-      <div style={{display:"flex",marginBottom:20,background:W,borderRadius:10,border:"0.5px solid "+BR,overflow:"hidden"}}>
-        {[["pipeline","Pipeline"],["ongoing","Ongoing Care"],["tracker","Visitor Tracker"],["reports","Reports"]].map(([id,label])=>(
-          <button key={id} onClick={()=>setTab(id)} style={{flex:1,padding:"10px 8px",border:"none",borderBottom:"2px solid "+(tab===id?G:"transparent"),background:tab===id?"#f8f9fc":W,fontSize:13,fontWeight:tab===id?500:400,color:tab===id?N:MU,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
-            {label}
-            {id==="ongoing" && overdueRecords.length>0 && <span style={{background:RE,color:"#fff",borderRadius:10,fontSize:10,padding:"1px 6px",fontWeight:600}}>{overdueRecords.length}</span>}
-            {id==="ongoing" && overdueRecords.length===0 && ongoingRecords.length>0 && <span style={{background:G,color:"#fff",borderRadius:10,fontSize:10,padding:"1px 6px",fontWeight:500}}>{ongoingRecords.length}</span>}
-            {id==="reports" && visitRecords.filter(r=>r.stage==="Complete").length>0 && <span style={{marginLeft:6,background:GR+"22",color:GR,borderRadius:10,fontSize:10,padding:"1px 6px"}}>{visitRecords.filter(r=>r.stage==="Complete").length}</span>}
-          </button>
-        ))}
+        <Btn onClick={()=>setView("addperson")} v="gold" style={{flexShrink:0,fontSize:12}}>+ Add Visitor</Btn>
       </div>
 
       {/* PIPELINE TAB */}
@@ -2603,7 +3204,6 @@ function Visitation({visitors,setVisitors,members,users,visitRecords,setVisitRec
                         <div style={{fontSize:11,color:MU,marginBottom:8}}>To: {getAssigned(rec)}</div>
                         {stage!=="Complete" && <Btn onClick={()=>{setLogModal(rec);setLogForm({method:"Call",date:td(),notes:"",completed:false});}} v="ai" style={{fontSize:11,padding:"4px 8px",width:"100%",justifyContent:"center"}}>Log Contact</Btn>}
                         {stage==="Complete" && <div style={{fontSize:11,color:TE,fontWeight:500,textAlign:"center"}}>Fully Complete</div>}
-                        <Btn onClick={()=>printWelcomeLetter(v)} v="ghost" style={{fontSize:10,padding:"3px 8px",width:"100%",justifyContent:"center",marginTop:5}}>🖨 Print Welcome Letter</Btn>
                       </div>
                     );
                   })}
@@ -2618,6 +3218,19 @@ function Visitation({visitors,setVisitors,members,users,visitRecords,setVisitRec
       {/* ONGOING CARE TAB */}
       {tab==="ongoing" && (
         <div>
+          {/* Ready to Convert Alert */}
+          {ongoingRecords.filter(r=>(r.contacts||[]).filter(c=>c.stage==="OngoingCare").length>=5).length>0 && (
+            <div style={{background:"#f0fdf4",border:"1.5px solid #86efac",borderRadius:10,padding:"12px 16px",marginBottom:14,display:"flex",alignItems:"center",gap:12}}>
+              <div style={{width:36,height:36,borderRadius:"50%",background:GR+"22",color:GR,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:18,flexShrink:0}}>✓</div>
+              <div style={{flex:1}}>
+                <div style={{fontSize:13,fontWeight:600,color:GR}}>Ready to Convert to Member</div>
+                <div style={{fontSize:12,color:"#166534",marginTop:2}}>
+                  {ongoingRecords.filter(r=>(r.contacts||[]).filter(c=>c.stage==="OngoingCare").length>=5).map(r=>{const v=getV(r.visitorId);return v?v.first+" "+v.last:null;}).filter(Boolean).join(", ")} — completed 5+ ongoing care check-ins and {ongoingRecords.filter(r=>(r.contacts||[]).filter(c=>c.stage==="OngoingCare").length>=5).length===1?"is":"are"} ready to join the church family!
+                </div>
+              </div>
+            </div>
+          )}
+
           <div style={{background:G+"0a",border:"1px solid "+G+"33",borderRadius:10,padding:"12px 16px",marginBottom:16,fontSize:13,color:"#5f4909",lineHeight:1.6}}>
             <strong style={{color:G}}>Ongoing Sponsor Care</strong> — After Pastor Hall, Team Leader, and Sponsor each complete their initial follow-up, the sponsor enters a recurring <strong>14-day care cycle</strong>. Each completed text/call/visit resets the 14-day timer. Care continues until the visitor is converted to a member.
           </div>
@@ -2658,6 +3271,9 @@ function Visitation({visitors,setVisitors,members,users,visitRecords,setVisitRec
                           <span style={{fontSize:11,background:cs.bg,color:cs.color,borderRadius:20,padding:"2px 10px",fontWeight:500}}>
                             {cs.label}{cs.label==="Overdue" && " by "+cs.days+" day"+(cs.days!==1?"s":"")}
                           </span>
+                          {careContacts.length>=5 && (
+                            <span style={{fontSize:11,background:"#dcfce7",color:GR,borderRadius:20,padding:"2px 10px",fontWeight:600}}>✓ Ready to Convert</span>
+                          )}
                         </div>
                         <div style={{fontSize:12,color:MU}}>Sponsor: <strong style={{color:TX}}>{sponsor}</strong> · First visit {fd(v.firstVisit)} · {careContacts.length} ongoing contact{careContacts.length!==1?"s":""} logged</div>
                       </div>
@@ -2675,11 +3291,14 @@ function Visitation({visitors,setVisitors,members,users,visitRecords,setVisitRec
                         {last.notes && <span style={{fontStyle:"italic"}}>— "{last.notes.slice(0,60)}{last.notes.length>60?"...":""}"</span>}
                       </div>
                     )}
-                    <div style={{display:"flex",gap:8,marginTop:12}}>
+                    <div style={{display:"flex",gap:8,marginTop:12,flexWrap:"wrap"}}>
                       <Btn onClick={()=>{setLogModal(rec);setLogForm({method:"Call",date:td(),notes:"",completed:true});}} v="ai">Log Check-In</Btn>
                       {v.phone && <a href={"tel:"+v.phone} style={{textDecoration:"none"}}><Btn v="ghost" style={{fontSize:12}}>Call</Btn></a>}
                       {v.phone && <a href={"sms:"+v.phone} style={{textDecoration:"none"}}><Btn v="ghost" style={{fontSize:12}}>Text</Btn></a>}
                       <div style={{flex:1}}></div>
+                      {careContacts.length>=5 && (
+                        <Btn onClick={()=>convertToMember(rec)} v="gold" style={{fontSize:12,fontWeight:600}}>Convert to Member</Btn>
+                      )}
                       <Btn onClick={()=>stopOngoing(rec.id)} v="ghost" style={{fontSize:12}}>Mark Complete</Btn>
                     </div>
                   </div>
@@ -2739,7 +3358,6 @@ function Visitation({visitors,setVisitors,members,users,visitRecords,setVisitRec
                         <div style={{display:"flex",gap:6}}>
                           {rec.stage!=="Complete" && <Btn onClick={()=>{setLogModal(rec);setLogForm({method:"Call",date:td(),notes:"",completed:false});}} v="ai" style={{fontSize:11,padding:"4px 8px"}}>Log</Btn>}
                           <Btn onClick={()=>setExpandedId(expandedId===v.id?null:v.id)} v="ghost" style={{fontSize:11,padding:"4px 8px"}}>{expandedId===v.id?"Hide":"History"}</Btn>
-                          <Btn onClick={()=>printWelcomeLetter(v)} v="ghost" style={{fontSize:11,padding:"4px 8px"}}>🖨 Letter</Btn>
                         </div>
                       </td>
                     </tr>
@@ -3669,14 +4287,16 @@ function Dashboard({members,visitors,attendance,giving,prayers,setView}) {
   const [iLoad,setILoad] = useState(false);
   const [alerts,setAlerts] = useState([]);
   const [aLoad,setALoad] = useState(false);
-  const totalG = giving.filter(g=>g.date.startsWith("2026-04")).reduce((a,g)=>a+g.amount,0);
+  const nowYM = new Date().toISOString().slice(0,7); // e.g. "2026-04"
+  const monthLabel = new Date().toLocaleDateString("en-US",{month:"long",year:"numeric"});
+  const totalG = giving.filter((g:any)=>g.date.startsWith(nowYM)).reduce((a:number,g:any)=>a+g.amount,0);
   const lastSvc = attendance[0];
-  const activeM = members.filter(m=>m.status==="Active").length;
-  const fu = visitors.filter(v=>v.stage==="Follow-Up Needed").length;
+  const activeM = members.filter((m:any)=>m.status==="Active").length;
+  const fu = visitors.filter((v:any)=>v.stage==="Follow-Up Needed").length;
 
   const genInsight = async () => {
     setILoad(true);
-    const prompt = "Give Pastor Hall a brief 3-4 sentence warm pastoral church health summary. Members:"+members.length+" ("+activeM+" active). Visitors:"+visitors.length+" ("+fu+" need follow-up). Last service:"+(lastSvc?lastSvc.count:0)+". April giving:$"+totalG+".";
+    const prompt = "Give Pastor Hall a brief 3-4 sentence warm pastoral church health summary. Members:"+members.length+" ("+activeM+" active). Visitors:"+visitors.length+" ("+fu+" need follow-up). Last service:"+(lastSvc?lastSvc.count:0)+". "+monthLabel+" giving:$"+totalG+".";
     const txt = await callAI([{role:"user",content:prompt}],[],[],[],[],[],{});
     setInsight(txt); setILoad(false);
   };
@@ -3692,17 +4312,26 @@ function Dashboard({members,visitors,attendance,giving,prayers,setView}) {
     setALoad(false);
   };
 
-  const pc = p => p==="high"?RE:p==="medium"?AM:GR;
-  const qnav=[["People","Directory","people"],["Hands","Visitation","visitation"],["List","Attendance","attendance"],["Money","Giving","giving"],["Prayer","Prayer Wall","prayer"],["Lock","Access Control","access"],["Star","AI Assistant","ai"]];
+  const pc = (p:string) => p==="high"?RE:p==="medium"?AM:GR;
+  const qnav=[["Directory","people"],["Visitation","visitation"],["Attendance","attendance"],["Giving","giving"],["Prayer Wall","prayer"],["Access Control","access"],["AI Assistant","ai"],["Settings","settings"]];
 
   return (
     <div>
+      {/* Add Person Banner */}
+      <div onClick={()=>setView("addperson")} style={{background:"linear-gradient(135deg,"+N+",#2a4a8a)",borderRadius:12,padding:"16px 22px",marginBottom:20,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div>
+          <div style={{color:G,fontSize:11,fontWeight:600,textTransform:"uppercase",letterSpacing:1.5,marginBottom:3}}>Central Intake</div>
+          <div style={{color:"#fff",fontSize:16,fontWeight:500}}>➕ Add New Person to Database</div>
+          <div style={{color:"#7a9acc",fontSize:12,marginTop:3}}>Members · Visitors · Full intake form with all fields</div>
+        </div>
+        <div style={{color:"#fff",fontSize:28,opacity:0.5}}>→</div>
+      </div>
       <div style={{display:"flex",gap:12,marginBottom:20,flexWrap:"wrap"}}>
         <Stat label="Active Members" value={activeM} sub={"of "+members.length+" total"}/>
         <Stat label="Visitors" value={visitors.length} sub={fu+" need follow-up"} color={AM}/>
         <Stat label="Last Service" value={lastSvc?lastSvc.count:0} sub={lastSvc?lastSvc.service:""} color={BL}/>
-        <Stat label="April Giving" value={f$(totalG)} sub="Tithes and offerings" color={GR}/>
-        <Stat label="Prayer Requests" value={prayers.filter(p=>p.status==="Active").length} sub="Active" color={PU}/>
+        <Stat label={monthLabel+" Giving"} value={f$(totalG)} sub="Tithes and offerings" color={GR}/>
+        <Stat label="Prayer Requests" value={prayers.filter((p:any)=>p.status==="Active").length} sub="Active" color={PU}/>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
         <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:18}}>
@@ -3729,27 +4358,32 @@ function Dashboard({members,visitors,attendance,giving,prayers,setView}) {
         <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:18}}>
           <h3 style={{fontSize:14,fontWeight:500,color:N,margin:"0 0 14px"}}>Quick Navigation</h3>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-            {qnav.map(([icon,label,id])=>(
-              <button key={id} onClick={()=>setView(id)} style={{padding:12,border:"0.5px solid "+BR,borderRadius:8,background:BG,cursor:"pointer",textAlign:"left",fontSize:13,color:TX,display:"flex",alignItems:"center",gap:8}}>
+            {qnav.map(([label,id])=>(
+              <button key={id} onClick={()=>setView(id)} style={{padding:"10px 12px",border:"0.5px solid "+BR,borderRadius:8,background:BG,cursor:"pointer",textAlign:"left",fontSize:13,color:TX,display:"flex",alignItems:"center",gap:8}}>
                 {label}
+                {id==="people"&&fu>0&&<span style={{marginLeft:"auto",background:RE,color:"#fff",borderRadius:10,fontSize:10,padding:"1px 6px"}}>{fu}</span>}
               </button>
             ))}
           </div>
         </div>
         <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:18}}>
           <h3 style={{fontSize:14,fontWeight:500,color:N,margin:"0 0 14px"}}>Recent Activity</h3>
-          {[...members.slice(0,2).map(m=>({text:m.first+" "+m.last+" Member",sub:"Active member",color:GR})),
-            ...visitors.slice(0,2).map(v=>({text:v.first+" "+v.last+" Visitor",sub:v.stage,color:AM})),
-            ...giving.slice(0,2).map(g=>({text:g.name+" gave "+f$(g.amount),sub:fd(g.date),color:G}))
-          ].map((r,i)=>(
-            <div key={i} style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
-              <div style={{width:8,height:8,borderRadius:"50%",background:r.color,flexShrink:0}}></div>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:13,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{r.text}</div>
-                <div style={{fontSize:11,color:MU}}>{r.sub}</div>
+          {(()=>{
+            const allGiving=[...giving].sort((a:any,b:any)=>b.date.localeCompare(a.date)).slice(0,3).map((g:any)=>({text:g.name+" gave "+f$(g.amount),sub:fd(g.date),color:G}));
+            const recentM=[...members].sort((a:any,b:any)=>(b.joined||b.addedDate||"").localeCompare(a.joined||a.addedDate||"")).slice(0,2).map((m:any)=>({text:m.first+" "+m.last,sub:"Member"+((m.role)?": "+m.role:""),color:GR}));
+            const recentV=[...visitors].sort((a:any,b:any)=>(b.firstVisit||b.addedDate||"").localeCompare(a.firstVisit||a.addedDate||"")).slice(0,1).map((v:any)=>({text:v.first+" "+v.last,sub:"Visitor · "+v.stage,color:AM}));
+            const items=[...recentM,...recentV,...allGiving].slice(0,6);
+            if(items.length===0) return <p style={{fontSize:13,color:MU,fontStyle:"italic",margin:0}}>No recent activity yet.</p>;
+            return items.map((r:any,i:number)=>(
+              <div key={i} style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+                <div style={{width:8,height:8,borderRadius:"50%",background:r.color,flexShrink:0}}></div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:13,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{r.text}</div>
+                  <div style={{fontSize:11,color:MU}}>{r.sub}</div>
+                </div>
               </div>
-            </div>
-          ))}
+            ));
+          })()}
         </div>
       </div>
     </div>
@@ -3757,7 +4391,7 @@ function Dashboard({members,visitors,attendance,giving,prayers,setView}) {
 }
 
 // ── PEOPLE ──
-function People({members,setMembers,visitors,setVisitors,attendance,giving,prayers,groups,grpMeetings,visitRecords,setVisitRecords,checkIns}) {
+function People({members,setMembers,visitors,setVisitors,attendance,giving,prayers,groups,grpMeetings,visitRecords,setVisitRecords,checkIns,setView}:any) {
   const [tab,setTab] = useState("members");
   const [search,setSearch] = useState("");
   const [modal,setModal] = useState(false);
@@ -3895,7 +4529,7 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,praye
           </button>
         ))}
         <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search..." style={{flex:1,padding:"8px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}/>
-        <Btn onClick={()=>{setForm(blankForm());setModal(true);}}>+ Add {tab==="members"?"Member":"Visitor"}</Btn>
+        <Btn onClick={()=>setView("addperson")}>+ Add {tab==="members"?"Member":"Visitor"}</Btn>
       </div>
       <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,overflow:"hidden"}}>
         <table style={{width:"100%",borderCollapse:"collapse"}}>
@@ -4344,7 +4978,7 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,praye
 }
 
 // ── ATTENDANCE ──
-function Attendance({attendance,setAttendance}) {
+function Attendance({attendance,setAttendance,setView}:any) {
   const [modal,setModal] = useState(false);
   const [form,setForm] = useState({date:td(),service:"Sunday Morning Worship",count:"",members:"",visitors:"",notes:""});
   const [insight,setInsight] = useState("");
@@ -4382,7 +5016,10 @@ function Attendance({attendance,setAttendance}) {
       </div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
         <h3 style={{fontSize:14,fontWeight:500,color:N,margin:0}}>Service Log</h3>
-        <Btn onClick={()=>setModal(true)}>+ Log Service</Btn>
+        <div style={{display:"flex",gap:8}}>
+          {setView && <Btn onClick={()=>setView("addperson")} v="gold" style={{fontSize:12}}>+ Add New Person</Btn>}
+          <Btn onClick={()=>setModal(true)}>+ Log Service</Btn>
+        </div>
       </div>
       <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,overflow:"hidden"}}>
         <table style={{width:"100%",borderCollapse:"collapse"}}>
@@ -4746,18 +5383,20 @@ function PledgeDrives({pledgeDrives,setPledgeDrives,pledges,setPledges,giving,me
 
 // Tithe calculation helpers
 // Church Tithe = 10% of everything NOT 'Tithe' and NOT 'Sunday Morning Offering'
-// Pastor Tithe = 10% of 'Tithe' + 'Sunday Morning Offering'
-function calcTithes(givingRecords){
-  const tithe = givingRecords.filter(g=>g.category==="Tithe").reduce((a,g)=>a+g.amount,0);
-  const sundayMorning = givingRecords.filter(g=>g.category==="Sunday Morning Offering").reduce((a,g)=>a+g.amount,0);
-  const otherOfferings = givingRecords.filter(g=>g.category!=="Tithe"&&g.category!=="Sunday Morning Offering").reduce((a,g)=>a+g.amount,0);
+// Pastor's Draw = 60% of Tithe + Sunday Morning Offering (weekly)
+function calcTithes(givingRecords:any){
+  const tithe = givingRecords.filter((g:any)=>g.category==="Tithe").reduce((a:number,g:any)=>a+g.amount,0);
+  const sundayMorning = givingRecords.filter((g:any)=>g.category==="Sunday Morning Offering").reduce((a:number,g:any)=>a+g.amount,0);
+  const otherOfferings = givingRecords.filter((g:any)=>g.category!=="Tithe"&&g.category!=="Sunday Morning Offering").reduce((a:number,g:any)=>a+g.amount,0);
+  const pastorBase = tithe + sundayMorning;
   return {
     tithe,
     sundayMorning,
     otherOfferings,
-    pastorBase: tithe + sundayMorning,
+    pastorBase,
     churchBase: otherOfferings,
-    pastorTithe: Math.round((tithe + sundayMorning) * 0.10 * 100) / 100,
+    pastorDraw: Math.round(pastorBase * 0.60 * 100) / 100,
+    pastorTithe: Math.round(pastorBase * 0.60 * 100) / 100, // alias for backward compat
     churchTithe: Math.round(otherOfferings * 0.10 * 100) / 100
   };
 }
@@ -4909,12 +5548,12 @@ function WeeklyReports({giving,weeklyReports,setWeeklyReports}){
                     </div>
                   </div>
                   <div style={{background:W,border:"0.5px solid "+G,borderRadius:8,padding:"12px 14px"}}>
-                    <div style={{fontSize:11,color:"#7a5c10",fontWeight:600,textTransform:"uppercase",letterSpacing:0.5,marginBottom:6}}>Pastor Weekly Tithe</div>
-                    <div style={{fontSize:26,fontWeight:700,color:N,marginBottom:8}}>{f$(r.tithes.pastorTithe)}</div>
+                    <div style={{fontSize:11,color:"#7a5c10",fontWeight:600,textTransform:"uppercase",letterSpacing:0.5,marginBottom:6}}>Pastor's Draw</div>
+                    <div style={{fontSize:26,fontWeight:700,color:N,marginBottom:8}}>{f$(r.tithes.pastorDraw??r.tithes.pastorTithe)}</div>
                     <div style={{fontSize:11,color:MU,lineHeight:1.6}}>
                       <div style={{display:"flex",justifyContent:"space-between"}}><span>Tithe collected:</span><strong>{f$(r.tithes.tithe)}</strong></div>
                       <div style={{display:"flex",justifyContent:"space-between"}}><span>Sun. Morning Offering:</span><strong>{f$(r.tithes.sundayMorning)}</strong></div>
-                      <div style={{display:"flex",justifyContent:"space-between"}}><span>10% of combined:</span><strong style={{color:GR}}>{f$(r.tithes.pastorTithe)}</strong></div>
+                      <div style={{display:"flex",justifyContent:"space-between"}}><span>60% of combined:</span><strong style={{color:GR}}>{f$(r.tithes.pastorDraw??r.tithes.pastorTithe)}</strong></div>
                     </div>
                   </div>
                 </div>
@@ -5085,8 +5724,8 @@ function TithesView({giving,weeklyReports}){
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:10}}>
         <div>
-          <h3 style={{fontSize:15,fontWeight:500,color:N,margin:0}}>Church & Pastor Tithes</h3>
-          <div style={{fontSize:12,color:MU,marginTop:2}}>Auto-calculated 10% tithes on giving</div>
+          <h3 style={{fontSize:15,fontWeight:500,color:N,margin:0}}>Church Tithe & Pastor's Draw</h3>
+          <div style={{fontSize:12,color:MU,marginTop:2}}>Church: 10% of offerings · Pastor's Draw: 60% of tithes + Sunday morning offering</div>
         </div>
         <div style={{display:"flex",gap:6,background:W,borderRadius:8,border:"0.5px solid "+BR,padding:3}}>
           {[["week","This Week"],["month","This Month"],["ytd","Year to Date"],["all","All Time"]].map(([id,label])=>(
@@ -5128,11 +5767,11 @@ function TithesView({giving,weeklyReports}){
 
         <div style={{background:W,border:"1.5px solid "+G,borderRadius:12,overflow:"hidden"}}>
           <div style={{background:G,color:"#fff",padding:"14px 18px"}}>
-            <div style={{fontSize:11,color:"#fff",textTransform:"uppercase",letterSpacing:1.5,fontWeight:600,marginBottom:2,opacity:0.85}}>Pastor Weekly Tithe</div>
-            <div style={{fontSize:13}}>10% of Tithe + Sunday Morning Offering</div>
+            <div style={{fontSize:11,color:"#fff",textTransform:"uppercase",letterSpacing:1.5,fontWeight:600,marginBottom:2,opacity:0.85}}>Pastor's Draw (Weekly)</div>
+            <div style={{fontSize:13}}>60% of Tithes + Sunday Morning Offering</div>
           </div>
           <div style={{padding:20}}>
-            <div style={{fontSize:36,fontWeight:700,color:N,marginBottom:16}}>{f$(tithes.pastorTithe)}</div>
+            <div style={{fontSize:36,fontWeight:700,color:N,marginBottom:16}}>{f$(tithes.pastorDraw??tithes.pastorTithe)}</div>
             <div style={{fontSize:12,color:MU,textTransform:"uppercase",letterSpacing:0.5,marginBottom:10,fontWeight:500}}>Calculation</div>
             <div style={{background:BG,borderRadius:8,padding:14,border:"0.5px solid "+BR}}>
               <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0",fontSize:13}}>
@@ -5148,12 +5787,12 @@ function TithesView({giving,weeklyReports}){
                 <span>{f$(tithes.pastorBase)}</span>
               </div>
               <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0",fontSize:13,color:MU}}>
-                <span>× 10%</span>
+                <span>× 60%</span>
                 <span></span>
               </div>
               <div style={{display:"flex",justifyContent:"space-between",padding:"8px 0 0",fontSize:14,fontWeight:600,borderTop:"0.5px solid "+BR,marginTop:4}}>
-                <span style={{color:N}}>Pastor Tithe Owed</span>
-                <span style={{color:GR}}>{f$(tithes.pastorTithe)}</span>
+                <span style={{color:N}}>Pastor's Draw</span>
+                <span style={{color:GR}}>{f$(tithes.pastorDraw??tithes.pastorTithe)}</span>
               </div>
             </div>
           </div>
@@ -5164,9 +5803,9 @@ function TithesView({giving,weeklyReports}){
       <div style={{background:GL+"44",border:"1px solid "+G,borderRadius:10,padding:"14px 18px",marginBottom:20,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
         <div>
           <div style={{fontSize:11,color:"#7a5c10",textTransform:"uppercase",letterSpacing:1,fontWeight:600}}>Total Tithes for {rangeLabel}</div>
-          <div style={{fontSize:12,color:"#7a5c10",marginTop:2}}>Church Tithe + Pastor Tithe combined</div>
+          <div style={{fontSize:12,color:"#7a5c10",marginTop:2}}>Church Tithe + Pastor's Draw combined</div>
         </div>
-        <div style={{fontSize:30,fontWeight:700,color:N}}>{f$(tithes.churchTithe + tithes.pastorTithe)}</div>
+        <div style={{fontSize:30,fontWeight:700,color:N}}>{f$(tithes.churchTithe + (tithes.pastorDraw??tithes.pastorTithe))}</div>
       </div>
 
       {/* Weekly history */}
@@ -5177,7 +5816,7 @@ function TithesView({giving,weeklyReports}){
             <div style={{fontSize:11,color:MU,marginTop:2}}>Tithes calculated for each saved weekly report</div>
           </div>
           <table style={{width:"100%",borderCollapse:"collapse"}}>
-            <thead><tr style={{background:"#f8f9fc"}}>{["Week","Total Giving","Church Tithe","Pastor Tithe","Combined"].map(h=><th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:11,fontWeight:500,color:MU,textTransform:"uppercase",letterSpacing:0.5,borderBottom:"0.5px solid "+BR}}>{h}</th>)}</tr></thead>
+            <thead><tr style={{background:"#f8f9fc"}}>{["Week","Total Giving","Church Tithe","Pastor's Draw","Combined"].map(h=><th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:11,fontWeight:500,color:MU,textTransform:"uppercase",letterSpacing:0.5,borderBottom:"0.5px solid "+BR}}>{h}</th>)}</tr></thead>
             <tbody>
               {sortedWeeks.map(r=>{
                 const t = r.tithes || calcTithes([]);
@@ -5189,8 +5828,8 @@ function TithesView({giving,weeklyReports}){
                     </td>
                     <td style={{padding:"10px 14px",fontSize:13,fontWeight:500,color:N}}>{f$(r.total)}</td>
                     <td style={{padding:"10px 14px",fontSize:13,fontWeight:500,color:N}}>{f$(t.churchTithe)}</td>
-                    <td style={{padding:"10px 14px",fontSize:13,fontWeight:500,color:G}}>{f$(t.pastorTithe)}</td>
-                    <td style={{padding:"10px 14px",fontSize:13,fontWeight:600,color:GR}}>{f$(t.churchTithe + t.pastorTithe)}</td>
+                    <td style={{padding:"10px 14px",fontSize:13,fontWeight:500,color:G}}>{f$(t.pastorDraw??t.pastorTithe)}</td>
+                    <td style={{padding:"10px 14px",fontSize:13,fontWeight:600,color:GR}}>{f$(t.churchTithe + (t.pastorDraw??t.pastorTithe))}</td>
                   </tr>
                 );
               })}
@@ -5198,8 +5837,8 @@ function TithesView({giving,weeklyReports}){
                 <td style={{padding:"10px 14px",fontSize:13,color:N}}>Grand Total</td>
                 <td style={{padding:"10px 14px",fontSize:13,color:N}}>{f$(sortedWeeks.reduce((a,r)=>a+r.total,0))}</td>
                 <td style={{padding:"10px 14px",fontSize:13,color:N}}>{f$(sortedWeeks.reduce((a,r)=>a+(r.tithes?.churchTithe||0),0))}</td>
-                <td style={{padding:"10px 14px",fontSize:13,color:G}}>{f$(sortedWeeks.reduce((a,r)=>a+(r.tithes?.pastorTithe||0),0))}</td>
-                <td style={{padding:"10px 14px",fontSize:13,color:GR}}>{f$(sortedWeeks.reduce((a,r)=>a+(r.tithes?.churchTithe||0)+(r.tithes?.pastorTithe||0),0))}</td>
+                <td style={{padding:"10px 14px",fontSize:13,color:G}}>{f$(sortedWeeks.reduce((a:number,r:any)=>a+(r.tithes?.pastorDraw??r.tithes?.pastorTithe??0),0))}</td>
+                <td style={{padding:"10px 14px",fontSize:13,color:GR}}>{f$(sortedWeeks.reduce((a:number,r:any)=>a+(r.tithes?.churchTithe||0)+(r.tithes?.pastorDraw??r.tithes?.pastorTithe??0),0))}</td>
               </tr>
             </tbody>
           </table>
@@ -5483,12 +6122,47 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
         <PledgeDrives pledgeDrives={pledgeDrives} setPledgeDrives={setPledgeDrives} pledges={pledges} setPledges={setPledges} giving={giving} members={members} visitors={visitors}/>
       ) : (
       <div>
-      <div style={{display:"flex",gap:12,marginBottom:20}}>
+      <div style={{display:"flex",gap:12,marginBottom:16,flexWrap:"wrap"}}>
         <Stat label="April Total" value={f$(total)} color={GR}/>
         <Stat label="Tithes" value={f$(tithe)} sub="This month"/>
         <Stat label="Offerings" value={f$(offering)} sub="This month" color={G}/>
         <Stat label="Records" value={giving.length} sub="All time"/>
       </div>
+      {/* Pastor's Draw Card */}
+      {(()=>{
+        const todayMon = getMondayOf(td());
+        const last5 = [...weeklyReports].sort((a,b)=>b.weekStart.localeCompare(a.weekStart)).slice(0,5);
+        const currentWeek = weeklyReports.find(r=>r.weekStart===todayMon);
+        const cwTithes = currentWeek ? calcTithes(giving.filter((g:any)=>g.date>=todayMon&&g.date<=getSundayOf(todayMon))) : calcTithes([]);
+        const draw = cwTithes.pastorDraw??cwTithes.pastorTithe;
+        return(
+          <div style={{background:W,border:"1.5px solid "+G,borderRadius:12,padding:18,marginBottom:16}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14,flexWrap:"wrap",gap:8}}>
+              <div>
+                <div style={{fontSize:11,color:"#7a5c10",textTransform:"uppercase",letterSpacing:1.5,fontWeight:600,marginBottom:2}}>Pastor's Draw — Current Week</div>
+                <div style={{fontSize:11,color:MU}}>Week of {fd(todayMon)} · 60% of Tithes + Sunday Morning Offering</div>
+              </div>
+              <Btn onClick={()=>setTab("tithes")} v="gold" style={{fontSize:11,padding:"5px 12px"}}>Full Tithes View →</Btn>
+            </div>
+            <div style={{fontSize:38,fontWeight:700,color:N,marginBottom:4}}>{f$(draw)}</div>
+            <div style={{fontSize:11,color:MU,marginBottom:14}}>Based on {f$(cwTithes.tithe)} tithes + {f$(cwTithes.sundayMorning)} Sunday morning offering = {f$(cwTithes.pastorBase)} × 60%</div>
+            {last5.length>0&&<div style={{borderTop:"0.5px solid "+BR,paddingTop:12}}>
+              <div style={{fontSize:11,color:MU,fontWeight:600,textTransform:"uppercase",letterSpacing:0.5,marginBottom:8}}>Last {last5.length} Weeks</div>
+              <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                {last5.map(r=>{
+                  const t=r.tithes||calcTithes([]);
+                  const d=t.pastorDraw??t.pastorTithe;
+                  const isThis=r.weekStart===todayMon;
+                  return(<div key={r.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 8px",background:isThis?GL+"44":"transparent",borderRadius:6,border:isThis?"0.5px solid "+G:"none"}}>
+                    <span style={{fontSize:12,color:isThis?"#7a5c10":MU,fontWeight:isThis?500:400}}>{fd(r.weekStart)} – {fd(r.weekEnd)}{isThis?" (current)":""}</span>
+                    <span style={{fontSize:13,fontWeight:600,color:isThis?N:TX}}>{f$(d)}</span>
+                  </div>);
+                })}
+              </div>
+            </div>}
+          </div>
+        );
+      })()}
       <div style={{background:GL+"33",border:"1px solid "+G,borderRadius:10,padding:"12px 16px",marginBottom:16,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
         <div style={{flex:1,minWidth:200}}>
           <div style={{fontSize:13,fontWeight:600,color:"#7a5c10",marginBottom:2}}>Weekly Giving Report</div>
@@ -5678,12 +6352,17 @@ function AIAssist({aiChat,setAiChat,members,setMembers,visitors,setVisitors,atte
   const [mem,setMem] = useState({preferences:"",commands:"",style:""});
   const [cmdCount,setCmdCount] = useState({});
   const [banner,setBanner] = useState(null);
+  const [ttsError,setTtsError] = useState(null);
+  const [aiApiKey,setAiApiKey] = useState(()=>localStorage.getItem("ntcc_ai_api_key")||"");
+  const [apiKeySaved,setApiKeySaved] = useState(false);
   const [listening,setListening] = useState(false);
   const [showMem,setShowMem] = useState(false);
   const endRef = useRef(null);
   const inputRef = useRef(null);
-  const audioRef = useRef(null);
+  const audioRef = useRef<HTMLAudioElement>(new Audio());
   const nid = useRef(600);
+  // Initialize audio element once so autoplay unlock persists
+  useEffect(()=>{ audioRef.current.volume=1; },[]);
   const mRef = useRef(members);
   const vRef = useRef(visitors);
   const aRef = useRef(attendance);
@@ -5695,30 +6374,40 @@ function AIAssist({aiChat,setAiChat,members,setMembers,visitors,setVisitors,atte
   useEffect(()=>{endRef.current?.scrollIntoView({behavior:"smooth"});},[aiChat,load]);
 
   useEffect(()=>{
-    (async()=>{
-      try {
-        const r = await window.storage.get("ntcc_ai_mem");
-        if(r) setMem(JSON.parse(r.value));
-        const cc = await window.storage.get("ntcc_ai_cmds");
-        if(cc) setCmdCount(JSON.parse(cc.value));
-        const v = await window.storage.get("ntcc_ai_voice");
-        if(v) setElVoice(v.value);
-      } catch(e) {}
-    })();
+    try {
+      const _r = localStorage.getItem("ntcc_ai_mem");
+      if(_r) setMem(JSON.parse(_r));
+      const _cc = localStorage.getItem("ntcc_ai_cmds");
+      if(_cc) setCmdCount(JSON.parse(_cc));
+      const _v = localStorage.getItem("ntcc_ai_voice");
+      if(_v) setElVoice(_v);
+    } catch(e) {}
   },[]);
 
-  const saveMem = async (m, c) => {
+  const saveMem = (m, c) => {
     try {
-      await window.storage.set("ntcc_ai_mem", JSON.stringify(m));
-      await window.storage.set("ntcc_ai_cmds", JSON.stringify(c));
+      localStorage.setItem("ntcc_ai_mem", JSON.stringify(m));
+      localStorage.setItem("ntcc_ai_cmds", JSON.stringify(c));
     } catch(e) {}
   };
 
-  const saveVoice = async v => {
-    try { await window.storage.set("ntcc_ai_voice", v); } catch(e) {}
+  const saveVoice = v => {
+    try { localStorage.setItem("ntcc_ai_voice", v); } catch(e) {}
   };
 
-  const speak = text => { if(ttsOn) speakEL(text, elVoice, audioRef); };
+  const speak = async text => {
+    if (!ttsOn) return;
+    const ok = await speakEL(text, elVoice);
+    if (!ok) {
+      setTtsError("ElevenLabs voice failed — verify API key & credits at elevenlabs.io, then try a different voice.");
+      if (window.speechSynthesis) {
+        const clean = text.replace(/\*\*|__|##|#|\[[\s\S]*?\]/g,"").replace(/\n+/g," ").substring(0,300);
+        window.speechSynthesis.speak(new SpeechSynthesisUtterance(clean));
+      }
+    } else {
+      setTtsError(null);
+    }
+  };
 
   const updateMem = actionType => {
     const nc = {...cmdCount};
@@ -5764,7 +6453,15 @@ function AIAssist({aiChat,setAiChat,members,setMembers,visitors,setVisitors,atte
       if(action) execAction(action); else updateMem(null);
       speak(clean);
     } catch(e) {
-      setAiChat([...nc,{role:"assistant",content:"I do apologize, Pastor Hall — something went wrong. Please try again, Sir."}]);
+      const msg = (e as any)?.message||String(e);
+      let friendly = "Error: " + msg + " — Please open Voice Settings and check your Anthropic API key.";
+      if(msg.includes("No API key")) friendly = "No Anthropic API key found. Open Voice Settings and paste your key under \"Anthropic API Key\", then click Save Key.";
+      else if(msg.includes("401")) friendly = "API key rejected (401). Please check your Anthropic key in Voice Settings — it may be invalid or revoked.";
+      else if(msg.includes("429")) friendly = "Rate limit reached (429). Please wait a moment and try again, Sir.";
+      else if(msg.includes("500")||msg.includes("529")) friendly = "Anthropic servers are temporarily unavailable. Please try again in a moment, Sir.";
+      else if(msg.includes("Failed to fetch")||msg.includes("NetworkError")) friendly = "Network error — please check your internet connection, Sir.";
+      console.error("AI error:", msg);
+      setAiChat([...nc,{role:"assistant",content:friendly}]);
     }
     setLoad(false);
   };
@@ -5798,8 +6495,16 @@ function AIAssist({aiChat,setAiChat,members,setMembers,visitors,setVisitors,atte
           </div>
         </div>
         <div style={{display:"flex",gap:8}}>
-          <div onClick={()=>{if(ttsOn&&audioRef.current)audioRef.current.pause();setTtsOn(v=>!v);}} style={{display:"flex",alignItems:"center",gap:5,padding:"5px 11px",borderRadius:20,border:"0.5px solid #ffffff44",cursor:"pointer",background:ttsOn?"#ffffff22":"transparent",color:"#fff",fontSize:12}}>
-            {ttsOn?"Voice On":"Voice Off"}
+          <div onClick={()=>{
+            const willBeOn = !ttsOn;
+            if (willBeOn) {
+              _elAudio.src=SILENT_WAV; _elAudio.play().catch(()=>{});
+            } else {
+              _elAudio.pause();
+            }
+            setTtsOn(willBeOn);
+          }} style={{display:"flex",alignItems:"center",gap:5,padding:"5px 13px",borderRadius:20,border:"1.5px solid "+(ttsOn?"#4ade80":"#ffffff44"),cursor:"pointer",background:ttsOn?"#16a34a44":"transparent",color:ttsOn?"#4ade80":"#ffffff99",fontSize:12,fontWeight:ttsOn?600:400,transition:"all 0.2s"}}>
+            {ttsOn?"🔊 Voice On":"🔇 Voice Off"}
           </div>
           <button onClick={()=>setShowMem(v=>!v)} style={{background:showMem?"#ffffff22":"#ffffff12",border:"0.5px solid #ffffff44",borderRadius:8,padding:"5px 11px",cursor:"pointer",color:"#fff",fontSize:12}}>Memory</button>
           <button onClick={()=>setShowSettings(true)} style={{background:"#ffffff12",border:"0.5px solid #ffffff44",borderRadius:8,padding:"5px 11px",cursor:"pointer",color:"#fff",fontSize:12}}>Voice Settings</button>
@@ -5809,6 +6514,17 @@ function AIAssist({aiChat,setAiChat,members,setMembers,visitors,setVisitors,atte
         <div style={{background:GR,color:"#fff",padding:"9px 16px",fontSize:13,fontWeight:500,display:"flex",alignItems:"center",gap:8,borderRadius:8,marginBottom:10,flexShrink:0}}>
           Done: {banner}
           <button onClick={()=>setBanner(null)} style={{marginLeft:"auto",background:"none",border:"none",color:"#fff",cursor:"pointer",fontSize:16}}>x</button>
+        </div>
+      )}
+      {ttsError && (
+        <div style={{background:"#fee2e2",border:"0.5px solid #fca5a5",color:RE,padding:"9px 16px",fontSize:12,fontWeight:500,display:"flex",alignItems:"center",gap:8,borderRadius:8,marginBottom:10,flexShrink:0}}>
+          Voice Error: {ttsError}
+          <button onClick={()=>setTtsError(null)} style={{marginLeft:"auto",background:"none",border:"none",color:RE,cursor:"pointer",fontSize:16}}>x</button>
+        </div>
+      )}
+      {!aiApiKey && (
+        <div style={{background:"#fef3c7",border:"0.5px solid #fde68a",color:"#92400e",padding:"9px 16px",fontSize:12,fontWeight:500,display:"flex",alignItems:"center",gap:8,borderRadius:8,marginBottom:10,flexShrink:0}}>
+          ⚠ No Anthropic API key — open <strong>Voice Settings</strong> to add your key and enable AI chat.
         </div>
       )}
       {showMem && (
@@ -5822,7 +6538,7 @@ function AIAssist({aiChat,setAiChat,members,setMembers,visitors,setVisitors,atte
         <div style={{width:210,background:W,border:"0.5px solid "+BR,borderRadius:12,display:"flex",flexDirection:"column",flexShrink:0,overflowY:"auto",padding:14}}>
           <div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:0.5,marginBottom:8}}>Quick Commands</div>
           {QUICK.map((cmd,i)=>(
-            <button key={i} onClick={()=>send(cmd)} style={{width:"100%",padding:"7px 9px",borderRadius:7,border:"0.5px solid "+BR,background:BG,color:TX,fontSize:11,cursor:"pointer",textAlign:"left",marginBottom:5,lineHeight:1.4}}>{cmd}</button>
+            <button key={i} onClick={()=>{_elAudio.src=SILENT_WAV;_elAudio.play().catch(()=>{});send(cmd);}} style={{width:"100%",padding:"7px 9px",borderRadius:7,border:"0.5px solid "+BR,background:BG,color:TX,fontSize:11,cursor:"pointer",textAlign:"left",marginBottom:5,lineHeight:1.4}}>{cmd}</button>
           ))}
           {topCmds.length>0 && (
             <div>
@@ -5898,7 +6614,7 @@ function AIAssist({aiChat,setAiChat,members,setMembers,visitors,setVisitors,atte
               <button onClick={startListening} style={{width:38,height:38,borderRadius:"50%",border:"none",background:listening?"#fee2e2":N+"18",cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",color:listening?RE:N}}>
                 {listening?"Stop":"Mic"}
               </button>
-              <Btn onClick={()=>send()} disabled={load||!input.trim()} style={{padding:"9px 18px"}}>{load?"...":"Send"}</Btn>
+              <Btn onClick={()=>{_elAudio.src=SILENT_WAV;_elAudio.play().catch(()=>{});send();}} disabled={load||!input.trim()} style={{padding:"9px 18px"}}>{load?"...":"Send"}</Btn>
             </div>
           </div>
           <div style={{fontSize:11,color:MU,marginTop:6,textAlign:"center"}}>Enter to send - Shift+Enter for new line - Mic for voice input - commands execute live</div>
@@ -5908,7 +6624,12 @@ function AIAssist({aiChat,setAiChat,members,setMembers,visitors,setVisitors,atte
       <Modal open={showSettings} onClose={()=>setShowSettings(false)} title="ElevenLabs Voice Settings" width={520}>
         <div style={{marginBottom:20}}>
           <div style={{fontSize:12,color:MU,textTransform:"uppercase",letterSpacing:0.5,marginBottom:10}}>Voice Output</div>
-          <div onClick={()=>{if(ttsOn&&audioRef.current)audioRef.current.pause();setTtsOn(v=>!v);}} style={{display:"flex",alignItems:"center",gap:12,padding:"14px 16px",borderRadius:10,border:"0.5px solid "+BR,cursor:"pointer",background:ttsOn?"#f0fdf4":BG,marginBottom:12}}>
+          <div onClick={()=>{
+            const willBeOn = !ttsOn;
+            if(willBeOn){_elAudio.src=SILENT_WAV;_elAudio.play().catch(()=>{});}
+            else _elAudio.pause();
+            setTtsOn(willBeOn);
+          }} style={{display:"flex",alignItems:"center",gap:12,padding:"14px 16px",borderRadius:10,border:"0.5px solid "+BR,cursor:"pointer",background:ttsOn?"#f0fdf4":BG,marginBottom:12}}>
             <div style={{width:44,height:24,borderRadius:12,background:ttsOn?GR:BR,position:"relative",transition:"background 0.2s",flexShrink:0}}>
               <div style={{position:"absolute",top:3,left:ttsOn?22:3,width:18,height:18,borderRadius:"50%",background:"#fff",transition:"left 0.2s"}}></div>
             </div>
@@ -5928,13 +6649,21 @@ function AIAssist({aiChat,setAiChat,members,setMembers,visitors,setVisitors,atte
               </div>
               <button onClick={async e=>{
                 e.stopPropagation();
-                const prev = ttsOn;
-                setTtsOn(true);
-                await speakEL("Good day Pastor Hall, I am your NTCC AI Assistant, ready to serve the ministry.", v.id, audioRef);
-                if(!prev) setTimeout(()=>setTtsOn(false),4000);
+                _elAudio.src=SILENT_WAV; _elAudio.play().catch(()=>{});
+                await speakEL("Good day Pastor Hall, I am your NTCC AI Assistant, ready to serve the ministry.", v.id);
               }} style={{padding:"6px 12px",background:N,color:"#fff",border:"none",borderRadius:6,fontSize:11,cursor:"pointer",flexShrink:0}}>Preview</button>
             </div>
           ))}
+        </div>
+        <div style={{background:"#f0f9ff",border:"0.5px solid #7dd3fc",borderRadius:10,padding:"12px 14px",marginBottom:16}}>
+          <div style={{fontSize:13,fontWeight:500,color:BL,marginBottom:4}}>Anthropic API Key (AI Brain)</div>
+          <div style={{fontSize:11,color:MU,marginBottom:10}}>Required for AI chat. Get yours free at console.anthropic.com → API Keys.</div>
+          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            <input type="password" value={aiApiKey} onChange={e=>setAiApiKey(e.target.value)} placeholder="sk-ant-api03-..." style={{flex:1,padding:"8px 10px",border:"1.5px solid "+(aiApiKey?"#7dd3fc":RE),borderRadius:7,fontSize:12,outline:"none",fontFamily:"monospace"}}/>
+            <button onClick={()=>{localStorage.setItem("ntcc_ai_api_key",aiApiKey);setApiKeySaved(true);setTimeout(()=>setApiKeySaved(false),2500);}} style={{padding:"8px 14px",background:apiKeySaved?GR:BL,color:"#fff",border:"none",borderRadius:7,fontSize:12,cursor:"pointer",fontWeight:500,whiteSpace:"nowrap"}}>{apiKeySaved?"✓ Saved!":"Save Key"}</button>
+          </div>
+          {!aiApiKey&&<div style={{fontSize:11,color:RE,marginTop:6}}>⚠ No key saved — AI chat will not work until a key is entered.</div>}
+          {aiApiKey&&<div style={{fontSize:11,color:GR,marginTop:6}}>✓ API key saved.</div>}
         </div>
         <div style={{background:"#fff5f5",border:"0.5px solid #fca5a5",borderRadius:10,padding:"12px 14px"}}>
           <div style={{fontSize:13,fontWeight:500,color:RE,marginBottom:4}}>Clear AI Memory</div>
@@ -5943,7 +6672,7 @@ function AIAssist({aiChat,setAiChat,members,setMembers,visitors,setVisitors,atte
             if(!confirm("Clear all AI memory?")) return;
             setMem({preferences:"",commands:"",style:""});
             setCmdCount({});
-            try { await window.storage.delete("ntcc_ai_mem"); await window.storage.delete("ntcc_ai_cmds"); } catch(e) {}
+            try { localStorage.removeItem("ntcc_ai_mem"); localStorage.removeItem("ntcc_ai_cmds"); } catch(e) {}
             setShowSettings(false);
           }} style={{padding:"7px 14px",background:"#fee2e2",color:RE,border:"0.5px solid #fca5a5",borderRadius:7,fontSize:12,cursor:"pointer",fontWeight:500}}>Clear All Memory</button>
         </div>
@@ -6005,10 +6734,10 @@ function CheckInPortal({classrooms,children,setChildren,kidsCheckIns,setKidsChec
   const dateCI=kidsCheckIns.filter(c=>c.date===selDate);
   const activeCI=dateCI.filter(c=>!c.checkedOut);
   const results=search.length>1?children.filter(c=>(c.first+" "+c.last).toLowerCase().includes(search.toLowerCase())&&c.status==="Active"):[];
-  const pickChild=c=>{setSelChild(c);setSelClass(classrooms.find(cl=>cl.grade===c.grade)||null);setSearch("");};
+  const pickChild=c=>{const age=calcAge(c.dob);const minorRooms=classrooms.filter(cl=>cl.checkin!==false&&cl.id<=6);setSelChild(c);setSelClass(minorRooms.find(cl=>typeof age==="number"&&age>=cl.ageMin&&age<=cl.ageMax)||minorRooms.find(cl=>cl.grade===c.grade)||minorRooms[3]||null);setSearch("");};
   const doCheckIn=()=>{if(!selChild||!selClass)return;const code=genCode();const ci={id:nid.current++,childId:selChild.id,classroomId:selClass.id,date:selDate,time:new Date().toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit",hour12:true}),code,checkedOut:false};setKidsCheckIns(cs=>[...cs,ci]);setPrintData({ci,child:selChild,classroom:selClass});setSelChild(null);setSelClass(null);};
   const doCheckOut=id=>{if(!confirm("Verify parent code matches child tag, then check out?"))return;setKidsCheckIns(cs=>cs.map(c=>c.id===id?{...c,checkedOut:true,checkOutAt:new Date().toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit",hour12:true})}:c));};
-  const addChild=()=>{if(!newChild.first||!newChild.last||!newChild.grade){alert("Name and grade required.");return;}const id=600+children.length+1;const c={...newChild,id,status:"Active"};setChildren(cs=>[...cs,c]);pickChild(c);setNewModal(false);setNewChild({first:"",last:"",dob:"",grade:"",parentName:"",parentPhone:"",allergies:[],medical:[],medicalNotes:"",emergencyPickup:""});};
+  const addChild=()=>{if(!newChild.first||!newChild.last||!newChild.grade){alert("Name and level required.");return;}const id=600+children.length+1;const c={...newChild,id,status:"Active"};setChildren(cs=>[...cs,c]);pickChild(c);setNewModal(false);setNewChild({first:"",last:"",dob:"",grade:"",parentName:"",parentPhone:"",allergies:[],medical:[],medicalNotes:"",emergencyPickup:""});};
   const reprint=id=>{const ci=kidsCheckIns.find(c=>c.id===id);if(!ci)return;const ch=children.find(c=>c.id===ci.childId);const cl=classrooms.find(c=>c.id===ci.classroomId);if(ch&&cl)setPrintData({ci,child:ch,classroom:cl});};
   return(
     <div>
@@ -6021,7 +6750,7 @@ function CheckInPortal({classrooms,children,setChildren,kidsCheckIns,setKidsChec
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
         <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:16}}>
           <h3 style={{fontSize:14,fontWeight:500,color:N,margin:"0 0 14px"}}>Check In a Child</h3>
-          {!selChild?(<div><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Type child's name..." style={{width:"100%",padding:"10px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:14,outline:"none",boxSizing:"border-box",marginBottom:8}}/>{search.length<=1&&<div style={{textAlign:"center",padding:16,color:MU,fontSize:12}}>Start typing to find a child</div>}{results.length>0&&(<div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:10,maxHeight:280,overflowY:"auto"}}>{results.map(ch=>{const inn=activeCI.some(c=>c.childId===ch.id);return (<div key={ch.id} onClick={()=>!inn&&pickChild(ch)} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",borderRadius:8,border:"0.5px solid "+(inn?GR+"55":BR),background:inn?"#f0fdf4":W,cursor:inn?"default":"pointer"}}><Av f={ch.first} l={ch.last} sz={32}/><div style={{flex:1}}><div style={{fontSize:13,fontWeight:500}}>{ch.first} {ch.last}</div><div style={{fontSize:11,color:MU}}>Age {calcAge(ch.dob)} - Grade {ch.grade} - {ch.parentName}</div></div>{inn&&<span style={{fontSize:10,background:GR,color:"#fff",borderRadius:10,padding:"2px 7px",fontWeight:500}}>In</span>}</div>);})}</div>)}{search.length>1&&results.length===0&&<div style={{textAlign:"center",padding:16,color:MU,fontSize:12}}>No child found. Add them as new.</div>}<Btn onClick={()=>{setNewModal(true);const p=search.trim().split(" ");setNewChild(n=>({...n,first:p[0]||"",last:p.slice(1).join(" ")||""}));}} v="outline" style={{width:"100%",justifyContent:"center"}}>+ Add New Child</Btn></div>):(<div><div style={{padding:14,background:BG,borderRadius:10,border:"0.5px solid "+BR,marginBottom:12}}><div style={{display:"flex",alignItems:"center",gap:12,marginBottom:10}}><Av f={selChild.first} l={selChild.last} sz={48}/><div style={{flex:1}}><div style={{fontSize:16,fontWeight:500}}>{selChild.first} {selChild.last}</div><div style={{fontSize:12,color:MU}}>Age {calcAge(selChild.dob)} - Grade {selChild.grade}</div><div style={{fontSize:12,color:MU}}>Parent: {selChild.parentName} - {selChild.parentPhone}</div></div><button onClick={()=>{setSelChild(null);setSelClass(null);}} style={{background:"none",border:"none",cursor:"pointer",color:MU,fontSize:16}}>x</button></div>{(selChild.allergies?.length>0||selChild.medical?.length>0)&&<div style={{padding:"7px 10px",background:"#fff5f5",border:"0.5px solid #fca5a5",borderRadius:6,fontSize:11}}><strong style={{color:RE}}>MEDICAL:</strong>{selChild.allergies?.length>0&&" Allergies: "+selChild.allergies.join(", ")+"."}{selChild.medical?.length>0&&" Conditions: "+selChild.medical.join(", ")+"."}{selChild.medicalNotes&&" "+selChild.medicalNotes}</div>}</div><div style={{fontSize:11,color:MU,fontWeight:500,textTransform:"uppercase",letterSpacing:0.5,marginBottom:6}}>Classroom</div><div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(100px,1fr))",gap:6,marginBottom:12}}>{classrooms.map(cl=>{const sel=selClass?.id===cl.id;const rec=cl.grade===selChild.grade;const count=activeCI.filter(c=>c.classroomId===cl.id).length;const full=count>=cl.capacity;return (<button key={cl.id} onClick={()=>!full&&setSelClass(cl)} disabled={full} style={{padding:"8px 6px",borderRadius:7,border:"1.5px solid "+(sel?cl.color:rec?G:BR),background:sel?cl.color+"14":rec?GL+"44":W,cursor:full?"not-allowed":"pointer",opacity:full?0.4:1,fontSize:11,fontWeight:sel?600:400,color:sel?cl.color:TX,textAlign:"center"}}><div>{cl.name}</div><div style={{fontSize:9,color:MU,marginTop:2}}>{count}/{cl.capacity}</div></button>);})}</div><Btn onClick={doCheckIn} v="success" style={{width:"100%",justifyContent:"center",padding:"12px",fontSize:14}} disabled={!selClass}>Check In and Print Labels</Btn></div>)}
+          {!selChild?(<div><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Type child's name..." style={{width:"100%",padding:"10px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:14,outline:"none",boxSizing:"border-box",marginBottom:8}}/>{search.length<=1&&<div style={{textAlign:"center",padding:16,color:MU,fontSize:12}}>Start typing to find a child</div>}{results.length>0&&(<div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:10,maxHeight:280,overflowY:"auto"}}>{results.map(ch=>{const inn=activeCI.some(c=>c.childId===ch.id);return (<div key={ch.id} onClick={()=>!inn&&pickChild(ch)} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",borderRadius:8,border:"0.5px solid "+(inn?GR+"55":BR),background:inn?"#f0fdf4":W,cursor:inn?"default":"pointer"}}><Av f={ch.first} l={ch.last} sz={32}/><div style={{flex:1}}><div style={{fontSize:13,fontWeight:500}}>{ch.first} {ch.last}</div><div style={{fontSize:11,color:MU}}>Age {calcAge(ch.dob)} · {ch.grade} · {ch.parentName}</div></div>{inn&&<span style={{fontSize:10,background:GR,color:"#fff",borderRadius:10,padding:"2px 7px",fontWeight:500}}>In</span>}</div>);})}</div>)}{search.length>1&&results.length===0&&<div style={{textAlign:"center",padding:16,color:MU,fontSize:12}}>No child found. Add them as new.</div>}<Btn onClick={()=>{setNewModal(true);const p=search.trim().split(" ");setNewChild(n=>({...n,first:p[0]||"",last:p.slice(1).join(" ")||""}));}} v="outline" style={{width:"100%",justifyContent:"center"}}>+ Add New Child</Btn></div>):(<div><div style={{padding:14,background:BG,borderRadius:10,border:"0.5px solid "+BR,marginBottom:12}}><div style={{display:"flex",alignItems:"center",gap:12,marginBottom:10}}><Av f={selChild.first} l={selChild.last} sz={48}/><div style={{flex:1}}><div style={{fontSize:16,fontWeight:500}}>{selChild.first} {selChild.last}</div><div style={{fontSize:12,color:MU}}>Age {calcAge(selChild.dob)} · {selChild.grade}</div><div style={{fontSize:12,color:MU}}>Parent: {selChild.parentName} - {selChild.parentPhone}</div></div><button onClick={()=>{setSelChild(null);setSelClass(null);}} style={{background:"none",border:"none",cursor:"pointer",color:MU,fontSize:16}}>x</button></div>{(selChild.allergies?.length>0||selChild.medical?.length>0)&&<div style={{padding:"7px 10px",background:"#fff5f5",border:"0.5px solid #fca5a5",borderRadius:6,fontSize:11}}><strong style={{color:RE}}>MEDICAL:</strong>{selChild.allergies?.length>0&&" Allergies: "+selChild.allergies.join(", ")+"."}{selChild.medical?.length>0&&" Conditions: "+selChild.medical.join(", ")+"."}{selChild.medicalNotes&&" "+selChild.medicalNotes}</div>}</div><div style={{fontSize:11,color:MU,fontWeight:500,textTransform:"uppercase",letterSpacing:0.5,marginBottom:6}}>Classroom</div><div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(100px,1fr))",gap:6,marginBottom:12}}>{classrooms.filter(cl=>cl.checkin!==false&&cl.id<=6).map(cl=>{const sel=selClass?.id===cl.id;const age=calcAge(selChild.dob);const rec=typeof age==="number"&&age>=cl.ageMin&&age<=cl.ageMax;const count=activeCI.filter(c=>c.classroomId===cl.id).length;const full=count>=cl.capacity;return (<button key={cl.id} onClick={()=>!full&&setSelClass(cl)} disabled={full} style={{padding:"8px 6px",borderRadius:7,border:"1.5px solid "+(sel?cl.color:rec?G:BR),background:sel?cl.color+"14":rec?GL+"44":W,cursor:full?"not-allowed":"pointer",opacity:full?0.4:1,fontSize:11,fontWeight:sel?600:400,color:sel?cl.color:TX,textAlign:"center"}}><div>{cl.name}</div><div style={{fontSize:9,color:MU,marginTop:2}}>{count}/{cl.capacity}</div></button>);})}</div><Btn onClick={doCheckIn} v="success" style={{width:"100%",justifyContent:"center",padding:"12px",fontSize:14}} disabled={!selClass}>Check In and Print Labels</Btn></div>)}
         </div>
         <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:16}}>
           <h3 style={{fontSize:14,fontWeight:500,color:N,margin:"0 0 14px"}}>{fd(selDate)} - {activeCI.length} Active</h3>
@@ -6036,7 +6765,7 @@ function CheckInPortal({classrooms,children,setChildren,kidsCheckIns,setKidsChec
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
           <Fld label="Date of Birth"><Inp type="date" value={newChild.dob} onChange={v=>setNewChild(c=>({...c,dob:v}))}/></Fld>
-          <Fld label="Grade *"><select value={newChild.grade} onChange={e=>setNewChild(c=>({...c,grade:e.target.value}))} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}><option value="">Select</option>{GRADES.map(g=><option key={g} value={g}>{g}</option>)}</select></Fld>
+          <Fld label="Level *"><select value={newChild.grade} onChange={e=>setNewChild(c=>({...c,grade:e.target.value}))} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}><option value="">Select level</option>{CHURCH_LEVELS.slice(0,6).map(l=><option key={l.name} value={l.name}>{l.label}</option>)}</select></Fld>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
           <Fld label="Parent Name"><Inp value={newChild.parentName} onChange={v=>setNewChild(c=>({...c,parentName:v}))}/></Fld>
@@ -6061,7 +6790,7 @@ function CheckInPortal({classrooms,children,setChildren,kidsCheckIns,setKidsChec
   );
 }
 
-function ChildrenRoster({children,setChildren,classrooms,members,kidsCheckIns}){
+function ChildrenRoster({children,setChildren,classrooms,members,kidsCheckIns,incidents}){
   const [search,setSearch]=useState("");
   const [filterGrade,setFilterGrade]=useState("all");
   const [modal,setModal]=useState(false);
@@ -6071,22 +6800,22 @@ function ChildrenRoster({children,setChildren,classrooms,members,kidsCheckIns}){
   const filtered=children.filter(c=>{if(search&&!(c.first+" "+c.last).toLowerCase().includes(search.toLowerCase()))return false;if(filterGrade!=="all"&&c.grade!==filterGrade)return false;return true;});
   const openEdit=ch=>{setEditing(ch);setForm({...ch,allergies:ch.allergies||[],medical:ch.medical||[]});setModal(true);};
   const openAdd=()=>{setEditing(null);setForm({first:"",last:"",dob:"",grade:"",parentName:"",parentPhone:"",parentMemberId:null,allergies:[],medical:[],medicalNotes:"",emergencyPickup:"",status:"Active"});setModal(true);};
-  const save=()=>{if(!form.first||!form.last||!form.grade){alert("Name and grade required.");return;}if(editing)setChildren(cs=>cs.map(c=>c.id===editing.id?{...c,...form}:c));else setChildren(cs=>[...cs,{...form,id:nid.current++}]);setModal(false);};
+  const save=()=>{if(!form.first||!form.last||!form.grade){alert("Name and level required.");return;}if(editing)setChildren(cs=>cs.map(c=>c.id===editing.id?{...c,...form}:c));else setChildren(cs=>[...cs,{...form,id:nid.current++}]);setModal(false);};
   return(
     <div>
       <div style={{display:"flex",gap:8,marginBottom:16,alignItems:"center"}}>
         <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search children..." style={{flex:1,padding:"8px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}/>
         <select value={filterGrade} onChange={e=>setFilterGrade(e.target.value)} style={{padding:"8px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W}}>
-          <option value="all">All grades</option>
-          {GRADES.map(g=><option key={g} value={g}>{g}</option>)}
+          <option value="all">All levels</option>
+          {CHURCH_LEVELS.map(l=><option key={l.name} value={l.name}>{l.name}</option>)}
         </select>
         <Btn onClick={openAdd}>+ Add Child</Btn>
       </div>
       <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,overflow:"hidden"}}>
         <table style={{width:"100%",borderCollapse:"collapse"}}>
-          <thead><tr style={{background:"#f8f9fc"}}>{["Child","Age","Grade","Parent","Medical","Last Visit",""].map(h=><th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:11,fontWeight:500,color:MU,textTransform:"uppercase",letterSpacing:0.5,borderBottom:"0.5px solid "+BR}}>{h}</th>)}</tr></thead>
+          <thead><tr style={{background:"#f8f9fc"}}>{["Child","Age","Level","Parent","Medical","Last Visit",""].map(h=><th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:11,fontWeight:500,color:MU,textTransform:"uppercase",letterSpacing:0.5,borderBottom:"0.5px solid "+BR}}>{h}</th>)}</tr></thead>
           <tbody>
-            {filtered.map(ch=>{const last=[...kidsCheckIns].filter(ci=>ci.childId===ch.id).sort((a,b)=>b.date.localeCompare(a.date))[0];const hasMed=(ch.allergies?.length>0||ch.medical?.length>0);return (<tr key={ch.id} onClick={()=>openEdit(ch)} style={{borderBottom:"0.5px solid "+BR,cursor:"pointer"}} onMouseEnter={e=>e.currentTarget.style.background="#f8f9fc"} onMouseLeave={e=>e.currentTarget.style.background=W}><td style={{padding:"10px 14px"}}><div style={{display:"flex",alignItems:"center",gap:10}}><Av f={ch.first} l={ch.last} sz={30}/><div style={{fontSize:13,fontWeight:500}}>{ch.first} {ch.last}</div></div></td><td style={{padding:"10px 14px",fontSize:13}}>{calcAge(ch.dob)}</td><td style={{padding:"10px 14px",fontSize:13}}>{ch.grade}</td><td style={{padding:"10px 14px",fontSize:13}}><div>{ch.parentName||"-"}</div><div style={{fontSize:11,color:MU}}>{ch.parentPhone||""}</div></td><td style={{padding:"10px 14px"}}>{hasMed?(<span style={{fontSize:11,background:"#fee2e2",color:RE,borderRadius:4,padding:"2px 7px",fontWeight:500}}>Alert</span>):(<span style={{fontSize:11,color:MU}}>None</span>)}</td><td style={{padding:"10px 14px",fontSize:12,color:MU}}>{last?fd(last.date):"Never"}</td><td style={{padding:"10px 14px"}} onClick={e=>e.stopPropagation()}><Btn onClick={()=>{if(confirm("Remove "+ch.first+" "+ch.last+"?"))setChildren(cs=>cs.filter(c=>c.id!==ch.id));}} v="danger" style={{fontSize:11,padding:"4px 8px"}}>X</Btn></td></tr>);})}
+            {filtered.map(ch=>{const last=[...kidsCheckIns].filter(ci=>ci.childId===ch.id).sort((a,b)=>b.date.localeCompare(a.date))[0];const hasMed=(ch.allergies?.length>0||ch.medical?.length>0);const hasOpenInc=(incidents||[]).some(i=>i.childId===ch.id&&i.status!=="Resolved");return (<tr key={ch.id} onClick={()=>openEdit(ch)} style={{borderBottom:"0.5px solid "+BR,cursor:"pointer"}} onMouseEnter={e=>e.currentTarget.style.background="#f8f9fc"} onMouseLeave={e=>e.currentTarget.style.background=W}><td style={{padding:"10px 14px"}}><div style={{display:"flex",alignItems:"center",gap:10}}><Av f={ch.first} l={ch.last} sz={30}/><div><div style={{fontSize:13,fontWeight:500}}>{ch.first} {ch.last}</div>{hasOpenInc&&<span style={{fontSize:10,background:"#fee2e2",color:RE,borderRadius:10,padding:"1px 6px",fontWeight:600}}>Incident</span>}</div></div></td><td style={{padding:"10px 14px",fontSize:13}}>{calcAge(ch.dob)}</td><td style={{padding:"10px 14px",fontSize:13}}>{ch.grade}</td><td style={{padding:"10px 14px",fontSize:13}}><div>{ch.parentName||"-"}</div><div style={{fontSize:11,color:MU}}>{ch.parentPhone||""}</div></td><td style={{padding:"10px 14px"}}>{hasMed?(<span style={{fontSize:11,background:"#fee2e2",color:RE,borderRadius:4,padding:"2px 7px",fontWeight:500}}>Alert</span>):(<span style={{fontSize:11,color:MU}}>None</span>)}</td><td style={{padding:"10px 14px",fontSize:12,color:MU}}>{last?fd(last.date):"Never"}</td><td style={{padding:"10px 14px"}} onClick={e=>e.stopPropagation()}><Btn onClick={()=>{if(confirm("Remove "+ch.first+" "+ch.last+"?"))setChildren(cs=>cs.filter(c=>c.id!==ch.id));}} v="danger" style={{fontSize:11,padding:"4px 8px"}}>X</Btn></td></tr>);})}
             {filtered.length===0&&<tr><td colSpan={7} style={{padding:40,textAlign:"center",color:MU}}>No children registered.</td></tr>}
           </tbody>
         </table>
@@ -6098,7 +6827,7 @@ function ChildrenRoster({children,setChildren,classrooms,members,kidsCheckIns}){
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
           <Fld label="Date of Birth"><Inp type="date" value={form.dob||""} onChange={v=>setForm(f=>({...f,dob:v}))}/></Fld>
-          <Fld label="Grade *"><select value={form.grade} onChange={e=>setForm(f=>({...f,grade:e.target.value}))} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}><option value="">Select</option>{GRADES.map(g=><option key={g} value={g}>{g}</option>)}</select></Fld>
+          <Fld label="Level *"><select value={form.grade} onChange={e=>setForm(f=>({...f,grade:e.target.value}))} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}><option value="">Select level</option>{CHURCH_LEVELS.map(l=><option key={l.name} value={l.name}>{l.label}</option>)}</select></Fld>
         </div>
         <Fld label="Parent (link to member)"><select value={form.parentMemberId||""} onChange={e=>{const id=+e.target.value||null;const m=members.find(x=>x.id===id);setForm(f=>({...f,parentMemberId:id,parentName:m?m.first+" "+m.last:f.parentName,parentPhone:m?m.phone:f.parentPhone}));}} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}><option value="">Not linked (manual entry)</option>{members.map(m=><option key={m.id} value={m.id}>{m.first} {m.last}</option>)}</select></Fld>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
@@ -6132,7 +6861,7 @@ function ClassroomsManager({classrooms,setClassrooms,teacherSchedule,users,membe
   const save=()=>{setClassrooms(cs=>cs.map(c=>c.id===editModal.id?{...c,...form}:c));setEditModal(null);};
   return(
     <div>
-      <div style={{fontSize:13,color:MU,marginBottom:14}}>{classrooms.length} classrooms organized by school grade. Click any to edit.</div>
+      <div style={{fontSize:13,color:MU,marginBottom:14}}>{classrooms.length} classrooms organized by age level. Click any to edit.</div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:12}}>
         {classrooms.map(cl=>{const todayCI=kidsCheckIns.filter(ci=>ci.date===today&&ci.classroomId===cl.id&&!ci.checkedOut).length;const todaySch=teacherSchedule.find(t=>t.date===today&&t.classroomId===cl.id);const leadU=todaySch?.leadId&&users.find(u=>u.id===todaySch.leadId);const leadM=leadU&&members.find(m=>m.id===leadU.memberId);return (<div key={cl.id} onClick={()=>openEdit(cl)} style={{background:W,border:"1.5px solid "+cl.color+"33",borderRadius:12,overflow:"hidden",cursor:"pointer"}}><div style={{background:cl.color,color:"#fff",padding:"10px 14px",fontWeight:600}}>{cl.name}</div><div style={{padding:14}}><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}><div><div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:0.4}}>Location</div><div style={{fontSize:12,fontWeight:500,marginTop:2}}>{cl.location}</div></div><div><div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:0.4}}>Capacity</div><div style={{fontSize:12,fontWeight:500,marginTop:2}}>{cl.capacity} kids</div></div></div><div style={{paddingTop:10,borderTop:"0.5px solid "+BR}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}><span style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:0.4}}>Today</span><span style={{fontSize:12,fontWeight:600,color:todayCI>0?cl.color:MU}}>{todayCI}/{cl.capacity}</span></div><div style={{fontSize:11,color:MU}}>{leadM?"Lead: "+leadM.first+" "+leadM.last:"No teacher today"}</div></div></div></div>);})}
       </div>
@@ -6183,56 +6912,858 @@ function TeacherScheduleMgr({classrooms,teacherSchedule,setTeacherSchedule,users
   );
 }
 
-function EdReports({classrooms,children,kidsCheckIns,teacherSchedule,users,members}){
+// ── CLASS ROLL CALL ──
+function ClassRollCall({classrooms,children,rollCalls,setRollCalls,teacherSchedule,users,members,cs}){
+  const [selDate,setSelDate]=useState(td());
+  const [selClassId,setSelClassId]=useState((classrooms.find((c:any)=>c.id<=6)||classrooms[0])?.id||0);
+  const [notes,setNotes]=useState("");
+  const [saved,setSaved]=useState(false);
+  const selClass=classrooms.find((c:any)=>c.id===selClassId);
+  const roster=children.filter((c:any)=>c.status==="Active"&&c.grade===selClass?.grade);
+  const existing=rollCalls.find((r:any)=>r.date===selDate&&r.classroomId===selClassId);
+  useEffect(()=>{setNotes((rollCalls.find((r:any)=>r.date===selDate&&r.classroomId===selClassId) as any)?.teacherNotes||"");},[selDate,selClassId]);
+  const getStatus=(childId:any)=>(existing as any)?.entries?.find((e:any)=>e.childId===childId)?.status||"";
+  const setEntry=(childId:any,status:any)=>{
+    setRollCalls((prev:any)=>{
+      const ex=prev.find((r:any)=>r.date===selDate&&r.classroomId===selClassId);
+      if(ex){
+        const ents=ex.entries.some((e:any)=>e.childId===childId)?ex.entries.map((e:any)=>e.childId===childId?{...e,status}:e):[...ex.entries,{childId,status}];
+        return prev.map((r:any)=>r.id===ex.id?{...r,entries:ents}:r);
+      }else{
+        const ents=roster.map((ch:any)=>({childId:ch.id,status:ch.id===childId?status:""}));
+        return[...prev,{id:Date.now(),date:selDate,classroomId:selClassId,entries:ents,teacherNotes:"",completedAt:null}];
+      }
+    });
+  };
+  const saveNotes=()=>{
+    setRollCalls((prev:any)=>{
+      const ex=prev.find((r:any)=>r.date===selDate&&r.classroomId===selClassId);
+      if(ex)return prev.map((r:any)=>r.id===ex.id?{...r,teacherNotes:notes,completedAt:new Date().toISOString()}:r);
+      return[...prev,{id:Date.now(),date:selDate,classroomId:selClassId,entries:[],teacherNotes:notes,completedAt:new Date().toISOString()}];
+    });
+    setSaved(true);setTimeout(()=>setSaved(false),2000);
+  };
+  const presentN=((existing as any)?.entries||[]).filter((e:any)=>e.status==="Present").length;
+  const absentN=((existing as any)?.entries||[]).filter((e:any)=>e.status==="Absent").length;
+  const excusedN=((existing as any)?.entries||[]).filter((e:any)=>e.status==="Excused").length;
+  const contactParent=(ch:any)=>{if(ch.parentPhone){(window as any).__openSmsComposer__&&(window as any).__openSmsComposer__({phone:ch.parentPhone,name:ch.parentName||"Parent",category:"Follow-Up",body:"Hi "+(ch.parentName?.split(" ")[0]||"there")+", this is "+((cs as any)?.name||"the church")+" reaching out about "+ch.first+". Please give us a call. Thank you!"});}};
+  const todaySch=(teacherSchedule as any[]).filter((t:any)=>t.date===selDate&&t.classroomId===selClassId);
+  const leadU=todaySch[0]?.leadId&&(users as any[]).find((u:any)=>u.id===todaySch[0].leadId);
+  const leadM=leadU&&(members as any[]).find((m:any)=>m.id===leadU.memberId);
+  return(
+    <div>
+      <div style={{display:"flex",gap:10,marginBottom:16,flexWrap:"wrap",alignItems:"flex-end"}}>
+        <div><div style={{fontSize:11,color:MU,marginBottom:4,fontWeight:500,textTransform:"uppercase" as any,letterSpacing:0.5}}>Date</div><input type="date" value={selDate} onChange={e=>setSelDate(e.target.value)} style={{padding:"7px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}/></div>
+        <div style={{flex:1}}><div style={{fontSize:11,color:MU,marginBottom:4,fontWeight:500,textTransform:"uppercase" as any,letterSpacing:0.5}}>Classroom</div><div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{(classrooms as any[]).filter((cl:any)=>cl.id<=6).map((cl:any)=><button key={cl.id} onClick={()=>setSelClassId(cl.id)} style={{padding:"7px 12px",borderRadius:7,border:"1.5px solid "+(selClassId===cl.id?cl.color:BR),background:selClassId===cl.id?cl.color+"14":W,color:selClassId===cl.id?cl.color:TX,fontSize:12,fontWeight:selClassId===cl.id?600:400,cursor:"pointer"}}>{cl.name}</button>)}</div></div>
+      </div>
+      {selClass&&(<div>
+        <div style={{display:"flex",gap:10,marginBottom:14,flexWrap:"wrap"}}>
+          <div style={{background:W,border:"0.5px solid "+BR,borderRadius:10,padding:"10px 16px",flex:2,minWidth:140}}><div style={{fontSize:10,color:MU,textTransform:"uppercase" as any,letterSpacing:0.5}}>Lead Teacher</div><div style={{fontSize:13,fontWeight:500,color:N,marginTop:3}}>{leadM?(leadM as any).first+" "+(leadM as any).last:"Not assigned"}</div></div>
+          <div style={{background:"#dcfce7",border:"0.5px solid #86efac",borderRadius:10,padding:"10px 16px",flex:1,minWidth:70,textAlign:"center" as any}}><div style={{fontSize:10,color:MU,textTransform:"uppercase" as any,letterSpacing:0.5}}>Present</div><div style={{fontSize:22,fontWeight:700,color:GR}}>{presentN}</div></div>
+          <div style={{background:"#fee2e2",border:"0.5px solid #fca5a5",borderRadius:10,padding:"10px 16px",flex:1,minWidth:70,textAlign:"center" as any}}><div style={{fontSize:10,color:MU,textTransform:"uppercase" as any,letterSpacing:0.5}}>Absent</div><div style={{fontSize:22,fontWeight:700,color:RE}}>{absentN}</div></div>
+          <div style={{background:"#fef3c7",border:"0.5px solid #fde68a",borderRadius:10,padding:"10px 16px",flex:1,minWidth:70,textAlign:"center" as any}}><div style={{fontSize:10,color:MU,textTransform:"uppercase" as any,letterSpacing:0.5}}>Excused</div><div style={{fontSize:22,fontWeight:700,color:AM}}>{excusedN}</div></div>
+        </div>
+        {roster.length===0?(
+          <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:36,textAlign:"center" as any}}><div style={{fontSize:13,fontWeight:500,color:N,marginBottom:6}}>No children in {(selClass as any).name}</div><div style={{fontSize:12,color:MU}}>Go to the Children tab and set their level to "{(selClass as any).name}" to add them here.</div></div>
+        ):(
+          <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,overflow:"hidden",marginBottom:14}}>
+            <div style={{padding:"10px 16px",background:"#f8f9fc",borderBottom:"0.5px solid "+BR,display:"flex",justifyContent:"space-between",alignItems:"center"}}><div style={{fontSize:13,fontWeight:500,color:N}}>{(selClass as any).name} Roll Call — {fd(selDate)}</div><div style={{fontSize:11,color:MU}}>{roster.length} on roster</div></div>
+            {(roster as any[]).map((ch:any)=>{const st=getStatus(ch.id);return(
+              <div key={ch.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 16px",borderBottom:"0.5px solid "+BR+"66"}}>
+                <Av f={ch.first} l={ch.last} sz={34}/>
+                <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:500}}>{ch.first} {ch.last}</div><div style={{fontSize:11,color:MU}}>Age {calcAge(ch.dob)}{ch.parentName?" · "+ch.parentName:""}</div></div>
+                <div style={{display:"flex",gap:5}}>
+                  {([["Present","P",GR,"#dcfce7"],["Absent","A",RE,"#fee2e2"],["Excused","E",AM,"#fef3c7"]] as any[]).map(([lbl,sh,col,bg]:any)=>(
+                    <button key={lbl} onClick={()=>setEntry(ch.id,st===lbl?"":lbl)} style={{padding:"5px 10px",borderRadius:7,border:"1.5px solid "+(st===lbl?col:BR),background:st===lbl?bg:W,color:st===lbl?col:MU,fontSize:12,fontWeight:st===lbl?600:400,cursor:"pointer",minWidth:34}}>{sh}</button>
+                  ))}
+                </div>
+                <div style={{display:"flex",gap:4}}>
+                  {ch.parentPhone&&<a href={"tel:"+ch.parentPhone.replace(/\D/g,"")} style={{display:"flex",alignItems:"center",justifyContent:"center",width:30,height:30,borderRadius:7,background:"#dcfce7",border:"0.5px solid #86efac",textDecoration:"none",fontSize:15}} title={"Call "+ch.parentName}>📞</a>}
+                  {ch.parentPhone&&<button onClick={()=>contactParent(ch)} style={{display:"flex",alignItems:"center",justifyContent:"center",width:30,height:30,borderRadius:7,background:"#eff6ff",border:"0.5px solid #93c5fd",cursor:"pointer",fontSize:15}} title={"Text "+ch.parentName}>💬</button>}
+                </div>
+              </div>
+            );})}
+          </div>
+        )}
+        <div style={{background:W,border:"0.5px solid "+BR,borderRadius:10,padding:14}}>
+          <div style={{fontSize:12,fontWeight:500,color:N,marginBottom:8}}>Session Notes</div>
+          <textarea value={notes} onChange={e=>setNotes(e.target.value)} rows={3} placeholder="Lesson topic, class behavior, special prayer requests, events..." style={{width:"100%",padding:"9px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",fontFamily:"inherit",resize:"vertical" as any,boxSizing:"border-box" as any,lineHeight:1.7}}/>
+          <div style={{display:"flex",justifyContent:"flex-end",marginTop:8}}><Btn onClick={saveNotes} v={saved?"success":"primary"} style={{fontSize:12}}>{saved?"✓ Saved!":"Save Roll Call"}</Btn></div>
+        </div>
+      </div>)}
+    </div>
+  );
+}
+
+// ── CHILD PROGRESS ──
+function ChildProgress({children,classrooms,rollCalls,progressNotes,setProgressNotes,cs}:any){
+  const [selChildId,setSelChildId]=useState(0);
+  const [search,setSearch]=useState("");
+  const [addNote,setAddNote]=useState(false);
+  const [noteForm,setNoteForm]=useState({type:"spiritual",note:"",verse:"",lessonCompleted:false,date:td()});
+  const activeKids=(children as any[]).filter((c:any)=>c.status==="Active");
+  const filtered=search?activeKids.filter((c:any)=>(c.first+" "+c.last).toLowerCase().includes(search.toLowerCase())):activeKids;
+  const selChild=(children as any[]).find((c:any)=>c.id===selChildId);
+  const childEntries=(rollCalls as any[]).flatMap((r:any)=>r.entries.filter((e:any)=>e.childId===selChildId).map((e:any)=>({...e,date:r.date})));
+  const presentN=childEntries.filter((e:any)=>e.status==="Present").length;
+  const absentN=childEntries.filter((e:any)=>e.status==="Absent").length;
+  const excusedN=childEntries.filter((e:any)=>e.status==="Excused").length;
+  const attRate=childEntries.length>0?Math.round(presentN/childEntries.length*100):null;
+  const childNotes=(progressNotes as any[]).filter((n:any)=>n.childId===selChildId).sort((a:any,b:any)=>b.date.localeCompare(a.date));
+  const addProgressNote=()=>{
+    if(!noteForm.note.trim()&&!noteForm.verse&&!noteForm.lessonCompleted){alert("Add at least a note, verse, or check lesson completed.");return;}
+    setProgressNotes((n:any)=>[...n,{...noteForm,id:Date.now(),childId:selChildId,timestamp:new Date().toISOString()}]);
+    setNoteForm({type:"spiritual",note:"",verse:"",lessonCompleted:false,date:td()});
+    setAddNote(false);
+  };
+  const typeColors:any={spiritual:PU,academic:BL,behavioral:AM};
+  return(
+    <div style={{display:"grid",gridTemplateColumns:"220px 1fr",gap:14,alignItems:"start"}}>
+      <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,overflow:"hidden"}}>
+        <div style={{padding:"10px 12px",borderBottom:"0.5px solid "+BR}}><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search..." style={{width:"100%",padding:"7px 10px",border:"0.5px solid "+BR,borderRadius:7,fontSize:12,outline:"none",boxSizing:"border-box" as any}}/></div>
+        <div style={{maxHeight:580,overflowY:"auto" as any}}>
+          {filtered.map((ch:any)=>{
+            const ents=(rollCalls as any[]).flatMap((r:any)=>r.entries.filter((e:any)=>e.childId===ch.id));
+            const rate=ents.length>0?Math.round(ents.filter((e:any)=>e.status==="Present").length/ents.length*100):null;
+            const notesCt=(progressNotes as any[]).filter((n:any)=>n.childId===ch.id).length;
+            return(<div key={ch.id} onClick={()=>setSelChildId(ch.id)} style={{padding:"9px 12px",borderBottom:"0.5px solid "+BR+"44",cursor:"pointer",background:selChildId===ch.id?N+"08":W,display:"flex",alignItems:"center",gap:8}} onMouseEnter={(e:any)=>e.currentTarget.style.background=N+"06"} onMouseLeave={(e:any)=>e.currentTarget.style.background=selChildId===ch.id?N+"08":W}>
+              <Av f={ch.first} l={ch.last} sz={26}/>
+              <div style={{flex:1,minWidth:0}}><div style={{fontSize:12,fontWeight:500,overflow:"hidden",whiteSpace:"nowrap" as any,textOverflow:"ellipsis"}}>{ch.first} {ch.last}</div><div style={{fontSize:10,color:rate===null?MU:rate>=80?GR:rate>=60?AM:RE}}>{ch.grade}{rate!==null?" · "+rate+"%":""}</div></div>
+              {notesCt>0&&<span style={{fontSize:9,background:PU+"22",color:PU,borderRadius:10,padding:"1px 5px",flexShrink:0}}>{notesCt}</span>}
+            </div>);
+          })}
+          {filtered.length===0&&<div style={{padding:20,textAlign:"center" as any,color:MU,fontSize:12}}>No children found.</div>}
+        </div>
+      </div>
+      {!selChild?(
+        <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:48,textAlign:"center" as any}}><div style={{fontSize:16,color:N,fontWeight:500,marginBottom:8}}>Select a child</div><div style={{fontSize:13,color:MU}}>Click any child on the left to view their progress profile.</div></div>
+      ):(
+        <div>
+          <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:18,marginBottom:12}}>
+            <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:14}}>
+              <Av f={selChild.first} l={selChild.last} sz={50}/>
+              <div style={{flex:1}}><div style={{fontSize:18,fontWeight:600,color:N}}>{selChild.first} {selChild.last}</div><div style={{fontSize:12,color:MU}}>{selChild.grade} · Age {calcAge(selChild.dob)}{selChild.parentName?" · "+selChild.parentName:""}</div></div>
+              <div style={{display:"flex",gap:6}}>
+                {selChild.parentPhone&&<a href={"tel:"+selChild.parentPhone.replace(/\D/g,"")} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 12px",borderRadius:8,background:"#dcfce7",border:"0.5px solid #86efac",textDecoration:"none",fontSize:12,color:"#14532d",fontWeight:500}}>📞 Call</a>}
+                {selChild.parentPhone&&<button onClick={()=>(window as any).__openSmsComposer__&&(window as any).__openSmsComposer__({phone:selChild.parentPhone,name:selChild.parentName||"Parent",category:"Follow-Up",body:"Hi "+(selChild.parentName?.split(" ")[0]||"there")+", this is "+((cs as any)?.name||"the church")+" checking in about "+selChild.first+". "})} style={{display:"flex",alignItems:"center",gap:5,padding:"7px 12px",borderRadius:8,background:"#eff6ff",border:"0.5px solid "+BL+"55",cursor:"pointer",fontSize:12,color:BL,fontWeight:500}}>💬 Text</button>}
+              </div>
+            </div>
+            <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+              {([[attRate!==null?attRate+"%":"—","Attendance",attRate===null?MU:attRate>=80?GR:attRate>=60?AM:RE],[presentN,"Present",GR],[absentN,"Absent",RE],[excusedN,"Excused",AM],[childNotes.filter((n:any)=>n.verse).length,"Verses",G],[childNotes.length,"Notes",PU]] as any[]).map(([v,l,c]:any)=>(
+                <div key={l} style={{background:BG,border:"0.5px solid "+BR,borderRadius:8,padding:"8px 14px",flex:1,minWidth:70,textAlign:"center" as any}}><div style={{fontSize:10,color:MU,textTransform:"uppercase" as any,letterSpacing:0.5}}>{l}</div><div style={{fontSize:20,fontWeight:700,color:c}}>{v}</div></div>
+              ))}
+            </div>
+          </div>
+          <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:16}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}><div style={{fontSize:14,fontWeight:500,color:N}}>Progress Log</div><Btn onClick={()=>setAddNote((v:any)=>!v)} v={addNote?"ghost":"gold"} style={{fontSize:12}}>+ Add Entry</Btn></div>
+            {addNote&&(
+              <div style={{background:BG,border:"0.5px solid "+BR,borderRadius:10,padding:14,marginBottom:14}}>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+                  <Fld label="Type"><select value={noteForm.type} onChange={e=>setNoteForm((f:any)=>({...f,type:e.target.value}))} style={{width:"100%",padding:"7px 10px",border:"0.5px solid "+BR,borderRadius:7,fontSize:12,outline:"none",background:W,boxSizing:"border-box" as any}}><option value="spiritual">Spiritual</option><option value="academic">Academic</option><option value="behavioral">Behavioral</option></select></Fld>
+                  <Fld label="Date"><Inp type="date" value={noteForm.date} onChange={(v:any)=>setNoteForm((f:any)=>({...f,date:v}))}/></Fld>
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,padding:"4px 0"}}><input type="checkbox" checked={noteForm.lessonCompleted} onChange={e=>setNoteForm((f:any)=>({...f,lessonCompleted:e.target.checked}))} id="lcpg" style={{width:16,height:16,cursor:"pointer"}}/><label htmlFor="lcpg" style={{fontSize:13,color:TX,cursor:"pointer"}}>Lesson Completed</label></div>
+                <Fld label="Bible Verse Memorized (optional)"><Inp value={noteForm.verse} onChange={(v:any)=>setNoteForm((f:any)=>({...f,verse:v}))} placeholder="e.g. John 3:16 — For God so loved the world..."/></Fld>
+                <Fld label="Note"><textarea value={noteForm.note} onChange={e=>setNoteForm((f:any)=>({...f,note:e.target.value}))} rows={3} placeholder="Describe participation, behavior, spiritual growth, or concerns..." style={{width:"100%",padding:"9px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",fontFamily:"inherit",resize:"vertical" as any,boxSizing:"border-box" as any,lineHeight:1.7}}/></Fld>
+                <div style={{display:"flex",gap:8}}><Btn onClick={addProgressNote} v="success" style={{flex:1,justifyContent:"center"}}>Save Entry</Btn><Btn onClick={()=>setAddNote(false)} v="ghost" style={{flex:1,justifyContent:"center"}}>Cancel</Btn></div>
+              </div>
+            )}
+            {childNotes.length===0&&!addNote&&<div style={{textAlign:"center" as any,padding:32,color:MU,fontSize:13}}>No progress entries yet for {selChild.first}.</div>}
+            {childNotes.map((n:any)=>(
+              <div key={n.id} style={{padding:"12px 14px",background:BG,border:"0.5px solid "+BR,borderRadius:8,marginBottom:8}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:5}}>
+                  <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                    <span style={{fontSize:10,background:typeColors[n.type]+"22",color:typeColors[n.type],borderRadius:20,padding:"2px 9px",fontWeight:600,textTransform:"capitalize" as any}}>{n.type}</span>
+                    {n.lessonCompleted&&<span style={{fontSize:10,background:"#dcfce7",color:GR,borderRadius:20,padding:"2px 9px",fontWeight:500}}>✓ Lesson</span>}
+                    {n.verse&&<span style={{fontSize:10,background:GL+"44",color:"#7a5c10",borderRadius:20,padding:"2px 9px",fontWeight:500}}>📖 Verse</span>}
+                  </div>
+                  <div style={{fontSize:11,color:MU}}>{fd(n.date)}</div>
+                </div>
+                {n.verse&&<div style={{fontSize:12,color:"#7a5c10",fontStyle:"italic" as any,marginBottom:5,background:GL+"22",borderRadius:6,padding:"4px 10px"}}>"{n.verse}"</div>}
+                {n.note&&<div style={{fontSize:13,color:TX,lineHeight:1.6}}>{n.note}</div>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function EdReports({classrooms,children,kidsCheckIns,teacherSchedule,users,members,rollCalls}:any){
   const month="2026-04";
-  const monthCI=kidsCheckIns.filter(ci=>ci.date.startsWith(month));
-  const classStats=classrooms.map(cl=>{const ciN=monthCI.filter(ci=>ci.classroomId===cl.id).length;const uniq=new Set(monthCI.filter(ci=>ci.classroomId===cl.id).map(ci=>ci.childId)).size;const staffed=teacherSchedule.filter(t=>t.classroomId===cl.id&&t.leadId&&t.date.startsWith(month)).length;return {cl,ciN,uniq,staffed};});
-  const teachStats=users.filter(u=>u.status==="Active").map(u=>{const leads=teacherSchedule.filter(t=>t.leadId===u.id).length;const helps=teacherSchedule.filter(t=>(t.helperIds||[]).includes(u.id)).length;const m=members.find(x=>x.id===u.memberId);return {u,m,leads,helps,total:leads+helps};}).filter(s=>s.total>0).sort((a,b)=>b.total-a.total);
-  const totalKids=children.filter(c=>c.status==="Active").length;
+  const monthCI=(kidsCheckIns as any[]).filter((ci:any)=>ci.date.startsWith(month));
+  const classStats=(classrooms as any[]).map((cl:any)=>{const ciN=monthCI.filter((ci:any)=>ci.classroomId===cl.id).length;const uniq=new Set(monthCI.filter((ci:any)=>ci.classroomId===cl.id).map((ci:any)=>ci.childId)).size;const staffed=(teacherSchedule as any[]).filter((t:any)=>t.classroomId===cl.id&&t.leadId&&t.date.startsWith(month)).length;return {cl,ciN,uniq,staffed};});
+  const teachStats=(users as any[]).filter((u:any)=>u.status==="Active").map((u:any)=>{const leads=(teacherSchedule as any[]).filter((t:any)=>t.leadId===u.id).length;const helps=(teacherSchedule as any[]).filter((t:any)=>(t.helperIds||[]).includes(u.id)).length;const m=(members as any[]).find((x:any)=>x.id===u.memberId);return {u,m,leads,helps,total:leads+helps};}).filter((s:any)=>s.total>0).sort((a:any,b:any)=>b.total-a.total);
+  const totalKids=(children as any[]).filter((c:any)=>c.status==="Active").length;
   const monthN=monthCI.length;
+  const allRollDates=[...new Set((rollCalls as any[]).map((r:any)=>r.date))];
+  const totalSundays=allRollDates.length||1;
+  const perfData=(classrooms as any[]).filter((cl:any)=>cl.id<=6).map((cl:any)=>{
+    const clRC=(rollCalls as any[]).filter((r:any)=>r.classroomId===cl.id);
+    const allE=clRC.flatMap((r:any)=>r.entries);
+    const markedE=allE.filter((e:any)=>e.status);
+    const presentE=allE.filter((e:any)=>e.status==="Present");
+    const attRate=markedE.length>0?Math.round(presentE.length/markedE.length*100):null;
+    const datesStaffed=allRollDates.filter((d:any)=>(teacherSchedule as any[]).some((t:any)=>t.date===d&&t.classroomId===cl.id&&t.leadId)).length;
+    const teachRate=Math.round(datesStaffed/totalSundays*100);
+    const combined=attRate!==null?Math.round((attRate+teachRate)/2):null;
+    const roster=(children as any[]).filter((c:any)=>c.status==="Active"&&c.grade===cl.grade).length;
+    return {cl,attRate,teachRate:allRollDates.length>0?teachRate:null,combined,roster,sessions:clRC.length};
+  }).sort((a:any,b:any)=>((b.combined??-1)-(a.combined??-1)));
   return(
     <div>
       <div style={{display:"flex",gap:12,marginBottom:20,flexWrap:"wrap"}}>
         <Stat label="Active Children" value={totalKids} color={BL}/>
         <Stat label="April Check-Ins" value={monthN} color={GR}/>
         <Stat label="Avg per Sunday" value={monthN?Math.round(monthN/4):0} color={N}/>
-        <Stat label="Classrooms" value={classrooms.length} color={G}/>
+        <Stat label="Classrooms" value={(classrooms as any[]).length} color={G}/>
       </div>
       <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:18,marginBottom:16}}>
-        <h3 style={{fontSize:14,fontWeight:500,color:N,margin:"0 0 14px"}}>Classroom Attendance — April</h3>
-        <div style={{display:"flex",flexDirection:"column",gap:7}}>{classStats.map(({cl,ciN,uniq,staffed})=>(<div key={cl.id} style={{display:"flex",alignItems:"center",gap:12,padding:"8px 12px",background:BG,borderRadius:8,border:"0.5px solid "+BR}}><div style={{width:8,height:8,borderRadius:"50%",background:cl.color}}></div><div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:500,color:cl.color}}>{cl.name}</div><div style={{fontSize:11,color:MU}}>{uniq} unique kids - {staffed} Sundays staffed</div></div><div style={{textAlign:"right"}}><div style={{fontSize:16,fontWeight:700,color:N}}>{ciN}</div><div style={{fontSize:10,color:MU}}>check-ins</div></div></div>))}</div>
+        <h3 style={{fontSize:14,fontWeight:500,color:N,margin:"0 0 4px"}}>Classroom Performance Leaderboard</h3>
+        <div style={{fontSize:11,color:MU,marginBottom:14}}>Score = average of attendance rate and teacher staffing consistency</div>
+        {(rollCalls as any[]).length===0?(
+          <div style={{textAlign:"center" as any,padding:24,color:MU,fontSize:12}}>Take roll call in the Roll Call tab to see performance data here.</div>
+        ):(
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {perfData.map(({cl,attRate,teachRate,combined,roster,sessions}:any,idx:number)=>(
+              <div key={cl.id} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",background:idx===0?"#f0fdf4":BG,borderRadius:8,border:"0.5px solid "+(idx===0?"#86efac":BR)}}>
+                <div style={{fontSize:18,fontWeight:700,color:idx===0?GR:idx===1?G:MU,minWidth:22,textAlign:"center" as any}}>{idx===0?"🏆":idx===1?"🥈":idx+1}</div>
+                <div style={{width:10,height:10,borderRadius:"50%",background:cl.color,flexShrink:0}}></div>
+                <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:500,color:cl.color}}>{cl.name}</div><div style={{fontSize:11,color:MU}}>{roster} on roster · {sessions} roll call{sessions!==1?"s":""} taken</div></div>
+                <div style={{display:"flex",gap:12,alignItems:"center"}}>
+                  <div style={{textAlign:"center" as any}}><div style={{fontSize:10,color:MU,textTransform:"uppercase" as any,letterSpacing:0.4}}>Attendance</div><div style={{fontSize:14,fontWeight:600,color:attRate===null?MU:attRate>=80?GR:attRate>=60?AM:RE}}>{attRate!==null?attRate+"%":"—"}</div></div>
+                  <div style={{textAlign:"center" as any}}><div style={{fontSize:10,color:MU,textTransform:"uppercase" as any,letterSpacing:0.4}}>Staffing</div><div style={{fontSize:14,fontWeight:600,color:teachRate===null?MU:teachRate>=80?GR:teachRate>=60?AM:RE}}>{teachRate!==null?teachRate+"%":"—"}</div></div>
+                  <div style={{background:combined===null?BR:combined>=80?"#dcfce7":combined>=60?"#fef3c7":"#fee2e2",borderRadius:8,padding:"6px 12px",textAlign:"center" as any,minWidth:55}}>
+                    <div style={{fontSize:10,color:MU,textTransform:"uppercase" as any,letterSpacing:0.4}}>Score</div>
+                    <div style={{fontSize:16,fontWeight:700,color:combined===null?MU:combined>=80?GR:combined>=60?AM:RE}}>{combined!==null?combined+"%":"—"}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:18,marginBottom:16}}>
+        <h3 style={{fontSize:14,fontWeight:500,color:N,margin:"0 0 14px"}}>Classroom Check-In — April</h3>
+        <div style={{display:"flex",flexDirection:"column",gap:7}}>{classStats.map(({cl,ciN,uniq,staffed}:any)=>(<div key={cl.id} style={{display:"flex",alignItems:"center",gap:12,padding:"8px 12px",background:BG,borderRadius:8,border:"0.5px solid "+BR}}><div style={{width:8,height:8,borderRadius:"50%",background:cl.color}}></div><div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:500,color:cl.color}}>{cl.name}</div><div style={{fontSize:11,color:MU}}>{uniq} unique kids · {staffed} Sundays staffed</div></div><div style={{textAlign:"right" as any}}><div style={{fontSize:16,fontWeight:700,color:N}}>{ciN}</div><div style={{fontSize:10,color:MU}}>check-ins</div></div></div>))}</div>
       </div>
       {teachStats.length>0&&<div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:18}}>
         <h3 style={{fontSize:14,fontWeight:500,color:N,margin:"0 0 14px"}}>Teacher Service Report</h3>
-        <div style={{display:"flex",flexDirection:"column",gap:7}}>{teachStats.map(({u,m,leads,helps,total})=>m?(<div key={u.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",background:BG,borderRadius:8,border:"0.5px solid "+BR}}><Av f={m.first} l={m.last} sz={30}/><div style={{flex:1}}><div style={{fontSize:13,fontWeight:500}}>{m.first} {m.last}</div><div style={{fontSize:11,color:MU}}>{leads} lead - {helps} helper</div></div><div style={{textAlign:"right"}}><div style={{fontSize:16,fontWeight:700,color:GR}}>{total}</div><div style={{fontSize:10,color:MU}}>weeks</div></div></div>):null)}</div>
+        <div style={{display:"flex",flexDirection:"column",gap:7}}>{teachStats.map(({u,m,leads,helps,total}:any)=>m?(<div key={u.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",background:BG,borderRadius:8,border:"0.5px solid "+BR}}><Av f={m.first} l={m.last} sz={30}/><div style={{flex:1}}><div style={{fontSize:13,fontWeight:500}}>{m.first} {m.last}</div><div style={{fontSize:11,color:MU}}>{leads} lead · {helps} helper</div></div><div style={{textAlign:"right" as any}}><div style={{fontSize:16,fontWeight:700,color:GR}}>{total}</div><div style={{fontSize:10,color:MU}}>weeks</div></div></div>):null)}</div>
       </div>}
     </div>
   );
 }
 
-function Education({members,visitors,users,roles,children,setChildren,classrooms,setClassrooms,teacherSchedule,setTeacherSchedule,kidsCheckIns,setKidsCheckIns,checkIns}){
-  const [tab,setTab]=useState("dashboard");
-  const today=td();
-  const todayCI=kidsCheckIns.filter(c=>c.date===today);
-  const TABS=[{id:"dashboard",label:"Overview"},{id:"checkin",label:"Check-In"},{id:"children",label:"Children"},{id:"classrooms",label:"Classrooms"},{id:"teachers",label:"Teachers"},{id:"reports",label:"Reports"}];
+// ── INCIDENT REPORTS ──
+const INCIDENT_TYPES=["Behavioral","Medical / Health","Safety","Property Damage","Bullying / Harassment"];
+const INCIDENT_SEVERITIES=[
+  {key:"Low",color:"#16a34a",bg:"#dcfce7"},
+  {key:"Medium",color:"#d97706",bg:"#fef3c7"},
+  {key:"High",color:"#dc2626",bg:"#fee2e2"},
+  {key:"Critical",color:"#7c3aed",bg:"#ede9fe"},
+];
+const INCIDENT_STATUSES=["Open","In Progress","Resolved"];
+
+function IncidentReports({incidents,setIncidents,children,classrooms,members,cs}){
+  const [subTab,setSubTab]=useState("log");
+  const [modal,setModal]=useState(false);
+  const [detail,setDetail]=useState(null);
+  const nid=useRef(5000);
+
+  // New report form state
+  const [form,setForm]=useState({childId:"",classroomId:"",type:"Behavioral",severity:"Medium",date:td(),time:"",description:"",witnesses:"",actionTaken:"",reportedBy:"",status:"Open"});
+  const resetForm=()=>setForm({childId:"",classroomId:"",type:"Behavioral",severity:"Medium",date:td(),time:new Date().toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit",hour12:false}),description:"",witnesses:"",actionTaken:"",reportedBy:"",status:"Open"});
+
+  const openNew=()=>{resetForm();setModal(true);};
+  const submit=()=>{
+    if(!form.childId||!form.description.trim()){alert("Child and description are required.");return;}
+    const entry={...form,id:nid.current++,timestamp:new Date().toISOString(),childId:+form.childId,classroomId:+form.classroomId||null};
+    setIncidents(r=>[entry,...r]);
+    setModal(false);
+  };
+
+  const updateStatus=(id,status)=>setIncidents(r=>r.map(i=>i.id===id?{...i,status,resolvedAt:status==="Resolved"?new Date().toISOString():i.resolvedAt}:i));
+  const deleteReport=(id)=>{if(confirm("Permanently delete this incident report?"))setIncidents(r=>r.filter(i=>i.id!==id));};
+
+  const [filterType,setFilterType]=useState("all");
+  const [filterSev,setFilterSev]=useState("all");
+  const [filterStatus,setFilterStatus]=useState("all");
+  const [search,setSearch]=useState("");
+
+  const filtered=incidents.filter(i=>{
+    if(filterType!=="all"&&i.type!==filterType)return false;
+    if(filterSev!=="all"&&i.severity!==filterSev)return false;
+    if(filterStatus!=="all"&&i.status!==filterStatus)return false;
+    if(search){
+      const ch=children.find(c=>c.id===i.childId);
+      const name=ch?ch.first+" "+ch.last:"";
+      if(!name.toLowerCase().includes(search.toLowerCase())&&!i.description.toLowerCase().includes(search.toLowerCase()))return false;
+    }
+    return true;
+  });
+
+  const openCount=incidents.filter(i=>i.status!=="Resolved").length;
+
+  const sevStyle=sev=>{const s=INCIDENT_SEVERITIES.find(x=>x.key===sev)||INCIDENT_SEVERITIES[1];return{color:s.color,background:s.bg,borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:600};};
+  const statusStyle=st=>({Open:{background:"#fee2e2",color:RE},["In Progress"]:{background:"#fef3c7",color:AM},Resolved:{background:"#dcfce7",color:GR}}[st]||{});
+
+  const contactParent=(incident)=>{
+    const ch=children.find(c=>c.id===incident.childId);
+    if(!ch)return;
+    const parentName=ch.parentName||"Parent";
+    const parentPhone=ch.parentPhone||"";
+    const parentEmail=""; // could be linked from members
+    const body=`Dear ${parentName},\n\nWe want to inform you about an incident involving ${ch.first} on ${fd(incident.date)}.\n\nType: ${incident.type}\nDescription: ${incident.description}\n${incident.actionTaken?"Action Taken: "+incident.actionTaken:""}\n\nPlease contact us if you have any questions.\n\n— ${cs?.pastorName||"Pastor"}, ${cs?.name||"Church"}`;
+    const subject=`Incident Report — ${ch.first} ${ch.last} — ${fd(incident.date)}`;
+    if(parentPhone){
+      window.__openSmsComposer__&&window.__openSmsComposer__({phone:parentPhone,name:parentName,body:`Hi ${parentName}, please see the incident report for ${ch.first} dated ${fd(incident.date)}. Please call us to discuss. — ${cs?.name||"Church"}`,category:"Safety"});
+    } else if(window.__openEmailComposer__){
+      window.__openEmailComposer__({to:parentEmail,toName:parentName,subject,body,category:"Safety",relatedType:"incident",relatedId:incident.id});
+    } else {
+      alert("No contact info on file for "+ch.first+"'s parent. Add phone/email to child record.");
+    }
+  };
+
   return(
     <div>
-      <div style={{display:"flex",marginBottom:20,background:W,borderRadius:10,border:"0.5px solid "+BR,overflow:"hidden"}}>
-        {TABS.map(t=><button key={t.id} onClick={()=>setTab(t.id)} style={{flex:1,padding:"10px 8px",border:"none",borderBottom:"2px solid "+(tab===t.id?G:"transparent"),background:tab===t.id?"#f8f9fc":W,fontSize:13,fontWeight:tab===t.id?500:400,color:tab===t.id?N:MU,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>{t.label}{t.id==="checkin"&&todayCI.length>0&&<span style={{background:GR,color:"#fff",borderRadius:10,fontSize:10,padding:"1px 6px"}}>{todayCI.length}</span>}</button>)}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:10}}>
+        <div>
+          <h3 style={{fontSize:15,fontWeight:500,color:N,margin:0}}>Incident Reports</h3>
+          <div style={{fontSize:12,color:MU,marginTop:2}}>Document and track classroom incidents involving children</div>
+        </div>
+        <Btn onClick={openNew} v="danger">+ File Incident Report</Btn>
+      </div>
+
+      {/* Summary stats */}
+      <div style={{display:"flex",gap:10,marginBottom:16,flexWrap:"wrap"}}>
+        <Stat label="Total Reports" value={incidents.length} color={N}/>
+        <Stat label="Open" value={incidents.filter(i=>i.status==="Open").length} color={RE}/>
+        <Stat label="In Progress" value={incidents.filter(i=>i.status==="In Progress").length} color={AM}/>
+        <Stat label="Resolved" value={incidents.filter(i=>i.status==="Resolved").length} color={GR}/>
+      </div>
+
+      {openCount>0&&(
+        <div style={{background:"#fff5f5",border:"1px solid #fca5a5",borderRadius:10,padding:"10px 16px",marginBottom:14,fontSize:12,color:RE,display:"flex",alignItems:"center",gap:10}}>
+          <span style={{fontSize:20}}>⚠</span>
+          <div><strong>{openCount} unresolved incident{openCount!==1?"s":""}</strong> require{openCount===1?"s":""} follow-up. Review and update statuses below.</div>
+        </div>
+      )}
+
+      {/* Filters */}
+      <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search child or description..." style={{flex:1,minWidth:160,padding:"8px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}/>
+        <select value={filterType} onChange={e=>setFilterType(e.target.value)} style={{padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:12,outline:"none",background:W}}>
+          <option value="all">All types</option>
+          {INCIDENT_TYPES.map(t=><option key={t} value={t}>{t}</option>)}
+        </select>
+        <select value={filterSev} onChange={e=>setFilterSev(e.target.value)} style={{padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:12,outline:"none",background:W}}>
+          <option value="all">All severities</option>
+          {INCIDENT_SEVERITIES.map(s=><option key={s.key} value={s.key}>{s.key}</option>)}
+        </select>
+        <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)} style={{padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:12,outline:"none",background:W}}>
+          <option value="all">All statuses</option>
+          {INCIDENT_STATUSES.map(s=><option key={s} value={s}>{s}</option>)}
+        </select>
+      </div>
+
+      {filtered.length===0?(
+        <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:48,textAlign:"center"}}>
+          <h3 style={{fontSize:15,fontWeight:500,color:N,marginBottom:6}}>{incidents.length===0?"No incidents reported":"No incidents match your filters"}</h3>
+          <p style={{fontSize:13,color:MU,marginBottom:16}}>{incidents.length===0?"Praise God! Click below if an incident needs to be documented.":""}</p>
+          {incidents.length===0&&<Btn onClick={openNew} v="danger">+ File First Report</Btn>}
+        </div>
+      ):(
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {filtered.map(inc=>{
+            const ch=children.find(c=>c.id===inc.childId);
+            const cl=classrooms.find(c=>c.id===inc.classroomId);
+            const sv=INCIDENT_SEVERITIES.find(s=>s.key===inc.severity)||INCIDENT_SEVERITIES[1];
+            const isOpen=inc.status!=="Resolved";
+            return(
+              <div key={inc.id} style={{background:W,border:"1.5px solid "+(inc.severity==="Critical"?PU:inc.severity==="High"?RE+"55":BR),borderRadius:12,overflow:"hidden"}}>
+                {/* Severity stripe */}
+                <div style={{height:4,background:sv.color,width:"100%"}}/>
+                <div style={{padding:"12px 16px"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,flexWrap:"wrap",marginBottom:10}}>
+                    <div style={{display:"flex",alignItems:"center",gap:10}}>
+                      <Av f={ch?.first||"?"} l={ch?.last||""} sz={36}/>
+                      <div>
+                        <div style={{fontSize:14,fontWeight:600,color:N}}>{ch?ch.first+" "+ch.last:"Unknown child"}</div>
+                        <div style={{fontSize:11,color:MU}}>{cl?.name||"No classroom"} · {fd(inc.date)}{inc.time?" at "+inc.time:""}</div>
+                      </div>
+                    </div>
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
+                      <span style={sevStyle(inc.severity)}>{inc.severity}</span>
+                      <span style={{...statusStyle(inc.status),borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:500}}>{inc.status}</span>
+                      <span style={{fontSize:11,background:"#ede9fe",color:PU,borderRadius:20,padding:"2px 9px",fontWeight:500}}>{inc.type}</span>
+                    </div>
+                  </div>
+                  <div style={{fontSize:13,color:TX,background:BG,border:"0.5px solid "+BR,borderRadius:8,padding:"10px 12px",lineHeight:1.7,marginBottom:10}}>{inc.description}</div>
+                  {inc.actionTaken&&<div style={{fontSize:12,color:MU,marginBottom:8}}><strong>Action taken:</strong> {inc.actionTaken}</div>}
+                  {inc.witnesses&&<div style={{fontSize:12,color:MU,marginBottom:8}}><strong>Witnesses:</strong> {inc.witnesses}</div>}
+                  {inc.reportedBy&&<div style={{fontSize:12,color:MU,marginBottom:8}}><strong>Reported by:</strong> {inc.reportedBy}</div>}
+                  <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",paddingTop:10,borderTop:"0.5px solid "+BR}}>
+                    {isOpen&&<>
+                      {inc.status==="Open"&&<Btn onClick={()=>updateStatus(inc.id,"In Progress")} v="outline" style={{fontSize:11,padding:"4px 10px"}}>Mark In Progress</Btn>}
+                      <Btn onClick={()=>updateStatus(inc.id,"Resolved")} v="success" style={{fontSize:11,padding:"4px 10px"}}>Mark Resolved</Btn>
+                    </>}
+                    {!isOpen&&<Btn onClick={()=>updateStatus(inc.id,"Open")} v="ghost" style={{fontSize:11,padding:"4px 10px"}}>Reopen</Btn>}
+                    <Btn onClick={()=>contactParent(inc)} v="gold" style={{fontSize:11,padding:"4px 10px"}}>Contact Parent</Btn>
+                    <Btn onClick={()=>setDetail(inc)} v="ghost" style={{fontSize:11,padding:"4px 10px"}}>Edit</Btn>
+                    <Btn onClick={()=>deleteReport(inc.id)} v="danger" style={{fontSize:11,padding:"4px 10px",marginLeft:"auto"}}>Delete</Btn>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* File new report modal */}
+      <Modal open={modal} onClose={()=>setModal(false)} title="File Incident Report" width={560}>
+        <div style={{background:"#fff5f5",border:"0.5px solid #fca5a5",borderRadius:8,padding:"8px 14px",marginBottom:14,fontSize:12,color:RE,lineHeight:1.6}}>
+          Only lead teachers and administrators should file incident reports. All reports are permanently logged.
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <Fld label="Child *">
+            <select value={form.childId} onChange={e=>setForm(f=>({...f,childId:e.target.value}))} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}>
+              <option value="">— Select child —</option>
+              {[...children].sort((a,b)=>(a.first+a.last).localeCompare(b.first+b.last)).filter(c=>c.status==="Active").map(c=><option key={c.id} value={c.id}>{c.first} {c.last} ({c.grade})</option>)}
+            </select>
+          </Fld>
+          <Fld label="Classroom">
+            <select value={form.classroomId} onChange={e=>setForm(f=>({...f,classroomId:e.target.value}))} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}>
+              <option value="">— Select classroom —</option>
+              {classrooms.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </Fld>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+          <Fld label="Incident Type">
+            <select value={form.type} onChange={e=>setForm(f=>({...f,type:e.target.value}))} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}>
+              {INCIDENT_TYPES.map(t=><option key={t} value={t}>{t}</option>)}
+            </select>
+          </Fld>
+          <Fld label="Severity">
+            <select value={form.severity} onChange={e=>setForm(f=>({...f,severity:e.target.value}))} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}>
+              {INCIDENT_SEVERITIES.map(s=><option key={s.key} value={s.key}>{s.key}</option>)}
+            </select>
+          </Fld>
+          <Fld label="Date">
+            <Inp type="date" value={form.date} onChange={v=>setForm(f=>({...f,date:v}))}/>
+          </Fld>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <Fld label="Time of Incident"><Inp value={form.time} onChange={v=>setForm(f=>({...f,time:v}))} placeholder="e.g. 10:30 AM"/></Fld>
+          <Fld label="Reported By"><Inp value={form.reportedBy} onChange={v=>setForm(f=>({...f,reportedBy:v}))} placeholder="Teacher name"/></Fld>
+        </div>
+        <Fld label="Description of Incident *">
+          <textarea value={form.description} onChange={e=>setForm(f=>({...f,description:e.target.value}))} rows={4} placeholder={"Describe what happened, when, and where. Be factual and specific."} style={{width:"100%",padding:"10px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",fontFamily:"inherit",resize:"vertical",boxSizing:"border-box",lineHeight:1.7}}/>
+        </Fld>
+        <Fld label="Action Taken">
+          <textarea value={form.actionTaken} onChange={e=>setForm(f=>({...f,actionTaken:e.target.value}))} rows={2} placeholder={"What was done immediately? e.g. Child separated, first aid given, parent called."} style={{width:"100%",padding:"10px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",fontFamily:"inherit",resize:"vertical",boxSizing:"border-box",lineHeight:1.7}}/>
+        </Fld>
+        <Fld label="Witnesses (optional)"><Inp value={form.witnesses} onChange={v=>setForm(f=>({...f,witnesses:v}))} placeholder="Names of staff or children who witnessed"/></Fld>
+        {/* Severity indicator */}
+        {form.severity&&(()=>{const s=INCIDENT_SEVERITIES.find(x=>x.key===form.severity);return s?<div style={{background:s.bg,border:"1px solid "+s.color+"55",borderRadius:8,padding:"8px 14px",marginBottom:10,fontSize:12,color:s.color,fontWeight:500}}>{form.severity==="Critical"?"🚨 CRITICAL — Notify senior leadership immediately and document in writing.":form.severity==="High"?"⚠ HIGH — Parent must be contacted today. Keep full written record.":form.severity==="Medium"?"📋 MEDIUM — Parent notification recommended. Monitor child.":"✓ LOW — Document for records. Follow up if pattern develops."}</div>:null;})()}
+        <div style={{display:"flex",gap:8}}>
+          <Btn onClick={submit} v="danger" style={{flex:1,justifyContent:"center"}}>Submit Incident Report</Btn>
+          <Btn onClick={()=>setModal(false)} v="ghost" style={{flex:1,justifyContent:"center"}}>Cancel</Btn>
+        </div>
+      </Modal>
+
+      {/* Edit / detail modal */}
+      <Modal open={!!detail} onClose={()=>setDetail(null)} title="Edit Incident Report" width={520}>
+        {detail&&(()=>{
+          const ch=children.find(c=>c.id===detail.childId);
+          return(
+            <div>
+              <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:BG,borderRadius:10,border:"0.5px solid "+BR,marginBottom:14}}>
+                <Av f={ch?.first||"?"} l={ch?.last||""} sz={36}/>
+                <div>
+                  <div style={{fontSize:14,fontWeight:600,color:N}}>{ch?ch.first+" "+ch.last:"Unknown"}</div>
+                  <div style={{fontSize:11,color:MU}}>{fd(detail.date)} · {detail.type}</div>
+                </div>
+                <span style={{marginLeft:"auto",...INCIDENT_SEVERITIES.find(s=>s.key===detail.severity)?{color:INCIDENT_SEVERITIES.find(s=>s.key===detail.severity)!.color,background:INCIDENT_SEVERITIES.find(s=>s.key===detail.severity)!.bg,borderRadius:20,padding:"2px 10px",fontSize:12,fontWeight:600}:{}}}>{detail.severity}</span>
+              </div>
+              <Fld label="Status">
+                <div style={{display:"flex",gap:8}}>
+                  {INCIDENT_STATUSES.map(s=><button key={s} onClick={()=>{updateStatus(detail.id,s);setDetail({...detail,status:s});}} style={{flex:1,padding:"8px 6px",borderRadius:8,border:"1.5px solid "+(detail.status===s?N:BR),background:detail.status===s?N:W,color:detail.status===s?"#fff":TX,fontSize:12,cursor:"pointer",fontWeight:detail.status===s?500:400}}>{s}</button>)}
+                </div>
+              </Fld>
+              <Fld label="Description">
+                <textarea defaultValue={detail.description} onBlur={e=>setIncidents(r=>r.map(i=>i.id===detail.id?{...i,description:e.target.value}:i))} rows={4} style={{width:"100%",padding:"10px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",fontFamily:"inherit",resize:"vertical",boxSizing:"border-box",lineHeight:1.7}}/>
+              </Fld>
+              <Fld label="Action Taken">
+                <textarea defaultValue={detail.actionTaken||""} onBlur={e=>setIncidents(r=>r.map(i=>i.id===detail.id?{...i,actionTaken:e.target.value}:i))} rows={2} style={{width:"100%",padding:"10px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",fontFamily:"inherit",resize:"vertical",boxSizing:"border-box",lineHeight:1.7}}/>
+              </Fld>
+              <div style={{display:"flex",gap:8,marginTop:6}}>
+                <Btn onClick={()=>contactParent(detail)} v="gold" style={{flex:1,justifyContent:"center"}}>Contact Parent</Btn>
+                <Btn onClick={()=>setDetail(null)} v="success" style={{flex:1,justifyContent:"center"}}>Done</Btn>
+              </div>
+            </div>
+          );
+        })()}
+      </Modal>
+    </div>
+  );
+}
+
+function Education({members,visitors,users,roles,children,setChildren,classrooms,setClassrooms,teacherSchedule,setTeacherSchedule,kidsCheckIns,setKidsCheckIns,checkIns,incidents,setIncidents,rollCalls,setRollCalls,progressNotes,setProgressNotes,cs}:any){
+  const [tab,setTab]=useState("dashboard");
+  const today=td();
+  const todayCI=(kidsCheckIns as any[]).filter((c:any)=>c.date===today);
+  const openIncidents=(incidents as any[]).filter((i:any)=>i.status!=="Resolved").length;
+  const TABS=[{id:"dashboard",label:"Overview"},{id:"checkin",label:"Check-In"},{id:"rollcall",label:"Roll Call"},{id:"children",label:"Children"},{id:"progress",label:"Progress"},{id:"classrooms",label:"Classrooms"},{id:"teachers",label:"Teachers"},{id:"incidents",label:"Incidents"},{id:"reports",label:"Reports"}];
+  return(
+    <div>
+      <div style={{display:"flex",marginBottom:20,background:W,borderRadius:10,border:"0.5px solid "+BR,overflow:"hidden",flexWrap:"wrap"}}>
+        {TABS.map((t:any)=><button key={t.id} onClick={()=>setTab(t.id)} style={{flex:1,minWidth:72,padding:"10px 4px",border:"none",borderBottom:"2px solid "+(tab===t.id?G:"transparent"),background:tab===t.id?"#f8f9fc":W,fontSize:11,fontWeight:tab===t.id?500:400,color:tab===t.id?N:MU,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:3}}>
+          {t.label}
+          {t.id==="checkin"&&todayCI.length>0&&<span style={{background:GR,color:"#fff",borderRadius:10,fontSize:10,padding:"1px 6px"}}>{todayCI.length}</span>}
+          {t.id==="incidents"&&openIncidents>0&&<span style={{background:RE,color:"#fff",borderRadius:10,fontSize:10,padding:"1px 6px"}}>{openIncidents}</span>}
+        </button>)}
       </div>
       {tab==="dashboard"&&<EdDashboard classrooms={classrooms} children={children} kidsCheckIns={kidsCheckIns} teacherSchedule={teacherSchedule} users={users} members={members} checkIns={checkIns} setTab={setTab}/>}
       {tab==="checkin"&&<CheckInPortal classrooms={classrooms} children={children} setChildren={setChildren} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckIns} members={members}/>}
-      {tab==="children"&&<ChildrenRoster children={children} setChildren={setChildren} classrooms={classrooms} members={members} kidsCheckIns={kidsCheckIns}/>}
+      {tab==="rollcall"&&<ClassRollCall classrooms={classrooms} children={children} rollCalls={rollCalls} setRollCalls={setRollCalls} teacherSchedule={teacherSchedule} users={users} members={members} cs={cs}/>}
+      {tab==="children"&&<ChildrenRoster children={children} setChildren={setChildren} classrooms={classrooms} members={members} kidsCheckIns={kidsCheckIns} incidents={incidents}/>}
+      {tab==="progress"&&<ChildProgress children={children} classrooms={classrooms} rollCalls={rollCalls} progressNotes={progressNotes} setProgressNotes={setProgressNotes} cs={cs}/>}
       {tab==="classrooms"&&<ClassroomsManager classrooms={classrooms} setClassrooms={setClassrooms} teacherSchedule={teacherSchedule} users={users} members={members} kidsCheckIns={kidsCheckIns}/>}
       {tab==="teachers"&&<TeacherScheduleMgr classrooms={classrooms} teacherSchedule={teacherSchedule} setTeacherSchedule={setTeacherSchedule} users={users} members={members} roles={roles}/>}
-      {tab==="reports"&&<EdReports classrooms={classrooms} children={children} kidsCheckIns={kidsCheckIns} teacherSchedule={teacherSchedule} users={users} members={members}/>}
+      {tab==="incidents"&&<IncidentReports incidents={incidents} setIncidents={setIncidents} children={children} classrooms={classrooms} members={members} cs={cs}/>}
+      {tab==="reports"&&<EdReports classrooms={classrooms} children={children} kidsCheckIns={kidsCheckIns} teacherSchedule={teacherSchedule} users={users} members={members} rollCalls={rollCalls}/>}
+    </div>
+  );
+}
+
+// ── ADD PERSON PAGE ──
+// Central intake form — the one place everyone enters the database.
+// Gated by Access Control: requires directory → create permission.
+const ALLERGY_OPTIONS=["Peanuts","Tree Nuts","Milk/Dairy","Eggs","Wheat/Gluten","Soy","Fish","Shellfish","Latex","Bee Stings","Penicillin","Aspirin","Ibuprofen","Sulfa Drugs"];
+const MEDICAL_OPTIONS=["Diabetes","High Blood Pressure","Heart Condition","Asthma","Epilepsy/Seizures","Mobility Impairment","Vision Impairment","Hearing Impairment","Cancer","Kidney Disease","Thyroid Disorder","Depression/Anxiety","PTSD","Autism Spectrum"];
+
+function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,roles,permissions,setView}:any){
+  const canAdd = checkPermission(currentUser,roles,permissions,"directory","create");
+  const addedByName = (()=>{
+    if(!currentUser) return "Unknown";
+    if(currentUser.memberId){
+      const m=[...members,...(visitors||[])].find((p:any)=>p.id===currentUser.memberId);
+      if(m) return m.first+" "+m.last;
+    }
+    return currentUser.email||"Staff";
+  })();
+
+  // Build unique city/zip lists from all existing records
+  const allPeople = [...(members||[]),...(visitors||[])];
+  const knownCities = Array.from(new Set(allPeople.map((p:any)=>p.address?.city).filter(Boolean))).sort() as string[];
+  const knownZips   = Array.from(new Set(allPeople.map((p:any)=>p.address?.zip).filter(Boolean))).sort() as string[];
+
+  const [pType,setPType] = useState<"member"|"visitor">("member");
+  const blankForm=()=>({
+    first:"",last:"",phone:"",email:"",
+    // Member fields
+    status:"Active",role:"",joined:td(),family:"",
+    // Visitor fields
+    stage:"First Visit",sponsor:"",firstVisit:td(),
+    // Address
+    address:{street:"",city:"",state:"AZ",zip:""},
+    // Personal
+    birthday:"",anniversary:"",spouseName:"",
+    children:[] as any[],
+    // Emergency
+    emergencyName:"",emergencyPhone:"",emergencyRelation:"",
+    // Faith
+    salvationDate:"",baptismDate:"",
+    // Medical
+    allergies:[] as string[],medical:[] as string[],medicalNotes:"",
+    // Work
+    occupation:"",employer:"",
+    // Notes
+    notes:""
+  });
+  const [form,setForm] = useState(blankForm());
+  const [saved,setSaved] = useState<any>(null);
+  const [dupWarning,setDupWarning] = useState<any>(null);
+  const nid = useRef(Date.now());
+
+  const sf=(k:string)=>(v:any)=>setForm((f:any)=>({...f,[k]:v}));
+  const sfa=(k:string)=>(v:any)=>setForm((f:any)=>({...f,address:{...f.address,[k]:v}}));
+  const toggleArr=(field:string,item:string)=>setForm((f:any)=>{
+    const arr:string[]=f[field]||[];
+    return {...f,[field]:arr.includes(item)?arr.filter((x:string)=>x!==item):[...arr,item]};
+  });
+  const addChild=()=>setForm((f:any)=>({...f,children:[...f.children,{name:"",birthday:""}]}));
+  const updChild=(i:number,k:string,v:string)=>setForm((f:any)=>({...f,children:f.children.map((c:any,idx:number)=>idx===i?{...c,[k]:v}:c)}));
+  const remChild=(i:number)=>setForm((f:any)=>({...f,children:f.children.filter((_:any,idx:number)=>idx!==i)}));
+
+  const checkDups=()=>{
+    const fn=(form.first||"").trim().toLowerCase();
+    const ln=(form.last||"").trim().toLowerCase();
+    const ph=(form.phone||"").replace(/\D/g,"");
+    const all=[...members,...visitors];
+    return all.filter((p:any)=>{
+      const nameMatch=(p.first||"").trim().toLowerCase()===fn&&(p.last||"").trim().toLowerCase()===ln&&fn&&ln;
+      const phoneMatch=ph&&(p.phone||"").replace(/\D/g,"")===ph;
+      return nameMatch||phoneMatch;
+    });
+  };
+
+  const doSave=()=>{
+    const id=nid.current++;
+    const record={...form,id,addedBy:addedByName,addedDate:td()};
+    if(pType==="member"){
+      setMembers((ms:any[])=>[{...record,type:"Member"},...ms]);
+    } else {
+      setVisitors((vs:any[])=>[{...record,type:"Visitor"},...vs]);
+    }
+    setSaved({name:form.first+" "+form.last,type:pType});
+    setForm(blankForm());
+    setDupWarning(null);
+  };
+
+  const handleSave=()=>{
+    if(!form.first||!form.last){alert("First and last name are required.");return;}
+    const dups=checkDups();
+    if(dups.length>0){
+      setDupWarning(dups);
+    } else {
+      doSave();
+    }
+  };
+
+  // Section heading helper
+  const SH=({label,icon}:{label:string,icon:string})=>(
+    <div style={{display:"flex",alignItems:"center",gap:8,margin:"22px 0 12px",paddingBottom:6,borderBottom:"1.5px solid "+G+"44"}}>
+      <span style={{fontSize:16}}>{icon}</span>
+      <span style={{fontSize:13,fontWeight:600,color:N,textTransform:"uppercase",letterSpacing:0.6}}>{label}</span>
+    </div>
+  );
+  const ToggleChip=({label,active,onClick}:{label:string,active:boolean,onClick:()=>void})=>(
+    <button onClick={onClick} style={{padding:"4px 10px",borderRadius:20,border:"1px solid "+(active?N:BR),background:active?N:"transparent",color:active?"#fff":TX,fontSize:12,cursor:"pointer",fontWeight:active?500:400}}>{label}</button>
+  );
+
+  if(!canAdd){
+    return(
+      <div style={{maxWidth:600,margin:"60px auto",textAlign:"center",padding:32}}>
+        <div style={{fontSize:48,marginBottom:16}}>🔒</div>
+        <h2 style={{fontSize:20,fontWeight:500,color:N,marginBottom:8}}>Access Restricted</h2>
+        <p style={{fontSize:13,color:MU,marginBottom:24}}>Your current role does not have permission to add people to the database. Contact your administrator to request access.</p>
+        <Btn onClick={()=>setView("people")} v="outline">← Go to Members</Btn>
+      </div>
+    );
+  }
+
+  if(saved){
+    return(
+      <div style={{maxWidth:520,margin:"60px auto",textAlign:"center",padding:32}}>
+        <div style={{width:64,height:64,borderRadius:"50%",background:"#e8f5e9",display:"flex",alignItems:"center",justifyContent:"center",fontSize:28,margin:"0 auto 16px"}}>✓</div>
+        <h2 style={{fontSize:20,fontWeight:500,color:GR,marginBottom:6}}>{saved.name} added!</h2>
+        <p style={{fontSize:13,color:MU,marginBottom:24}}>{saved.name} has been added to the database as a {saved.type}.</p>
+        <div style={{display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"}}>
+          <Btn onClick={()=>setSaved(null)} v="gold">+ Add Another Person</Btn>
+          <Btn onClick={()=>setView("people")} v="outline">Go to {saved.type==="member"?"Members":"Visitation"} →</Btn>
+          {saved.type==="visitor"&&<Btn onClick={()=>setView("visitation")} v="outline">Go to Visitation →</Btn>}
+        </div>
+      </div>
+    );
+  }
+
+  return(
+    <div style={{maxWidth:800,margin:"0 auto"}}>
+      {/* Page Header */}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20,flexWrap:"wrap",gap:10}}>
+        <div>
+          <h2 style={{fontSize:20,fontWeight:500,color:N,margin:0}}>Add Person to Database</h2>
+          <div style={{fontSize:12,color:MU,marginTop:2}}>This is the central intake form. All new members and visitors start here.</div>
+        </div>
+        <div style={{fontSize:11,color:MU,background:BG,border:"0.5px solid "+BR,borderRadius:8,padding:"6px 12px"}}>
+          Added by: <strong style={{color:N}}>{addedByName}</strong>
+        </div>
+      </div>
+
+      {/* Duplicate warning */}
+      {dupWarning&&(
+        <div style={{background:"#fff8e1",border:"1.5px solid "+AM,borderRadius:10,padding:16,marginBottom:20}}>
+          <div style={{fontWeight:600,color:"#7a4200",fontSize:14,marginBottom:8}}>⚠ Possible Duplicate Found</div>
+          <div style={{fontSize:13,color:"#7a4200",marginBottom:10}}>The following {dupWarning.length===1?"person":"people"} already exist with the same name or phone number:</div>
+          {dupWarning.map((p:any)=>(
+            <div key={p.id} style={{background:W,border:"0.5px solid "+AM+"88",borderRadius:8,padding:"8px 12px",marginBottom:6,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div>
+                <strong style={{color:N}}>{p.first} {p.last}</strong>
+                <span style={{fontSize:11,color:MU,marginLeft:8}}>{p.phone||""} {p.email||""}</span>
+              </div>
+              <span style={{fontSize:11,background:BG,borderRadius:6,padding:"2px 8px",color:MU}}>{p.type||p.stage||"Member"}</span>
+            </div>
+          ))}
+          <div style={{display:"flex",gap:8,marginTop:12}}>
+            <Btn onClick={doSave} v="gold" style={{fontSize:12}}>Save Anyway (New Record)</Btn>
+            <Btn onClick={()=>setDupWarning(null)} v="ghost" style={{fontSize:12}}>Cancel — Go Back to Edit</Btn>
+          </div>
+        </div>
+      )}
+
+      <div style={{background:W,border:"0.5px solid "+BR,borderRadius:14,padding:24}}>
+        {/* Type Switcher */}
+        <div style={{display:"flex",gap:0,background:BG,borderRadius:10,padding:4,marginBottom:20,width:"fit-content",border:"0.5px solid "+BR}}>
+          <button onClick={()=>setPType("member")} style={{padding:"8px 24px",borderRadius:8,border:"none",background:pType==="member"?N:"transparent",color:pType==="member"?"#fff":MU,fontSize:13,fontWeight:pType==="member"?500:400,cursor:"pointer"}}>Church Member</button>
+          <button onClick={()=>setPType("visitor")} style={{padding:"8px 24px",borderRadius:8,border:"none",background:pType==="visitor"?G:"transparent",color:pType==="visitor"?"#fff":MU,fontSize:13,fontWeight:pType==="visitor"?500:400,cursor:"pointer"}}>Visitor / Guest</button>
+        </div>
+
+        {/* ── SECTION 1: Basic Info ── */}
+        <SH label="Basic Information" icon="👤"/>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:4}}>
+          <Fld label="First Name *"><Inp value={form.first} onChange={sf("first")} placeholder="First name"/></Fld>
+          <Fld label="Last Name *"><Inp value={form.last} onChange={sf("last")} placeholder="Last name"/></Fld>
+          <Fld label="Phone"><Inp value={form.phone} onChange={sf("phone")} placeholder="(602) 555-0100"/></Fld>
+          <Fld label="Email"><Inp value={form.email} onChange={sf("email")} placeholder="email@example.com"/></Fld>
+        </div>
+        <Fld label="Family / Household"><Inp value={form.family} onChange={sf("family")} placeholder="e.g. Smith Household"/></Fld>
+
+        {/* ── SECTION 2: Member or Visitor Status ── */}
+        {pType==="member"?(
+          <>
+            <SH label="Membership Details" icon="⛪"/>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+              <Fld label="Status"><Slt value={form.status} onChange={sf("status")} opts={["Active","Inactive","New Member","On Leave","Transferred"]}/></Fld>
+              <Fld label="Role / Ministry"><Inp value={form.role} onChange={sf("role")} placeholder="Deacon, Choir, Usher…"/></Fld>
+              <Fld label="Join Date"><Inp type="date" value={form.joined} onChange={sf("joined")}/></Fld>
+            </div>
+          </>
+        ):(
+          <>
+            <SH label="Visitor Details" icon="🤝"/>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+              <Fld label="Stage"><Slt value={form.stage} onChange={sf("stage")} opts={["First Visit","Follow-Up Needed","Returning","Prospect","Member"]}/></Fld>
+              <Fld label="Sponsor / Greeter"><Inp value={form.sponsor} onChange={sf("sponsor")} placeholder="Who brought them?"/></Fld>
+              <Fld label="First Visit Date"><Inp type="date" value={form.firstVisit} onChange={sf("firstVisit")}/></Fld>
+            </div>
+          </>
+        )}
+
+        {/* ── SECTION 3: Address ── */}
+        <SH label="Address" icon="📍"/>
+        <Fld label="Street Address"><Inp value={form.address.street} onChange={sfa("street")} placeholder="123 Main St"/></Fld>
+        <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr",gap:12}}>
+          <Fld label="City">
+            <input
+              list="addr-city-list"
+              value={form.address.city}
+              onChange={e=>sfa("city")(e.target.value)}
+              placeholder="Phoenix"
+              style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",boxSizing:"border-box" as any,background:W}}
+            />
+            <datalist id="addr-city-list">
+              {knownCities.map((c:string)=><option key={c} value={c}/>)}
+            </datalist>
+          </Fld>
+          <Fld label="State"><Inp value={form.address.state} onChange={sfa("state")} placeholder="AZ"/></Fld>
+          <Fld label="ZIP">
+            <input
+              list="addr-zip-list"
+              value={form.address.zip}
+              onChange={e=>sfa("zip")(e.target.value)}
+              placeholder="85001"
+              style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",boxSizing:"border-box" as any,background:W}}
+            />
+            <datalist id="addr-zip-list">
+              {knownZips.map((z:string)=><option key={z} value={z}/>)}
+            </datalist>
+          </Fld>
+        </div>
+
+        {/* ── SECTION 4: Personal ── */}
+        <SH label="Personal Information" icon="🎂"/>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <Fld label="Birthday"><Inp type="date" value={form.birthday} onChange={sf("birthday")}/></Fld>
+          <Fld label="Anniversary"><Inp type="date" value={form.anniversary} onChange={sf("anniversary")}/></Fld>
+          <Fld label="Spouse Name"><Inp value={form.spouseName} onChange={sf("spouseName")} placeholder="Spouse's full name"/></Fld>
+        </div>
+        {/* Children */}
+        <div style={{marginTop:12}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+            <span style={{fontSize:12,fontWeight:500,color:N}}>Children</span>
+            <Btn onClick={addChild} v="outline" style={{fontSize:11,padding:"3px 10px"}}>+ Add Child</Btn>
+          </div>
+          {form.children.map((c:any,i:number)=>(
+            <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 1fr auto",gap:8,marginBottom:8,alignItems:"end"}}>
+              <Fld label={`Child ${i+1} Name`}><Inp value={c.name} onChange={v=>updChild(i,"name",v)} placeholder="Full name"/></Fld>
+              <Fld label="Birthday"><Inp type="date" value={c.birthday} onChange={v=>updChild(i,"birthday",v)}/></Fld>
+              <button onClick={()=>remChild(i)} style={{height:34,marginBottom:2,border:"none",background:"transparent",cursor:"pointer",color:RE,fontSize:18,padding:"0 6px"}}>×</button>
+            </div>
+          ))}
+          {form.children.length===0&&<div style={{fontSize:11,color:MU,fontStyle:"italic"}}>No children added yet.</div>}
+        </div>
+
+        {/* ── SECTION 5: Emergency Contact ── */}
+        <SH label="Emergency Contact" icon="🚨"/>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
+          <Fld label="Contact Name"><Inp value={form.emergencyName} onChange={sf("emergencyName")} placeholder="Full name"/></Fld>
+          <Fld label="Contact Phone"><Inp value={form.emergencyPhone} onChange={sf("emergencyPhone")} placeholder="(602) 555-…"/></Fld>
+          <Fld label="Relationship"><Inp value={form.emergencyRelation} onChange={sf("emergencyRelation")} placeholder="Spouse, Parent…"/></Fld>
+        </div>
+
+        {/* ── SECTION 6: Faith Journey ── */}
+        <SH label="Faith Journey" icon="✝"/>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <Fld label="Salvation Date"><Inp type="date" value={form.salvationDate} onChange={sf("salvationDate")}/></Fld>
+          <Fld label="Baptism Date"><Inp type="date" value={form.baptismDate} onChange={sf("baptismDate")}/></Fld>
+        </div>
+
+        {/* ── SECTION 7: Medical & Allergies ── */}
+        <SH label="Medical & Allergies" icon="🏥"/>
+        <div style={{marginBottom:10}}>
+          <div style={{fontSize:11,color:MU,fontWeight:500,marginBottom:6}}>Allergies (select all that apply)</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+            {ALLERGY_OPTIONS.map(a=>(
+              <ToggleChip key={a} label={a} active={form.allergies.includes(a)} onClick={()=>toggleArr("allergies",a)}/>
+            ))}
+          </div>
+        </div>
+        <div style={{marginBottom:10}}>
+          <div style={{fontSize:11,color:MU,fontWeight:500,marginBottom:6}}>Medical Conditions</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+            {MEDICAL_OPTIONS.map(m=>(
+              <ToggleChip key={m} label={m} active={form.medical.includes(m)} onClick={()=>toggleArr("medical",m)}/>
+            ))}
+          </div>
+        </div>
+        <Fld label="Medical Notes"><textarea value={form.medicalNotes} onChange={e=>sf("medicalNotes")(e.target.value)} rows={2} placeholder="Any additional medical information…" style={{width:"100%",padding:"8px 10px",border:"1px solid "+BR,borderRadius:8,fontSize:13,fontFamily:"inherit",resize:"vertical",boxSizing:"border-box" as any}}/></Fld>
+
+        {/* ── SECTION 8: Occupation ── */}
+        <SH label="Occupation" icon="💼"/>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <Fld label="Occupation / Job Title"><Inp value={form.occupation} onChange={sf("occupation")} placeholder="Teacher, Engineer…"/></Fld>
+          <Fld label="Employer"><Inp value={form.employer} onChange={sf("employer")} placeholder="Company / Organization"/></Fld>
+        </div>
+
+        {/* ── SECTION 9: Notes ── */}
+        <SH label="Notes" icon="📝"/>
+        <Fld label="General Notes"><textarea value={form.notes} onChange={e=>sf("notes")(e.target.value)} rows={3} placeholder="Any pastoral notes, special needs, or context…" style={{width:"100%",padding:"8px 10px",border:"1px solid "+BR,borderRadius:8,fontSize:13,fontFamily:"inherit",resize:"vertical",boxSizing:"border-box" as any}}/></Fld>
+
+        {/* Save Row */}
+        <div style={{display:"flex",gap:10,marginTop:24,paddingTop:16,borderTop:"0.5px solid "+BR,justifyContent:"flex-end",flexWrap:"wrap"}}>
+          <Btn onClick={()=>setForm(blankForm())} v="ghost">Clear Form</Btn>
+          <Btn onClick={handleSave} style={{minWidth:160,justifyContent:"center"}}>Save {pType==="member"?"Member":"Visitor"} to Database</Btn>
+        </div>
+      </div>
     </div>
   );
 }
 
 // ── MAIN APP ──
-export default function App() {
+export default function App({churchId,churchName,adminFirst,adminLast,onSignOut}:any={}) {
   const _I = window.__NTCC_INIT__ || {};
+  // Namespace localStorage by churchId so each church's data is isolated
+  const LS = (key:string) => churchId ? `ntcc_${churchId}_${key}` : `ntcc_${key}`;
+  const lsGet = (key:string) => { try { const r=localStorage.getItem(LS(key)); return r?JSON.parse(r):null; } catch(e){ return null; } };
+  const lsSave = (key:string, val:any) => { try { localStorage.setItem(LS(key),JSON.stringify(val)); } catch(e){} };
+
+  // ── Cloud sync state ──
+  const [cloudSync,setCloudSync] = useState<'idle'|'loading'|'saving'|'saved'|'error'>('idle');
+  const sbSyncTimer = useRef<any>(null);
   const [isMobile,setIsMobile] = useState(window.innerWidth<768);
   const [navOpen,setNavOpen] = useState(false);
   useEffect(()=>{
@@ -6243,56 +7774,175 @@ export default function App() {
   const [churchSettings,setChurchSettings] = useState(_I.churchSettings || DEFAULT_CS);
   const [showSetup,setShowSetup] = useState(false);
   const [view,setView] = useState("dashboard");
-  const [members,setMembers] = useState(_I.members || IMEMBERS);
-  const [visitors,setVisitors] = useState(_I.visitors || IVISITORS);
-  const [attendance,setAttendance] = useState(_I.attendance || IATTEND);
-  const [giving,setGiving] = useState(_I.giving || IGIVING);
-  const [prayers,setPrayers] = useState(_I.prayers || IPRAYERS);
+  const [members,setMembers] = useState(lsGet('members') ?? _I.members ?? []);
+  const [visitors,setVisitors] = useState(lsGet('visitors') ?? _I.visitors ?? []);
+  const [attendance,setAttendance] = useState(lsGet('attendance') ?? _I.attendance ?? []);
+  const [giving,setGiving] = useState(lsGet('giving') ?? _I.giving ?? []);
+  const [prayers,setPrayers] = useState(lsGet('prayers') ?? _I.prayers ?? []);
   const [aiChat,setAiChat] = useState([]);
   const [users,setUsers] = useState([{id:1,memberId:5,roleId:"role_admin",password:"pastor2026",pin:"1234",status:"Active",superAdmin:true,overrides:{}}]);
-  const [roles,setRoles] = useState(SEED_ROLES);
-  const [permissions,setPermissions] = useState(SEED_PERMS);
+  const [roles,setRoles] = useState(()=>{
+    const saved = lsGet('roles');
+    if(!saved || saved.length===0) return SEED_ROLES;
+    // Merge any new SEED_ROLES not already in saved list
+    const savedIds = new Set(saved.map((r:any)=>r.id));
+    const newOnes = SEED_ROLES.filter(r=>!savedIds.has(r.id));
+    return [...saved, ...newOnes];
+  });
+  const [permissions,setPermissions] = useState(()=>{
+    const saved = lsGet('permissions');
+    const base = saved || SEED_PERMS;
+    // Ensure any new roles have entries
+    const result = {...base};
+    SEED_ROLES.forEach(r=>{ if(!result[r.id]) result[r.id]=makeEmptyPerms(); });
+    return result;
+  });
   const currentUser = users.find(u=>u.superAdmin) || users[0];
   window.__CS__ = churchSettings;
   useEffect(()=>{
-    (async()=>{
-      try{
-        const saved=await window.storage.get('ntcc_church_settings');
-        if(saved&&saved.value) setChurchSettings(JSON.parse(saved.value));
-        else if(!window.__NTCC_INIT__?.churchSettings) setShowSetup(true);
-      }catch(e){if(!window.__NTCC_INIT__?.churchSettings) setShowSetup(true);}
-    })();
+    try{
+      const _raw=localStorage.getItem(LS('church_settings'));
+      if(_raw){
+        const parsed=JSON.parse(_raw);
+        // Pre-fill church name from registration if not yet set
+        if(churchName&&(!parsed.name||parsed.name===DEFAULT_CS.name)){parsed.name=churchName;}
+        setChurchSettings(parsed);
+      } else {
+        if(churchName){setChurchSettings((s:any)=>({...s,name:churchName}));}
+        if(!window.__NTCC_INIT__?.churchSettings){setShowSetup(true);}
+      }
+    }catch(e){if(!window.__NTCC_INIT__?.churchSettings){setShowSetup(true);}}
   },[]);
   useEffect(()=>{
     if(!churchSettings.name) return;
-    (async()=>{try{await window.storage.set('ntcc_church_settings',JSON.stringify(churchSettings));}catch(e){}})();
+    try{localStorage.setItem(LS('church_settings'),JSON.stringify(churchSettings));}catch(e){}
   },[JSON.stringify(churchSettings)]);
   const [portalMembers,setPortalMembers] = useState([]);
-  const [visitRecords,setVisitRecords] = useState([]);
-  const [groups,setGroups] = useState(IGROUPS);
-  const [grpMeetings,setGrpMeetings] = useState(IMEETINGS);
-  const [recurring,setRecurring] = useState(INIT_RECURRING);
-  const [custom,setCustom] = useState([]);
-  const [checkIns,setCheckIns] = useState([]);
-  const [classrooms,setClassrooms] = useState(ICLASSROOMS);
-  const [children,setChildren] = useState(ICHILDREN);
-  const [teacherSchedule,setTeacherSchedule] = useState(ITEACHERSCHEDULE);
-  const [kidsCheckIns,setKidsCheckIns] = useState(IKIDSCHECKINS);
-  const [equipment,setEquipment] = useState(window.__NTCC_INIT__?.equipment || ISEED_EQUIP);
-  const [workOrders,setWorkOrders] = useState(window.__NTCC_INIT__?.workOrders || ISEED_WO);
-  const [schedMaint,setSchedMaint] = useState(window.__NTCC_INIT__?.schedMaint || ISEED_SCHED);
-  const [pledgeDrives,setPledgeDrives] = useState(_I.pledgeDrives || []);
-  const [pledges,setPledges] = useState(_I.pledges || []);
-  const [weeklyReports,setWeeklyReports] = useState(_I.weeklyReports || []);
+  const [groups,setGroups] = useState(lsGet('groups') ?? _I.groups ?? []);
+  const [grpMeetings,setGrpMeetings] = useState(lsGet('grpMeetings') ?? _I.grpMeetings ?? []);
+  const [recurring,setRecurring] = useState(lsGet('recurring') ?? INIT_RECURRING);
+  const [custom,setCustom] = useState(lsGet('custom') ?? []);
+  const [checkIns,setCheckIns] = useState(lsGet('checkIns') ?? []);
+  const _storedCL=lsGet('classrooms')||_I.classrooms;const _hasOldCL=_storedCL&&(_storedCL.length>7||_storedCL.some((c:any)=>["","1st","2nd","3rd","4th","5th","6th","7th"].includes(c.grade)));
+  const [classrooms,setClassrooms] = useState(_hasOldCL?ICLASSROOMS:(_storedCL||ICLASSROOMS));
+  const _storedKids=lsGet('children')||_I.children;const _migratedKids=_storedKids?_storedKids.map((c:any)=>({...c,grade:CHURCH_LEVELS.find((l:any)=>l.name===c.grade)?c.grade:levelFromAge(typeof calcAge(c.dob)==="number"?calcAge(c.dob) as number:6)})):[];
+  const [children,setChildren] = useState(_migratedKids);
+  const [teacherSchedule,setTeacherSchedule] = useState(lsGet('teacherSchedule') ?? []);
+  const [kidsCheckIns,setKidsCheckIns] = useState(lsGet('kidsCheckIns') ?? []);
+  const [incidents,setIncidents] = useState(lsGet('incidents') ?? _I.incidents ?? []);
+  const [rollCalls,setRollCalls] = useState(lsGet('rollCalls') ?? _I.rollCalls ?? []);
+  const [progressNotes,setProgressNotes] = useState(lsGet('progressNotes') ?? _I.progressNotes ?? []);
+  const [equipment,setEquipment] = useState(lsGet('equipment') ?? window.__NTCC_INIT__?.equipment ?? []);
+  const [workOrders,setWorkOrders] = useState(lsGet('workOrders') ?? window.__NTCC_INIT__?.workOrders ?? []);
+  const [schedMaint,setSchedMaint] = useState(lsGet('schedMaint') ?? window.__NTCC_INIT__?.schedMaint ?? []);
+  const [pledgeDrives,setPledgeDrives] = useState(lsGet('pledgeDrives') ?? _I.pledgeDrives ?? []);
+  const [pledges,setPledges] = useState(lsGet('pledges') ?? _I.pledges ?? []);
+  const [weeklyReports,setWeeklyReports] = useState(lsGet('weeklyReports') ?? _I.weeklyReports ?? []);
+  const [visitRecords,setVisitRecords] = useState(lsGet('visitRecords') ?? []);
 
   // Email system state
-  const [emailLog,setEmailLog] = useState(_I.emailLog || []);
-  const [emailTemplates,setEmailTemplates] = useState(_I.emailTemplates || DEFAULT_EMAIL_TEMPLATES);
-  const [emailConfig,setEmailConfig] = useState(_I.emailConfig || {provider:"",apiKey:"",fromEmail:"",fromName:""});
+  const [emailLog,setEmailLog] = useState(lsGet('emailLog') ?? _I.emailLog ?? []);
+  const [emailTemplates,setEmailTemplates] = useState(lsGet('emailTemplates') ?? _I.emailTemplates ?? DEFAULT_EMAIL_TEMPLATES);
+  const [emailConfig,setEmailConfig] = useState(lsGet('emailConfig') ?? _I.emailConfig ?? {provider:"",apiKey:"",fromEmail:"",fromName:""});
   const [composerOpen,setComposerOpen] = useState(false);
   const [composerProps,setComposerProps] = useState({});
   const [bulkComposerOpen,setBulkComposerOpen] = useState(false);
   const [bulkComposerProps,setBulkComposerProps] = useState({});
+
+  // ── Auto-save all data to localStorage on every change ──
+  useEffect(()=>{lsSave('members',members);},[JSON.stringify(members)]);
+  useEffect(()=>{lsSave('visitors',visitors);},[JSON.stringify(visitors)]);
+  useEffect(()=>{lsSave('attendance',attendance);},[JSON.stringify(attendance)]);
+  useEffect(()=>{lsSave('giving',giving);},[JSON.stringify(giving)]);
+  useEffect(()=>{lsSave('prayers',prayers);},[JSON.stringify(prayers)]);
+  useEffect(()=>{lsSave('groups',groups);},[JSON.stringify(groups)]);
+  useEffect(()=>{lsSave('grpMeetings',grpMeetings);},[JSON.stringify(grpMeetings)]);
+  useEffect(()=>{lsSave('visitRecords',visitRecords);},[JSON.stringify(visitRecords)]);
+  useEffect(()=>{lsSave('children',children);},[JSON.stringify(children)]);
+  useEffect(()=>{lsSave('classrooms',classrooms);},[JSON.stringify(classrooms)]);
+  useEffect(()=>{lsSave('equipment',equipment);},[JSON.stringify(equipment)]);
+  useEffect(()=>{lsSave('workOrders',workOrders);},[JSON.stringify(workOrders)]);
+  useEffect(()=>{lsSave('schedMaint',schedMaint);},[JSON.stringify(schedMaint)]);
+  useEffect(()=>{lsSave('pledgeDrives',pledgeDrives);},[JSON.stringify(pledgeDrives)]);
+  useEffect(()=>{lsSave('pledges',pledges);},[JSON.stringify(pledges)]);
+  useEffect(()=>{lsSave('weeklyReports',weeklyReports);},[JSON.stringify(weeklyReports)]);
+  useEffect(()=>{lsSave('emailLog',emailLog);},[JSON.stringify(emailLog)]);
+  useEffect(()=>{lsSave('emailTemplates',emailTemplates);},[JSON.stringify(emailTemplates)]);
+  useEffect(()=>{lsSave('emailConfig',emailConfig);},[JSON.stringify(emailConfig)]);
+  useEffect(()=>{lsSave('recurring',recurring);},[JSON.stringify(recurring)]);
+  useEffect(()=>{lsSave('custom',custom);},[JSON.stringify(custom)]);
+  useEffect(()=>{lsSave('checkIns',checkIns);},[JSON.stringify(checkIns)]);
+  useEffect(()=>{lsSave('incidents',incidents);},[JSON.stringify(incidents)]);
+  useEffect(()=>{lsSave('rollCalls',rollCalls);},[JSON.stringify(rollCalls)]);
+  useEffect(()=>{lsSave('progressNotes',progressNotes);},[JSON.stringify(progressNotes)]);
+  useEffect(()=>{lsSave('teacherSchedule',teacherSchedule);},[JSON.stringify(teacherSchedule)]);
+  useEffect(()=>{lsSave('kidsCheckIns',kidsCheckIns);},[JSON.stringify(kidsCheckIns)]);
+  useEffect(()=>{lsSave('roles',roles);},[JSON.stringify(roles)]);
+  useEffect(()=>{lsSave('permissions',permissions);},[JSON.stringify(permissions)]);
+
+  // ── Load from Supabase on mount — cloud is source of truth across devices ──
+  useEffect(()=>{
+    if(!churchId) return;
+    setCloudSync('loading');
+    (async()=>{
+      const {data:row,error} = await supabase.from('church_data').select('data').eq('church_id',churchId).maybeSingle();
+      setCloudSync('idle');
+      if(error||!row?.data) return;
+      const d = row.data;
+      if(Array.isArray(d.members)&&d.members.length) setMembers(d.members);
+      if(Array.isArray(d.visitors)&&d.visitors.length) setVisitors(d.visitors);
+      if(Array.isArray(d.attendance)&&d.attendance.length) setAttendance(d.attendance);
+      if(Array.isArray(d.giving)&&d.giving.length) setGiving(d.giving);
+      if(Array.isArray(d.prayers)&&d.prayers.length) setPrayers(d.prayers);
+      if(Array.isArray(d.groups)&&d.groups.length) setGroups(d.groups);
+      if(Array.isArray(d.grpMeetings)&&d.grpMeetings.length) setGrpMeetings(d.grpMeetings);
+      if(Array.isArray(d.visitRecords)&&d.visitRecords.length) setVisitRecords(d.visitRecords);
+      if(Array.isArray(d.children)&&d.children.length) setChildren(d.children);
+      if(Array.isArray(d.classrooms)&&d.classrooms.length) setClassrooms(d.classrooms);
+      if(Array.isArray(d.equipment)&&d.equipment.length) setEquipment(d.equipment);
+      if(Array.isArray(d.workOrders)&&d.workOrders.length) setWorkOrders(d.workOrders);
+      if(Array.isArray(d.schedMaint)&&d.schedMaint.length) setSchedMaint(d.schedMaint);
+      if(Array.isArray(d.pledgeDrives)&&d.pledgeDrives.length) setPledgeDrives(d.pledgeDrives);
+      if(Array.isArray(d.pledges)&&d.pledges.length) setPledges(d.pledges);
+      if(Array.isArray(d.weeklyReports)&&d.weeklyReports.length) setWeeklyReports(d.weeklyReports);
+      if(Array.isArray(d.emailLog)&&d.emailLog.length) setEmailLog(d.emailLog);
+      if(d.emailTemplates) setEmailTemplates(d.emailTemplates);
+      if(d.emailConfig?.provider!==undefined) setEmailConfig(d.emailConfig);
+      if(Array.isArray(d.recurring)&&d.recurring.length) setRecurring(d.recurring);
+      if(Array.isArray(d.custom)&&d.custom.length) setCustom(d.custom);
+      if(Array.isArray(d.checkIns)&&d.checkIns.length) setCheckIns(d.checkIns);
+      if(Array.isArray(d.incidents)&&d.incidents.length) setIncidents(d.incidents);
+      if(Array.isArray(d.rollCalls)&&d.rollCalls.length) setRollCalls(d.rollCalls);
+      if(Array.isArray(d.progressNotes)&&d.progressNotes.length) setProgressNotes(d.progressNotes);
+      if(Array.isArray(d.teacherSchedule)&&d.teacherSchedule.length) setTeacherSchedule(d.teacherSchedule);
+      if(Array.isArray(d.kidsCheckIns)&&d.kidsCheckIns.length) setKidsCheckIns(d.kidsCheckIns);
+      if(Array.isArray(d.roles)&&d.roles.length) setRoles(d.roles);
+      if(d.permissions&&Object.keys(d.permissions).length) setPermissions(d.permissions);
+      if(d.churchSettings?.name){setChurchSettings(d.churchSettings);try{localStorage.setItem(LS('church_settings'),JSON.stringify(d.churchSettings));}catch(e){}}
+    })();
+  },[churchId]);
+
+  // ── Debounced Supabase cloud-save (3 s after last change) ──
+  useEffect(()=>{
+    if(!churchId) return;
+    if(sbSyncTimer.current) clearTimeout(sbSyncTimer.current);
+    setCloudSync('saving');
+    sbSyncTimer.current = setTimeout(async()=>{
+      const blob = {members,visitors,attendance,giving,prayers,groups,grpMeetings,visitRecords,
+        children,classrooms,equipment,workOrders,schedMaint,pledgeDrives,pledges,weeklyReports,
+        emailLog,emailTemplates,emailConfig,recurring,custom,checkIns,incidents,rollCalls,
+        progressNotes,teacherSchedule,kidsCheckIns,roles,permissions,churchSettings};
+      const {error} = await supabase.from('church_data').upsert(
+        {church_id:churchId,data:blob,updated_at:new Date().toISOString()},
+        {onConflict:'church_id'}
+      );
+      setCloudSync(error?'error':'saved');
+      setTimeout(()=>setCloudSync('idle'),2500);
+    },3000);
+  },[JSON.stringify({members,visitors,attendance,giving,prayers,groups,grpMeetings,visitRecords,
+    children,classrooms,equipment,workOrders,schedMaint,pledgeDrives,pledges,weeklyReports,
+    emailLog,emailTemplates,emailConfig,recurring,custom,checkIns,incidents,rollCalls,
+    progressNotes,teacherSchedule,kidsCheckIns,roles,permissions,churchSettings})]);
 
   const nidEmail = useRef(8000);
   const logEmail = (data) => {
@@ -6330,8 +7980,27 @@ export default function App() {
   window.__openEmailComposer__ = openEmailComposer;
   window.__openBulkEmailComposer__ = openBulkEmailComposer;
 
+  // SMS system state
+  const [smsLog,setSmsLog] = useState(_I.smsLog || []);
+  const [smsTemplates,setSmsTemplates] = useState(_I.smsTemplates || DEFAULT_SMS_TEMPLATES);
+  const [smsConfig,setSmsConfig] = useState(_I.smsConfig || {accountSid:"",authToken:"",fromPhone:""});
+  const [smsComposerOpen,setSmsComposerOpen] = useState(false);
+  const [smsComposerProps,setSmsComposerProps] = useState({});
+  const [bulkSmsComposerOpen,setBulkSmsComposerOpen] = useState(false);
+  const [bulkSmsComposerProps,setBulkSmsComposerProps] = useState({});
+  const nidSms = useRef(9000);
+  const logSms = (data) => {
+    const entry = { id: nidSms.current++, timestamp: new Date().toISOString(), to: data.to||"", toName: data.toName||"", body: data.body, category: data.category, method: data.method, status: data.status, isBulk: !!data.recipients, recipientCount: data.recipients?data.recipients.length:0, relatedType: data.relatedType||"", relatedId: data.relatedId||null };
+    setSmsLog(l => [entry, ...l]);
+  };
+  const openSmsComposer = (props = {}) => { setSmsComposerProps(props); setSmsComposerOpen(true); };
+  const openBulkSmsComposer = (props = {}) => { setBulkSmsComposerProps(props); setBulkSmsComposerOpen(true); };
+  window.__openSmsComposer__ = openSmsComposer;
+  window.__openBulkSmsComposer__ = openBulkSmsComposer;
+
   const NAV = [
     {id:"dashboard",label:"Dashboard",icon:"D"},
+    {id:"addperson",label:"Add Person",icon:"➕"},
     {id:"people",label:"Members Profile",icon:"P"},
     {id:"visitation",label:"Visitation",icon:"V"},
     {id:"groups",label:"Groups Ministry",icon:"G2"},
@@ -6342,11 +8011,12 @@ export default function App() {
     {id:"giving",label:"Giving",icon:"$"},
     {id:"prayer",label:"Prayer Wall",icon:"Pr"},
     {id:"email",label:"Email Center",icon:"@"},
+    {id:"sms",label:"SMS Center",icon:"✉"},
     {id:"access",label:"Access Control",icon:"Ac"},
     {id:"ai",label:"AI Assistant",icon:"AI"},
     {id:"settings",label:"Settings",icon:"⚙"},
   ];
-  const TITLES = {dashboard:"Dashboard",people:"Members Profile",visitation:"Visitation & Follow-Up",education:"Education Department",maintenance:"Maintenance & Equipment",attendance:"Attendance",giving:"Giving Records",prayer:"Prayer Wall",email:"Email Center",access:"Access Control",ai:"AI Assistant",settings:"Church Settings"};
+  const TITLES = {dashboard:"Dashboard",addperson:"Add Person to Database",people:"Members Profile",visitation:"Visitation & Follow-Up",education:"Education Department",maintenance:"Maintenance & Equipment",attendance:"Attendance",giving:"Giving Records",prayer:"Prayer Wall",email:"Email Center",sms:"SMS Center",access:"Access Control",ai:"AI Assistant",settings:"Church Settings"};
   const pending = users.filter(u=>u.status==="Pending").length;
   const fu = visitors.filter(v=>v.stage==="Follow-Up Needed").length;
   const inVis = visitRecords.filter(r=>r.stage!=="Complete").length;
@@ -6429,19 +8099,25 @@ export default function App() {
           </div>
           <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
             {!isMobile && <div style={{fontSize:12,fontWeight:500}}>{new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric",year:"numeric"})}</div>}
+            {cloudSync==='loading' && <div style={{fontSize:11,color:MU,display:"flex",alignItems:"center",gap:4}}><span style={{width:8,height:8,borderRadius:"50%",background:MU,display:"inline-block",animation:"pulse 1s infinite"}}></span>Loading…</div>}
+            {cloudSync==='saving' && <div style={{fontSize:11,color:AM,display:"flex",alignItems:"center",gap:4}}><span style={{width:8,height:8,borderRadius:"50%",background:AM,display:"inline-block"}}></span>Saving…</div>}
+            {cloudSync==='saved' && <div style={{fontSize:11,color:GR,display:"flex",alignItems:"center",gap:4}}><span style={{width:8,height:8,borderRadius:"50%",background:GR,display:"inline-block"}}></span>Saved ✓</div>}
+            {cloudSync==='error' && <div style={{fontSize:11,color:RE,display:"flex",alignItems:"center",gap:4}}>⚠ Sync error</div>}
             <button onClick={()=>{setView("ai");setNavOpen(false);}} style={{background:GL,border:"1px solid "+G,borderRadius:8,padding:isMobile?"7px 10px":"7px 12px",cursor:"pointer",fontSize:12,fontWeight:500,color:"#7a5c10",whiteSpace:"nowrap"}}>AI</button>
             <button onClick={()=>{setView("settings");setNavOpen(false);}} style={{background:N+"12",border:"0.5px solid "+N+"33",borderRadius:8,padding:isMobile?"7px 10px":"7px 12px",cursor:"pointer",fontSize:12,fontWeight:500,color:N}}>⚙</button>
+            {onSignOut&&<button onClick={onSignOut} title="Sign Out" style={{background:"#fee2e2",border:"0.5px solid #fca5a5",borderRadius:8,padding:isMobile?"7px 10px":"7px 12px",cursor:"pointer",fontSize:12,fontWeight:600,color:"#dc2626",whiteSpace:"nowrap"}}>Sign Out</button>}
           </div>
         </div>
 
         {/* Page content */}
         <div style={{flex:1,padding:isMobile?12:24,overflow:"auto"}}>
           {showSetup && <SetupModal onSave={s=>{setChurchSettings(s);setShowSetup(false);}}/>}
-          {view==="settings" && <ChurchSettingsPage cs={churchSettings} setCs={setChurchSettings} members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} setAttendance={setAttendance} giving={giving} setGiving={setGiving} prayers={prayers} setPrayers={setPrayers} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings} visitRecords={visitRecords} setVisitRecords={setVisitRecords} checkIns={checkIns} kidsCheckIns={kidsCheckIns} children={children} setChildren={setChildren} pledgeDrives={pledgeDrives} pledges={pledges} weeklyReports={weeklyReports} equipment={equipment} setEquipment={setEquipment} workOrders={workOrders} setWorkOrders={setWorkOrders} schedMaint={schedMaint} setSchedMaint={setSchedMaint}/>}
+          {view==="settings" && <ChurchSettingsPage cs={churchSettings} setCs={setChurchSettings} members={members} setMembers={setMembers} visitors={visitors} attendance={attendance} giving={giving} prayers={prayers} groups={groups} grpMeetings={grpMeetings} visitRecords={visitRecords} checkIns={checkIns} kidsCheckIns={kidsCheckIns} children={children} pledgeDrives={pledgeDrives} pledges={pledges} weeklyReports={weeklyReports} equipment={equipment} workOrders={workOrders} schedMaint={schedMaint}/>}
           {view==="dashboard" && <Dashboard members={members} visitors={visitors} attendance={attendance} giving={giving} prayers={prayers} setView={setView}/>}
-          {view==="people" && <People members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} prayers={prayers} groups={groups} grpMeetings={grpMeetings} visitRecords={visitRecords} setVisitRecords={setVisitRecords} checkIns={checkIns}/>}
+          {view==="addperson" && <AddMemberPage members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} currentUser={currentUser} roles={roles} permissions={permissions} setView={setView}/>}
+          {view==="people" && <People members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} prayers={prayers} groups={groups} grpMeetings={grpMeetings} visitRecords={visitRecords} setVisitRecords={setVisitRecords} checkIns={checkIns} setView={setView}/>}
           {view==="groups" && <Groups members={members} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings}/>}
-          {view==="education" && <Education members={members} visitors={visitors} users={users} roles={roles} children={children} setChildren={setChildren} classrooms={classrooms} setClassrooms={setClassrooms} teacherSchedule={teacherSchedule} setTeacherSchedule={setTeacherSchedule} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckIns} checkIns={checkIns}/>}
+          {view==="education" && <Education members={members} visitors={visitors} users={users} roles={roles} children={children} setChildren={setChildren} classrooms={classrooms} setClassrooms={setClassrooms} teacherSchedule={teacherSchedule} setTeacherSchedule={setTeacherSchedule} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckIns} checkIns={checkIns} incidents={incidents} setIncidents={setIncidents} rollCalls={rollCalls} setRollCalls={setRollCalls} progressNotes={progressNotes} setProgressNotes={setProgressNotes} cs={churchSettings}/>}
           {view==="maintenance" && <Maintenance users={users} members={members} currentUser={currentUser} roles={roles} permissions={permissions} equipment={equipment} setEquipment={setEquipment} workOrders={workOrders} setWorkOrders={setWorkOrders} schedMaint={schedMaint} setSchedMaint={setSchedMaint}/>}
           {view==="calendar" && (
             <div style={{height:"calc(100vh - 110px)",display:"flex",flexDirection:"column",margin:-24,overflow:"hidden"}}>
@@ -6461,10 +8137,11 @@ export default function App() {
               />
             </div>
           )}
-          {view==="visitation" && <Visitation visitors={visitors} setVisitors={setVisitors} members={members} users={users} visitRecords={visitRecords} setVisitRecords={setVisitRecords}/>}
-          {view==="attendance" && <Attendance attendance={attendance} setAttendance={setAttendance}/>}
+          {view==="visitation" && <Visitation visitors={visitors} setVisitors={setVisitors} members={members} setMembers={setMembers} users={users} visitRecords={visitRecords} setVisitRecords={setVisitRecords} setView={setView}/>}
+          {view==="attendance" && <Attendance attendance={attendance} setAttendance={setAttendance} setView={setView}/>}
           {view==="giving" && <Giving giving={giving} setGiving={setGiving} pledgeDrives={pledgeDrives} setPledgeDrives={setPledgeDrives} pledges={pledges} setPledges={setPledges} members={members} visitors={visitors} weeklyReports={weeklyReports} setWeeklyReports={setWeeklyReports} emailTemplates={emailTemplates}/>}
           {view==="prayer" && <Prayer prayers={prayers} setPrayers={setPrayers}/>}
+          {view==="sms" && <SmsCenter smsLog={smsLog} setSmsLog={setSmsLog} smsTemplates={smsTemplates} setSmsTemplates={setSmsTemplates} smsConfig={smsConfig} setSmsConfig={setSmsConfig} members={members} visitors={visitors} cs={churchSettings} onCompose={()=>openSmsComposer({})} onBulkCompose={()=>openBulkSmsComposer({recipients:[...members,...visitors].filter(p=>p.phone).map(p=>({...p,first:p.first,last:p.last,name:p.first+" "+p.last}))})}/>}
           {view==="email" && <EmailCenter emailLog={emailLog} setEmailLog={setEmailLog} emailTemplates={emailTemplates} setEmailTemplates={setEmailTemplates} emailConfig={emailConfig} setEmailConfig={setEmailConfig} members={members} visitors={visitors} cs={churchSettings} onCompose={()=>openEmailComposer({})} onBulkCompose={()=>openBulkEmailComposer({recipients:members.filter(m=>m.email).map(m=>({name:m.first+" "+m.last,first:m.first,last:m.last,email:m.email}))})}/>}
           {view==="access" && <Access members={members} users={users} setUsers={setUsers} roles={roles} setRoles={setRoles} permissions={permissions} setPermissions={setPermissions} portalMembers={portalMembers} setPortalMembers={setPortalMembers} currentUser={currentUser}/>}
           {view==="ai" && <AIAssist aiChat={aiChat} setAiChat={setAiChat} members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} setAttendance={setAttendance} giving={giving} setGiving={setGiving} prayers={prayers} setView={setView} isMobile={isMobile}/>}
@@ -6499,6 +8176,34 @@ export default function App() {
         templates={emailTemplates}
         onSend={logEmail}
         emailConfig={emailConfig}
+      />
+      <SmsComposer
+        open={smsComposerOpen}
+        onClose={()=>setSmsComposerOpen(false)}
+        initialPhone={smsComposerProps.phone}
+        initialName={smsComposerProps.name}
+        initialBody={smsComposerProps.body}
+        initialCategory={smsComposerProps.category}
+        relatedType={smsComposerProps.relatedType}
+        relatedId={smsComposerProps.relatedId}
+        cs={churchSettings}
+        templates={smsTemplates}
+        onSend={logSms}
+        members={members}
+        visitors={visitors}
+      />
+      <BulkSmsComposer
+        open={bulkSmsComposerOpen}
+        onClose={()=>setBulkSmsComposerOpen(false)}
+        recipients={bulkSmsComposerProps.recipients||[]}
+        initialBody={bulkSmsComposerProps.body}
+        initialCategory={bulkSmsComposerProps.category}
+        relatedType={bulkSmsComposerProps.relatedType}
+        cs={churchSettings}
+        templates={smsTemplates}
+        onSend={logSms}
+        members={members}
+        visitors={visitors}
       />
     </div>
   );
