@@ -6118,6 +6118,49 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
   const sf = k => v => setForm(f=>({...f,[k]:v}));
   const [nameSugg,setNameSugg] = useState([]);
   const [showSugg,setShowSugg] = useState(false);
+
+  // Custom categories & methods (localStorage)
+  const [customCats,setCustomCats] = useState(()=>{try{return JSON.parse(localStorage.getItem("ntcc_custom_giving_cats")||"[]");}catch{return [];}});
+  const [customMethods,setCustomMethods] = useState(()=>{try{return JSON.parse(localStorage.getItem("ntcc_custom_giving_methods")||"[]");}catch{return [];}});
+  const [showAddCat,setShowAddCat] = useState(false);
+  const [newCat,setNewCat] = useState("");
+  const [showAddMethod,setShowAddMethod] = useState(false);
+  const [newMethod,setNewMethod] = useState("");
+  const BASE_CATS = ["Tithe","Sunday Morning Offering","Offering","Building Fund","Missions","Special Gift"];
+  const BASE_METHODS = ["Cash","Check","Online","Zelle","Other"];
+  const allCats = [...BASE_CATS,...customCats];
+  const allMethods = [...BASE_METHODS,...customMethods];
+  const saveCustomCat = () => {
+    const v = newCat.trim();
+    if(!v||allCats.includes(v)) return;
+    const updated = [...customCats, v];
+    setCustomCats(updated);
+    localStorage.setItem("ntcc_custom_giving_cats", JSON.stringify(updated));
+    sf("category")(v);
+    setNewCat(""); setShowAddCat(false);
+  };
+  const removeCustomCat = cat => {
+    const updated = customCats.filter(c=>c!==cat);
+    setCustomCats(updated);
+    localStorage.setItem("ntcc_custom_giving_cats", JSON.stringify(updated));
+    if(form.category===cat) sf("category")("Tithe");
+  };
+  const saveCustomMethod = () => {
+    const v = newMethod.trim();
+    if(!v||allMethods.includes(v)) return;
+    const updated = [...customMethods, v];
+    setCustomMethods(updated);
+    localStorage.setItem("ntcc_custom_giving_methods", JSON.stringify(updated));
+    sf("method")(v);
+    setNewMethod(""); setShowAddMethod(false);
+  };
+  const removeCustomMethod = m => {
+    const updated = customMethods.filter(x=>x!==m);
+    setCustomMethods(updated);
+    localStorage.setItem("ntcc_custom_giving_methods", JSON.stringify(updated));
+    if(form.method===m) sf("method")("Cash");
+  };
+
   const allPeople = [...(members||[]).map(m=>({name:(m.first||"")+" "+(m.last||""),type:"Member"})),...(visitors||[]).map(v=>({name:(v.first||"")+" "+(v.last||""),type:"Visitor"}))].filter(p=>p.name.trim().length>1).sort((a,b)=>a.name.localeCompare(b.name));
   const handleNameInput = val => {
     sf("name")(val);
@@ -6278,7 +6321,25 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
       <Modal open={modal} onClose={()=>setModal(false)} title="Record Giving">
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <Fld label="Date *"><Inp type="date" value={form.date} onChange={sf("date")}/></Fld>
-          <Fld label="Category"><Slt value={form.category} onChange={sf("category")} opts={["Tithe","Sunday Morning Offering","Offering","Building Fund","Missions","Special Gift"]}/></Fld>
+          <div style={{marginBottom:12}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
+              <span style={{fontSize:12,color:MU}}>Category</span>
+              <button onClick={()=>{setShowAddCat(v=>!v);setNewCat("");}} style={{fontSize:11,color:N,background:"none",border:"none",cursor:"pointer",padding:0,fontWeight:500}}>＋ Add</button>
+            </div>
+            {showAddCat&&(
+              <div style={{marginBottom:6}}>
+                <div style={{display:"flex",gap:6,marginBottom:4}}>
+                  <input autoFocus value={newCat} onChange={e=>setNewCat(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")saveCustomCat();if(e.key==="Escape")setShowAddCat(false);}} placeholder="New category name…" style={{flex:1,padding:"6px 8px",border:"1px solid "+N,borderRadius:7,fontSize:12,outline:"none"}}/>
+                  <button onClick={saveCustomCat} disabled={!newCat.trim()} style={{padding:"6px 12px",background:N,color:"#fff",border:"none",borderRadius:7,fontSize:12,cursor:"pointer",opacity:newCat.trim()?1:0.5}}>Save</button>
+                  <button onClick={()=>setShowAddCat(false)} style={{padding:"6px 8px",background:"none",border:"0.5px solid "+BR,borderRadius:7,fontSize:12,cursor:"pointer",color:MU}}>✕</button>
+                </div>
+                {customCats.length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+                  {customCats.map(c=><span key={c} style={{fontSize:11,background:N+"11",color:N,borderRadius:20,padding:"2px 8px",display:"inline-flex",alignItems:"center",gap:4}}>{c}<button onClick={()=>removeCustomCat(c)} style={{background:"none",border:"none",cursor:"pointer",color:MU,fontSize:11,padding:0,lineHeight:1}}>✕</button></span>)}
+                </div>}
+              </div>
+            )}
+            <Slt value={form.category} onChange={sf("category")} opts={allCats}/>
+          </div>
         </div>
         <Fld label="Giver's Name *">
           <div style={{position:"relative"}}>
@@ -6297,7 +6358,25 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
         </Fld>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <Fld label="Amount *"><Inp type="number" value={form.amount} onChange={sf("amount")} placeholder="0.00"/></Fld>
-          <Fld label="Method"><Slt value={form.method} onChange={sf("method")} opts={["Cash","Check","Online","Zelle","Other"]}/></Fld>
+          <div style={{marginBottom:12}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
+              <span style={{fontSize:12,color:MU}}>Method</span>
+              <button onClick={()=>{setShowAddMethod(v=>!v);setNewMethod("");}} style={{fontSize:11,color:N,background:"none",border:"none",cursor:"pointer",padding:0,fontWeight:500}}>＋ Add</button>
+            </div>
+            {showAddMethod&&(
+              <div style={{marginBottom:6}}>
+                <div style={{display:"flex",gap:6,marginBottom:4}}>
+                  <input autoFocus value={newMethod} onChange={e=>setNewMethod(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")saveCustomMethod();if(e.key==="Escape")setShowAddMethod(false);}} placeholder="e.g. Venmo, PayPal…" style={{flex:1,padding:"6px 8px",border:"1px solid "+N,borderRadius:7,fontSize:12,outline:"none"}}/>
+                  <button onClick={saveCustomMethod} disabled={!newMethod.trim()} style={{padding:"6px 12px",background:N,color:"#fff",border:"none",borderRadius:7,fontSize:12,cursor:"pointer",opacity:newMethod.trim()?1:0.5}}>Save</button>
+                  <button onClick={()=>setShowAddMethod(false)} style={{padding:"6px 8px",background:"none",border:"0.5px solid "+BR,borderRadius:7,fontSize:12,cursor:"pointer",color:MU}}>✕</button>
+                </div>
+                {customMethods.length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+                  {customMethods.map(m=><span key={m} style={{fontSize:11,background:N+"11",color:N,borderRadius:20,padding:"2px 8px",display:"inline-flex",alignItems:"center",gap:4}}>{m}<button onClick={()=>removeCustomMethod(m)} style={{background:"none",border:"none",cursor:"pointer",color:MU,fontSize:11,padding:0,lineHeight:1}}>✕</button></span>)}
+                </div>}
+              </div>
+            )}
+            <Slt value={form.method} onChange={sf("method")} opts={allMethods}/>
+          </div>
         </div>
         <Fld label="Notes"><Inp value={form.notes} onChange={sf("notes")}/></Fld>
         <div style={{display:"flex",gap:8}}>
