@@ -6107,6 +6107,17 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
   const [load,setLoad] = useState(false);
   const nid = useRef(400);
   const sf = k => v => setForm(f=>({...f,[k]:v}));
+  const [nameSugg,setNameSugg] = useState([]);
+  const [showSugg,setShowSugg] = useState(false);
+  const allPeople = [...(members||[]).map(m=>({name:(m.first||"")+" "+(m.last||""),type:"Member"})),...(visitors||[]).map(v=>({name:(v.first||"")+" "+(v.last||""),type:"Visitor"}))].filter(p=>p.name.trim().length>1).sort((a,b)=>a.name.localeCompare(b.name));
+  const handleNameInput = val => {
+    sf("name")(val);
+    if(val.trim().length>=1){
+      const q=val.toLowerCase();
+      const hits=allPeople.filter(p=>p.name.toLowerCase().includes(q)).slice(0,8);
+      setNameSugg(hits); setShowSugg(hits.length>0);
+    } else { setShowSugg(false); }
+  };
   const thisMonth = giving.filter(g=>g.date.startsWith("2026-04"));
   const total = thisMonth.reduce((a,g)=>a+g.amount,0);
   const tithe = thisMonth.filter(g=>g.category==="Tithe").reduce((a,g)=>a+g.amount,0);
@@ -6260,7 +6271,21 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
           <Fld label="Date *"><Inp type="date" value={form.date} onChange={sf("date")}/></Fld>
           <Fld label="Category"><Slt value={form.category} onChange={sf("category")} opts={["Tithe","Sunday Morning Offering","Offering","Building Fund","Missions","Special Gift"]}/></Fld>
         </div>
-        <Fld label="Givers Name *"><Inp value={form.name} onChange={sf("name")} placeholder="Full name"/></Fld>
+        <Fld label="Giver's Name *">
+          <div style={{position:"relative"}}>
+            <Inp value={form.name} onChange={handleNameInput} placeholder="Type to search members & visitors…" onBlur={()=>setTimeout(()=>setShowSugg(false),180)}/>
+            {showSugg&&(
+              <div style={{position:"absolute",top:"calc(100% + 2px)",left:0,right:0,background:W,border:"1px solid "+BR,borderRadius:9,boxShadow:"0 6px 18px rgba(0,0,0,0.12)",zIndex:200,maxHeight:220,overflowY:"auto"}}>
+                {nameSugg.map((p,i)=>(
+                  <div key={i} onMouseDown={e=>{e.preventDefault();sf("name")(p.name);setShowSugg(false);}} style={{padding:"9px 14px",cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",justifyContent:"space-between",borderBottom:i<nameSugg.length-1?"0.5px solid "+BR+"66":"none",background:W}} onMouseEnter={e=>(e.currentTarget.style.background=BG)} onMouseLeave={e=>(e.currentTarget.style.background=W)}>
+                    <span style={{fontWeight:500,color:TX}}>{p.name}</span>
+                    <span style={{fontSize:11,color:p.type==="Member"?N:G,background:p.type==="Member"?N+"11":G+"22",padding:"2px 8px",borderRadius:20,fontWeight:500}}>{p.type}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </Fld>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <Fld label="Amount *"><Inp type="number" value={form.amount} onChange={sf("amount")} placeholder="0.00"/></Fld>
           <Fld label="Method"><Slt value={form.method} onChange={sf("method")} opts={["Cash","Check","Online","Zelle","Other"]}/></Fld>
