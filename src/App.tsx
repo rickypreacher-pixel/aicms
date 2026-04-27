@@ -568,6 +568,21 @@ function ChurchSettingsPage({cs,setCs,members,setMembers,visitors,attendance,giv
   const save=()=>{setCs({...form});setSaved(true);setTimeout(()=>setSaved(false),2500);};
   const allData={members,visitors,attendance,giving,prayers,groups,grpMeetings,visitRecords,checkIns,kidsCheckIns,children,pledgeDrives,pledges,weeklyReports,equipment,workOrders,schedMaint};
   const logoInitials=(form.name||"AI").split(" ").filter(w=>w).slice(0,2).map(w=>w[0]).join("").toUpperCase();
+
+  // ── Change Password ──
+  const [newPw,setNewPw]=useState('');
+  const [confirmPw,setConfirmPw]=useState('');
+  const [pwStatus,setPwStatus]=useState<'idle'|'saving'|'saved'|'error'>('idle');
+  const [pwError,setPwError]=useState('');
+  const changePassword=async()=>{
+    setPwError('');
+    if(newPw.length<8){setPwError('Password must be at least 8 characters.');return;}
+    if(newPw!==confirmPw){setPwError('Passwords do not match.');return;}
+    setPwStatus('saving');
+    const {error}=await supabase.auth.updateUser({password:newPw});
+    if(error){setPwStatus('error');setPwError(error.message);}
+    else{setPwStatus('saved');setNewPw('');setConfirmPw('');setTimeout(()=>setPwStatus('idle'),3000);}
+  };
   return (<div>
     {/* Tab bar */}
     <div style={{display:'flex',gap:4,marginBottom:20,borderBottom:'1.5px solid '+BR,paddingBottom:0}}>
@@ -612,7 +627,18 @@ function ChurchSettingsPage({cs,setCs,members,setMembers,visitors,attendance,giv
       <Btn onClick={save} v="success" style={{padding:"11px 24px",fontSize:14}}>Save Settings</Btn>
       <Btn onClick={()=>setForm({...cs})} v="ghost">Reset</Btn>
     </div>
-    <div style={{marginTop:24,background:"#fef2f2",border:"1.5px solid "+RE+"55",borderRadius:12,padding:18}}>
+    <div style={{marginTop:20,background:W,border:"0.5px solid "+BR,borderRadius:12,padding:18}}>
+      <h3 style={{fontSize:14,fontWeight:500,color:N,margin:"0 0 4px"}}>Change Password</h3>
+      <p style={{fontSize:12,color:MU,marginBottom:14,lineHeight:1.6}}>Update your login password. Must be at least 8 characters.</p>
+      {pwStatus==='saved'&&<div style={{background:"#dcfce7",border:"0.5px solid #86efac",borderRadius:8,padding:"9px 14px",marginBottom:12,fontSize:13,color:"#14532d",fontWeight:500}}>Password updated successfully!</div>}
+      {pwError&&<div style={{background:"#fef2f2",border:"0.5px solid #fca5a5",borderRadius:8,padding:"9px 14px",marginBottom:12,fontSize:13,color:RE}}>{pwError}</div>}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+        <Fld label="New Password"><input type="password" value={newPw} onChange={e=>setNewPw(e.target.value)} placeholder="Min 8 characters" style={{width:"100%",padding:"9px 11px",border:"1px solid "+BR,borderRadius:8,fontSize:13,outline:"none",boxSizing:"border-box",fontFamily:"inherit"}}/></Fld>
+        <Fld label="Confirm New Password"><input type="password" value={confirmPw} onChange={e=>setConfirmPw(e.target.value)} placeholder="Re-enter password" style={{width:"100%",padding:"9px 11px",border:"1px solid "+BR,borderRadius:8,fontSize:13,outline:"none",boxSizing:"border-box",fontFamily:"inherit"}}/></Fld>
+      </div>
+      <Btn onClick={changePassword} v="ai" style={{fontSize:13}} disabled={pwStatus==='saving'}>{pwStatus==='saving'?'Updating…':'Update Password'}</Btn>
+    </div>
+    <div style={{marginTop:16,background:"#fef2f2",border:"1.5px solid "+RE+"55",borderRadius:12,padding:18}}>
       <h3 style={{fontSize:14,fontWeight:600,color:RE,margin:"0 0 6px"}}>Clear All Data — Go Live</h3>
       <p style={{fontSize:12,color:"#7f1d1d",marginBottom:14,lineHeight:1.6}}>This permanently removes ALL records from this browser (members, visitors, giving, attendance, groups, children, prayer, equipment, work orders, etc.) and resets the app to a clean slate. This cannot be undone. Use this to clear test data before going live with real information.</p>
       <Btn onClick={()=>{
