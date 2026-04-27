@@ -6122,6 +6122,7 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
   // Custom categories & methods (localStorage)
   const [customCats,setCustomCats] = useState(()=>{try{return JSON.parse(localStorage.getItem("ntcc_custom_giving_cats")||"[]");}catch{return [];}});
   const [customMethods,setCustomMethods] = useState(()=>{try{return JSON.parse(localStorage.getItem("ntcc_custom_giving_methods")||"[]");}catch{return [];}});
+  const [editingId,setEditingId] = useState(null);
   const [showAddCat,setShowAddCat] = useState(false);
   const [newCat,setNewCat] = useState("");
   const [showAddMethod,setShowAddMethod] = useState(false);
@@ -6175,10 +6176,20 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
   const tithe = thisMonth.filter(g=>g.category==="Tithe").reduce((a,g)=>a+g.amount,0);
   const offering = thisMonth.filter(g=>g.category==="Offering").reduce((a,g)=>a+g.amount,0);
   const activeDrives = pledgeDrives.filter(d=>d.status==="Active").length;
+  const openEditRecord = (g) => {
+    setEditingId(g.id);
+    setForm({date:g.date,name:g.name,category:g.category,amount:String(g.amount),method:g.method,notes:g.notes||""});
+    setModal(true);
+  };
   const save = () => {
     if(!form.name||!form.amount){alert("Name and amount required.");return;}
-    setGiving([{...form,amount:+form.amount,id:nid.current++},...giving]);
+    if(editingId) {
+      setGiving(giving.map(r=>r.id===editingId ? {...r,category:form.category,amount:+form.amount,method:form.method,notes:form.notes} : r));
+    } else {
+      setGiving([{...form,amount:+form.amount,id:nid.current++},...giving]);
+    }
     setModal(false);
+    setEditingId(null);
     setForm({date:td(),name:"",category:"Tithe",amount:"",method:"Cash",notes:""});
   };
   const genAi = async () => {
@@ -6309,6 +6320,7 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
                       const body = receiptTpl ? renderTemplate(receiptTpl.body,vars) : "Dear "+vars.first_name+",\n\nThank you for your gift of "+f$(g.amount)+" on "+fd(g.date)+" ("+g.category+").\n\n"+vars.pastor_name+"\n"+vars.church_name;
                       window.__openEmailComposer__ && window.__openEmailComposer__({to:personEmail,toName:g.name,subject,body,category:"Pledge Receipt",relatedType:"giving",relatedId:g.id});
                     }} v="ghost" style={{fontSize:11,padding:"3px 8px"}}>Receipt</Btn>}
+                    <Btn onClick={()=>openEditRecord(g)} v="ghost" style={{fontSize:11,padding:"3px 8px"}}>Edit</Btn>
                     <Btn onClick={()=>setGiving(giving.filter(r=>r.id!==g.id))} v="danger" style={{fontSize:11,padding:"3px 8px"}}>X</Btn>
                   </div>
                 </td>
@@ -6318,9 +6330,9 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
           </tbody>
         </table>
       </div>
-      <Modal open={modal} onClose={()=>setModal(false)} title="Record Giving">
+      <Modal open={modal} onClose={()=>{setModal(false);setEditingId(null);setForm({date:td(),name:"",category:"Tithe",amount:"",method:"Cash",notes:""}); }} title={editingId?"Edit Giving Record":"Record Giving"}>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-          <Fld label="Date *"><Inp type="date" value={form.date} onChange={sf("date")}/></Fld>
+          <Fld label="Date">{editingId ? <div style={{padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,background:"#f8f9fc",color:MU}}>{fd(form.date)}</div> : <Inp type="date" value={form.date} onChange={sf("date")}/>}</Fld>
           <div style={{marginBottom:12}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
               <span style={{fontSize:12,color:MU}}>Category</span>
@@ -6341,8 +6353,10 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
             <Slt value={form.category} onChange={sf("category")} opts={allCats}/>
           </div>
         </div>
-        <Fld label="Giver's Name *">
-          <div style={{position:"relative"}}>
+        <Fld label="Giver's Name">
+          {editingId
+            ? <div style={{padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,background:"#f8f9fc",color:MU}}>{form.name}</div>
+            : <div style={{position:"relative"}}>
             <Inp value={form.name} onChange={handleNameInput} placeholder="Type to search members & visitors…" onBlur={()=>setTimeout(()=>setShowSugg(false),180)}/>
             {showSugg&&(
               <div style={{position:"absolute",top:"calc(100% + 2px)",left:0,right:0,background:W,border:"1px solid "+BR,borderRadius:9,boxShadow:"0 6px 18px rgba(0,0,0,0.12)",zIndex:200,maxHeight:220,overflowY:"auto"}}>
@@ -6354,7 +6368,7 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
                 ))}
               </div>
             )}
-          </div>
+          </div>}
         </Fld>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <Fld label="Amount *"><Inp type="number" value={form.amount} onChange={sf("amount")} placeholder="0.00"/></Fld>
@@ -6380,8 +6394,8 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
         </div>
         <Fld label="Notes"><Inp value={form.notes} onChange={sf("notes")}/></Fld>
         <div style={{display:"flex",gap:8}}>
-          <Btn onClick={save} style={{flex:1,justifyContent:"center"}}>Save Record</Btn>
-          <Btn onClick={()=>setModal(false)} v="ghost" style={{flex:1,justifyContent:"center"}}>Cancel</Btn>
+          <Btn onClick={save} style={{flex:1,justifyContent:"center"}}>{editingId?"Update Record":"Save Record"}</Btn>
+          <Btn onClick={()=>{setModal(false);setEditingId(null);setForm({date:td(),name:"",category:"Tithe",amount:"",method:"Cash",notes:""}); }} v="ghost" style={{flex:1,justifyContent:"center"}}>Cancel</Btn>
         </div>
       </Modal>
       </div>
