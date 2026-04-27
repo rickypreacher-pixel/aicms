@@ -7989,7 +7989,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut}
   const [giving,setGiving] = useState(lsGet('giving') ?? _I.giving ?? []);
   const [prayers,setPrayers] = useState(lsGet('prayers') ?? _I.prayers ?? []);
   const [aiChat,setAiChat] = useState([]);
-  const [users,setUsers] = useState([{id:1,memberId:5,roleId:"role_admin",password:"pastor2026",pin:"1234",status:"Active",superAdmin:true,overrides:{}}]);
+  const [users,setUsers] = useState(()=>{ const saved=lsGet('users'); return (saved&&saved.length)?saved:[{id:1,memberId:5,roleId:"role_admin",password:"pastor2026",pin:"1234",status:"Active",superAdmin:true,overrides:{}}]; });
   const [roles,setRoles] = useState(()=>{
     const saved = lsGet('roles');
     if(!saved || saved.length===0) return SEED_ROLES;
@@ -8086,6 +8086,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut}
   useEffect(()=>{lsSave('progressNotes',progressNotes);},[JSON.stringify(progressNotes)]);
   useEffect(()=>{lsSave('teacherSchedule',teacherSchedule);},[JSON.stringify(teacherSchedule)]);
   useEffect(()=>{lsSave('kidsCheckIns',kidsCheckIns);},[JSON.stringify(kidsCheckIns)]);
+  useEffect(()=>{lsSave('users',users);},[JSON.stringify(users)]);
   useEffect(()=>{lsSave('roles',roles);},[JSON.stringify(roles)]);
   useEffect(()=>{lsSave('permissions',permissions);},[JSON.stringify(permissions)]);
 
