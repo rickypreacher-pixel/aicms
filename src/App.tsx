@@ -659,7 +659,9 @@ function ChurchSettingsPage({cs,setCs,members,setMembers,visitors,attendance,giv
 }
 
 // ── MERGE TOOL ──
-function MergeTool({members,setMembers,visitors,setVisitors}:any){  const [importTarget,setImportTarget]=useState<'members'|'visitors'>('members');
+const IMPORT_TARGETS=[['members','👥 Members'],['visitors','🙋 Visitors / Guests']];
+function MergeTool({members,setMembers,visitors,setVisitors}:any){
+  const [importTarget,setImportTarget]=useState('members');
   const [step,setStep]=useState<'upload'|'preview'|'done'>('upload');
   const [newOnes,setNewOnes]=useState<any[]>([]);
   const [conflicts,setConflicts]=useState<any[]>([]);
@@ -862,7 +864,7 @@ function MergeTool({members,setMembers,visitors,setVisitors}:any){  const [impor
       <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:20,background:W,border:'0.5px solid '+BR,borderRadius:10,padding:'12px 16px'}}>
         <span style={{fontSize:13,fontWeight:500,color:TX,whiteSpace:'nowrap'}}>Import for:</span>
         <div style={{display:'flex',gap:6}}>
-          {([['members','👥 Members'],['visitors','🙋 Visitors / Guests']] as const).map(([id,label])=>(
+          {IMPORT_TARGETS.map(([id,label])=>(
             <button key={id} onClick={()=>setImportTarget(id)} style={{padding:'7px 16px',borderRadius:8,border:'1.5px solid '+(importTarget===id?N:BR),background:importTarget===id?N:'transparent',color:importTarget===id?'#fff':MU,fontSize:13,fontWeight:importTarget===id?600:400,cursor:'pointer'}}>{label}</button>
           ))}
         </div>
