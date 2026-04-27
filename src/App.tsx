@@ -1251,12 +1251,12 @@ function UsersTab({members,users,setUsers,roles,permissions,currentUser}){
   const [detailU,setDetailU] = useState(null);
   const [overrideModal,setOverrideModal] = useState(null);
   const [confirmModal,setConfirmModal] = useState(null);
-  const nid = useRef(300);
+  const nid = useRef(Math.max(299,...users.map(u=>+(u.id)||0))+1);
 
   const isAdmin = currentUser?.superAdmin || (currentUser?.roleId && roles.find(r=>r.id===currentUser.roleId)?.name==="Administrator");
   const used = users.filter(u=>u.id!==editU?.id).map(u=>u.memberId);
   const avail = members.filter(m=>!used.includes(m.id));
-  const memberOf = uid => { const u=users.find(x=>x.id===uid); return u?members.find(m=>m.id===u.memberId):null; };
+  const memberOf = uid => { const u=users.find(x=>x.id===uid); return u?members.find(m=>String(m.id)===String(u.memberId)):null; };
 
   const filtered = users.filter(u=>{
     const m = memberOf(u.id);
@@ -8128,6 +8128,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut}
       if(Array.isArray(d.kidsCheckIns)&&d.kidsCheckIns.length) setKidsCheckIns(d.kidsCheckIns);
       if(Array.isArray(d.roles)&&d.roles.length) setRoles(d.roles);
       if(d.permissions&&Object.keys(d.permissions).length) setPermissions(d.permissions);
+      if(Array.isArray(d.users)&&d.users.length) setUsers(d.users);
       if(d.churchSettings?.name){setChurchSettings(d.churchSettings);try{localStorage.setItem(LS('church_settings'),JSON.stringify(d.churchSettings));}catch(e){}}
     })();
   },[churchId]);
@@ -8141,7 +8142,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut}
       const blob = {members,visitors,attendance,giving,prayers,groups,grpMeetings,visitRecords,
         children,classrooms,equipment,workOrders,schedMaint,pledgeDrives,pledges,weeklyReports,
         emailLog,emailTemplates,emailConfig,recurring,custom,checkIns,incidents,rollCalls,
-        progressNotes,teacherSchedule,kidsCheckIns,roles,permissions,churchSettings};
+        progressNotes,teacherSchedule,kidsCheckIns,roles,permissions,churchSettings,users};
       const {error} = await supabase.from('church_data').upsert(
         {church_id:churchId,data:blob,updated_at:new Date().toISOString()},
         {onConflict:'church_id'}
@@ -8152,7 +8153,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut}
   },[JSON.stringify({members,visitors,attendance,giving,prayers,groups,grpMeetings,visitRecords,
     children,classrooms,equipment,workOrders,schedMaint,pledgeDrives,pledges,weeklyReports,
     emailLog,emailTemplates,emailConfig,recurring,custom,checkIns,incidents,rollCalls,
-    progressNotes,teacherSchedule,kidsCheckIns,roles,permissions,churchSettings})]);
+    progressNotes,teacherSchedule,kidsCheckIns,roles,permissions,churchSettings,users})]);
 
   const nidEmail = useRef(8000);
   const logEmail = (data) => {
