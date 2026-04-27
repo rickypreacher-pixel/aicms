@@ -536,8 +536,11 @@ ${section("Prayer Requests","#7c3aed", table(
   setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},2000);
 }
 
-function SetupModal({onSave}){
-  const [form,setForm]=useState({...DEFAULT_CS});
+function SetupModal({onSave,initialName,initialPastorName}){
+  const [form,setForm]=useState({...DEFAULT_CS,
+    name: initialName||DEFAULT_CS.name,
+    pastorName: initialPastorName||DEFAULT_CS.pastorName,
+  });
   const sf=k=>v=>setForm(f=>({...f,[k]:v}));
   return (<div style={{position:"fixed",inset:0,background:"#00000099",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
     <div style={{background:W,borderRadius:14,width:520,maxWidth:"100%",maxHeight:"90vh",overflowY:"auto",padding:28,boxSizing:"border-box"}}>
@@ -8275,7 +8278,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut}
 
         {/* Page content */}
         <div style={{flex:1,padding:isMobile?12:24,overflow:"auto"}}>
-          {showSetup && <SetupModal onSave={s=>{setChurchSettings(s);setShowSetup(false);}}/>}
+          {showSetup && <SetupModal onSave={s=>{setChurchSettings(s);setShowSetup(false);}} initialName={churchName||''} initialPastorName={(adminFirst||adminLast)?`Pastor ${[adminFirst,adminLast].filter(Boolean).join(' ')}`:''}/>}
           {view==="settings" && <ChurchSettingsPage cs={churchSettings} setCs={setChurchSettings} members={members} setMembers={setMembers} visitors={visitors} attendance={attendance} giving={giving} prayers={prayers} groups={groups} grpMeetings={grpMeetings} visitRecords={visitRecords} checkIns={checkIns} kidsCheckIns={kidsCheckIns} children={children} pledgeDrives={pledgeDrives} pledges={pledges} weeklyReports={weeklyReports} equipment={equipment} workOrders={workOrders} schedMaint={schedMaint}/>}
           {view==="dashboard" && <Dashboard members={members} visitors={visitors} attendance={attendance} giving={giving} prayers={prayers} setView={setView}/>}
           {view==="addperson" && <AddMemberPage members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} currentUser={currentUser} roles={roles} permissions={permissions} setView={setView}/>}
