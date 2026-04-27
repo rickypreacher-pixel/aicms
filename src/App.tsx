@@ -1254,8 +1254,8 @@ function UsersTab({members,users,setUsers,roles,permissions,currentUser}){
   const nid = useRef(Math.max(299,...users.map(u=>+(u.id)||0))+1);
 
   const isAdmin = currentUser?.superAdmin || (currentUser?.roleId && roles.find(r=>r.id===currentUser.roleId)?.name==="Administrator");
-  const used = users.filter(u=>u.id!==editU?.id).map(u=>u.memberId);
-  const avail = members.filter(m=>!used.includes(m.id));
+  const used = users.filter(u=>u.id!==editU?.id).map(u=>String(u.memberId));
+  const avail = members.filter(m=>!used.includes(String(m.id)));
   const memberOf = uid => { const u=users.find(x=>x.id===uid); return u?members.find(m=>String(m.id)===String(u.memberId)):null; };
 
   const filtered = users.filter(u=>{
@@ -1391,7 +1391,7 @@ function UsersTab({members,users,setUsers,roles,permissions,currentUser}){
         <Fld label="Select Member *">
           <select value={form.memberId} onChange={e=>setForm(f=>({...f,memberId:+e.target.value}))} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}>
             <option value="">Select a member</option>
-            {(editU?members:avail).map(m=><option key={m.id} value={m.id}>{m.first} {m.last}{m.role?" ("+m.role+")":""}</option>)}
+            {members.map(m=>{const taken=used.includes(m.id)&&(!editU||String(m.id)!==String(editU.memberId));return(<option key={m.id} value={m.id} disabled={taken}>{m.first} {m.last}{m.role?" ("+m.role+")":""}{taken?" — already assigned":""}</option>);})}
           </select>
         </Fld>
         <Fld label="Assign Role *">
