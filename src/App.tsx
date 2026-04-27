@@ -3628,7 +3628,7 @@ function Groups({members,groups,setGroups,grpMeetings,setGrpMeetings}) {
   const [modal,setModal]=useState(false);
   const [editG,setEditG]=useState(null);
   const [selId,setSelId]=useState(groups[0]?.id||null);
-  const [form,setForm]=useState({name:"",type:"Bible Study",description:"",color:GROUP_COLORS[0],day:"Wednesday",time:"7:00 PM",location:"",leaderId:""});
+  const [form,setForm]=useState({name:"",type:"Bible Study",description:"",color:GROUP_COLORS[0],day:"Wednesday",time:"7:00 PM",location:"",leaderId:"",showOnCalendar:true});
   const [logModal,setLogModal]=useState(false);
   const [checked,setChecked]=useState(new Set());
   const [logForm,setLogForm]=useState({date:td(),walkIns:0,notes:""});
@@ -3645,7 +3645,7 @@ function Groups({members,groups,setGroups,grpMeetings,setGrpMeetings}) {
   const grpMeets=group?[...grpMeetings].filter(m=>m.groupId===selId).sort((a,b)=>b.date.localeCompare(a.date)):[];
   const leader=group?members.find(m=>m.id===group.leaderId):null;
 
-  const openAdd=()=>{setEditG(null);setForm({name:"",type:"Bible Study",description:"",color:GROUP_COLORS[0],day:"Wednesday",time:"7:00 PM",location:"",leaderId:""});setModal(true);};
+  const openAdd=()=>{setEditG(null);setForm({name:"",type:"Bible Study",description:"",color:GROUP_COLORS[0],day:"Wednesday",time:"7:00 PM",location:"",leaderId:"",showOnCalendar:true});setModal(true);};
   const openEdit=g=>{setEditG(g);setForm({name:g.name,type:g.type,description:g.description,color:g.color,day:g.day,time:g.time,location:g.location,leaderId:g.leaderId||""});setModal(true);};
   const saveGroup=()=>{
     if(!form.name.trim()){alert("Group name required.");return;}
@@ -8027,7 +8027,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut}
     try{localStorage.setItem(LS('church_settings'),JSON.stringify(churchSettings));}catch(e){}
   },[JSON.stringify(churchSettings)]);
   const [portalMembers,setPortalMembers] = useState([]);
-  const [groups,setGroups] = useState(lsGet('groups') ?? _I.groups ?? []);
+  const [groups,setGroups] = useState(()=>{ const g=lsGet('groups') ?? _I.groups ?? []; return g.map((x:any)=>x.showOnCalendar===undefined?{...x,showOnCalendar:true}:x); });
   const [grpMeetings,setGrpMeetings] = useState(lsGet('grpMeetings') ?? _I.grpMeetings ?? []);
   const [recurring,setRecurring] = useState(lsGet('recurring') ?? INIT_RECURRING);
   const [custom,setCustom] = useState(lsGet('custom') ?? []);
