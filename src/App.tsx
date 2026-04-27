@@ -3638,7 +3638,7 @@ function Groups({members,groups,setGroups,grpMeetings,setGrpMeetings}) {
   const [indivMsgs,setIndivMsgs]=useState({});const[indivLoad,setIndivLoad]=useState({});
   const [msgMode,setMsgMode]=useState("bulk");
   const [msgLog,setMsgLog]=useState([]);
-  const nid=useRef(800);
+  const nid=useRef(Math.max(799,...groups.map((g:any)=>+(g.id)||0),...grpMeetings.map((m:any)=>+(m.id)||0))+1);
   const sf=k=>v=>setForm(f=>({...f,[k]:v}));
   const group=groups.find(g=>g.id===selId);
   const enrolled=group?members.filter(m=>group.memberIds.includes(m.id)):[];
@@ -4092,7 +4092,7 @@ function CalendarView({members,visitors,setVisitors,groups,recurring,setRecurrin
   const [grpCISearch,setGrpCISearch]=useState("");
   const [evtModal,setEvtModal]=useState(false);const[editEvt,setEditEvt]=useState(null);
   const [evtForm,setEvtForm]=useState({name:"",type:"Worship",time:"11:00 AM",location:"",color:N,recurring:true,dow:0,date:td()});
-  const nid=useRef(900);const ef=k=>v=>setEvtForm(f=>({...f,[k]:v}));
+  const nid=useRef(Math.max(899,...checkIns.map((c:any)=>+(c.id)||0))+1);const ef=k=>v=>setEvtForm(f=>({...f,[k]:v}));
   const todayStr=td();const grid=buildCGrid(yr,mo);
   const calGroups=groups.filter(g=>g.showOnCalendar);
   const dayEvts=selDate?cEventsFor(selDate,recurring,custom,[]):[];
@@ -4186,8 +4186,8 @@ function CalendarView({members,visitors,setVisitors,groups,recurring,setRecurrin
                     {ciCnt>0&&<span style={{fontSize:8,background:GR,color:"#fff",borderRadius:6,padding:"0 3px",fontWeight:600}}>{ciCnt}</span>}
                   </div>
                   <div style={{display:"flex",flexDirection:"column",gap:1,overflow:"hidden"}}>
-                    {evts.slice(0,2).map((e,j)=><div key={j} style={{background:e.color,color:"#fff",borderRadius:2,padding:"1px 3px",fontSize:8,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",lineHeight:1.5}}>{tS(e.time)} {e.name}</div>)}
-                    {grpEvts.slice(0,1).map((g,j)=><div key={"g"+j} style={{background:g.color+"cc",color:"#fff",borderRadius:2,padding:"1px 3px",fontSize:8,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",lineHeight:1.5,borderLeft:"2px solid #fff5"}}>G: {g.name}</div>)}
+                    {evts.slice(0,1).map((e,j)=><div key={j} style={{background:e.color,color:"#fff",borderRadius:2,padding:"1px 3px",fontSize:8,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",lineHeight:1.5}}>{tS(e.time)} {e.name}</div>)}
+                    {grpEvts.slice(0,2).map((g,j)=><div key={"g"+j} style={{background:g.color+"cc",color:"#fff",borderRadius:2,padding:"1px 3px",fontSize:8,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",lineHeight:1.5,borderLeft:"2px solid #fff5"}}>G: {g.name}</div>)}
                     {allEvts.length>3&&<div style={{fontSize:8,color:MU}}>+{allEvts.length-3}</div>}
                   </div>
                 </div>);
