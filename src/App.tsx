@@ -593,7 +593,7 @@ function ChurchSettingsPage({cs,setCs,members,setMembers,visitors,attendance,giv
         <button key={t.id} onClick={()=>setStab(t.id)} style={{padding:'8px 18px',fontSize:13,fontWeight:stab===t.id?600:400,color:stab===t.id?N:MU,background:'none',border:'none',borderBottom:stab===t.id?'2.5px solid '+N:'2.5px solid transparent',cursor:'pointer',marginBottom:-1.5}}>{t.label}</button>
       ))}
     </div>
-    {stab==='merge'&&<MergeTool members={members} setMembers={setMembers}/>}
+    {stab==='merge'&&<MergeTool members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors}/>}
     {stab==='general'&&<div>
     {saved&&<div style={{background:"#dcfce7",border:"0.5px solid #86efac",borderRadius:9,padding:"10px 16px",marginBottom:14,fontSize:13,color:"#14532d",fontWeight:500}}>Settings saved successfully.</div>}
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
@@ -659,7 +659,7 @@ function ChurchSettingsPage({cs,setCs,members,setMembers,visitors,attendance,giv
 }
 
 // ── MERGE TOOL ──
-function MergeTool({members,setMembers}:any){
+function MergeTool({members,setMembers,visitors,setVisitors}:any){  const [importTarget,setImportTarget]=useState<'members'|'visitors'>('members');
   const [step,setStep]=useState<'upload'|'preview'|'done'>('upload');
   const [newOnes,setNewOnes]=useState<any[]>([]);
   const [conflicts,setConflicts]=useState<any[]>([]);
@@ -680,6 +680,11 @@ function MergeTool({members,setMembers}:any){
   ];
   function mapF(raw:any):any{
     const get=(...keys:string[])=>{for(const k of keys){const found=Object.keys(raw).find(rk=>rk.toLowerCase().replace(/[^a-z]/g,'')===k.toLowerCase().replace(/[^a-z]/g,''));if(found&&raw[found])return String(raw[found]).trim();}return'';};
+    // Breeze exports 'Name' as 'Last, First'
+    if(!raw['First Name']&&!raw['first']&&!raw['fname']&&raw['Name']&&String(raw['Name']).includes(',')){
+      const [ln,fn]=String(raw['Name']).split(',').map(s=>s.trim());
+      raw['First Name']=fn||''; raw['Last Name']=ln||'';
+    }
     const first=get('first','firstname','fname','givenname');
     const last=get('last','lastname','lname','surname','familyname');
     if(!first&&!last)return null;
@@ -715,13 +720,14 @@ function MergeTool({members,setMembers}:any){
       const text=e.target?.result as string;
       let records:any[]=[];
       try{
-        if(file.name.toLowerCase().endsWith('.json')){const data=JSON.parse(text);const arr=Array.isArray(data)?data:(data.members||data.data||[]);records=arr.map(mapF).filter(Boolean);}
+        if(file.name.toLowerCase().endsWith('.json')){const data=JSON.parse(text);const arr=Array.isArray(data)?data:(data.members||data.data||data.visitors||[]);records=arr.map(mapF).filter(Boolean);}
         else{records=parseCSV(text);}
       }catch{setErr('Could not parse file. Ensure it is valid CSV or JSON.');return;}
-      if(!records.length){setErr('No valid member records found in file.');return;}
+      if(!records.length){setErr('No valid records found in file. Check that First Name and Last Name columns exist.');return;}
+      const pool = importTarget==='visitors' ? visitors : members;
       const nw:any[]=[],cf:any[]=[];
       records.forEach(inc=>{
-        const match=members.find((m:any)=>m.first?.trim().toLowerCase()===inc.first?.trim().toLowerCase()&&m.last?.trim().toLowerCase()===inc.last?.trim().toLowerCase());
+        const match=(pool||[]).find((m:any)=>m.first?.trim().toLowerCase()===inc.first?.trim().toLowerCase()&&m.last?.trim().toLowerCase()===inc.last?.trim().toLowerCase());
         if(match)cf.push({incoming:inc,existing:match});else nw.push(inc);
       });
       setNewOnes(nw);setConflicts(cf);
@@ -732,34 +738,59 @@ function MergeTool({members,setMembers}:any){
     reader.readAsText(file);
   }
   function doMerge(){
-    let list=[...members];let added=0,upd=0;
-    newOnes.forEach((rec,i)=>{if(acceptNew.has(i)){list.push({...rec,id:Date.now()+Math.random()});added++;}});
-    conflicts.forEach((c,ci)=>{
-      if(acceptConflict.has(ci)){
-        const idx=list.findIndex((m:any)=>m.id===c.existing.id);
-        if(idx>=0){const u={...list[idx]};MF.forEach(f=>{if(choices[ci]?.[f.key]==='incoming')u[f.key]=c.incoming[f.key];});list[idx]=u;upd++;}
-      }
-    });
-    setMembers(list);setResult({added,merged:upd});setStep('done');
+    let added=0,upd=0;
+    if(importTarget==='visitors'){
+      let list=[...visitors];
+      newOnes.forEach((rec,i)=>{
+        if(acceptNew.has(i)){
+          list.push({...rec,id:Date.now()+Math.random(),type:'Visitor',stage:rec.stage||'First Visit',firstVisit:rec.firstVisit||rec.joined||td()});
+          added++;
+        }
+      });
+      conflicts.forEach((c,ci)=>{
+        if(acceptConflict.has(ci)){
+          const idx=list.findIndex((v:any)=>v.id===c.existing.id);
+          if(idx>=0){const u={...list[idx]};MF.forEach(f=>{if(choices[ci]?.[f.key]==='incoming')u[f.key]=c.incoming[f.key];});list[idx]=u;upd++;}
+        }
+      });
+      setVisitors(list);
+    } else {
+      let list=[...members];
+      newOnes.forEach((rec,i)=>{if(acceptNew.has(i)){list.push({...rec,id:Date.now()+Math.random()});added++;}});
+      conflicts.forEach((c,ci)=>{
+        if(acceptConflict.has(ci)){
+          const idx=list.findIndex((m:any)=>m.id===c.existing.id);
+          if(idx>=0){const u={...list[idx]};MF.forEach(f=>{if(choices[ci]?.[f.key]==='incoming')u[f.key]=c.incoming[f.key];});list[idx]=u;upd++;}
+        }
+      });
+      setMembers(list);
+    }
+    setResult({added,merged:upd,target:importTarget});setStep('done');
   }
   const fv=(f:any,rec:any)=>{if(f.fmt)return f.fmt(rec[f.key]);return String(rec[f.key]||'');};
   if(step==='done')return(
     <div style={{textAlign:'center',padding:48}}>
       <div style={{fontSize:48,marginBottom:12}}>✅</div>
       <h3 style={{fontSize:18,fontWeight:600,color:N,margin:'0 0 8px'}}>Merge Complete</h3>
-      <p style={{color:MU,fontSize:14}}><strong style={{color:GR}}>{result.added}</strong> member{result.added!==1?'s':''} added &nbsp;·&nbsp; <strong style={{color:BL}}>{result.merged}</strong> profile{result.merged!==1?'s':''} updated</p>
+      <p style={{color:MU,fontSize:14}}>
+        <strong style={{color:GR}}>{result.added}</strong> {result.target==='visitors'?'visitor':'member'}{result.added!==1?'s':''} added
+        &nbsp;·&nbsp;
+        <strong style={{color:BL}}>{result.merged}</strong> profile{result.merged!==1?'s':''} updated
+        &nbsp;·&nbsp;
+        <span style={{color:MU}}>imported into <strong>{result.target==='visitors'?'Visitors/Guests':'Members'}</strong></span>
+      </p>
       <Btn onClick={()=>{setStep('upload');setResult(null);}} v="ghost" style={{marginTop:16}}>Merge Another File</Btn>
     </div>
   );
   if(step==='preview')return(
     <div>
       <div style={{display:'flex',gap:12,marginBottom:20,flexWrap:'wrap'}}>
-        <div style={{background:'#dcfce7',border:'0.5px solid #86efac',borderRadius:9,padding:'10px 16px',fontSize:13,color:'#14532d',fontWeight:500}}>{newOnes.length} new · {acceptNew.size} selected to add</div>
+        <div style={{background:'#dcfce7',border:'0.5px solid #86efac',borderRadius:9,padding:'10px 16px',fontSize:13,color:'#14532d',fontWeight:500}}>{newOnes.length} new · {acceptNew.size} selected to add to <strong>{importTarget==='visitors'?'Visitors':'Members'}</strong></div>
         <div style={{background:'#fef9c3',border:'0.5px solid #fde047',borderRadius:9,padding:'10px 16px',fontSize:13,color:'#713f12',fontWeight:500}}>{conflicts.length} duplicate{conflicts.length!==1?'s':''} · {acceptConflict.size} to update</div>
       </div>
       {newOnes.length>0&&<div style={{background:W,border:'0.5px solid '+BR,borderRadius:12,padding:18,marginBottom:16}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
-          <h3 style={{fontSize:14,fontWeight:600,color:N,margin:0}}>New Members to Add ({newOnes.length})</h3>
+          <h3 style={{fontSize:14,fontWeight:600,color:N,margin:0}}>New {importTarget==='visitors'?'Visitors/Guests':'Members'} to Add ({newOnes.length})</h3>
           <div style={{display:'flex',gap:8}}>
             <Btn v="ghost" onClick={()=>setAcceptNew(new Set(newOnes.map((_,i)=>i)))} style={{fontSize:11,padding:'4px 10px'}}>All</Btn>
             <Btn v="ghost" onClick={()=>setAcceptNew(new Set())} style={{fontSize:11,padding:'4px 10px'}}>None</Btn>
@@ -827,7 +858,16 @@ function MergeTool({members,setMembers}:any){
   );
   return(
     <div>
-      <p style={{fontSize:13,color:MU,marginBottom:20,lineHeight:1.7}}>Import member profiles from another church's database. Detects duplicates by first+last name and lets you choose which field values to keep.</p>
+      <p style={{fontSize:13,color:MU,marginBottom:16,lineHeight:1.7}}>Import from a Breeze ChMS export (or any CSV). Detects duplicates by first+last name. Choose where records land before uploading.</p>
+      <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:20,background:W,border:'0.5px solid '+BR,borderRadius:10,padding:'12px 16px'}}>
+        <span style={{fontSize:13,fontWeight:500,color:TX,whiteSpace:'nowrap'}}>Import for:</span>
+        <div style={{display:'flex',gap:6}}>
+          {([['members','👥 Members'],['visitors','🙋 Visitors / Guests']] as const).map(([id,label])=>(
+            <button key={id} onClick={()=>setImportTarget(id)} style={{padding:'7px 16px',borderRadius:8,border:'1.5px solid '+(importTarget===id?N:BR),background:importTarget===id?N:'transparent',color:importTarget===id?'#fff':MU,fontSize:13,fontWeight:importTarget===id?600:400,cursor:'pointer'}}>{label}</button>
+          ))}
+        </div>
+        <span style={{fontSize:11,color:MU,marginLeft:'auto'}}>Duplicates detected against existing {importTarget}</span>
+      </div>
       {err&&<div style={{background:'#fee2e2',border:'0.5px solid #fca5a5',borderRadius:8,padding:'10px 14px',color:'#b91c1c',fontSize:13,marginBottom:14}}>{err}</div>}
       <div
         onDragOver={e=>e.preventDefault()}
