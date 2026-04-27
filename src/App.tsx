@@ -5408,22 +5408,23 @@ function PledgeDrives({pledgeDrives,setPledgeDrives,pledges,setPledges,giving,me
 }
 
 // Tithe calculation helpers
-// Church Tithe = 10% of everything NOT 'Tithe' and NOT 'Sunday Morning Offering'
+// Church Tithe = 10% of everything NOT 'Tithe' (Sunday Morning Offering IS included)
 // Pastor's Draw = 60% of Tithe + Sunday Morning Offering (weekly)
 function calcTithes(givingRecords:any){
-  const tithe = givingRecords.filter((g:any)=>g.category==="Tithe").reduce((a:number,g:any)=>a+g.amount,0);
-  const sundayMorning = givingRecords.filter((g:any)=>g.category==="Sunday Morning Offering").reduce((a:number,g:any)=>a+g.amount,0);
-  const otherOfferings = givingRecords.filter((g:any)=>g.category!=="Tithe"&&g.category!=="Sunday Morning Offering").reduce((a:number,g:any)=>a+g.amount,0);
+  const tithe = givingRecords.filter((g:any)=>g.category==="Tithe").reduce((a:number,g:any)=>a+(+g.amount),0);
+  const sundayMorning = givingRecords.filter((g:any)=>g.category==="Sunday Morning Offering").reduce((a:number,g:any)=>a+(+g.amount),0);
+  const otherOfferings = givingRecords.filter((g:any)=>g.category!=="Tithe"&&g.category!=="Sunday Morning Offering").reduce((a:number,g:any)=>a+(+g.amount),0);
+  const churchBase = sundayMorning + otherOfferings; // everything except Tithe
   const pastorBase = tithe + sundayMorning;
   return {
     tithe,
     sundayMorning,
     otherOfferings,
     pastorBase,
-    churchBase: otherOfferings,
+    churchBase,
     pastorDraw: Math.round(pastorBase * 0.60 * 100) / 100,
     pastorTithe: Math.round(pastorBase * 0.60 * 100) / 100, // alias for backward compat
-    churchTithe: Math.round(otherOfferings * 0.10 * 100) / 100
+    churchTithe: Math.round(churchBase * 0.10 * 100) / 100
   };
 }
 
@@ -5751,7 +5752,7 @@ function TithesView({giving,weeklyReports}){
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:10}}>
         <div>
           <h3 style={{fontSize:15,fontWeight:500,color:N,margin:0}}>Church Tithe & Pastor's Draw</h3>
-          <div style={{fontSize:12,color:MU,marginTop:2}}>Church: 10% of offerings · Pastor's Draw: 60% of tithes + Sunday morning offering</div>
+          <div style={{fontSize:12,color:MU,marginTop:2}}>Church: 10% of all offerings (excl. Tithe) · Pastor's Draw: 60% of Tithes + Sunday Morning Offering</div>
         </div>
         <div style={{display:"flex",gap:6,background:W,borderRadius:8,border:"0.5px solid "+BR,padding:3}}>
           {[["week","This Week"],["month","This Month"],["ytd","Year to Date"],["all","All Time"]].map(([id,label])=>(
@@ -5769,15 +5770,23 @@ function TithesView({giving,weeklyReports}){
         <div style={{background:W,border:"1.5px solid "+G,borderRadius:12,overflow:"hidden"}}>
           <div style={{background:N,color:"#fff",padding:"14px 18px"}}>
             <div style={{fontSize:11,color:G,textTransform:"uppercase",letterSpacing:1.5,fontWeight:600,marginBottom:2}}>Church Weekly Tithe</div>
-            <div style={{fontSize:13}}>10% of offerings (excluding Tithe & Sun. Morning Offering)</div>
+            <div style={{fontSize:13}}>10% of all offerings (excluding Tithe only)</div>
           </div>
           <div style={{padding:20}}>
             <div style={{fontSize:36,fontWeight:700,color:N,marginBottom:16}}>{f$(tithes.churchTithe)}</div>
             <div style={{fontSize:12,color:MU,textTransform:"uppercase",letterSpacing:0.5,marginBottom:10,fontWeight:500}}>Calculation</div>
             <div style={{background:BG,borderRadius:8,padding:14,border:"0.5px solid "+BR}}>
               <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0",fontSize:13}}>
-                <span style={{color:MU}}>Building Fund + Missions + Special Gift + other Offerings</span>
-                <span style={{fontWeight:500}}>{f$(tithes.churchBase)}</span>
+                <span style={{color:MU}}>Sunday Morning Offering</span>
+                <span style={{fontWeight:500}}>{f$(tithes.sundayMorning)}</span>
+              </div>
+              <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0",fontSize:13}}>
+                <span style={{color:MU}}>Building Fund + Missions + Special Gift + other</span>
+                <span style={{fontWeight:500}}>{f$(tithes.otherOfferings)}</span>
+              </div>
+              <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0",fontSize:13,color:N,borderTop:"0.5px solid "+BR,marginTop:4,paddingTop:8,fontWeight:500}}>
+                <span>Total Offerings (excl. Tithe)</span>
+                <span>{f$(tithes.churchBase)}</span>
               </div>
               <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0",fontSize:13,color:MU}}>
                 <span>× 10%</span>
