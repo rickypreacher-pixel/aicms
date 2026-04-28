@@ -1158,18 +1158,23 @@ const BDGE={
 };
 
 // ── ElevenLabs TTS ──
-async function speakEL(text, voiceId) {
-  if (!text || !voiceId || !_elAudio) return false;
+async function speakEL(text, voiceId, apiKey?) {
+  if (!text || !voiceId || !_elAudio) return {ok:false,err:"Audio not ready"};
+  const key = apiKey || localStorage.getItem("ntcc_el_api_key") || EL_KEY;
   const clean = text.replace(/\*\*|__|##|#|\[[\s\S]*?\]/g,"").replace(/\n+/g," ").substring(0,600);
   try {
     const res = await fetch("https://api.elevenlabs.io/v1/text-to-speech/" + voiceId, {
       method:"POST",
-      headers:{"Accept":"audio/mpeg","Content-Type":"application/json","xi-api-key":EL_KEY},
+      headers:{"Accept":"audio/mpeg","Content-Type":"application/json","xi-api-key":key},
       body:JSON.stringify({text:clean,model_id:"eleven_turbo_v2_5",voice_settings:{stability:0.5,similarity_boost:0.75,use_speaker_boost:true}})
     });
     if (!res.ok) {
       const errBody = await res.text().catch(()=>"");
-      throw new Error("ElevenLabs " + res.status + (errBody?" — "+errBody.substring(0,120):""));
+      let hint = "";
+      if(res.status===401) hint=" — Invalid or expired API key. Get yours free at elevenlabs.io → Profile → API Key.";
+      else if(res.status===422) hint=" — Voice ID not found. Select a different voice.";
+      else if(res.status===429) hint=" — Out of credits. Upgrade at elevenlabs.io or wait for monthly reset.";
+      throw new Error("ElevenLabs " + res.status + hint + (errBody?" (" + errBody.substring(0,80)+")":""));
     }
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
@@ -1177,10 +1182,11 @@ async function speakEL(text, voiceId) {
     try { URL.revokeObjectURL(_elAudio.src); } catch(e) {}
     _elAudio.src = url;
     await _elAudio.play();
-    return true;
+    return {ok:true,err:""};
   } catch(e) {
-    console.error("ElevenLabs TTS error:", e);
-    return false;
+    const msg = (e as any)?.message || String(e);
+    console.error("ElevenLabs TTS error:", msg);
+    return {ok:false,err:msg};
   }
 }
 
@@ -6695,6 +6701,8 @@ function AIAssist({aiChat,setAiChat,members,setMembers,visitors,setVisitors,atte
   const [banner,setBanner] = useState(null);
   const [ttsError,setTtsError] = useState(null);
   const [aiApiKey,setAiApiKey] = useState(()=>localStorage.getItem("ntcc_ai_api_key")||"");
+  const [elApiKey,setElApiKey] = useState(()=>localStorage.getItem("ntcc_el_api_key")||"");
+  const [elKeySaved,setElKeySaved] = useState(false);
   const [apiKeySaved,setApiKeySaved] = useState(false);
   const [listening,setListening] = useState(false);
   const [showMem,setShowMem] = useState(false);
@@ -6738,13 +6746,9 @@ function AIAssist({aiChat,setAiChat,members,setMembers,visitors,setVisitors,atte
 
   const speak = async text => {
     if (!ttsOn) return;
-    const ok = await speakEL(text, elVoice);
+    const {ok,err} = await speakEL(text, elVoice, elApiKey||undefined);
     if (!ok) {
-      setTtsError("ElevenLabs voice failed — verify API key & credits at elevenlabs.io, then try a different voice.");
-      if (window.speechSynthesis) {
-        const clean = text.replace(/\*\*|__|##|#|\[[\s\S]*?\]/g,"").replace(/\n+/g," ").substring(0,300);
-        window.speechSynthesis.speak(new SpeechSynthesisUtterance(clean));
-      }
+      setTtsError(err || "ElevenLabs voice failed — check your API key in Voice Settings.");
     } else {
       setTtsError(null);
     }
@@ -6991,10 +6995,21 @@ function AIAssist({aiChat,setAiChat,members,setMembers,visitors,setVisitors,atte
               <button onClick={async e=>{
                 e.stopPropagation();
                 _elAudio.src=SILENT_WAV; _elAudio.play().catch(()=>{});
-                await speakEL("Good day Pastor Hall, I am your NTCC AI Assistant, ready to serve the ministry.", v.id);
+                const {ok,err} = await speakEL("Good day Pastor Hall, I am your NTCC AI Assistant, ready to serve the ministry.", v.id, elApiKey||undefined);
+                if(!ok) setTtsError(err||"Preview failed — check your ElevenLabs API key.");
               }} style={{padding:"6px 12px",background:N,color:"#fff",border:"none",borderRadius:6,fontSize:11,cursor:"pointer",flexShrink:0}}>Preview</button>
             </div>
           ))}
+        </div>
+        <div style={{background:"#f5f3ff",border:"0.5px solid #c4b5fd",borderRadius:10,padding:"12px 14px",marginBottom:12}}>
+          <div style={{fontSize:13,fontWeight:500,color:PU,marginBottom:2}}>ElevenLabs API Key (Voice)</div>
+          <div style={{fontSize:11,color:MU,marginBottom:10}}>Required for voice. Get yours free at <strong>elevenlabs.io → Profile → API Key</strong>.</div>
+          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            <input type="password" value={elApiKey} onChange={e=>setElApiKey(e.target.value)} placeholder="sk_..." style={{flex:1,padding:"8px 10px",border:"1.5px solid "+(elApiKey?"#c4b5fd":RE),borderRadius:7,fontSize:12,outline:"none",fontFamily:"monospace"}}/>
+            <button onClick={()=>{localStorage.setItem("ntcc_el_api_key",elApiKey);setElKeySaved(true);setTimeout(()=>setElKeySaved(false),2500);}} style={{padding:"8px 14px",background:elKeySaved?GR:PU,color:"#fff",border:"none",borderRadius:7,fontSize:12,cursor:"pointer",fontWeight:500,whiteSpace:"nowrap"}}>{elKeySaved?"✓ Saved!":"Save Key"}</button>
+          </div>
+          {!elApiKey&&<div style={{fontSize:11,color:AM,marginTop:6}}>⚠ Using built-in key — if voice fails, paste your own key here.</div>}
+          {elApiKey&&<div style={{fontSize:11,color:GR,marginTop:6}}>✓ Your ElevenLabs key is active.</div>}
         </div>
         <div style={{background:"#f0f9ff",border:"0.5px solid #7dd3fc",borderRadius:10,padding:"12px 14px",marginBottom:16}}>
           <div style={{fontSize:13,fontWeight:500,color:BL,marginBottom:4}}>Anthropic API Key (AI Brain)</div>
