@@ -1065,6 +1065,20 @@ const ICHILDREN:any[]=[];
 const ITEACHERSCHEDULE=[];
 const IKIDSCHECKINS=[];
 function genCode(){const c="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";let s="";for(let i=0;i<4;i++)s+=c[Math.floor(Math.random()*c.length)];return s;}
+// ── Label Printer Presets ──
+const LABEL_PRESETS=[
+  {id:"dymo30334",  name:'Dymo 30334 — 2¼" × 1¼" name badge',   w:57,  h:32,  mode:"roll"},
+  {id:"dymo30252",  name:'Dymo 30252 — 3½" × 1⅛" address',       w:89,  h:28,  mode:"roll"},
+  {id:"dymo99014",  name:'Dymo 99014 / LW — 4" × 6"',             w:102, h:152, mode:"roll"},
+  {id:"brotdk1201", name:'Brother DK-1201 — 3.5" × 1.1"',         w:90,  h:29,  mode:"roll"},
+  {id:"brotdk1202", name:'Brother DK-1202 — 4.07" × 2.76"',       w:103, h:70,  mode:"roll"},
+  {id:"brotdk2205", name:"Brother DK-2205 — 62mm continuous roll", w:62,  h:0,   mode:"roll"},
+  {id:"zebra2x1",   name:'Zebra Z-Perform — 2" × 1"',             w:51,  h:25,  mode:"roll"},
+  {id:"zebra4x6",   name:'Zebra — 4" × 6"',                       w:102, h:152, mode:"roll"},
+  {id:"avery5160",  name:'Avery 5160 — 2⅝" × 1" (30/sheet)',      w:67,  h:25,  mode:"sheet"},
+  {id:"avery5163",  name:'Avery 5163 — 4" × 2" (10/sheet)',        w:102, h:51,  mode:"sheet"},
+];
+const DEFAULT_PRINTER_CFG={preset:"dymo30334"};
 
 const MODULES=[
   {key:"directory",label:"Members Profile",icon:"Dir",desc:"Member and visitor records",actions:["view","create","edit","delete"]},
@@ -7043,12 +7057,144 @@ function EdDashboard({classrooms,children,kidsCheckIns,teacherSchedule,users,mem
   );
 }
 
-function PrintLabels({ci,child,classroom,onClose}){
+function PrintLabels({ci,child,classroom,onClose,printerConfig}){
   const meds=[...(child.allergies||[]),...(child.medical||[])];
-  return(<><style>{"@media print{body *{visibility:hidden;}.ntcc-label-print,.ntcc-label-print *{visibility:visible;}.ntcc-label-print{position:absolute;left:0;top:0;width:100%;padding:10mm;}.ntcc-no-print{display:none !important;}}"}</style><div style={{position:"fixed",inset:0,background:"#00000077",zIndex:400,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} className="ntcc-no-print"><div style={{background:W,borderRadius:12,width:480,maxWidth:"100%",maxHeight:"90vh",overflowY:"auto"}}><div style={{padding:"16px 20px",borderBottom:"0.5px solid "+BR,display:"flex",justifyContent:"space-between",alignItems:"center"}}><h2 style={{fontSize:16,fontWeight:500,color:N,margin:0}}>Labels Ready</h2><button onClick={onClose} style={{background:"none",border:"none",fontSize:20,cursor:"pointer",color:MU}}>x</button></div><div style={{padding:20}}><div className="ntcc-label-print" style={{display:"flex",flexDirection:"column",gap:14}}><div style={{border:"2px solid "+N,borderRadius:10,padding:14,fontFamily:"system-ui,sans-serif"}}><div style={{background:classroom.color,color:"#fff",padding:"6px 12px",borderRadius:6,marginBottom:10,fontWeight:700,fontSize:13,textAlign:"center",letterSpacing:1}}>{classroom.name.toUpperCase()}</div><div style={{fontSize:26,fontWeight:800,textAlign:"center",marginBottom:4,color:"#000"}}>{child.first} {child.last}</div><div style={{fontSize:12,color:"#444",textAlign:"center",marginBottom:10}}>DOB: {fd(child.dob)} - Age {calcAge(child.dob)}</div>{meds.length>0&&<div style={{background:"#fee2e2",border:"2px solid "+RE,color:RE,padding:"7px 10px",borderRadius:6,textAlign:"center",fontSize:11,fontWeight:700,marginBottom:10}}>MEDICAL: {meds.join(", ")}</div>}<div style={{background:BG,borderRadius:6,padding:"10px 12px",textAlign:"center",border:"1px solid "+BR}}><div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:2}}>Pickup Code</div><div style={{fontSize:36,fontWeight:800,fontFamily:"monospace",letterSpacing:6,color:"#000",lineHeight:1.1}}>{ci.code}</div></div><div style={{fontSize:10,color:MU,textAlign:"center",marginTop:8}}>{fd(ci.date)} - {ci.time}</div></div><div style={{border:"2px dashed "+N,borderRadius:10,padding:14,fontFamily:"system-ui,sans-serif"}}><div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:1,textAlign:"center",marginBottom:8,fontWeight:600}}>Parent Pickup Stub</div><div style={{fontSize:20,fontWeight:700,textAlign:"center",color:"#000",marginBottom:2}}>{child.first} {child.last}</div><div style={{fontSize:12,color:"#444",textAlign:"center",marginBottom:10}}>Classroom: {classroom.name}</div><div style={{background:BG,borderRadius:6,padding:"10px 12px",textAlign:"center",marginBottom:8,border:"1px solid "+BR}}><div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:2}}>Your Code</div><div style={{fontSize:36,fontWeight:800,fontFamily:"monospace",letterSpacing:6,color:"#000",lineHeight:1.1}}>{ci.code}</div></div><div style={{fontSize:11,color:"#444",textAlign:"center"}}>Parent: {child.parentName||"-"} - {child.parentPhone||"-"}</div><div style={{fontSize:9,color:MU,textAlign:"center",marginTop:6,fontStyle:"italic"}}>Present at pickup. Code must match.</div></div></div></div><div style={{padding:"14px 20px",borderTop:"0.5px solid "+BR,display:"flex",gap:10}} className="ntcc-no-print"><Btn onClick={()=>window.print()} v="primary" style={{flex:1,justifyContent:"center",padding:"10px",fontSize:14}}>Print Both Labels</Btn><Btn onClick={onClose} v="ghost" style={{flex:1,justifyContent:"center"}}>Close</Btn></div></div></div></>);
-}
+  const preset=LABEL_PRESETS.find(p=>p.id===(printerConfig?.preset||"dymo30334"))||LABEL_PRESETS[0];
+  const isRoll=preset.mode==="roll";
+  const wMM=preset.w; const hMM=preset.h; // hMM=0 means continuous/auto
+  const sizeCSS=isRoll?(hMM>0?`${wMM}mm ${hMM}mm`:`${wMM}mm auto`):"letter";
+  const pageCSS=`@page{size:${sizeCSS};margin:${isRoll?"1mm":"10mm"}}@media print{body *{visibility:hidden;}.ntcc-label-print,.ntcc-label-print *{visibility:visible;}.ntcc-label-print{position:absolute;left:0;top:0;}.ntcc-no-print{display:none !important;}.ntcc-label-break{page-break-before:always;}}`;
+  // Layout category
+  const isSmall=(wMM<=62)&&(hMM===0||hMM<=32);   // Dymo 30334, Zebra 2x1, DK-2205 small
+  const isNarrow=(wMM>62)&&(hMM>0&&hMM<36);       // Dymo 30252, Brother DK-1201
+  const isMedium=hMM>=36&&hMM<100;                // Avery 5163, DK-1202, Avery 5160 (h=25 → small)
+  // large = hMM>=100 or hMM===0 on wide roll
+  const lblW=isRoll?`${wMM}mm`:"auto";
+  const lblH=hMM>0?`${hMM}mm`:"auto";
+  const baseStyle:any={width:lblW,height:lblH,boxSizing:"border-box",overflow:"hidden",fontFamily:"system-ui,sans-serif"};
+  // Preview scale so labels are visible on-screen
+  const scale=isSmall?4:isNarrow?3:isMedium?2.2:1.5;
+  const scaledH=hMM>0?hMM*scale:60*scale;
+  const scaledW=wMM*scale;
 
-function CheckInPortal({classrooms,children,setChildren,kidsCheckIns,setKidsCheckIns,members}){
+  const ChildLabel=()=>{
+    if(isSmall)return(
+      <div style={{...baseStyle,border:"2px solid "+N,borderRadius:3,background:W}}>
+        <div style={{background:classroom.color,color:"#fff",fontSize:6,padding:"2px 3px",fontWeight:700,textAlign:"center",letterSpacing:0.5}}>{classroom.name.toUpperCase()}</div>
+        <div style={{fontSize:12,fontWeight:800,textAlign:"center",padding:"2px 3px",color:"#000",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{child.first} {child.last}</div>
+        {meds.length>0&&<div style={{fontSize:6,color:RE,fontWeight:700,textAlign:"center",padding:"1px 2px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>⚠ {meds.slice(0,2).join(", ")}</div>}
+        <div style={{background:BG,textAlign:"center",borderTop:"1px solid "+BR,padding:"1px 0"}}><div style={{fontSize:10,fontWeight:800,fontFamily:"monospace",letterSpacing:2,color:"#000"}}>{ci.code}</div></div>
+      </div>
+    );
+    if(isNarrow)return(
+      <div style={{...baseStyle,border:"2px solid "+N,borderRadius:3,background:W,display:"flex",alignItems:"center",gap:4,padding:"3px 5px"}}>
+        <div style={{background:classroom.color,color:"#fff",fontSize:6,padding:"3px 4px",borderRadius:2,fontWeight:700,writingMode:"vertical-rl",flexShrink:0,letterSpacing:0.5}}>{classroom.name}</div>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:11,fontWeight:800,color:"#000",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{child.first} {child.last}</div>
+          {meds.length>0&&<div style={{fontSize:6,color:RE,fontWeight:700,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>⚠ {meds.slice(0,1).join(", ")}</div>}
+        </div>
+        <div style={{flexShrink:0,textAlign:"center"}}>
+          <div style={{fontSize:7,color:MU,letterSpacing:1,textTransform:"uppercase"}}>CODE</div>
+          <div style={{fontSize:16,fontWeight:800,fontFamily:"monospace",letterSpacing:2,color:"#000",lineHeight:1}}>{ci.code}</div>
+        </div>
+      </div>
+    );
+    if(isMedium)return(
+      <div style={{...baseStyle,border:"2px solid "+N,borderRadius:8,padding:"8px 10px",background:W}}>
+        <div style={{background:classroom.color,color:"#fff",padding:"4px 8px",borderRadius:5,marginBottom:6,fontWeight:700,fontSize:11,textAlign:"center",letterSpacing:0.8}}>{classroom.name.toUpperCase()}</div>
+        <div style={{fontSize:18,fontWeight:800,textAlign:"center",marginBottom:3,color:"#000"}}>{child.first} {child.last}</div>
+        <div style={{fontSize:9,color:"#444",textAlign:"center",marginBottom:6}}>DOB: {fd(child.dob)} · Age {calcAge(child.dob)}</div>
+        {meds.length>0&&<div style={{background:"#fee2e2",border:"1.5px solid "+RE,color:RE,padding:"3px 6px",borderRadius:4,textAlign:"center",fontSize:8,fontWeight:700,marginBottom:6}}>MEDICAL: {meds.join(", ")}</div>}
+        <div style={{background:BG,borderRadius:5,padding:"5px 8px",textAlign:"center",border:"1px solid "+BR}}><div style={{fontSize:8,color:MU,textTransform:"uppercase",letterSpacing:2}}>Pickup Code</div><div style={{fontSize:22,fontWeight:800,fontFamily:"monospace",letterSpacing:4,color:"#000",lineHeight:1.1}}>{ci.code}</div></div>
+      </div>
+    );
+    // large
+    return(
+      <div style={{...baseStyle,border:"2px solid "+N,borderRadius:10,padding:14,background:W}}>
+        <div style={{background:classroom.color,color:"#fff",padding:"6px 12px",borderRadius:6,marginBottom:10,fontWeight:700,fontSize:13,textAlign:"center",letterSpacing:1}}>{classroom.name.toUpperCase()}</div>
+        <div style={{fontSize:26,fontWeight:800,textAlign:"center",marginBottom:4,color:"#000"}}>{child.first} {child.last}</div>
+        <div style={{fontSize:12,color:"#444",textAlign:"center",marginBottom:10}}>DOB: {fd(child.dob)} · Age {calcAge(child.dob)}</div>
+        {meds.length>0&&<div style={{background:"#fee2e2",border:"2px solid "+RE,color:RE,padding:"7px 10px",borderRadius:6,textAlign:"center",fontSize:11,fontWeight:700,marginBottom:10}}>MEDICAL: {meds.join(", ")}</div>}
+        <div style={{background:BG,borderRadius:6,padding:"10px 12px",textAlign:"center",border:"1px solid "+BR}}><div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:2}}>Pickup Code</div><div style={{fontSize:36,fontWeight:800,fontFamily:"monospace",letterSpacing:6,color:"#000",lineHeight:1.1}}>{ci.code}</div></div>
+        <div style={{fontSize:10,color:MU,textAlign:"center",marginTop:8}}>{fd(ci.date)} · {ci.time}</div>
+      </div>
+    );
+  };
+
+  const ParentStub=()=>{
+    const breakCls=isRoll?"ntcc-label-break":"";
+    if(isSmall)return(
+      <div className={breakCls} style={{...baseStyle,border:"2px dashed "+N,borderRadius:3,background:W,marginTop:isRoll?0:8}}>
+        <div style={{fontSize:7,color:MU,textAlign:"center",padding:"2px",fontWeight:600,borderBottom:"1px dashed "+BR}}>PARENT STUB</div>
+        <div style={{fontSize:11,fontWeight:700,textAlign:"center",color:"#000",padding:"2px 3px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{child.first} {child.last}</div>
+        <div style={{background:BG,textAlign:"center",borderTop:"1px solid "+BR,padding:"1px 0"}}><div style={{fontSize:10,fontWeight:800,fontFamily:"monospace",letterSpacing:2,color:"#000"}}>{ci.code}</div></div>
+      </div>
+    );
+    if(isNarrow)return(
+      <div className={breakCls} style={{...baseStyle,border:"2px dashed "+N,borderRadius:3,background:W,display:"flex",alignItems:"center",gap:4,padding:"3px 5px",marginTop:isRoll?0:8}}>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:7,color:MU,fontWeight:600}}>PARENT STUB</div>
+          <div style={{fontSize:11,fontWeight:700,color:"#000",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{child.first} {child.last}</div>
+        </div>
+        <div style={{flexShrink:0,textAlign:"center"}}><div style={{fontSize:16,fontWeight:800,fontFamily:"monospace",letterSpacing:2,color:"#000",lineHeight:1}}>{ci.code}</div></div>
+      </div>
+    );
+    if(isMedium)return(
+      <div className={breakCls} style={{...baseStyle,border:"2px dashed "+N,borderRadius:8,padding:"8px 10px",background:W,marginTop:isRoll?0:8}}>
+        <div style={{fontSize:9,color:MU,textTransform:"uppercase",letterSpacing:1,textAlign:"center",marginBottom:4,fontWeight:600}}>Parent Pickup Stub</div>
+        <div style={{fontSize:18,fontWeight:700,textAlign:"center",color:"#000",marginBottom:2}}>{child.first} {child.last}</div>
+        <div style={{fontSize:9,color:"#444",textAlign:"center",marginBottom:4}}>Classroom: {classroom.name}</div>
+        <div style={{background:BG,borderRadius:5,padding:"5px 8px",textAlign:"center",border:"1px solid "+BR}}><div style={{fontSize:8,color:MU,textTransform:"uppercase",letterSpacing:2}}>Your Code</div><div style={{fontSize:22,fontWeight:800,fontFamily:"monospace",letterSpacing:4,color:"#000",lineHeight:1.1}}>{ci.code}</div></div>
+      </div>
+    );
+    return(
+      <div className={breakCls} style={{...baseStyle,border:"2px dashed "+N,borderRadius:10,padding:14,background:W,marginTop:isRoll?0:8}}>
+        <div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:1,textAlign:"center",marginBottom:8,fontWeight:600}}>Parent Pickup Stub</div>
+        <div style={{fontSize:20,fontWeight:700,textAlign:"center",color:"#000",marginBottom:2}}>{child.first} {child.last}</div>
+        <div style={{fontSize:12,color:"#444",textAlign:"center",marginBottom:10}}>Classroom: {classroom.name}</div>
+        <div style={{background:BG,borderRadius:6,padding:"10px 12px",textAlign:"center",marginBottom:8,border:"1px solid "+BR}}><div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:2}}>Your Code</div><div style={{fontSize:36,fontWeight:800,fontFamily:"monospace",letterSpacing:6,color:"#000",lineHeight:1.1}}>{ci.code}</div></div>
+        <div style={{fontSize:11,color:"#444",textAlign:"center"}}>{child.parentName||"-"} · {child.parentPhone||"-"}</div>
+        <div style={{fontSize:9,color:MU,textAlign:"center",marginTop:6,fontStyle:"italic"}}>Present at pickup. Code must match.</div>
+      </div>
+    );
+  };
+
+  return(<>
+    <style>{pageCSS}</style>
+    {/* Actual print output — hidden on screen, shown when printing */}
+    <div className="ntcc-label-print" style={{display:"flex",flexDirection:"column",gap:0}}>
+      <ChildLabel/><ParentStub/>
+    </div>
+    {/* Modal preview */}
+    <div style={{position:"fixed",inset:0,background:"#00000077",zIndex:400,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} className="ntcc-no-print">
+      <div style={{background:W,borderRadius:12,width:500,maxWidth:"100%",maxHeight:"90vh",overflowY:"auto"}}>
+        <div style={{padding:"16px 20px",borderBottom:"0.5px solid "+BR,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div><h2 style={{fontSize:16,fontWeight:500,color:N,margin:0}}>Labels Ready to Print</h2><div style={{fontSize:11,color:MU,marginTop:2}}>{preset.name}</div></div>
+          <button onClick={onClose} style={{background:"none",border:"none",fontSize:20,cursor:"pointer",color:MU}}>x</button>
+        </div>
+        <div style={{padding:20}}>
+          <div style={{fontSize:11,color:MU,marginBottom:10,fontWeight:500,textTransform:"uppercase",letterSpacing:0.5}}>Preview (scaled for display)</div>
+          <div style={{display:"flex",flexDirection:"column",gap:16,alignItems:"flex-start"}}>
+            <div>
+              <div style={{fontSize:10,color:MU,marginBottom:4}}>Child tag:</div>
+              <div style={{transform:`scale(${scale})`,transformOrigin:"top left",marginBottom:`${scaledH-hMM}px`,marginRight:`${scaledW-wMM}px`}}><ChildLabel/></div>
+            </div>
+            <div>
+              <div style={{fontSize:10,color:MU,marginBottom:4}}>Parent stub:</div>
+              <div style={{transform:`scale(${scale})`,transformOrigin:"top left",marginBottom:`${scaledH-hMM}px`,marginRight:`${scaledW-wMM}px`}}><ParentStub/></div>
+            </div>
+          </div>
+        </div>
+        <div style={{padding:"14px 20px",borderTop:"0.5px solid "+BR,display:"flex",gap:10}} className="ntcc-no-print">
+          <Btn onClick={()=>window.print()} v="primary" style={{flex:1,justifyContent:"center",padding:"10px",fontSize:14}}>Print Both Labels</Btn>
+          <Btn onClick={onClose} v="ghost" style={{flex:1,justifyContent:"center"}}>Close</Btn>
+        </div>
+      </div>
+    </div>
+  </>);}
+
+
+function CheckInPortal({classrooms,children,setChildren,kidsCheckIns,setKidsCheckIns,members,printerConfig}){
   const today=td();
   const [selDate,setSelDate]=useState(today);
   const [search,setSearch]=useState("");
@@ -7112,7 +7258,7 @@ function CheckInPortal({classrooms,children,setChildren,kidsCheckIns,setKidsChec
           <Btn onClick={()=>setNewModal(false)} v="ghost" style={{flex:1,justifyContent:"center"}}>Cancel</Btn>
         </div>
       </Modal>
-      {printData&&<PrintLabels ci={printData.ci} child={printData.child} classroom={printData.classroom} onClose={()=>setPrintData(null)}/>}
+      {printData&&<PrintLabels ci={printData.ci} child={printData.child} classroom={printData.classroom} onClose={()=>setPrintData(null)} printerConfig={printerConfig}/>}
     </div>
   );
 }
@@ -7738,12 +7884,51 @@ function IncidentReports({incidents,setIncidents,children,classrooms,members,cs}
   );
 }
 
-function Education({members,visitors,users,roles,children,setChildren,classrooms,setClassrooms,teacherSchedule,setTeacherSchedule,kidsCheckIns,setKidsCheckIns,checkIns,incidents,setIncidents,rollCalls,setRollCalls,progressNotes,setProgressNotes,cs}:any){
+function PrinterSettings({printerConfig,setPrinterConfig}){
+  const preset=LABEL_PRESETS.find(p=>p.id===printerConfig?.preset)||LABEL_PRESETS[0];
+  return(
+    <div>
+      <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:20,marginBottom:16}}>
+        <h3 style={{fontSize:15,fontWeight:500,color:N,margin:"0 0 4px"}}>Label Size &amp; Printer</h3>
+        <p style={{fontSize:12,color:MU,margin:"0 0 16px"}}>Choose the label stock loaded in your printer. The app will size each label exactly and set the correct page dimensions in the browser print dialog so your label maker cuts cleanly.</p>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(270px,1fr))",gap:10}}>
+          {LABEL_PRESETS.map(p=>{
+            const sel=printerConfig?.preset===p.id;
+            return(
+              <div key={p.id} onClick={()=>setPrinterConfig((c:any)=>({...c,preset:p.id}))} style={{padding:"11px 14px",borderRadius:10,border:"1.5px solid "+(sel?N:BR),background:sel?N+"0d":W,cursor:"pointer",display:"flex",alignItems:"flex-start",gap:10}}>
+                <div style={{width:15,height:15,borderRadius:"50%",border:"2px solid "+(sel?N:BR),background:sel?N:W,flexShrink:0,marginTop:2}}/>
+                <div>
+                  <div style={{fontSize:13,fontWeight:sel?500:400,color:sel?N:TX}}>{p.name}</div>
+                  <div style={{fontSize:11,color:MU,marginTop:2}}>{p.mode==="roll"?"Thermal roll":"Sheet-fed"} · {p.w}mm{p.h?` × ${p.h}mm`:" × auto height"}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:16}}>
+        <h3 style={{fontSize:14,fontWeight:500,color:N,margin:"0 0 12px"}}>How to Print</h3>
+        <ol style={{fontSize:13,color:TX,lineHeight:1.9,margin:0,paddingLeft:20}}>
+          <li>Select your label size above and load matching labels into your printer</li>
+          <li>Go to the <strong>Check-In</strong> tab and check in a child — the label preview opens automatically</li>
+          <li>Click <strong>Print Both Labels</strong></li>
+          <li>In the browser print dialog, select your label printer</li>
+          <li>Confirm the paper/page size is <strong>{preset.w}mm{preset.h?` × ${preset.h}mm`:" × auto"}</strong> — most label printers detect this automatically</li>
+          <li>Two labels print: a <strong>child name tag</strong> and a <strong>parent pickup stub</strong></li>
+        </ol>
+        {preset.mode==="sheet"&&<div style={{marginTop:12,padding:"10px 12px",background:GL+"55",border:"0.5px solid "+G+"77",borderRadius:8,fontSize:12,color:"#7a5c10"}}><strong>Sheet-fed tip:</strong> Load {preset.id==="avery5160"?"Avery 5160 (30-up)":"Avery 5163 (10-up)"} sheets into a laser or inkjet. Both labels print on the same sheet.</div>}
+        {preset.mode==="roll"&&<div style={{marginTop:12,padding:"10px 12px",background:N+"0a",border:"0.5px solid "+N+"33",borderRadius:8,fontSize:12,color:N}}><strong>Roll printer tip:</strong> Each label prints as a separate page — the cutter fires automatically after each one.</div>}
+      </div>
+    </div>
+  );
+}
+
+function Education({members,visitors,users,roles,children,setChildren,classrooms,setClassrooms,teacherSchedule,setTeacherSchedule,kidsCheckIns,setKidsCheckIns,checkIns,incidents,setIncidents,rollCalls,setRollCalls,progressNotes,setProgressNotes,cs,printerConfig,setPrinterConfig}:any){
   const [tab,setTab]=useState("dashboard");
   const today=td();
   const todayCI=(kidsCheckIns as any[]).filter((c:any)=>c.date===today);
   const openIncidents=(incidents as any[]).filter((i:any)=>i.status!=="Resolved").length;
-  const TABS=[{id:"dashboard",label:"Overview"},{id:"checkin",label:"Check-In"},{id:"rollcall",label:"Roll Call"},{id:"children",label:"Children"},{id:"progress",label:"Progress"},{id:"classrooms",label:"Classrooms"},{id:"teachers",label:"Teachers"},{id:"incidents",label:"Incidents"},{id:"reports",label:"Reports"}];
+  const TABS=[{id:"dashboard",label:"Overview"},{id:"checkin",label:"Check-In"},{id:"rollcall",label:"Roll Call"},{id:"children",label:"Children"},{id:"progress",label:"Progress"},{id:"classrooms",label:"Classrooms"},{id:"teachers",label:"Teachers"},{id:"incidents",label:"Incidents"},{id:"reports",label:"Reports"},{id:"printer",label:"🖨 Printer"}];
   return(
     <div>
       <div style={{display:"flex",marginBottom:20,background:W,borderRadius:10,border:"0.5px solid "+BR,overflow:"hidden",flexWrap:"wrap"}}>
@@ -7754,7 +7939,7 @@ function Education({members,visitors,users,roles,children,setChildren,classrooms
         </button>)}
       </div>
       {tab==="dashboard"&&<EdDashboard classrooms={classrooms} children={children} kidsCheckIns={kidsCheckIns} teacherSchedule={teacherSchedule} users={users} members={members} checkIns={checkIns} setTab={setTab}/>}
-      {tab==="checkin"&&<CheckInPortal classrooms={classrooms} children={children} setChildren={setChildren} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckIns} members={members}/>}
+      {tab==="checkin"&&<CheckInPortal classrooms={classrooms} children={children} setChildren={setChildren} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckIns} members={members} printerConfig={printerConfig}/>}
       {tab==="rollcall"&&<ClassRollCall classrooms={classrooms} children={children} rollCalls={rollCalls} setRollCalls={setRollCalls} teacherSchedule={teacherSchedule} users={users} members={members} cs={cs}/>}
       {tab==="children"&&<ChildrenRoster children={children} setChildren={setChildren} classrooms={classrooms} members={members} kidsCheckIns={kidsCheckIns} incidents={incidents}/>}
       {tab==="progress"&&<ChildProgress children={children} classrooms={classrooms} rollCalls={rollCalls} progressNotes={progressNotes} setProgressNotes={setProgressNotes} cs={cs}/>}
@@ -7762,6 +7947,7 @@ function Education({members,visitors,users,roles,children,setChildren,classrooms
       {tab==="teachers"&&<TeacherScheduleMgr classrooms={classrooms} teacherSchedule={teacherSchedule} setTeacherSchedule={setTeacherSchedule} users={users} members={members} roles={roles}/>}
       {tab==="incidents"&&<IncidentReports incidents={incidents} setIncidents={setIncidents} children={children} classrooms={classrooms} members={members} cs={cs}/>}
       {tab==="reports"&&<EdReports classrooms={classrooms} children={children} kidsCheckIns={kidsCheckIns} teacherSchedule={teacherSchedule} users={users} members={members} rollCalls={rollCalls}/>}
+      {tab==="printer"&&<PrinterSettings printerConfig={printerConfig} setPrinterConfig={setPrinterConfig}/>}
     </div>
   );
 }
@@ -8156,6 +8342,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut}
   const [children,setChildren] = useState(_migratedKids);
   const [teacherSchedule,setTeacherSchedule] = useState(lsGet('teacherSchedule') ?? []);
   const [kidsCheckIns,setKidsCheckIns] = useState(lsGet('kidsCheckIns') ?? []);
+  const [printerConfig,setPrinterConfig] = useState(lsGet('printerConfig') ?? DEFAULT_PRINTER_CFG);
   const [incidents,setIncidents] = useState(lsGet('incidents') ?? _I.incidents ?? []);
   const [rollCalls,setRollCalls] = useState(lsGet('rollCalls') ?? _I.rollCalls ?? []);
   const [progressNotes,setProgressNotes] = useState(lsGet('progressNotes') ?? _I.progressNotes ?? []);
@@ -8206,6 +8393,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut}
   useEffect(()=>{lsSave('progressNotes',progressNotes);},[JSON.stringify(progressNotes)]);
   useEffect(()=>{lsSave('teacherSchedule',teacherSchedule);},[JSON.stringify(teacherSchedule)]);
   useEffect(()=>{lsSave('kidsCheckIns',kidsCheckIns);},[JSON.stringify(kidsCheckIns)]);
+  useEffect(()=>{lsSave('printerConfig',printerConfig);},[JSON.stringify(printerConfig)]);
   useEffect(()=>{lsSave('users',users);},[JSON.stringify(users)]);
   useEffect(()=>{lsSave('roles',roles);},[JSON.stringify(roles)]);
   useEffect(()=>{lsSave('permissions',permissions);},[JSON.stringify(permissions)]);
@@ -8454,7 +8642,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut}
           {view==="addperson" && <AddMemberPage members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} currentUser={currentUser} roles={roles} permissions={permissions} setView={setView}/>}
           {view==="people" && <People members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} prayers={prayers} groups={groups} grpMeetings={grpMeetings} visitRecords={visitRecords} setVisitRecords={setVisitRecords} checkIns={checkIns} setView={setView}/>}
           {view==="groups" && <Groups members={members} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings}/>}
-          {view==="education" && <Education members={members} visitors={visitors} users={users} roles={roles} children={children} setChildren={setChildren} classrooms={classrooms} setClassrooms={setClassrooms} teacherSchedule={teacherSchedule} setTeacherSchedule={setTeacherSchedule} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckIns} checkIns={checkIns} incidents={incidents} setIncidents={setIncidents} rollCalls={rollCalls} setRollCalls={setRollCalls} progressNotes={progressNotes} setProgressNotes={setProgressNotes} cs={churchSettings}/>}
+          {view==="education" && <Education members={members} visitors={visitors} users={users} roles={roles} children={children} setChildren={setChildren} classrooms={classrooms} setClassrooms={setClassrooms} teacherSchedule={teacherSchedule} setTeacherSchedule={setTeacherSchedule} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckIns} checkIns={checkIns} incidents={incidents} setIncidents={setIncidents} rollCalls={rollCalls} setRollCalls={setRollCalls} progressNotes={progressNotes} setProgressNotes={setProgressNotes} cs={churchSettings} printerConfig={printerConfig} setPrinterConfig={setPrinterConfig}/>}
           {view==="maintenance" && <Maintenance users={users} members={members} currentUser={currentUser} roles={roles} permissions={permissions} equipment={equipment} setEquipment={setEquipment} workOrders={workOrders} setWorkOrders={setWorkOrders} schedMaint={schedMaint} setSchedMaint={setSchedMaint}/>}
           {view==="calendar" && (
             <div style={{height:"calc(100vh - 110px)",display:"flex",flexDirection:"column",margin:-24,overflow:"hidden"}}>
