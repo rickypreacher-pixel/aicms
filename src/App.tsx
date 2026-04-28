@@ -4509,7 +4509,7 @@ function CalendarView({members,visitors,setVisitors,groups,recurring,setRecurrin
 }
 
 // ── DASHBOARD ──
-function Dashboard({members,visitors,attendance,giving,prayers,setView}) {
+function Dashboard({members,visitors,attendance,giving,prayers,setView,canViewGiving}:any) {
   const [insight,setInsight] = useState("");
   const [iLoad,setILoad] = useState(false);
   const [alerts,setAlerts] = useState([]);
@@ -4540,7 +4540,8 @@ function Dashboard({members,visitors,attendance,giving,prayers,setView}) {
   };
 
   const pc = (p:string) => p==="high"?RE:p==="medium"?AM:GR;
-  const qnav=[["Directory","people"],["Visitation","visitation"],["Attendance","attendance"],["Giving","giving"],["Prayer Wall","prayer"],["Access Control","access"],["AI Assistant","ai"],["Settings","settings"]];
+  const qnav=[['Directory','people'],['Visitation','visitation'],['Attendance','attendance'],['Prayer Wall','prayer'],['Access Control','access'],['AI Assistant','ai'],['Settings','settings']];
+  if(canViewGiving) qnav.splice(3,0,['Giving','giving']);
 
   return (
     <div>
@@ -4557,7 +4558,7 @@ function Dashboard({members,visitors,attendance,giving,prayers,setView}) {
         <Stat label="Active Members" value={activeM} sub={"of "+members.length+" total"}/>
         <Stat label="Visitors" value={visitors.length} sub={fu+" need follow-up"} color={AM}/>
         <Stat label="Last Service" value={lastSvc?lastSvc.count:0} sub={lastSvc?lastSvc.service:""} color={BL}/>
-        <Stat label={monthLabel+" Giving"} value={f$(totalG)} sub="Tithes and offerings" color={GR}/>
+        {canViewGiving && <Stat label={monthLabel+" Giving"} value={f$(totalG)} sub="Tithes and offerings" color={GR}/>}
         <Stat label="Prayer Requests" value={prayers.filter((p:any)=>p.status==="Active").length} sub="Active" color={PU}/>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
@@ -4596,7 +4597,7 @@ function Dashboard({members,visitors,attendance,giving,prayers,setView}) {
         <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:18}}>
           <h3 style={{fontSize:14,fontWeight:500,color:N,margin:"0 0 14px"}}>Recent Activity</h3>
           {(()=>{
-            const allGiving=[...giving].sort((a:any,b:any)=>b.date.localeCompare(a.date)).slice(0,3).map((g:any)=>({text:g.name+" gave "+f$(g.amount),sub:fd(g.date),color:G}));
+            const allGiving=canViewGiving?[...giving].sort((a:any,b:any)=>b.date.localeCompare(a.date)).slice(0,3).map((g:any)=>({text:g.name+" gave "+f$(g.amount),sub:fd(g.date),color:G})):[];
             const recentM=[...members].sort((a:any,b:any)=>(b.joined||b.addedDate||"").localeCompare(a.joined||a.addedDate||"")).slice(0,2).map((m:any)=>({text:m.first+" "+m.last,sub:"Member"+((m.role)?": "+m.role:""),color:GR}));
             const recentV=[...visitors].sort((a:any,b:any)=>(b.firstVisit||b.addedDate||"").localeCompare(a.firstVisit||a.addedDate||"")).slice(0,1).map((v:any)=>({text:v.first+" "+v.last,sub:"Visitor · "+v.stage,color:AM}));
             const items=[...recentM,...recentV,...allGiving].slice(0,6);
@@ -4618,7 +4619,7 @@ function Dashboard({members,visitors,attendance,giving,prayers,setView}) {
 }
 
 // ── PEOPLE ──
-function People({members,setMembers,visitors,setVisitors,attendance,giving,prayers,groups,grpMeetings,visitRecords,setVisitRecords,checkIns,setView}:any) {
+function People({members,setMembers,visitors,setVisitors,attendance,giving,prayers,groups,grpMeetings,visitRecords,setVisitRecords,checkIns,setView,canViewGiving}:any) {
   const [tab,setTab] = useState("members");
   const [search,setSearch] = useState("");
   const [modal,setModal] = useState(false);
@@ -4961,7 +4962,7 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,praye
                       <InfoRow label="Last Attended" value={stats.lastAttended?fd(stats.lastAttended):""}/>
                       <InfoRow label={detail._type==="members"?"Member Since":"First Visit"} value={fd(detail._type==="members"?detail.joined:detail.firstVisit)}/>
                     </SectionCard>
-                    <SectionCard title="Giving Summary">
+                    {canViewGiving && <SectionCard title="Giving Summary">
                       <div style={{display:"flex",gap:8,marginBottom:10}}>
                         <MiniStat label="Total Given" value={f$(stats.totalGiven)} color={GR}/>
                         <MiniStat label="Avg Gift" value={f$(stats.avgGift)} color={G}/>
@@ -4979,7 +4980,7 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,praye
                           ))}
                         </div>
                       )}
-                    </SectionCard>
+                    </SectionCard>}
                   </div>
                 )}
 
@@ -8681,6 +8682,9 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   const currentUser = isStaff
     ? (users.find(u => u.email && u.email.toLowerCase() === (loggedInEmail||'').toLowerCase() && u.status === 'Active') || null)
     : (users.find(u=>u.superAdmin) || users[0]);
+  // Giving visibility: admins always see it; staff only if their role has giving→view
+  const canViewGiving = !isStaff || !currentUser || currentUser.superAdmin ||
+    checkPermission(currentUser, roles, permissions, 'giving', 'view');
   window.__CS__ = churchSettings;
   useEffect(()=>{
     try{
@@ -9050,9 +9054,9 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
               s(setMembers,'members');s(setVisitors,'visitors');s(setAttendance,'attendance');s(setGiving,'giving');s(setPrayers,'prayers');s(setGroups,'groups');s(setGrpMeetings,'grpMeetings');s(setVisitRecords,'visitRecords');s(setCheckIns,'checkIns');s(setKidsCheckIns,'kidsCheckIns');s(setChildren,'children');s(setPledgeDrives,'pledgeDrives');s(setPledges,'pledges');s(setWeeklyReports,'weeklyReports');s(setEquipment,'equipment');s(setWorkOrders,'workOrders');s(setSchedMaint,'schedMaint');s(setUsers,'users');s(setRoles,'roles');s(setPermissions,'permissions',false);s(setRecurring,'recurring');s(setCustom,'custom');s(setEmailLog,'emailLog');s(setEmailTemplates,'emailTemplates',false);s(setEmailConfig,'emailConfig',false);s(setIncidents,'incidents');s(setRollCalls,'rollCalls');s(setProgressNotes,'progressNotes');s(setTeacherSchedule,'teacherSchedule');if(d.churchSettings&&mode==='replace')setChurchSettings(d.churchSettings);
             }}
           />}
-          {view==="dashboard" && <Dashboard members={members} visitors={visitors} attendance={attendance} giving={giving} prayers={prayers} setView={setView}/>}
+          {view==="dashboard" && <Dashboard members={members} visitors={visitors} attendance={attendance} giving={giving} prayers={prayers} setView={setView} canViewGiving={canViewGiving}/>}
           {view==="addperson" && <AddMemberPage members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} currentUser={currentUser} roles={roles} permissions={permissions} setView={setView}/>}
-          {view==="people" && <People members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} prayers={prayers} groups={groups} grpMeetings={grpMeetings} visitRecords={visitRecords} setVisitRecords={setVisitRecords} checkIns={checkIns} setView={setView}/>}
+          {view==="people" && <People members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} prayers={prayers} groups={groups} grpMeetings={grpMeetings} visitRecords={visitRecords} setVisitRecords={setVisitRecords} checkIns={checkIns} setView={setView} canViewGiving={canViewGiving}/>}
           {view==="groups" && <Groups members={members} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings}/>}
           {view==="education" && <Education members={members} visitors={visitors} users={users} roles={roles} children={children} setChildren={setChildren} classrooms={classrooms} setClassrooms={setClassrooms} teacherSchedule={teacherSchedule} setTeacherSchedule={setTeacherSchedule} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckIns} checkIns={checkIns} incidents={incidents} setIncidents={setIncidents} rollCalls={rollCalls} setRollCalls={setRollCalls} progressNotes={progressNotes} setProgressNotes={setProgressNotes} cs={churchSettings} printerConfig={printerConfig} setPrinterConfig={setPrinterConfig}/>}
           {view==="maintenance" && <Maintenance users={users} members={members} currentUser={currentUser} roles={roles} permissions={permissions} equipment={equipment} setEquipment={setEquipment} workOrders={workOrders} setWorkOrders={setWorkOrders} schedMaint={schedMaint} setSchedMaint={setSchedMaint}/>}
