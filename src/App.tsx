@@ -563,7 +563,124 @@ function SetupModal({onSave,initialName,initialPastorName}){
   </div>);
 }
 
-function ChurchSettingsPage({cs,setCs,members,setMembers,visitors,setVisitors,attendance,giving,prayers,groups,grpMeetings,visitRecords,checkIns,kidsCheckIns,children,pledgeDrives,pledges,weeklyReports,equipment,workOrders,schedMaint}:any){
+function BackupRestore({backupData,onRestore}:any){
+  const [restoreFile,setRestoreFile]=useState<any>(null);
+  const [restoreData,setRestoreData]=useState<any>(null);
+  const [restoreError,setRestoreError]=useState("");
+  const [restoreMode,setRestoreMode]=useState<'replace'|'merge'>('replace');
+  const [restoreDone,setRestoreDone]=useState(false);
+  const [backupDone,setBackupDone]=useState(false);
+
+  const doBackup=()=>{
+    const now=new Date();
+    const stamp=now.toISOString().split("T")[0];
+    const blob=new Blob([JSON.stringify({...backupData,_backupDate:now.toISOString(),_version:"1.0"},null,2)],{type:"application/json"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");
+    a.href=url;a.download="churchos-backup-"+stamp+".json";a.click();
+    URL.revokeObjectURL(url);
+    setBackupDone(true);setTimeout(()=>setBackupDone(false),3000);
+  };
+
+  const handleFile=(e:any)=>{
+    setRestoreError("");setRestoreData(null);setRestoreDone(false);
+    const file=e.target.files?.[0];
+    if(!file){setRestoreFile(null);return;}
+    setRestoreFile(file);
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      try{
+        const parsed=JSON.parse(ev.target?.result as string);
+        setRestoreData(parsed);
+      }catch{setRestoreError("Invalid file. Please select a valid ChurchOS backup JSON.");}
+    };
+    reader.readAsText(file);
+  };
+
+  const doRestore=()=>{
+    if(!restoreData){return;}
+    onRestore(restoreData,restoreMode);
+    setRestoreDone(true);setRestoreFile(null);setRestoreData(null);
+    const inp=document.getElementById('backup-restore-input') as HTMLInputElement;
+    if(inp)inp.value="";
+    setTimeout(()=>setRestoreDone(false),4000);
+  };
+
+  const SECTIONS=[
+    ['members','Members'],['visitors','Visitors / Guests'],['attendance','Attendance'],
+    ['giving','Giving Records'],['prayers','Prayer Requests'],['groups','Groups'],
+    ['grpMeetings','Group Meetings'],['checkIns','Event Check-Ins'],['kidsCheckIns','Kids Check-Ins'],
+    ['children','Children'],['visitRecords','Visitation Records'],['pledgeDrives','Pledge Drives'],
+    ['pledges','Pledges'],['weeklyReports','Weekly Reports'],['equipment','Equipment'],
+    ['workOrders','Work Orders'],['schedMaint','Scheduled Maintenance'],['users','Access Control Users'],
+    ['roles','Roles'],['permissions','Permissions'],['recurring','Recurring Events'],
+    ['custom','One-Time Events'],['emailLog','Email Log'],['emailTemplates','Email Templates'],
+    ['incidents','Incidents'],['rollCalls','Roll Calls'],['progressNotes','Progress Notes'],
+    ['teacherSchedule','Teacher Schedule'],['churchSettings','Church Settings'],
+  ];
+
+  return(
+    <div style={{maxWidth:680}}>
+      {/* Backup */}
+      <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:22,marginBottom:20}}>
+        <div style={{fontSize:15,fontWeight:500,color:N,marginBottom:4}}>💾 Backup App Data</div>
+        <div style={{fontSize:12,color:MU,marginBottom:16,lineHeight:1.6}}>Downloads a complete snapshot of all your church data as a single JSON file to your Downloads folder. Keep this file safe — it contains all your records.</div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:5,marginBottom:16,background:BG,borderRadius:8,padding:12,border:"0.5px solid "+BR}}>
+          {SECTIONS.map(([k,label])=>{
+            const val=backupData[k];
+            const count=Array.isArray(val)?val.length:typeof val==='object'&&val?'✓':'—';
+            return(<div key={k} style={{fontSize:11,color:TX,display:"flex",justifyContent:"space-between",gap:8,padding:"2px 0"}}><span style={{color:MU}}>{label}</span><span style={{fontWeight:500,color:N}}>{count}</span></div>);
+          })}
+        </div>
+        {backupDone&&<div style={{background:"#dcfce7",border:"0.5px solid #86efac",borderRadius:8,padding:"9px 14px",marginBottom:12,fontSize:13,color:"#14532d",fontWeight:500}}>✓ Backup downloaded to your Downloads folder.</div>}
+        <Btn onClick={doBackup} style={{width:"100%",justifyContent:"center",fontSize:13,padding:"10px"}}>⬇ Download Backup Now</Btn>
+      </div>
+
+      {/* Restore */}
+      <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:22}}>
+        <div style={{fontSize:15,fontWeight:500,color:N,marginBottom:4}}>📂 Restore from Backup</div>
+        <div style={{fontSize:12,color:MU,marginBottom:16,lineHeight:1.6}}>Select a previously downloaded ChurchOS backup file to restore your data. Choose whether to replace all current data or merge with it.</div>
+        <div style={{marginBottom:14}}>
+          <label style={{fontSize:12,fontWeight:500,color:TX,display:"block",marginBottom:6}}>Select Backup File (.json)</label>
+          <input id="backup-restore-input" type="file" accept=".json" onChange={handleFile} style={{display:"block",width:"100%",padding:"8px",border:"0.5px solid "+BR,borderRadius:8,fontSize:12,background:BG,boxSizing:"border-box"}}/>
+        </div>
+        {restoreError&&<div style={{background:"#fee2e2",border:"0.5px solid #fca5a5",borderRadius:8,padding:"9px 14px",marginBottom:12,fontSize:13,color:RE}}>{restoreError}</div>}
+        {restoreData&&(
+          <div>
+            <div style={{background:"#eff6ff",border:"0.5px solid "+BL+"55",borderRadius:8,padding:"10px 14px",marginBottom:14}}>
+              <div style={{fontSize:12,fontWeight:500,color:BL,marginBottom:6}}>Backup file loaded: <strong>{restoreFile?.name}</strong></div>
+              {restoreData._backupDate&&<div style={{fontSize:11,color:MU,marginBottom:8}}>Created: {new Date(restoreData._backupDate).toLocaleString()}</div>}
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:4}}>
+                {SECTIONS.map(([k,label])=>{const val=restoreData[k];if(!val)return null;const count=Array.isArray(val)?val.length:'✓';return(<div key={k} style={{fontSize:11,color:TX,display:"flex",justifyContent:"space-between",gap:8}}><span style={{color:MU}}>{label}</span><span style={{fontWeight:500,color:GR}}>{count}</span></div>);})}
+              </div>
+            </div>
+            <div style={{marginBottom:14}}>
+              <label style={{fontSize:12,fontWeight:500,color:TX,display:"block",marginBottom:8}}>Restore Mode</label>
+              <div style={{display:"flex",gap:10}}>
+                {([['replace','🔄 Replace All','Wipes current data and restores from backup. Recommended for full recovery.'],['merge','🔀 Merge','Adds backup records to existing data. Skips duplicates by ID.']] as const).map(([m,label,desc])=>(
+                  <div key={m} onClick={()=>setRestoreMode(m)} style={{flex:1,padding:"10px 14px",borderRadius:9,border:"1.5px solid "+(restoreMode===m?N:BR),background:restoreMode===m?N+"08":W,cursor:"pointer"}}>
+                    <div style={{fontSize:12,fontWeight:500,color:restoreMode===m?N:TX,marginBottom:3}}>{label}</div>
+                    <div style={{fontSize:11,color:MU,lineHeight:1.4}}>{desc}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {restoreMode==='replace'&&<div style={{background:"#fef9c3",border:"0.5px solid "+AM+"66",borderRadius:8,padding:"9px 14px",marginBottom:14,fontSize:12,color:"#713f12"}}>⚠ This will overwrite all current app data. Make sure you have a backup of your current data first.</div>}
+            {restoreDone&&<div style={{background:"#dcfce7",border:"0.5px solid #86efac",borderRadius:8,padding:"9px 14px",marginBottom:12,fontSize:13,color:"#14532d",fontWeight:500}}>✓ Data restored successfully. Refresh the page if any sections look out of date.</div>}
+            <div style={{display:"flex",gap:10}}>
+              <Btn onClick={doRestore} style={{flex:1,justifyContent:"center",fontSize:13,padding:"10px",background:restoreMode==='replace'?RE:GR,color:"#fff"}}>
+                {restoreMode==='replace'?'🔄 Replace & Restore':'🔀 Merge & Restore'}
+              </Btn>
+              <Btn onClick={()=>{setRestoreData(null);setRestoreFile(null);setRestoreError("");const inp=document.getElementById('backup-restore-input') as HTMLInputElement;if(inp)inp.value="";}} v="ghost" style={{padding:"10px 18px"}}>Cancel</Btn>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ChurchSettingsPage({cs,setCs,members,setMembers,visitors,setVisitors,attendance,giving,prayers,groups,grpMeetings,visitRecords,checkIns,kidsCheckIns,children,pledgeDrives,pledges,weeklyReports,equipment,workOrders,schedMaint,backupData,onRestore}:any){
   const [form,setForm]=useState({...cs});
   const [saved,setSaved]=useState(false);
   const [stab,setStab]=useState('general');
@@ -589,11 +706,12 @@ function ChurchSettingsPage({cs,setCs,members,setMembers,visitors,setVisitors,at
   return (<div>
     {/* Tab bar */}
     <div style={{display:'flex',gap:4,marginBottom:20,borderBottom:'1.5px solid '+BR,paddingBottom:0}}>
-      {[{id:'general',label:'⚙ General'},{id:'merge',label:'🔀 Merge Tool'}].map(t=>(
+      {[{id:'general',label:'⚙ General'},{id:'merge',label:'🔀 Merge Tool'},{id:'backup',label:'💾 Backup & Restore'}].map(t=>(
         <button key={t.id} onClick={()=>setStab(t.id)} style={{padding:'8px 18px',fontSize:13,fontWeight:stab===t.id?600:400,color:stab===t.id?N:MU,background:'none',border:'none',borderBottom:stab===t.id?'2.5px solid '+N:'2.5px solid transparent',cursor:'pointer',marginBottom:-1.5}}>{t.label}</button>
       ))}
     </div>
     {stab==='merge'&&<MergeTool members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors}/>}
+    {stab==='backup'&&<BackupRestore backupData={backupData} onRestore={onRestore}/>}
     {stab==='general'&&<div>
     {saved&&<div style={{background:"#dcfce7",border:"0.5px solid #86efac",borderRadius:9,padding:"10px 16px",marginBottom:14,fontSize:13,color:"#14532d",fontWeight:500}}>Settings saved successfully.</div>}
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
@@ -8323,7 +8441,13 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut}
         {/* Page content */}
         <div style={{flex:1,padding:isMobile?12:24,overflow:"auto"}}>
           {showSetup && <SetupModal onSave={s=>{setChurchSettings(s);setShowSetup(false);}} initialName={churchName||''} initialPastorName={(adminFirst||adminLast)?`Pastor ${[adminFirst,adminLast].filter(Boolean).join(' ')}`:''}/>}
-          {view==="settings" && <ChurchSettingsPage cs={churchSettings} setCs={setChurchSettings} members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} prayers={prayers} groups={groups} grpMeetings={grpMeetings} visitRecords={visitRecords} checkIns={checkIns} kidsCheckIns={kidsCheckIns} children={children} pledgeDrives={pledgeDrives} pledges={pledges} weeklyReports={weeklyReports} equipment={equipment} workOrders={workOrders} schedMaint={schedMaint}/>}
+          {view==="settings" && <ChurchSettingsPage cs={churchSettings} setCs={setChurchSettings} members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} prayers={prayers} groups={groups} grpMeetings={grpMeetings} visitRecords={visitRecords} checkIns={checkIns} kidsCheckIns={kidsCheckIns} children={children} pledgeDrives={pledgeDrives} pledges={pledges} weeklyReports={weeklyReports} equipment={equipment} workOrders={workOrders} schedMaint={schedMaint}
+            backupData={{members,visitors,attendance,giving,prayers,groups,grpMeetings,visitRecords,checkIns,kidsCheckIns,children,pledgeDrives,pledges,weeklyReports,equipment,workOrders,schedMaint,users,roles,permissions,recurring,custom,emailLog,emailTemplates,emailConfig,incidents,rollCalls,progressNotes,teacherSchedule,churchSettings}}
+            onRestore={(d:any,mode:string)=>{
+              const s=(setter:any,key:string,isArr=true)=>{if(d[key]===undefined)return;if(mode==='replace'){setter(d[key]);}else{if(isArr&&Array.isArray(d[key])){setter((cur:any[])=>[...cur,...d[key].filter((n:any)=>!cur.find(x=>String(x.id)===String(n.id)))]);}else{setter(d[key]);}}};
+              s(setMembers,'members');s(setVisitors,'visitors');s(setAttendance,'attendance');s(setGiving,'giving');s(setPrayers,'prayers');s(setGroups,'groups');s(setGrpMeetings,'grpMeetings');s(setVisitRecords,'visitRecords');s(setCheckIns,'checkIns');s(setKidsCheckIns,'kidsCheckIns');s(setChildren,'children');s(setPledgeDrives,'pledgeDrives');s(setPledges,'pledges');s(setWeeklyReports,'weeklyReports');s(setEquipment,'equipment');s(setWorkOrders,'workOrders');s(setSchedMaint,'schedMaint');s(setUsers,'users');s(setRoles,'roles');s(setPermissions,'permissions',false);s(setRecurring,'recurring');s(setCustom,'custom');s(setEmailLog,'emailLog');s(setEmailTemplates,'emailTemplates',false);s(setEmailConfig,'emailConfig',false);s(setIncidents,'incidents');s(setRollCalls,'rollCalls');s(setProgressNotes,'progressNotes');s(setTeacherSchedule,'teacherSchedule');if(d.churchSettings&&mode==='replace')setChurchSettings(d.churchSettings);
+            }}
+          />}
           {view==="dashboard" && <Dashboard members={members} visitors={visitors} attendance={attendance} giving={giving} prayers={prayers} setView={setView}/>}
           {view==="addperson" && <AddMemberPage members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} currentUser={currentUser} roles={roles} permissions={permissions} setView={setView}/>}
           {view==="people" && <People members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} prayers={prayers} groups={groups} grpMeetings={grpMeetings} visitRecords={visitRecords} setVisitRecords={setVisitRecords} checkIns={checkIns} setView={setView}/>}
