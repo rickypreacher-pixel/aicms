@@ -8682,18 +8682,16 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   const currentUser = isStaff
     ? (users.find(u => u.email && u.email.toLowerCase() === (loggedInEmail||'').toLowerCase() && u.status === 'Active') || null)
     : (users.find(u=>u.superAdmin) || users[0]);
-  // Giving visibility: super admin OR non-staff always sees giving.
-  // For staff, only Administrator / Office / Pastor roles can see giving.
+  // Giving visibility: only Administrator, Office, or Pastor roles can see giving.
+  // Check by matching the logged-in email against Access Control user records.
+  // If no match found (i.e. main admin), allow giving.
   const GIVING_ROLES = ['Administrator', 'Office', 'Pastor'];
-  const canViewGiving = !isStaff
-    ? true
-    : currentUser?.superAdmin
-      ? true
-      : (() => {
-          if (!currentUser) return false; // no linked record → deny
-          const role = roles.find((r:any) => r.id === currentUser.roleId);
-          return role ? GIVING_ROLES.includes(role.name) : false;
-        })();
+  const _staffRecord = loggedInEmail
+    ? users.find((u:any) => !u.superAdmin && u.email && u.email.toLowerCase() === (loggedInEmail||'').toLowerCase())
+    : null;
+  const canViewGiving = _staffRecord
+    ? GIVING_ROLES.includes((roles.find((r:any) => r.id === _staffRecord.roleId)||{}).name||'')
+    : true; // no matched staff record → main admin → always show
   window.__CS__ = churchSettings;
   useEffect(()=>{
     try{
