@@ -12,7 +12,7 @@ const RE = "#dc2626";
 const GR = "#16a34a";
 const BG = "#f4f6fb";
 
-type AuthMode = 'login' | 'register' | 'forgot';
+type AuthMode = 'login' | 'register' | 'join' | 'forgot';
 
 interface AuthScreenProps {
   onAuth: (userId: string, meta: Record<string, any>) => void;
@@ -71,6 +71,13 @@ export default function AuthScreen({ onAuth }: AuthScreenProps) {
   // Forgot fields
   const [forgotEmail, setForgotEmail] = useState('');
 
+  // Join as Staff fields
+  const [joinFirst, setJoinFirst] = useState('');
+  const [joinLast, setJoinLast] = useState('');
+  const [joinEmail, setJoinEmail] = useState('');
+  const [joinPassword, setJoinPassword] = useState('');
+  const [joinCode, setJoinCode] = useState('');
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -125,6 +132,37 @@ export default function AuthScreen({ onAuth }: AuthScreenProps) {
     setLoading(false);
     if (err) { setError(err.message); return; }
     setSuccess('Password reset email sent! Check your inbox.');
+  };
+
+  const handleJoin = async () => {
+    if (!joinFirst.trim() || !joinLast.trim()) { setError('First and last name are required.'); return; }
+    if (!joinEmail.trim()) { setError('Email is required.'); return; }
+    if (joinPassword.length < 8) { setError('Password must be at least 8 characters.'); return; }
+    const code = joinCode.trim();
+    if (!code) { setError('Church Access Code is required. Get it from your administrator.'); return; }
+    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRe.test(code)) { setError('Invalid Church Access Code. It should look like: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx — copy it exactly from your administrator.'); return; }
+    setLoading(true); setError(''); setSuccess('');
+    const { data, error: err } = await supabase.auth.signUp({
+      email: joinEmail.trim(),
+      password: joinPassword,
+      options: {
+        data: {
+          church_id: code,
+          staff: true,
+          admin_first: joinFirst.trim(),
+          admin_last: joinLast.trim(),
+        },
+      },
+    });
+    setLoading(false);
+    if (err) { setError(err.message); return; }
+    if (data.user && !data.session) {
+      setSuccess('Account created! Check your email to confirm, then sign in normally.');
+      setMode('login');
+    } else if (data.user) {
+      onAuth(data.user.id, data.user.user_metadata || {});
+    }
   };
 
   const Btn = ({ onClick, children, variant = 'primary', disabled = false }: any) => {
@@ -185,19 +223,19 @@ export default function AuthScreen({ onAuth }: AuthScreenProps) {
           boxShadow: '0 24px 60px rgba(0,0,0,0.35)',
         }}>
 
-          {/* Tab switcher — only for login/register */}
+          {/* Tab switcher — only for login/register/join */}
           {mode !== 'forgot' && (
             <div style={{
               display: 'flex', marginBottom: 24,
               background: BG, borderRadius: 10, padding: 3,
             }}>
-              {(['login', 'register'] as AuthMode[]).map((m) => (
+              {(['login', 'register', 'join'] as AuthMode[]).map((m) => (
                 <button
                   key={m}
                   onClick={() => { setMode(m); setError(''); setSuccess(''); }}
                   style={{
-                    flex: 1, padding: '8px 12px', border: 'none', borderRadius: 8,
-                    fontSize: 13, fontWeight: mode === m ? 600 : 400,
+                    flex: 1, padding: '8px 6px', border: 'none', borderRadius: 8,
+                    fontSize: 12, fontWeight: mode === m ? 600 : 400,
                     color: mode === m ? N : MU,
                     background: mode === m ? W : 'transparent',
                     cursor: 'pointer',
@@ -206,7 +244,7 @@ export default function AuthScreen({ onAuth }: AuthScreenProps) {
                     transition: 'all 0.15s',
                   }}
                 >
-                  {m === 'login' ? 'Sign In' : 'New Church'}
+                  {m === 'login' ? 'Sign In' : m === 'register' ? 'New Church' : 'Join as Staff'}
                 </button>
               ))}
             </div>
@@ -271,6 +309,36 @@ export default function AuthScreen({ onAuth }: AuthScreenProps) {
               <Btn onClick={handleRegister} variant="gold">Create Church Account</Btn>
               <div style={{ fontSize: 11, color: MU, textAlign: 'center', marginTop: 12, lineHeight: 1.5 }}>
                 By registering you agree to our Terms of Service and Privacy Policy.
+              </div>
+            </div>
+          )}
+
+          {/* JOIN AS STAFF */}
+          {mode === 'join' && (
+            <div>
+              <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 12, color: '#166534', lineHeight: 1.6 }}>
+                <strong>Staff Login Setup</strong> — Your administrator must give you a <strong>Church Access Code</strong> (found in Access Control inside the app). Enter it below along with your name, email, and a new password.
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <Field label="First Name">
+                  <Input value={joinFirst} onChange={setJoinFirst} placeholder="Jane" autoComplete="given-name" />
+                </Field>
+                <Field label="Last Name">
+                  <Input value={joinLast} onChange={setJoinLast} placeholder="Smith" autoComplete="family-name" />
+                </Field>
+              </div>
+              <Field label="Your Email">
+                <Input type="email" value={joinEmail} onChange={setJoinEmail} placeholder="staff@church.org" autoComplete="email" />
+              </Field>
+              <Field label="Choose a Password (min. 8 characters)">
+                <Input type="password" value={joinPassword} onChange={setJoinPassword} placeholder="Min. 8 characters" autoComplete="new-password" />
+              </Field>
+              <Field label="Church Access Code (from your administrator)">
+                <Input value={joinCode} onChange={setJoinCode} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" />
+              </Field>
+              <Btn onClick={handleJoin} variant="gold">Create Staff Account</Btn>
+              <div style={{ fontSize: 11, color: MU, textAlign: 'center', marginTop: 12, lineHeight: 1.5 }}>
+                After creating your account, sign in using the <strong>Sign In</strong> tab.
               </div>
             </div>
           )}

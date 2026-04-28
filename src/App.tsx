@@ -1379,7 +1379,7 @@ function Toggle({on,onChange,size="md",color=GR,disabled=false}){
 }
 
 // Users Tab
-function UsersTab({members,users,setUsers,roles,permissions,currentUser}){
+function UsersTab({members,users,setUsers,roles,permissions,currentUser,churchId}){
   const [search,setSearch] = useState("");
   const [filterRole,setFilterRole] = useState("all");
   const [filterStatus,setFilterStatus] = useState("all");
@@ -1389,6 +1389,7 @@ function UsersTab({members,users,setUsers,roles,permissions,currentUser}){
   const [detailU,setDetailU] = useState(null);
   const [overrideModal,setOverrideModal] = useState(null);
   const [confirmModal,setConfirmModal] = useState(null);
+  const [codeCopied,setCodeCopied] = useState(false);
   const nid = useRef(Math.max(299,...users.map(u=>+(u.id)||0))+1);
 
   const isAdmin = currentUser?.superAdmin || (currentUser?.roleId && roles.find(r=>r.id===currentUser.roleId)?.name==="Administrator");
@@ -1456,6 +1457,19 @@ function UsersTab({members,users,setUsers,roles,permissions,currentUser}){
         <Stat label="Pending Approval" value={pendingCount} color={AM}/>
         <Stat label="Suspended" value={suspendedCount} color={RE}/>
       </div>
+
+      {churchId && isAdmin && (
+        <div style={{background:"#f5f3ff",border:"1.5px solid #c4b5fd",borderRadius:10,padding:"12px 16px",marginBottom:14,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:12,fontWeight:600,color:PU,marginBottom:2}}>Staff Access Code — share this with your staff so they can join</div>
+            <div style={{fontFamily:"monospace",fontSize:12,color:"#4c1d95",background:"#ede9fe",borderRadius:6,padding:"4px 10px",display:"inline-block",letterSpacing:0.5,wordBreak:"break-all"}}>{churchId}</div>
+            <div style={{fontSize:11,color:MU,marginTop:4}}>Staff go to the login page → <strong>Join as Staff</strong> tab → paste this code</div>
+          </div>
+          <button onClick={()=>{navigator.clipboard.writeText(churchId||"");setCodeCopied(true);setTimeout(()=>setCodeCopied(false),2500);}} style={{padding:"7px 14px",background:codeCopied?GR:PU,color:"#fff",border:"none",borderRadius:7,fontSize:12,cursor:"pointer",fontWeight:500,whiteSpace:"nowrap",flexShrink:0}}>
+            {codeCopied?"✓ Copied!":"Copy Code"}
+          </button>
+        </div>
+      )}
 
       <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}>
         <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search users by name or email..." style={{flex:1,minWidth:240,padding:"8px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}/>
@@ -2043,7 +2057,7 @@ function PortalTab({members,portalMembers,setPortalMembers,currentUser,roles}){
   );
 }
 
-function Access({members,users,setUsers,roles,setRoles,permissions,setPermissions,portalMembers,setPortalMembers,currentUser}) {
+function Access({members,users,setUsers,roles,setRoles,permissions,setPermissions,portalMembers,setPortalMembers,currentUser,churchId}) {
   const [tab,setTab] = useState("users");
   const pending = users.filter(u=>u.status==="Pending").length;
   const [visitors,setVisitors] = useState(window.__NTCC_INIT__?.visitors || IVISITORS);
@@ -2075,7 +2089,7 @@ function Access({members,users,setUsers,roles,setRoles,permissions,setPermission
           </button>
         ))}
       </div>
-      {tab==="users" && <UsersTab members={members} users={users} setUsers={setUsers} roles={roles} permissions={permissions} currentUser={currentUser}/>}
+      {tab==="users" && <UsersTab members={members} users={users} setUsers={setUsers} roles={roles} permissions={permissions} currentUser={currentUser} churchId={churchId}/>}
       {tab==="roles" && <RolesTab roles={roles} setRoles={setRoles} permissions={permissions} setPermissions={setPermissions} users={users} currentUser={currentUser}/>}
       {tab==="permissions" && <PermTab roles={roles} permissions={permissions} setPermissions={setPermissions} currentUser={currentUser}/>}
       {tab==="portal" && <PortalTab members={members} portalMembers={portalMembers} setPortalMembers={setPortalMembers} currentUser={currentUser} roles={roles}/>}
@@ -9019,7 +9033,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut}
           {view==="prayer" && <Prayer prayers={prayers} setPrayers={setPrayers}/>}
           {view==="sms" && <SmsCenter smsLog={smsLog} setSmsLog={setSmsLog} smsTemplates={smsTemplates} setSmsTemplates={setSmsTemplates} smsConfig={smsConfig} setSmsConfig={setSmsConfig} members={members} visitors={visitors} cs={churchSettings} onCompose={()=>openSmsComposer({})} onBulkCompose={()=>openBulkSmsComposer({recipients:[...members,...visitors].filter(p=>p.phone).map(p=>({...p,first:p.first,last:p.last,name:p.first+" "+p.last}))})}/>}
           {view==="email" && <EmailCenter emailLog={emailLog} setEmailLog={setEmailLog} emailTemplates={emailTemplates} setEmailTemplates={setEmailTemplates} emailConfig={emailConfig} setEmailConfig={setEmailConfig} members={members} visitors={visitors} cs={churchSettings} onCompose={()=>openEmailComposer({})} onBulkCompose={()=>openBulkEmailComposer({recipients:members.filter(m=>m.email).map(m=>({name:m.first+" "+m.last,first:m.first,last:m.last,email:m.email}))})}/>}
-          {view==="access" && <Access members={members} users={users} setUsers={setUsers} roles={roles} setRoles={setRoles} permissions={permissions} setPermissions={setPermissions} portalMembers={portalMembers} setPortalMembers={setPortalMembers} currentUser={currentUser}/>}
+          {view==="access" && <Access members={members} users={users} setUsers={setUsers} roles={roles} setRoles={setRoles} permissions={permissions} setPermissions={setPermissions} portalMembers={portalMembers} setPortalMembers={setPortalMembers} currentUser={currentUser} churchId={churchId}/>}
           {view==="ai" && <AIAssist aiChat={aiChat} setAiChat={setAiChat} members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} setAttendance={setAttendance} giving={giving} setGiving={setGiving} prayers={prayers} setView={setView} isMobile={isMobile}/>}
           {view==="manual" && <ManualPage/>}
         </div>

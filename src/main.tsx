@@ -44,15 +44,16 @@ function Root() {
     );
   }
 
-  const churchId = session.user.id;
+  const churchId = session.user.user_metadata?.church_id || session.user.id;
   const meta = session.user.user_metadata || {};
+  const isStaff = !!(meta.church_id && meta.church_id !== session.user.id);
 
   return (
     <App
       churchId={churchId}
       churchName={meta.church_name || ''}
-      adminFirst={meta.admin_first || ''}
-      adminLast={meta.admin_last || ''}
+      adminFirst={isStaff ? (meta.admin_first || '') : (meta.admin_first || '')}
+      adminLast={isStaff ? (meta.admin_last || '') : (meta.admin_last || '')}
       onSignOut={() => supabase.auth.signOut()}
     />
   );
