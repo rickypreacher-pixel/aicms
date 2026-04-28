@@ -382,7 +382,7 @@ function Maintenance({users,members,currentUser,roles,permissions,equipment,setE
 }
 
 // ── CHURCH SETTINGS & DOWNLOAD ──
-const DEFAULT_CS={name:"New Testament Christian Church",pastorName:"Pastor R. E. Hall",address:"Glendale, AZ",phone:"",email:"",logoUrl:""};
+const DEFAULT_CS={name:"New Testament Christian Church",pastorName:"Pastor R. E. Hall",address:"Glendale, AZ",phone:"",email:"",logoUrl:"/logo.png"};
 
 async function downloadApp(cs, d) {
   const today = new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric",year:"numeric"});
