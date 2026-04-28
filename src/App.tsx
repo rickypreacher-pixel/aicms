@@ -8186,6 +8186,8 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut}
   useEffect(()=>{lsSave('grpMeetings',grpMeetings);},[JSON.stringify(grpMeetings)]);
   useEffect(()=>{lsSave('visitRecords',visitRecords);},[JSON.stringify(visitRecords)]);
   useEffect(()=>{lsSave('children',children);},[JSON.stringify(children)]);
+  // Auto-sync children from member profiles into Education children list
+  useEffect(()=>{setChildren(cs=>{let u=[...cs];let chg=false;members.forEach(m=>{(m.children||[]).forEach(mc=>{if(!mc.name||!mc.name.trim())return;const norm=mc.name.trim().toLowerCase();const exists=u.some(c=>(c.first+" "+c.last).toLowerCase()===norm);if(!exists){const pts=mc.name.trim().split(" ");const first=pts[0]||"";const last=pts.slice(1).join(" ")||"";const rawAge=calcAge(mc.birthday);const age=typeof rawAge==="number"?rawAge:-1;const grade=age>=0?levelFromAge(age):"";const maxId=u.length?Math.max(...u.map(c=>+(c.id)||0)):699;u=[...u,{id:maxId+1,first,last,dob:mc.birthday||"",grade,parentName:m.first+" "+m.last,parentPhone:m.phone||"",parentMemberId:m.id,allergies:[],medical:[],medicalNotes:"",emergencyPickup:"",status:"Active"}];chg=true;}});});return chg?u:cs;});},[JSON.stringify(members.map(m=>({id:m.id,ch:m.children||[]})))]);
   useEffect(()=>{lsSave('classrooms',classrooms);},[JSON.stringify(classrooms)]);
   useEffect(()=>{lsSave('equipment',equipment);},[JSON.stringify(equipment)]);
   useEffect(()=>{lsSave('workOrders',workOrders);},[JSON.stringify(workOrders)]);
