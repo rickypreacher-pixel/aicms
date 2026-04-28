@@ -5650,6 +5650,18 @@ function computeWeekReport(mondayStr, giving){
 
 function WeeklyReports({giving,weeklyReports,setWeeklyReports}){
   const [viewReport,setViewReport] = useState(null);
+  const [globalDrawPct,setGlobalDrawPct] = useState(()=>Number(localStorage.getItem("ntcc_pastor_draw_pct")||"60"));
+
+  const updateGlobalDrawPct = pct => {
+    setGlobalDrawPct(pct);
+    localStorage.setItem("ntcc_pastor_draw_pct", String(pct));
+  };
+
+  const updateReportDrawPct = (report, pct) => {
+    const updated = {...report, pastorDrawPct: pct};
+    setWeeklyReports(rs => rs.map(r => r.id===report.id ? updated : r));
+    setViewReport(updated);
+  };
 
   // Auto-save: generate reports for all Mondays with giving activity that aren't yet saved
   useEffect(()=>{
@@ -5749,7 +5761,8 @@ function WeeklyReports({giving,weeklyReports,setWeeklyReports}){
               const eligibleEntries = Object.entries(r.byCategory).filter(([cat])=>!_EXCL.includes(cat)).sort((a,b)=>b[1]-a[1]);
               const eligibleBase = eligibleEntries.reduce((s,[,v])=>s+v,0);
               const churchWeeklyTithe = Math.round(eligibleBase*0.10*100)/100;
-              const pastorDraw = r.tithes ? Math.round(((r.tithes.tithe||0)+(r.tithes.sundayMorning||0))*0.60*100)/100 : 0;
+              const effectiveDrawPct = r.pastorDrawPct ?? globalDrawPct;
+              const pastorDraw = r.tithes ? Math.round(((r.tithes.tithe||0)+(r.tithes.sundayMorning||0))*(effectiveDrawPct/100)*100)/100 : 0;
               const titheCollected = r.tithes?.tithe||0;
               const sundayMorning = r.tithes?.sundayMorning||0;
               if(eligibleBase===0 && pastorDraw===0) return null;
@@ -5772,12 +5785,29 @@ function WeeklyReports({giving,weeklyReports,setWeeklyReports}){
                     </div>
                   </div>
                   <div style={{background:W,border:"0.5px solid "+G,borderRadius:8,padding:"12px 14px"}}>
-                    <div style={{fontSize:11,color:"#7a5c10",fontWeight:600,textTransform:"uppercase",letterSpacing:0.5,marginBottom:6}}>Pastor's Draw</div>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
+                      <div style={{fontSize:11,color:"#7a5c10",fontWeight:600,textTransform:"uppercase",letterSpacing:0.5}}>Pastor's Draw</div>
+                      <div style={{display:"flex",alignItems:"center",gap:6}}>
+                        {r.pastorDrawPct!==undefined && r.pastorDrawPct!==globalDrawPct && (
+                          <span style={{fontSize:9,background:AM+"22",color:AM,borderRadius:4,padding:"1px 5px",fontWeight:600}}>overridden</span>
+                        )}
+                        <select
+                          value={effectiveDrawPct}
+                          onChange={e=>updateReportDrawPct(r,Number(e.target.value))}
+                          style={{fontSize:12,fontWeight:600,color:N,border:"1.5px solid "+G,borderRadius:6,padding:"3px 6px",background:GL+"44",cursor:"pointer"}}
+                          onClick={e=>e.stopPropagation()}
+                        >
+                          {[10,20,30,40,50,60].map(p=>(
+                            <option key={p} value={p}>{p}%{p===globalDrawPct?" (default)":""}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
                     <div style={{fontSize:26,fontWeight:700,color:N,marginBottom:8}}>{f$(pastorDraw)}</div>
                     <div style={{fontSize:11,color:MU,lineHeight:1.6}}>
                       <div style={{display:"flex",justifyContent:"space-between"}}><span>Tithe collected:</span><strong>{f$(titheCollected)}</strong></div>
                       <div style={{display:"flex",justifyContent:"space-between"}}><span>Sun. Morning Offering:</span><strong>{f$(sundayMorning)}</strong></div>
-                      <div style={{display:"flex",justifyContent:"space-between",borderTop:"0.5px solid "+G+"44",marginTop:4,paddingTop:4,fontWeight:600,color:GR}}><span>60% of combined:</span><strong>{f$(pastorDraw)}</strong></div>
+                      <div style={{display:"flex",justifyContent:"space-between",borderTop:"0.5px solid "+G+"44",marginTop:4,paddingTop:4,fontWeight:600,color:GR}}><span>{effectiveDrawPct}% of combined:</span><strong>{f$(pastorDraw)}</strong></div>
                     </div>
                   </div>
                 </div>
@@ -5866,7 +5896,19 @@ function WeeklyReports({giving,weeklyReports,setWeeklyReports}){
           <h3 style={{fontSize:15,fontWeight:500,color:N,margin:0}}>Weekly Giving Reports</h3>
           <div style={{fontSize:12,color:MU,marginTop:2}}>Weeks run Monday to Sunday - Auto-saved from giving records</div>
         </div>
-        <div style={{display:"flex",gap:8}}>
+        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,background:GL+"44",border:"0.5px solid "+G,borderRadius:8,padding:"6px 12px"}}>
+            <span style={{fontSize:11,color:"#7a5c10",fontWeight:600,whiteSpace:"nowrap"}}>Default Pastor's Draw:</span>
+            <select
+              value={globalDrawPct}
+              onChange={e=>updateGlobalDrawPct(Number(e.target.value))}
+              style={{fontSize:13,fontWeight:700,color:N,border:"1.5px solid "+G,borderRadius:6,padding:"3px 8px",background:W,cursor:"pointer"}}
+            >
+              {[10,20,30,40,50,60].map(p=>(
+                <option key={p} value={p}>{p}%</option>
+              ))}
+            </select>
+          </div>
           <Btn onClick={generateCurrentWeek} v="gold">{currentWeekExists?"Regenerate This Week":"Generate This Week"}</Btn>
         </div>
       </div>
