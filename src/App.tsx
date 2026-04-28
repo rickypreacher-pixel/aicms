@@ -8266,6 +8266,299 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
   );
 }
 
+// ── MANUAL PAGE ──
+function ManualPage(){
+  const contentRef=useRef<any>({});
+  const setRef=(id:string)=>(el:any)=>{if(el)contentRef.current[id]=el;};
+  const scrollTo=(id:string)=>contentRef.current[id]?.scrollIntoView({behavior:'smooth',block:'start'});
+  const [activeSection,setActiveSection]=useState('s1');
+  const SECTIONS=[
+    {id:'s1',label:'1. Getting Started'},{id:'s2',label:'2. Dashboard'},{id:'s3',label:'3. Adding People'},
+    {id:'s4',label:'4. Members Profile'},{id:'s5',label:'5. Visitation & Follow-Up'},{id:'s6',label:'6. Groups Ministry'},
+    {id:'s7',label:'7. Education & Check-In'},{id:'s8',label:'8. Event Calendar'},{id:'s9',label:'9. Attendance'},
+    {id:'s10',label:'10. Giving & Pledges'},{id:'s11',label:'11. Prayer Wall'},{id:'s12',label:'12. Email Center'},
+    {id:'s13',label:'13. SMS Center'},{id:'s14',label:'14. Access Control'},{id:'s15',label:'15. AI Assistant'},
+    {id:'s16',label:'16. Settings'},{id:'s17',label:'17. Backup & Restore'},{id:'s18',label:'18. Maintenance'},{id:'s19',label:'19. Printer Setup'},
+  ];
+  const H=({id,children}:any)=><h2 ref={setRef(id)} style={{fontSize:17,fontWeight:600,color:N,margin:'0 0 14px',paddingBottom:10,borderBottom:'2px solid '+G}}>{children}</h2>;
+  const H3=({children}:any)=><h3 style={{fontSize:13,fontWeight:600,color:N,margin:'18px 0 8px',textTransform:'uppercase',letterSpacing:0.4}}>{children}</h3>;
+  const P=({children}:any)=><p style={{fontSize:13,color:TX,lineHeight:1.85,margin:'0 0 10px'}}>{children}</p>;
+  const Ol=({children}:any)=><ol style={{fontSize:13,color:TX,lineHeight:2,margin:'0 0 12px',paddingLeft:22}}>{children}</ol>;
+  const Ul=({children}:any)=><ul style={{fontSize:13,color:TX,lineHeight:2,margin:'0 0 12px',paddingLeft:22}}>{children}</ul>;
+  const Li=({children}:any)=><li style={{marginBottom:1}}>{children}</li>;
+  const Tip=({children}:any)=><div style={{background:GL+'55',border:'0.5px solid '+G+'77',borderRadius:8,padding:'9px 12px',fontSize:12,color:'#7a5c10',marginBottom:10,lineHeight:1.7}}><strong>Tip: </strong>{children}</div>;
+  const Note=({children}:any)=><div style={{background:N+'0a',border:'0.5px solid '+N+'33',borderRadius:8,padding:'9px 12px',fontSize:12,color:N,marginBottom:10,lineHeight:1.7}}><strong>Note: </strong>{children}</div>;
+  const Warn=({children}:any)=><div style={{background:'#fff5f5',border:'0.5px solid #fca5a5',borderRadius:8,padding:'9px 12px',fontSize:12,color:RE,marginBottom:10,lineHeight:1.7}}><strong>Important: </strong>{children}</div>;
+  const Sec=({children}:any)=><div style={{background:W,border:'0.5px solid '+BR,borderRadius:12,padding:'20px 22px',marginBottom:20}}>{children}</div>;
+  const B=({children}:any)=><strong style={{fontWeight:600,color:N}}>{children}</strong>;
+  return(
+    <div style={{display:'flex',gap:20,alignItems:'flex-start'}}>
+      <div style={{width:214,flexShrink:0,position:'sticky',top:0,background:W,border:'0.5px solid '+BR,borderRadius:12,padding:'14px 10px',maxHeight:'calc(100vh - 130px)',overflowY:'auto'}}>
+        <div style={{fontSize:10,color:MU,textTransform:'uppercase',letterSpacing:0.6,marginBottom:10,fontWeight:600,padding:'0 6px'}}>Table of Contents</div>
+        {SECTIONS.map(s=>(
+          <button key={s.id} onClick={()=>{scrollTo(s.id);setActiveSection(s.id);}} style={{display:'block',width:'100%',textAlign:'left',background:activeSection===s.id?N+'0d':'none',border:'none',cursor:'pointer',fontSize:11.5,color:activeSection===s.id?N:TX,padding:'6px 8px',borderRadius:6,lineHeight:1.4,fontWeight:activeSection===s.id?500:400,marginBottom:1}}>
+            {s.label}
+          </button>
+        ))}
+      </div>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{background:N,borderRadius:12,padding:'20px 24px',marginBottom:20}}>
+          <div style={{color:'#fff',fontSize:21,fontWeight:600,letterSpacing:0.3}}>ChurchOS Staff Manual</div>
+          <div style={{color:G,fontSize:13,marginTop:4}}>New Testament Christian Church — Administrator Guide</div>
+          <div style={{color:'#7a9acc',fontSize:12,marginTop:6}}>Version 5 · April 2026 · For internal staff use</div>
+        </div>
+
+        <Sec><H id="s1">1. Getting Started</H>
+          <H3>Logging In</H3>
+          <P>ChurchOS is a web-based church management system accessible from any modern browser on any device. No software installation is required.</P>
+          <Ol><Li>Navigate to your ChurchOS URL (e.g. <B>https://aicms-pied.vercel.app</B>)</Li><Li>Enter your assigned email address and password, then click <B>Sign In</B></Li><Li>If this is a brand-new installation, a <B>Church Setup</B> wizard appears — enter your church name and pastor name to proceed</Li></Ol>
+          <Tip>Your login credentials are created by the Super Administrator under Access Control. Contact them if you are locked out.</Tip>
+          <H3>First-Time Setup</H3>
+          <Ol><Li>After logging in for the first time, click <B>Settings</B> in the left sidebar</Li><Li>Under the <B>General</B> tab, fill in church name, pastor name, address, phone, email, and logo URL</Li><Li>Click <B>Save Settings</B></Li><Li>Your church name and logo will now appear throughout the entire application</Li></Ol>
+          <H3>Navigating the App</H3>
+          <P>All major sections are listed in the <B>left sidebar</B>. Click any item to open that section instantly. On mobile devices, tap the <B>☰ menu button</B> in the top-left corner to open the sidebar. The active section is highlighted in white.</P>
+          <H3>Data Saving</H3>
+          <P>ChurchOS saves data automatically — you do not need to press a global Save button. Data is stored in two places: your browser's local storage (instant, works offline) and Supabase cloud (synced when internet is available). The header shows <B>Saving…</B> and <B>Saved ✓</B> status indicators.</P>
+          <Note>If multiple staff members access ChurchOS from different devices using the same account, data is merged automatically on each sign-in from the cloud copy.</Note>
+        </Sec>
+
+        <Sec><H id="s2">2. Dashboard</H>
+          <P>The <B>Dashboard</B> is the home screen shown immediately after login. It provides a live snapshot of key metrics and recent church activity.</P>
+          <H3>Key Metrics Displayed</H3>
+          <Ul><Li><B>Total Members</B> — count of all active members in the database</Li><Li><B>Visitors This Month</B> — visitors who attended in the current calendar month</Li><Li><B>Follow-Ups Needed</B> — visitors currently flagged for pastoral contact</Li><Li><B>Total Given (YTD)</B> — year-to-date giving total across all recorded donations</Li><Li><B>Active Prayer Requests</B> — open items on the Prayer Wall</Li><Li><B>Groups Active</B> — number of ministry groups currently meeting</Li></Ul>
+          <H3>Quick Actions</H3>
+          <P>The Dashboard displays shortcut buttons for the most common tasks: Add Person, Record Attendance, Take Offering, and more. Clicking any shortcut navigates directly to that section.</P>
+          <H3>Recent Activity</H3>
+          <P>Below the stat cards, a feed shows recent additions and changes across the system including new members, recent giving, and visitor status updates.</P>
+          <Tip>Bookmark the ChurchOS URL so all staff can access it without searching. The Dashboard is always the default view on login.</Tip>
+        </Sec>
+
+        <Sec><H id="s3">3. Adding People</H>
+          <P>All new people — members and visitors — are entered through the <B>Add Person</B> page. This is the single consistent intake point for the entire database.</P>
+          <H3>Adding a Member</H3>
+          <Ol><Li>Click <B>Add Person</B> in the sidebar</Li><Li>The <B>Member</B> tab should be selected; if not, click it</Li><Li>Enter first name, last name, phone, email, and join date</Li><Li>Set <B>Status</B> (Active or Inactive) and optionally a <B>Role</B> (e.g. Deacon, Choir, Elder)</Li><Li>Add any notes, then click <B>Save</B></Li></Ol>
+          <Tip>Additional details like address, birthday, family, children, allergies, and medical notes are best added by clicking the member's record in Members Profile after initial save.</Tip>
+          <H3>Adding a Visitor</H3>
+          <Ol><Li>Click <B>Add Person</B>, then click the <B>Visitor</B> tab</Li><Li>Enter first name, last name, phone, email, and first visit date</Li><Li>Set the <B>Stage</B>: First Visit, Follow-Up Needed, Returning, or Prospect</Li><Li>Assign a <B>Sponsor</B> — the member responsible for following up with this visitor</Li><Li>Click <B>Save</B></Li></Ol>
+          <Note>Visitors flagged as <B>Follow-Up Needed</B> show as a badge count on the Members Profile sidebar item so they are never overlooked.</Note>
+          <H3>Converting a Visitor to a Member</H3>
+          <Ol><Li>Go to <B>Members Profile</B> and switch to the <B>Visitors</B> tab</Li><Li>Click the visitor's row to open their profile</Li><Li>Click <B>Convert to Member</B> in the profile header</Li><Li>ChurchOS moves them to the members list, sets today as their join date, and automatically marks their visitation record as Complete</Li></Ol>
+        </Sec>
+
+        <Sec><H id="s4">4. Members Profile</H>
+          <P>The <B>Members Profile</B> section is the central directory for all members and visitors, supporting searching, detailed views, and full editing.</P>
+          <H3>Searching and Filtering</H3>
+          <Ul><Li>Use the <B>search bar</B> at the top to filter by name in real time</Li><Li>Toggle between <B>Members</B> and <B>Visitors</B> using the tabs at the top of the list</Li></Ul>
+          <H3>Viewing a Profile</H3>
+          <P>Click any row to open the full profile modal. Tabs inside the profile include:</P>
+          <Ul><Li><B>Personal</B> — contact info, address with map link, occupation, important dates (birthday, anniversary, salvation date, baptism date), emergency contact</Li><Li><B>Family</B> — spouse name, children (name + birthday), allergies, and medical conditions</Li><Li><B>Activity</B> — attendance history, giving history, group memberships, prayer requests</Li><Li><B>Groups</B> — groups this person belongs to or leads</Li><Li><B>Pastoral</B> — visitation notes and follow-up history</Li><Li><B>Notes</B> — free-form internal notes visible only to staff</Li></Ul>
+          <H3>Editing a Profile</H3>
+          <Ol><Li>Open the profile and click <B>Edit Profile</B> in the top-right of the modal</Li><Li>Update any fields: full address, birthday, anniversary, salvation date, baptism date, emergency contact, spouse name, role, status</Li><Li>Click <B>Save Changes</B></Li></Ol>
+          <H3>Adding Children to a Member Profile</H3>
+          <Ol><Li>Open the member's profile, click <B>Edit Profile</B></Li><Li>Scroll to the <B>Children</B> section and click <B>+ Add Child</B></Li><Li>Enter the child's full name and date of birth, then click <B>Save Changes</B></Li></Ol>
+          <Tip>Children added on a member's profile automatically appear in Education Check-In with the parent's name and phone pre-filled, and a grade assigned by age.</Tip>
+          <H3>Deleting a Record</H3>
+          <Warn>Deleting a member or visitor is permanent. Click the red <B>X</B> button on the row or the <B>Delete</B> button inside the profile and confirm the prompt. There is no undo.</Warn>
+          <H3>AI Follow-Up Generator</H3>
+          <P>Inside any profile, click <B>Generate Follow-Up</B> to have the AI write a warm, personalized pastoral message. Copy it and send via Email Center or SMS Center.</P>
+        </Sec>
+
+        <Sec><H id="s5">5. Visitation & Follow-Up</H>
+          <P>The <B>Visitation</B> section tracks active pastoral outreach for visitors and members requiring personal contact.</P>
+          <H3>Understanding Stages</H3>
+          <Ul><Li><B>First Visit</B> — new visitor, no contact made yet</Li><Li><B>Follow-Up Needed</B> — contact required soon</Li><Li><B>Returning</B> — attending multiple times, being actively nurtured</Li><Li><B>Prospect</B> — actively considering membership</Li><Li><B>Complete</B> — follow-up cycle finished (converted or closed)</Li></Ul>
+          <H3>Creating a Visitation Record</H3>
+          <Ol><Li>Go to <B>Visitation</B> in the sidebar and click <B>+ New Record</B></Li><Li>Select the visitor, assign a sponsor, set the stage, and add initial notes</Li><Li>Click <B>Save</B></Li></Ol>
+          <H3>Logging a Contact Attempt</H3>
+          <Ol><Li>Click the visitor's record to open it</Li><Li>Click <B>+ Log Contact</B></Li><Li>Enter the date, method (phone call, text, in-person visit), outcome, and notes</Li><Li>Update the stage to reflect any progression, then click <B>Save</B></Li></Ol>
+          <Tip>Sort visitation records by stage to prioritize urgent follow-ups. Use the AI Assistant to generate personalized follow-up letters instantly.</Tip>
+        </Sec>
+
+        <Sec><H id="s6">6. Groups Ministry</H>
+          <P>The <B>Groups Ministry</B> section manages all church small groups, Bible studies, committees, prayer groups, and ministry teams.</P>
+          <H3>Creating a Group</H3>
+          <Ol><Li>Go to <B>Groups Ministry</B> and click <B>+ New Group</B></Li><Li>Enter the name, type (Bible Study, Prayer, Youth, Committee, etc.), description, meeting day, time, location, and leader</Li><Li>Toggle <B>Show on Calendar</B> ON to display meetings on the Event Calendar automatically</Li><Li>Click <B>Save</B></Li></Ol>
+          <H3>Adding Members to a Group</H3>
+          <Ol><Li>Click the group name to open it, then click <B>+ Add Member</B></Li><Li>Search for and select the member, then assign their role (Member, Leader, Secretary, Treasurer)</Li><Li>Click <B>Add</B></Li></Ol>
+          <H3>Recording a Group Meeting</H3>
+          <Ol><Li>Open the group and click <B>+ Record Meeting</B></Li><Li>Enter the date, attendance count, and meeting notes</Li><Li>Click <B>Save</B></Li></Ol>
+          <Note>Groups with <B>Show on Calendar</B> enabled display automatically on the Event Calendar on their scheduled meeting day. Multiple groups can appear per day.</Note>
+        </Sec>
+
+        <Sec><H id="s7">7. Education Department & Check-In</H>
+          <P>The <B>Education</B> section is a full-featured children's ministry platform with secure check-in, classroom management, roll call, incident tracking, and printed security labels.</P>
+          <H3>Tabs Overview</H3>
+          <Ul><Li><B>Overview</B> — live dashboard: today's check-ins, active classroom counts, teacher on duty</Li><Li><B>Check-In</B> — search and check children in/out with printable security labels</Li><Li><B>Roll Call</B> — take structured attendance by classroom for a service date</Li><Li><B>Children</B> — full roster of registered children with medical and allergy info</Li><Li><B>Progress</B> — track individual child spiritual development notes</Li><Li><B>Classrooms</B> — manage room names, age ranges, capacities, and colors</Li><Li><B>Teachers</B> — assign teachers to classrooms and manage weekly schedules</Li><Li><B>Incidents</B> — log and track behavioral or medical incidents</Li><Li><B>Reports</B> — enrollment and attendance reports by classroom or period</Li><Li><B>🖨 Printer</B> — configure the label size for your label maker</Li></Ul>
+          <H3>Checking In a Child</H3>
+          <Ol><Li>Go to <B>Education → Check-In</B></Li><Li>Type the child's name in the search box — results appear after 2 characters</Li><Li>Click the child's name to select them — a classroom is auto-suggested based on their age</Li><Li>Confirm or select a different classroom if needed</Li><Li>Click <B>Check In and Print Labels</B></Li><Li>The label preview opens — click <B>Print Both Labels</B> to print</Li><Li>Two labels print: a <B>child name tag</B> and a <B>parent pickup stub</B> with a 4-character security code</Li></Ol>
+          <H3>Checking Out a Child</H3>
+          <Ol><Li>Find the child in the active check-ins list on the right panel</Li><Li>Click <B>Check Out</B></Li><Li>Verbally confirm the parent's code matches the child's label before releasing the child</Li></Ol>
+          <H3>Registering a New Child at the Kiosk</H3>
+          <Ol><Li>If the child is not found in search, click <B>+ Add New Child</B></Li><Li>Enter name, date of birth, level/grade, parent name, parent phone, emergency pickup, and any medical/allergy info</Li><Li>Click <B>Register and Continue</B> — the child is added to the roster and ready to check in immediately</Li></Ol>
+          <Note>Children listed on a parent member's Family tab appear automatically in Check-In search without separate registration. Parent contact info is pre-filled.</Note>
+          <H3>Setting Up the Label Printer</H3>
+          <Ol><Li>Go to <B>Education → 🖨 Printer</B> and select the preset matching your printer and label stock</Li><Li>Your selection saves automatically — configure it once per installation</Li><Li>See Section 19 for detailed label printer setup instructions</Li></Ol>
+        </Sec>
+
+        <Sec><H id="s8">8. Event Calendar</H>
+          <P>The <B>Event Calendar</B> displays all church services, group meetings, and custom events in a color-coded monthly view.</P>
+          <H3>Viewing the Calendar</H3>
+          <P>Click <B>Event Calendar</B> in the sidebar. Navigate between months with the <B>◀ Prev</B> and <B>Next ▶</B> buttons. Today's date is highlighted. Click any day cell to view that day's details and events.</P>
+          <H3>Adding a Custom Event</H3>
+          <Ol><Li>Click a day cell on the calendar</Li><Li>Click <B>+ Add Event</B> on that day's detail panel</Li><Li>Enter the event name, type (Worship, Education, Study, Prayer, Youth, etc.), time, location, and description</Li><Li>Click <B>Save</B></Li></Ol>
+          <H3>Recurring Events</H3>
+          <P>Regular services (Sunday Morning, Sunday Evening, Wednesday Bible Study) are configured as recurring events. They populate the calendar automatically without manual entry each week.</P>
+          <H3>Check-In from the Calendar</H3>
+          <Ol><Li>Click an event on the calendar to open its detail panel</Li><Li>Click <B>Check In</B> to mark individual members as present for that specific event</Li></Ol>
+          <Tip>Group meetings appear on calendar days automatically when <B>Show on Calendar</B> is enabled in the group settings. Up to 2 groups show per cell; click the day to see all.</Tip>
+        </Sec>
+
+        <Sec><H id="s9">9. Attendance</H>
+          <P>The <B>Attendance</B> section records service headcounts and individual member attendance over time.</P>
+          <H3>Recording Attendance</H3>
+          <Ol><Li>Go to <B>Attendance</B> in the sidebar and click <B>+ Record Attendance</B></Li><Li>Select the service type (Sunday Morning, Sunday Evening, Wednesday, Special Service)</Li><Li>Enter the date and total headcount</Li><Li>Optionally mark specific members as present individually</Li><Li>Click <B>Save</B></Li></Ol>
+          <H3>Viewing History</H3>
+          <P>All past attendance records are listed in reverse chronological order. Click any record to see which members were marked present and the total count for that service.</P>
+          <H3>Member Attendance History</H3>
+          <P>Each member's <B>Activity</B> tab in their profile shows their personal attendance history — total services attended, which events, and when they last attended.</P>
+          <Tip>Record attendance consistently after every service. Consistent records enable meaningful trend reporting and help identify members who may need a pastoral check-in due to absence.</Tip>
+        </Sec>
+
+        <Sec><H id="s10">10. Giving & Pledges</H>
+          <P>The <B>Giving</B> section records all financial contributions, manages pledge drives, and stores weekly financial reports.</P>
+          <H3>Recording a Donation</H3>
+          <Ol><Li>Go to <B>Giving</B> in the sidebar and click <B>+ Record Gift</B></Li><Li>Select the donor (member or visitor), or enter a name manually for anonymous gifts</Li><Li>Enter the amount, date, fund (Tithe, Missions, Building, General, etc.), and payment method (Cash, Check, Card, Online)</Li><Li>Click <B>Save</B></Li></Ol>
+          <H3>Managing Pledge Drives</H3>
+          <Ol><Li>Click the <B>Pledges</B> tab within Giving and click <B>+ New Drive</B></Li><Li>Enter the campaign name, goal amount, and deadline</Li><Li>Add individual pledge commitments by member and amount</Li><Li>Track fulfillment as donations are recorded against the drive</Li></Ol>
+          <H3>Individual Giving Totals</H3>
+          <P>Each member's giving history is visible in their profile under the <B>Activity</B> tab — total given, number of gifts, and gift dates. This data is used for year-end giving statements.</P>
+          <H3>Weekly Reports</H3>
+          <P>Use the <B>Weekly Reports</B> tab to record and store a weekly financial summary (offering total, expenses, notes) for board records and treasurer reports.</P>
+          <Warn>Giving records may be required for IRS charitable donation receipts. Never delete historical giving records. Always keep accurate donor information linked to each gift.</Warn>
+        </Sec>
+
+        <Sec><H id="s11">11. Prayer Wall</H>
+          <P>The <B>Prayer Wall</B> is a centralized board for collecting, tracking, and responding to prayer requests from the congregation.</P>
+          <H3>Adding a Prayer Request</H3>
+          <Ol><Li>Go to <B>Prayer Wall</B> in the sidebar and click <B>+ Add Request</B></Li><Li>Enter the person's name, the request text, a category (Healing, Financial, Relationships, Family, Salvation, Praise, etc.), and whether the request is <B>Private</B></Li><Li>Click <B>Save</B></Li></Ol>
+          <H3>Updating and Closing Requests</H3>
+          <Ol><Li>Click any prayer request to open it</Li><Li>Click <B>+ Add Update</B> to log a praise report or follow-up note</Li><Li>Change the status to <B>Answered</B> when the prayer has been resolved</Li></Ol>
+          <H3>Private Requests</H3>
+          <P>Requests marked <B>Private</B> are visible only to users with Prayer Wall permission. They do not appear in any shared view or printed list.</P>
+          <Tip>Use the AI Assistant to generate a personal, pastoral prayer for any request. Type: "Write a prayer for [request details]" in the AI chat.</Tip>
+        </Sec>
+
+        <Sec><H id="s12">12. Email Center</H>
+          <P>The <B>Email Center</B> allows staff to compose and send individual or bulk emails to members and visitors directly from ChurchOS.</P>
+          <H3>Sending an Individual Email</H3>
+          <Ol><Li>Go to <B>Email Center</B> in the sidebar and click <B>+ Compose</B></Li><Li>Enter the recipient's email or select a member from the dropdown</Li><Li>Choose a <B>template</B> or write a custom subject and body</Li><Li>Click <B>Send</B></Li></Ol>
+          <H3>Bulk Emails</H3>
+          <Ol><Li>Click <B>Bulk Email</B></Li><Li>Recipients are pre-populated with all members who have an email address on file</Li><Li>Compose the message and click <B>Send to All</B></Li></Ol>
+          <H3>Email Templates</H3>
+          <P>Pre-built templates are available for welcome letters, event announcements, follow-up messages, and giving receipts. Edit or create templates under <B>Email Center → Templates</B>.</P>
+          <H3>Configuring Your Email Provider</H3>
+          <P>To send real emails, connect a provider under <B>Email Center → Settings</B>. Supported providers: <B>Resend</B> and <B>SendGrid</B>. Enter your API key, sender email, and sender name, then click Save.</P>
+          <Note>Without a configured email provider, sent messages are logged locally but not actually delivered. Set up your provider before relying on this feature in production.</Note>
+        </Sec>
+
+        <Sec><H id="s13">13. SMS Center</H>
+          <P>The <B>SMS Center</B> enables text messaging to members and visitors with a connected SMS provider account.</P>
+          <H3>Sending an SMS</H3>
+          <Ol><Li>Go to <B>SMS Center</B> in the sidebar and click <B>+ Compose SMS</B></Li><Li>Select a recipient (must have a phone number on file) or type a number manually</Li><Li>Type your message — keep it under 160 characters for a single SMS segment</Li><Li>Click <B>Send</B></Li></Ol>
+          <H3>Bulk SMS</H3>
+          <Ol><Li>Click <B>Bulk SMS</B></Li><Li>All members and visitors with phone numbers are pre-loaded as recipients</Li><Li>Compose the message and click <B>Send to All</B></Li></Ol>
+          <H3>SMS Configuration</H3>
+          <P>Go to <B>SMS Center → Settings</B> to connect a provider:</P>
+          <Ul><Li><B>Twilio</B> — enter Account SID, Auth Token, and your Twilio phone number</Li><Li><B>TextMagic</B> — enter API username and API key</Li><Li><B>ClickSend</B> — enter username and API key</Li></Ul>
+          <H3>SMS Templates</H3>
+          <P>Save reusable message templates for service reminders, event announcements, and follow-up messages under <B>SMS Center → Templates</B>.</P>
+          <Warn>Standard SMS rates apply through your connected provider account. Bulk messages to large lists can incur significant costs. Always review your provider's pricing before launching a bulk SMS campaign.</Warn>
+        </Sec>
+
+        <Sec><H id="s14">14. Access Control</H>
+          <P>The <B>Access Control</B> section manages all staff user accounts, roles, and permissions. Only Super Administrators can access this section.</P>
+          <H3>Creating a User Account</H3>
+          <Ol><Li>Go to <B>Access Control</B> in the sidebar and click <B>+ Add User</B></Li><Li>Select the member from the dropdown</Li><Li>Assign a <B>Role</B> (see built-in roles below)</Li><Li>Set a <B>password</B> (for web login) and a 4-digit <B>PIN</B> (for kiosk check-in)</Li><Li>Set status to <B>Active</B> and click <B>Save</B></Li></Ol>
+          <H3>Built-In Roles</H3>
+          <Ul><Li><B>Super Admin</B> — full unrestricted access including user management</Li><Li><B>Admin</B> — full access to all features except Access Control user management</Li><Li><B>Pastor</B> — directory, giving, prayer, visitation, email, AI</Li><Li><B>Staff</B> — directory, attendance, events, groups</Li><Li><B>Volunteer</B> — directory view and event calendar only</Li><Li><B>Check-In</B> — Education check-in portal only</Li><Li><B>Finance</B> — giving records and reports only</Li></Ul>
+          <H3>Creating Custom Roles</H3>
+          <Ol><Li>Click the <B>Roles</B> tab within Access Control and click <B>+ New Role</B></Li><Li>Name the role and toggle individual permissions per module: view, create, edit, delete</Li><Li>Click <B>Save Role</B></Li><Li>Assign the new role to users from the Users tab</Li></Ol>
+          <H3>Pending Accounts</H3>
+          <P>Accounts with status <B>Pending</B> appear as an amber badge count on the Access Control sidebar item. Review and approve or reject pending accounts promptly.</P>
+          <Warn>The Super Administrator account cannot be deleted or demoted. There must always be at least one active Super Admin in the system.</Warn>
+        </Sec>
+
+        <Sec><H id="s15">15. AI Assistant</H>
+          <P>The <B>AI Assistant</B> is a built-in conversational AI with direct access to your live church data. It can answer questions, generate communications, and assist with pastoral tasks.</P>
+          <H3>What the AI Can Do</H3>
+          <Ul><Li>Answer questions about member counts, attendance trends, and giving totals using your actual data</Li><Li>Generate personalized pastoral follow-up letters, emails, and text messages</Li><Li>Write prayers for specific prayer requests</Li><Li>Summarize visitation status and identify who needs follow-up</Li><Li>Help compose announcements, newsletters, and bulletins</Li><Li>Navigate you to any section of ChurchOS by typing <B>"Take me to..."</B></Li></Ul>
+          <H3>Using the AI</H3>
+          <Ol><Li>Click <B>AI Assistant</B> in the sidebar, or click the <B>AI</B> button in the top-right header from any page</Li><Li>Type your question or request in the chat input at the bottom</Li><Li>Press <B>Enter</B> or click <B>Send</B></Li><Li>The AI responds using live data from your church database</Li></Ol>
+          <H3>Example Prompts</H3>
+          <Ul><Li>"How many active members do we have?"</Li><Li>"Who are the visitors that need follow-up right now?"</Li><Li>"Write a welcome letter for Sister Johnson"</Li><Li>"What was our total giving last month?"</Li><Li>"Generate a prayer for healing for Deacon Smith"</Li><Li>"List all members who haven't attended in 30 days"</Li><Li>"Take me to the Prayer Wall"</Li></Ul>
+          <Tip>The AI has context about your specific church data — it is not a generic chatbot. The more specific your prompt, the more useful and personalized the response.</Tip>
+        </Sec>
+
+        <Sec><H id="s16">16. Settings</H>
+          <P>The <B>Settings</B> section controls church-wide configuration, the church profile, and advanced data management tools.</P>
+          <H3>General Tab — Church Information</H3>
+          <Ul><Li><B>Church Name</B> — displayed in the sidebar header, printed output, and email signatures</Li><Li><B>Pastor Name</B> — shown in the sidebar footer</Li><Li><B>Address</B> — appears in the app header subtitle on every page</Li><Li><B>Phone / Email</B> — church contact info stored in the system for communications</Li><Li><B>Logo URL</B> — URL to your church logo image (use <B>/logo.png</B> if the logo file is placed in the app's public folder)</Li></Ul>
+          <P>Click <B>Save Settings</B> after making any changes. Settings take effect immediately across the entire app.</P>
+          <H3>Merge Tool Tab</H3>
+          <P>The Merge Tool identifies and resolves duplicate member or visitor records in your database.</P>
+          <Ol><Li>Go to <B>Settings → Merge Tool</B></Li><Li>The tool lists potential duplicate pairs based on similar names</Li><Li>For each pair, select which record to keep as the <B>primary</B></Li><Li>Click <B>Merge</B> — data from both records is combined into the primary record</Li></Ol>
+          <H3>Backup & Restore Tab</H3>
+          <P>See <B>Section 17</B> for full Backup & Restore instructions.</P>
+        </Sec>
+
+        <Sec><H id="s17">17. Backup & Restore</H>
+          <P>The <B>Backup & Restore</B> feature exports a complete snapshot of your church database and restores it if needed.</P>
+          <H3>Creating a Backup</H3>
+          <Ol><Li>Go to <B>Settings → Backup & Restore</B></Li><Li>Review the record counts displayed for all 29 data sections</Li><Li>Click <B>Download Backup</B></Li><Li>A file named <B>churchos-backup-YYYY-MM-DD.json</B> is downloaded to your device</Li><Li>Store this file in a secure off-device location (Google Drive, OneDrive, USB drive)</Li></Ol>
+          <Tip>Create a backup before any major changes, system updates, or data imports. Establish a routine of monthly backups as standard practice.</Tip>
+          <H3>Restoring from a Backup</H3>
+          <Ol><Li>Go to <B>Settings → Backup & Restore</B></Li><Li>Click <B>Choose File</B> and select a previously downloaded <B>.json</B> backup file</Li><Li>Choose a restore mode:
+            <Ul><Li><B>Replace All</B> — completely overwrites all current data with the backup. Use when recovering from data corruption or setting up a fresh installation.</Li><Li><B>Merge</B> — adds records from the backup that don't already exist (matched by ID). No existing records are overwritten. Use when combining data from two sources.</Li></Ul>
+          </Li><Li>Click <B>Restore</B> and confirm the prompt</Li></Ol>
+          <Warn>Replace All is permanent and immediate. Always download a fresh backup of your current data before restoring from an older file. You cannot undo a Replace All restore.</Warn>
+        </Sec>
+
+        <Sec><H id="s18">18. Maintenance & Equipment</H>
+          <P>The <B>Maintenance</B> section tracks church property, equipment condition, work orders, and scheduled preventive maintenance tasks.</P>
+          <H3>Equipment Register</H3>
+          <Ol><Li>Go to <B>Maintenance</B> in the sidebar and click <B>+ Add Equipment</B></Li><Li>Enter the item name, category, location (Sanctuary, Fellowship Hall, Office, Education), purchase date, warranty expiry date, and current condition</Li><Li>Click <B>Save</B></Li></Ol>
+          <H3>Filing a Work Order</H3>
+          <Ol><Li>Click <B>+ New Work Order</B></Li><Li>Select the related equipment or describe the location and issue</Li><Li>Set priority: Low, Medium, High, or Critical</Li><Li>Assign to the responsible staff member or contractor</Li><Li>Click <B>Save</B></Li><Li>Update the status as work progresses: Open → In Progress → Complete</Li></Ol>
+          <H3>Scheduling Preventive Maintenance</H3>
+          <Ol><Li>Click <B>+ Schedule Maintenance</B></Li><Li>Select the equipment item and maintenance type (inspection, filter change, calibration, etc.)</Li><Li>Set the recurrence: weekly, monthly, quarterly, or annually</Li><Li>Click <B>Save</B></Li></Ol>
+          <H3>Maintenance Alerts</H3>
+          <P>The Maintenance sidebar item shows a red badge when items are overdue or warranties are expiring. Review alerts regularly to stay ahead of equipment failures.</P>
+          <Tip>Enter warranty expiry dates for all major equipment (HVAC, audio/video, projection) so ChurchOS alerts you before warranties lapse.</Tip>
+        </Sec>
+
+        <Sec><H id="s19">19. Printer / Label Setup</H>
+          <P>ChurchOS prints secure child check-in labels on all major thermal label printers and Avery sheet labels through the browser's native print dialog — no special drivers needed.</P>
+          <H3>Supported Printers and Label Sizes</H3>
+          <Ul><Li><B>Dymo LabelWriter</B> — 30334 (2¼"×1¼" name badge), 30252 (3½"×1⅛" address), 99014 (4"×6")</Li><Li><B>Brother QL Series</B> — DK-1201 (3.5"×1.1"), DK-1202 (4.07"×2.76"), DK-2205 (62mm continuous roll)</Li><Li><B>Zebra</B> — Z-Perform 2"×1", 4"×6" shipping</Li><Li><B>Avery Sheet Labels</B> — 5160 (2⅝"×1", 30/sheet), 5163 (4"×2", 10/sheet)</Li></Ul>
+          <H3>One-Time Printer Configuration</H3>
+          <Ol><Li>Go to <B>Education → 🖨 Printer</B></Li><Li>Click the preset that matches your label printer and loaded label stock</Li><Li>The selection saves automatically — configure it once per installation or when you change label stock</Li></Ol>
+          <H3>Printing Check-In Labels</H3>
+          <Ol><Li>Check in a child from <B>Education → Check-In</B> (see Section 7)</Li><Li>The label preview dialog opens automatically showing a scaled preview of both labels</Li><Li>Click <B>Print Both Labels</B></Li><Li>In the browser print dialog, select your <B>label printer</B> from the Destination dropdown</Li><Li>Verify the page size shown in the dialog matches your label (e.g. <B>57 × 32 mm</B> for Dymo 30334)</Li><Li>Click <B>Print</B></Li><Li>Thermal roll printers print two separate labels (one per cut); sheet-fed printers print both labels on a single sheet page</Li></Ol>
+          <H3>What Prints on Each Label</H3>
+          <Ul><Li><B>Child Name Tag</B> — classroom name (color-coded), child's full name, date of birth, age, medical/allergy alerts, and 4-character security code</Li><Li><B>Parent Pickup Stub</B> — child's name, classroom, and the matching 4-character code. Parent presents this at pickup; the code must match the child's tag before release.</Li></Ul>
+          <Tip>Most Dymo, Brother, and Zebra label printers auto-detect the page size from the print job. You should not need to manually change paper size settings in the browser print dialog.</Tip>
+          <Note>For Avery sheet labels, print to a standard laser or inkjet printer loaded with the matching Avery label sheets. Both labels print on the same sheet page.</Note>
+        </Sec>
+
+        <div style={{textAlign:'center',padding:'24px 0 8px',borderTop:'0.5px solid '+BR,marginTop:4}}>
+          <div style={{fontSize:12,color:MU}}>ChurchOS Staff Manual · New Testament Christian Church · Version 5 · April 2026</div>
+          <div style={{fontSize:11,color:MU,marginTop:4}}>For technical support or feature requests, contact your system administrator.</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── MAIN APP ──
 export default function App({churchId,churchName,adminFirst,adminLast,onSignOut}:any={}) {
   const _I = window.__NTCC_INIT__ || {};
@@ -8534,8 +8827,9 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut}
     {id:"access",label:"Access Control",icon:"Ac"},
     {id:"ai",label:"AI Assistant",icon:"AI"},
     {id:"settings",label:"Settings",icon:"⚙"},
+    {id:"manual",label:"Manual",icon:"📖"},
   ];
-  const TITLES = {dashboard:"Dashboard",addperson:"Add Person to Database",people:"Members Profile",visitation:"Visitation & Follow-Up",education:"Education Department",maintenance:"Maintenance & Equipment",attendance:"Attendance",giving:"Giving Records",prayer:"Prayer Wall",email:"Email Center",sms:"SMS Center",access:"Access Control",ai:"AI Assistant",settings:"Church Settings"};
+  const TITLES = {dashboard:"Dashboard",addperson:"Add Person to Database",people:"Members Profile",visitation:"Visitation & Follow-Up",education:"Education Department",maintenance:"Maintenance & Equipment",attendance:"Attendance",giving:"Giving Records",prayer:"Prayer Wall",email:"Email Center",sms:"SMS Center",access:"Access Control",ai:"AI Assistant",settings:"Church Settings",manual:"Staff Manual"};
   const pending = users.filter(u=>u.status==="Pending").length;
   const fu = visitors.filter(v=>v.stage==="Follow-Up Needed").length;
   const inVis = visitRecords.filter(r=>r.stage!=="Complete").length;
@@ -8670,6 +8964,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut}
           {view==="email" && <EmailCenter emailLog={emailLog} setEmailLog={setEmailLog} emailTemplates={emailTemplates} setEmailTemplates={setEmailTemplates} emailConfig={emailConfig} setEmailConfig={setEmailConfig} members={members} visitors={visitors} cs={churchSettings} onCompose={()=>openEmailComposer({})} onBulkCompose={()=>openBulkEmailComposer({recipients:members.filter(m=>m.email).map(m=>({name:m.first+" "+m.last,first:m.first,last:m.last,email:m.email}))})}/>}
           {view==="access" && <Access members={members} users={users} setUsers={setUsers} roles={roles} setRoles={setRoles} permissions={permissions} setPermissions={setPermissions} portalMembers={portalMembers} setPortalMembers={setPortalMembers} currentUser={currentUser}/>}
           {view==="ai" && <AIAssist aiChat={aiChat} setAiChat={setAiChat} members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} setAttendance={setAttendance} giving={giving} setGiving={setGiving} prayers={prayers} setView={setView} isMobile={isMobile}/>}
+          {view==="manual" && <ManualPage/>}
         </div>
       </div>
 
