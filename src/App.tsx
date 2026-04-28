@@ -1025,13 +1025,13 @@ const SILENT_WAV="data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhY
 const _elAudio = typeof window !== "undefined" ? new Audio() : null as any;
 if (_elAudio) { _elAudio.volume = 1; _elAudio.preload = "auto"; }
 const EL_VOICES=[
-  {id:"flq6f7ib4F8Sfv2nltCn",name:"Michael",desc:"American Male — Deep & Pastoral (Recommended)"},
+  {id:"nPczCjzI2devNBz1zQrb",name:"Brian",desc:"American Male — Confident & Clear (Default)"},
+  {id:"flq6f7ib4F8Sfv2nltCn",name:"Michael",desc:"American Male — Deep & Pastoral"},
   {id:"onwK4e9ZLuTAKqWW03F9",name:"Daniel",desc:"British Male — Deep & Authoritative"},
   {id:"pNInz6obpgDQGcFmaJgB",name:"Adam",desc:"American Male — Narration Style"},
   {id:"TxGEqnHWrfWFTfGW9XjX",name:"Josh",desc:"American Male — Deep & Commanding"},
   {id:"ErXwobaYiN019PkySvjV",name:"Antoni",desc:"American Male — Well-Rounded"},
   {id:"21m00Tcm4TlvDq8ikWAM",name:"Rachel",desc:"American Female — Calm & Professional"},
-  {id:"nPczCjzI2devNBz1zQrb",name:"Brian",desc:"American Male — Confident & Clear"},
 ];
 
 const EMPTY_ADDR={street:"",city:"",state:"AZ",zip:""};
