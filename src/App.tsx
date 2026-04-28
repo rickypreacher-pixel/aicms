@@ -1385,7 +1385,7 @@ function UsersTab({members,users,setUsers,roles,permissions,currentUser,churchId
   const [filterStatus,setFilterStatus] = useState("all");
   const [modal,setModal] = useState(false);
   const [editU,setEditU] = useState(null);
-  const [form,setForm] = useState({memberId:"",roleId:"",password:"",pin:"",status:"Pending"});
+  const [form,setForm] = useState({memberId:"",roleId:"",email:"",password:"",pin:"",status:"Pending"});
   const [detailU,setDetailU] = useState(null);
   const [overrideModal,setOverrideModal] = useState(null);
   const [confirmModal,setConfirmModal] = useState(null);
@@ -1408,11 +1408,11 @@ function UsersTab({members,users,setUsers,roles,permissions,currentUser,churchId
 
   const openAdd = () => {
     if(!isAdmin) { alert("Only administrators can add users."); return; }
-    setEditU(null); setForm({memberId:"",roleId:"",password:"",pin:"",status:"Pending"}); setModal(true);
+    setEditU(null); setForm({memberId:"",roleId:"",email:"",password:"",pin:"",status:"Pending"}); setModal(true);
   };
   const openEdit = u => {
     if(!isAdmin) { alert("Only administrators can edit users."); return; }
-    setEditU(u); setForm({memberId:u.memberId,roleId:u.roleId||"",password:u.password,pin:u.pin,status:u.status}); setModal(true);
+    setEditU(u); setForm({memberId:u.memberId,roleId:u.roleId||"",email:u.email||"",password:u.password,pin:u.pin,status:u.status}); setModal(true);
   };
   const save = () => {
     if(!form.memberId||!form.roleId||!form.password||form.pin.length<4){alert("All fields required. PIN must be 4 digits.");return;}
@@ -1545,6 +1545,10 @@ function UsersTab({members,users,setUsers,roles,permissions,currentUser,churchId
             <option value="">Select a member</option>
             {members.map(m=>{const taken=used.includes(m.id)&&(!editU||String(m.id)!==String(editU.memberId));return(<option key={m.id} value={m.id} disabled={taken}>{m.first} {m.last}{m.role?" ("+m.role+")":""}{taken?" — already assigned":""}</option>);})}
           </select>
+        </Fld>
+        <Fld label="Staff Login Email" style={{marginBottom:4}}>
+          <Inp type="email" value={form.email} onChange={v=>setForm(f=>({...f,email:v}))} placeholder="staff@email.com"/>
+          <div style={{fontSize:10,color:MU,marginTop:3,lineHeight:1.4}}>Required so staff can log in. Must match the email they use to register on the login page.</div>
         </Fld>
         <Fld label="Assign Role *">
           <select value={form.roleId} onChange={e=>setForm(f=>({...f,roleId:e.target.value}))} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}>
@@ -8631,7 +8635,7 @@ function ManualPage(){
 }
 
 // ── MAIN APP ──
-export default function App({churchId,churchName,adminFirst,adminLast,onSignOut}:any={}) {
+export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,loggedInEmail,isStaff}:any={}) {
   const _I = window.__NTCC_INIT__ || {};
   // Namespace localStorage by churchId so each church's data is isolated
   const LS = (key:string) => churchId ? `ntcc_${churchId}_${key}` : `ntcc_${key}`;
@@ -8674,7 +8678,9 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut}
     SEED_ROLES.forEach(r=>{ if(!result[r.id]) result[r.id]=makeEmptyPerms(); });
     return result;
   });
-  const currentUser = users.find(u=>u.superAdmin) || users[0];
+  const currentUser = isStaff
+    ? (users.find(u => u.email && u.email.toLowerCase() === (loggedInEmail||'').toLowerCase() && u.status === 'Active') || null)
+    : (users.find(u=>u.superAdmin) || users[0]);
   window.__CS__ = churchSettings;
   useEffect(()=>{
     try{
@@ -8900,6 +8906,22 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut}
     {id:"settings",label:"Settings",icon:"⚙"},
     {id:"manual",label:"Manual",icon:"📖"},
   ];
+  // Map nav IDs to MODULES keys for permission checking (null = always visible)
+  const NAV_MOD_MAP:Record<string,string|null> = {
+    dashboard:null, addperson:"directory", people:"directory",
+    visitation:"visitation", groups:"groups", education:"education",
+    maintenance:null, calendar:"events", attendance:"attendance",
+    giving:"giving", prayer:"prayer", email:null, sms:null,
+    access:"settings", ai:null, settings:"settings", manual:null,
+  };
+  // For staff, hide nav items they don't have "view" permission for
+  const visibleNAV = (!isStaff || !currentUser || currentUser.superAdmin)
+    ? NAV
+    : NAV.filter(item => {
+        const mod = NAV_MOD_MAP[item.id];
+        if(!mod) return true;
+        return checkPermission(currentUser, roles, permissions, mod, "view");
+      });
   const TITLES = {dashboard:"Dashboard",addperson:"Add Person to Database",people:"Members Profile",visitation:"Visitation & Follow-Up",education:"Education Department",maintenance:"Maintenance & Equipment",attendance:"Attendance",giving:"Giving Records",prayer:"Prayer Wall",email:"Email Center",sms:"SMS Center",access:"Access Control",ai:"AI Assistant",settings:"Church Settings",manual:"Staff Manual"};
   const pending = users.filter(u=>u.status==="Pending").length;
   const fu = visitors.filter(v=>v.stage==="Follow-Up Needed").length;
@@ -8924,7 +8946,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut}
         </div>
       </div>
       <div style={{flex:1,padding:"10px 8px",overflowY:"auto"}}>
-        {NAV.map(item=>(
+        {visibleNAV.map(item=>(
           <button key={item.id} onClick={()=>{setView(item.id);setNavOpen(false);}} style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"11px 12px",borderRadius:8,border:"none",cursor:"pointer",marginBottom:2,background:view===item.id?"#ffffff18":"transparent",color:view===item.id?"#fff":"#7a9acc",fontWeight:view===item.id?500:400,fontSize:13,textAlign:"left"}}>
             <span style={{fontSize:13,minWidth:18}}>{item.icon}</span>
             {item.label}
@@ -8938,18 +8960,43 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut}
       </div>
       <div style={{padding:"12px 14px",borderTop:"1px solid #ffffff18"}}>
         <div style={{color:"#7a9acc",fontSize:11,marginBottom:3}}>Signed in as</div>
-        <div style={{color:"#fff",fontSize:12,fontWeight:500}}>{churchSettings.pastorName}</div>
-        <div style={{color:G,fontSize:11}}>Super Administrator</div>
+        {isStaff && currentUser ? (()=>{
+          const cm = [...members,...(visitors||[])].find(m=>String(m.id)===String(currentUser.memberId));
+          const cr = roles.find(r=>r.id===currentUser.roleId);
+          return (<>
+            <div style={{color:"#fff",fontSize:12,fontWeight:500}}>{cm?cm.first+" "+cm.last:(loggedInEmail||"Staff")}</div>
+            <div style={{color:G,fontSize:11}}>{cr?cr.name:"Staff Member"}</div>
+          </>);
+        })() : (<>
+          <div style={{color:"#fff",fontSize:12,fontWeight:500}}>{churchSettings.pastorName}</div>
+          <div style={{color:G,fontSize:11}}>Super Administrator</div>
+        </>)}
         <div style={{display:"flex",alignItems:"center",gap:5,marginTop:6}}>
           <div style={{width:6,height:6,borderRadius:"50%",background:"#4ade80"}}></div>
           <span style={{fontSize:11,color:"#7a9acc"}}>ElevenLabs AI Online</span>
         </div>
+        <button onClick={onSignOut} style={{marginTop:8,width:"100%",padding:"5px 0",background:"transparent",border:"0.5px solid #ffffff22",borderRadius:6,color:"#7a9acc",fontSize:11,cursor:"pointer"}}>Sign Out</button>
       </div>
     </>
   );
 
   return (
     <div style={{display:"flex",height:"100vh",background:BG,fontFamily:"system-ui,sans-serif",fontSize:14,color:TX,overflow:"hidden"}}>
+
+      {/* Staff account not linked — show friendly error */}
+      {isStaff && !currentUser && (
+        <div style={{position:"fixed",inset:0,background:N,display:"flex",alignItems:"center",justifyContent:"center",padding:20,zIndex:9999}}>
+          <div style={{background:"#fff",borderRadius:16,padding:36,maxWidth:440,width:"100%",textAlign:"center",boxShadow:"0 24px 60px rgba(0,0,0,0.4)"}}>
+            <div style={{fontSize:48,marginBottom:12}}>🔗</div>
+            <div style={{fontSize:18,fontWeight:600,color:N,marginBottom:8}}>Account Not Linked</div>
+            <div style={{fontSize:13,color:MU,lineHeight:1.7,marginBottom:20}}>
+              Your staff account <strong style={{color:N}}>{loggedInEmail}</strong> is not linked to any user record in this church.<br/><br/>
+              Ask your administrator to open <strong>Access Control → Users</strong>, edit your record, and enter your email address there.
+            </div>
+            <button onClick={onSignOut} style={{padding:"10px 28px",background:N,color:"#fff",border:"none",borderRadius:8,fontSize:13,cursor:"pointer",fontWeight:500}}>Sign Out</button>
+          </div>
+        </div>
+      )}
 
       {/* Mobile drawer overlay */}
       {isMobile && navOpen && (
