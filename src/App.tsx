@@ -1433,7 +1433,8 @@ const MODULES=[
   {key:"visitation",label:"Visitation",icon:"Vis",desc:"Follow-up pipeline and visits",actions:["view","create","edit","delete"]},
   {key:"groups",label:"Groups Ministry",icon:"Grp",desc:"Small groups and attendance",actions:["view","create","edit","delete"]},
   {key:"education",label:"Education",icon:"Edu",desc:"Sunday School and kids check-in",actions:["view","create","edit","delete"]},
-  {key:"events",label:"Events & Calendar",icon:"Cal",desc:"Church calendar and check-ins",actions:["view","create","edit","delete"]},
+  {key:"events",label:"Event Calendar",icon:"Cal",desc:"Church calendar and events",actions:["view","create","edit","delete"]},
+  {key:"maintenance",label:"Maintenance",icon:"Mnt",desc:"Equipment, work orders, supplies, and checkouts",actions:["view","create","edit","delete"]},
   {key:"attendance",label:"Attendance",icon:"Att",desc:"Service attendance logs",actions:["view","create","edit","delete"]},
   {key:"giving",label:"Giving & Finances",icon:"Fin",desc:"Tithes, pledges, and reports",actions:["view","create","edit","delete"]},
   {key:"prayer",label:"Prayer Wall",icon:"Pry",desc:"Prayer requests",actions:["view","create","edit","delete"]},
@@ -9338,13 +9339,13 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   const NAV_MOD_MAP:Record<string,string|null> = {
     dashboard:null, addperson:"directory", people:"directory",
     visitation:"visitation", groups:"groups", education:"education",
-    maintenance:null, calendar:"events", attendance:"attendance",
+    maintenance:"maintenance", calendar:"events", attendance:"attendance",
     giving:"giving", prayer:"prayer", email:null, sms:null,
     access:"settings", ai:null, settings:"settings", manual:null,
   };
   // For staff, hide nav items they don't have "view" permission for
   // Additionally, restricted staff (non-Admin/non-SuperAdmin) always have maintenance/ai/email/sms hidden
-  const RESTRICTED_NAV_HIDDEN = ['maintenance','ai','email','sms'];
+  const RESTRICTED_NAV_HIDDEN = ['ai','email','sms'];
   const visibleNAV = (!isStaff || !currentUser || currentUser.superAdmin)
     ? NAV
     : NAV.filter(item => {
