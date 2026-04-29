@@ -3570,7 +3570,7 @@ function SmsCenter({smsLog,setSmsLog,smsTemplates,setSmsTemplates,smsConfig,setS
 }
 
 // ── VISITATION ──
-function Visitation({visitors,setVisitors,members,setMembers,users,visitRecords,setVisitRecords,setView}:any) {
+function Visitation({visitors,setVisitors,members,setMembers,users,currentUser,roles,visitRecords,setVisitRecords,setView}:any) {
   const [tab,setTab] = useState("pipeline");
   const [logModal,setLogModal] = useState(null);
   const [assignModal,setAssignModal] = useState(null);
@@ -3587,7 +3587,7 @@ function Visitation({visitors,setVisitors,members,setMembers,users,visitRecords,
     if(missing.length>0) setVisitRecords(rs=>[...rs,...missing.map(v=>({id:nid.current++,visitorId:v.id,stage:"Pastor",createdDate:v.firstVisit||td(),contacts:[],teamLeaderUserId:null,sponsorUserId:null}))]);
   },[visitors.length]);
 
-  const getRec = vid => visitRecords.find(r=>r.visitorId===vid);
+  const getRec = vid => visibleRecords.find(r=>r.visitorId===vid);
   const getV = vid => visitors.find(v=>v.id===vid);
   const getUName = uid => {
     if(!uid) return "None";
@@ -3606,8 +3606,12 @@ function Visitation({visitors,setVisitors,members,setMembers,users,visitRecords,
   const getLast = rec => rec && rec.contacts.length>0 ? rec.contacts[rec.contacts.length-1] : null;
   const activeUsers = users.filter(u=>u.status==="Active"&&!u.superAdmin);
 
+  // Role-based visibility: Super Admin and Administrator see all visits; others only see visits assigned to them
+  const isAdmin = currentUser?.superAdmin || !!(currentUser?.roleId && roles?.find((r:any)=>r.id===currentUser.roleId)?.name==="Administrator");
+  const visibleRecords = isAdmin ? visitRecords : visitRecords.filter((r:any) => r.teamLeaderUserId===currentUser?.id || r.sponsorUserId===currentUser?.id);
+
   // OngoingCare stats
-  const ongoingRecords = visitRecords.filter(r=>r.stage==="OngoingCare");
+  const ongoingRecords = visibleRecords.filter(r=>r.stage==="OngoingCare");
   const overdueRecords = ongoingRecords.filter(r=>{const s=careStatus(r);return s && s.label==="Overdue";});
   const dueSoonRecords = ongoingRecords.filter(r=>{const s=careStatus(r);return s && (s.label==="Due Today" || s.label==="Due Soon");});
 
@@ -3685,12 +3689,12 @@ function Visitation({visitors,setVisitors,members,setMembers,users,visitRecords,
 
   const genReport = async () => {
     setAiLoad(true);
-    const total = visitRecords.length;
-    const done = visitRecords.filter(r=>r.stage==="Complete").length;
+    const total = visibleRecords.length;
+    const done = visibleRecords.filter(r=>r.stage==="Complete").length;
     const ongoing = ongoingRecords.length;
     const overdue = overdueRecords.length;
     const rate = total ? Math.round(done/total*100) : 0;
-    const byStage = Object.keys(VS).map(k=>VS[k]+": "+visitRecords.filter(r=>r.stage===k).length).join(", ");
+    const byStage = Object.keys(VS).map(k=>VS[k]+": "+visibleRecords.filter(r=>r.stage===k).length).join(", ");
     const txt = await callAI([{role:"user",content:"Generate a 3-4 paragraph pastoral visitation report for Pastor Hall. Total: "+total+". By stage: "+byStage+". Currently in Ongoing Sponsor Care: "+ongoing+", of which "+overdue+" are overdue. Initial pipeline completion rate: "+rate+"%. Include a scripture and mention the importance of ongoing sponsor care."}],[],[],[],[],[],{});
     setAiRep(txt); setAiLoad(false);
   };
@@ -3700,6 +3704,13 @@ function Visitation({visitors,setVisitors,members,setMembers,users,visitRecords,
 
   return (
     <div>
+      {/* Scope notice for non-admin staff */}
+      {!isAdmin && (
+        <div style={{background:N+"0a",border:"0.5px solid "+N+"2a",borderRadius:8,padding:"9px 14px",marginBottom:14,fontSize:12,color:N,display:"flex",alignItems:"center",gap:8}}>
+          <span style={{fontSize:15}}>🔒</span>
+          <span>You are viewing <strong>your assigned visits only</strong>. Administrators see the full pipeline.</span>
+        </div>
+      )}
       {/* Overdue Alert for Pastor Hall */}
       {overdueRecords.length>0 && !careAlertDismissed && (
         <div style={{background:"#fef2f2",border:"1.5px solid "+RE+"55",borderRadius:10,padding:"12px 16px",marginBottom:16,display:"flex",alignItems:"center",gap:12}}>
@@ -3722,7 +3733,7 @@ function Visitation({visitors,setVisitors,members,setMembers,users,visitRecords,
               {label}
               {id==="ongoing" && overdueRecords.length>0 && <span style={{background:RE,color:"#fff",borderRadius:10,fontSize:10,padding:"1px 6px",fontWeight:600}}>{overdueRecords.length}</span>}
               {id==="ongoing" && overdueRecords.length===0 && ongoingRecords.length>0 && <span style={{background:G,color:"#fff",borderRadius:10,fontSize:10,padding:"1px 6px",fontWeight:500}}>{ongoingRecords.length}</span>}
-              {id==="reports" && visitRecords.filter((r:any)=>r.stage==="Complete").length>0 && <span style={{marginLeft:6,background:GR+"22",color:GR,borderRadius:10,fontSize:10,padding:"1px 6px"}}>{visitRecords.filter((r:any)=>r.stage==="Complete").length}</span>}
+              {id==="reports" && visibleRecords.filter((r:any)=>r.stage==="Complete").length>0 && <span style={{marginLeft:6,background:GR+"22",color:GR,borderRadius:10,fontSize:10,padding:"1px 6px"}}>{visibleRecords.filter((r:any)=>r.stage==="Complete").length}</span>}
             </button>
           ))}
         </div>
@@ -3733,7 +3744,7 @@ function Visitation({visitors,setVisitors,members,setMembers,users,visitRecords,
       {tab==="pipeline" && (
         <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:10}}>
           {stageList.map(stage=>{
-            const recs = visitRecords.filter(r=>r.stage===stage);
+            const recs = visibleRecords.filter(r=>r.stage===stage);
             const overdueInCol = stage==="OngoingCare" ? recs.filter(r=>{const s=careStatus(r);return s&&s.label==="Overdue";}).length : 0;
             return (
               <div key={stage}>
@@ -3979,13 +3990,13 @@ function Visitation({visitors,setVisitors,members,setMembers,users,visitRecords,
       {tab==="reports" && (
         <div>
           <div style={{display:"flex",gap:12,marginBottom:20,flexWrap:"wrap"}}>
-            <Stat label="Total Tracked" value={visitRecords.length}/>
-            <Stat label="Pastor Visit" value={visitRecords.filter(r=>r.stage==="Pastor").length} color={N}/>
-            <Stat label="Team Leader" value={visitRecords.filter(r=>r.stage==="TeamLeader").length} color={PU}/>
-            <Stat label="Sponsor" value={visitRecords.filter(r=>r.stage==="Sponsor").length} color={GR}/>
+            <Stat label="Total Tracked" value={visibleRecords.length}/>
+            <Stat label="Pastor Visit" value={visibleRecords.filter(r=>r.stage==="Pastor").length} color={N}/>
+            <Stat label="Team Leader" value={visibleRecords.filter(r=>r.stage==="TeamLeader").length} color={PU}/>
+            <Stat label="Sponsor" value={visibleRecords.filter(r=>r.stage==="Sponsor").length} color={GR}/>
             <Stat label="Ongoing Care" value={ongoingRecords.length} color={G}/>
-            <Stat label="Completed" value={visitRecords.filter(r=>r.stage==="Complete").length} color={TE}/>
-            <Stat label="Initial Completion" value={visitRecords.length ? Math.round((visitRecords.filter(r=>r.stage==="OngoingCare"||r.stage==="Complete").length)/visitRecords.length*100)+"%" : "0%"} color={GR}/>
+            <Stat label="Completed" value={visibleRecords.filter(r=>r.stage==="Complete").length} color={TE}/>
+            <Stat label="Initial Completion" value={visibleRecords.length ? Math.round((visibleRecords.filter(r=>r.stage==="OngoingCare"||r.stage==="Complete").length)/visibleRecords.length*100)+"%" : "0%"} color={GR}/>
           </div>
           <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:18,marginBottom:20}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
@@ -9487,7 +9498,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
               />
             </div>
           )}
-          {view==="visitation" && <Visitation visitors={visitors} setVisitors={setVisitors} members={members} setMembers={setMembers} users={users} visitRecords={visitRecords} setVisitRecords={setVisitRecords} setView={setView}/>}
+          {view==="visitation" && <Visitation visitors={visitors} setVisitors={setVisitors} members={members} setMembers={setMembers} users={users} currentUser={currentUser} roles={roles} visitRecords={visitRecords} setVisitRecords={setVisitRecords} setView={setView}/>}
           {view==="attendance" && <Attendance attendance={attendance} setAttendance={setAttendance} setView={setView}/>}
           {view==="giving" && <Giving giving={giving} setGiving={setGiving} pledgeDrives={pledgeDrives} setPledgeDrives={setPledgeDrives} pledges={pledges} setPledges={setPledges} members={members} visitors={visitors} weeklyReports={weeklyReports} setWeeklyReports={setWeeklyReports} emailTemplates={emailTemplates}/>}
           {view==="prayer" && <Prayer prayers={prayers} setPrayers={setPrayers}/>}
