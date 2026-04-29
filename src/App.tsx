@@ -7020,19 +7020,21 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
 }
 
 // ── PRAYER ──
-function Prayer({prayers,setPrayers}) {
-  const [modal,setModal] = useState(false);
+function Prayer({prayers,setPrayers,portalMode=false,portalMember=null}:any) {
+  const [modal,setModal] = useState(portalMode); // open form immediately in portal mode
+  const [submitted,setSubmitted] = useState(false);
   const [respModal,setRespModal] = useState(null);
   const [aiResp,setAiResp] = useState("");
   const [load,setLoad] = useState(false);
-  const [form,setForm] = useState({name:"",request:"",date:td(),status:"Active"});
+  const [form,setForm] = useState({name:portalMember?(portalMember.first+" "+portalMember.last):"",request:"",date:td(),status:"Active"});
   const nid = useRef(500);
-  const sf = k => v => setForm(f=>({...f,[k]:v}));
+  const sf = (k:string) => (v:any) => setForm((f:any)=>({...f,[k]:v}));
   const save = () => {
     if(!form.request){alert("Request required.");return;}
     setPrayers([{...form,id:nid.current++},...prayers]);
     setModal(false);
-    setForm({name:"",request:"",date:td(),status:"Active"});
+    setForm({name:portalMember?(portalMember.first+" "+portalMember.last):"",request:"",date:td(),status:"Active"});
+    if(portalMode) setSubmitted(true);
   };
   const genAi = async p => {
     setLoad(true);
@@ -7040,6 +7042,32 @@ function Prayer({prayers,setPrayers}) {
     const txt = await callAI([{role:"user",content:prompt}],[],[],[],[],[],{});
     setAiResp(txt); setLoad(false);
   };
+  // Portal mode: only show submit form
+  if(portalMode) {
+    if(submitted) return (
+      <div style={{maxWidth:500,margin:"40px auto",textAlign:"center",padding:32}}>
+        <div style={{fontSize:48,marginBottom:12}}>🙏</div>
+        <div style={{fontSize:20,fontWeight:600,color:N,marginBottom:8}}>Prayer Submitted</div>
+        <div style={{fontSize:14,color:MU,lineHeight:1.7,marginBottom:24}}>Your prayer request has been submitted. Our pastoral team will be praying with you.</div>
+        <Btn onClick={()=>{setSubmitted(false);setModal(true);}}>Submit Another Request</Btn>
+      </div>
+    );
+    return (
+      <div style={{maxWidth:500,margin:"0 auto"}}>
+        <div style={{background:"#fff",border:"0.5px solid "+BR,borderRadius:12,padding:24}}>
+          <div style={{fontSize:16,fontWeight:600,color:N,marginBottom:4}}>🙏 Prayer Request</div>
+          <div style={{fontSize:13,color:MU,marginBottom:20,lineHeight:1.6}}>Share your prayer need with our pastoral team. Your request is confidential.</div>
+          <Fld label="Your Name">
+            <Inp value={form.name} onChange={sf("name")} placeholder="Your name (optional — leave blank for anonymous)"/>
+          </Fld>
+          <Fld label="Prayer Request *">
+            <textarea value={form.request} onChange={e=>sf("request")(e.target.value)} rows={5} placeholder="Share your prayer request..." style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",fontFamily:"inherit",resize:"vertical",boxSizing:"border-box"}}/>
+          </Fld>
+          <Btn onClick={save} style={{width:"100%",justifyContent:"center",marginTop:8}}>Submit Prayer Request</Btn>
+        </div>
+      </div>
+    );
+  }
   return (
     <div>
       <div style={{display:"flex",gap:12,marginBottom:20}}>
@@ -9043,6 +9071,156 @@ function ManualPage(){
   );
 }
 
+// ── MEMBER PORTAL — self-service profile + giving view for email/password members ──
+function MemberProfilePortal({member,setMembers,giving,onSignOut}:any) {
+  const [tab,setTab] = useState("profile");
+  const [editMode,setEditMode] = useState(false);
+  const [form,setForm] = useState({...member,address:member.address||{...EMPTY_ADDR},children:member.children||[],allergies:member.allergies||[],medical:member.medical||[]});
+  const ef = (k:string) => (v:any) => setForm((f:any)=>({...f,[k]:v}));
+  const efa = (k:string) => (v:any) => setForm((f:any)=>({...f,address:{...(f.address||{}),[k]:v}}));
+  const save = () => {
+    if(!form.first||!form.last){alert("Name required.");return;}
+    setMembers((ms:any[])=>ms.map((m:any)=>m.id===member.id?{...m,...form}:m));
+    setEditMode(false);
+  };
+  const addChild = () => setForm((f:any)=>({...f,children:[...(f.children||[]),{name:"",birthday:""}]}));
+  const updChild = (i:number,k:string,v:any) => setForm((f:any)=>({...f,children:f.children.map((c:any,idx:number)=>idx===i?{...c,[k]:v}:c)}));
+  const remChild = (i:number) => setForm((f:any)=>({...f,children:f.children.filter((_:any,idx:number)=>idx!==i)}));
+
+  const fullName = member.first+" "+member.last;
+  const myGiving = giving.filter((g:any)=>g.name===fullName);
+  const totalGiven = myGiving.reduce((a:number,g:any)=>a+Number(g.amount||0),0);
+  const sorted = [...myGiving].sort((a:any,b:any)=>b.date.localeCompare(a.date));
+
+  const TABS = [{id:"profile",label:"Personal Info"},{id:"giving",label:"My Giving"}];
+
+  const InfoRow = ({label,value,empty="Not on file"}:any) => (
+    <div style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"0.5px solid "+BR,alignItems:"baseline",gap:10}}>
+      <span style={{fontSize:11,color:MU,fontWeight:500,flexShrink:0}}>{label}</span>
+      <span style={{fontSize:13,fontWeight:500,color:value?TX:MU,fontStyle:value?"normal":"italic",textAlign:"right",wordBreak:"break-word"}}>{value||empty}</span>
+    </div>
+  );
+
+  return (
+    <div style={{maxWidth:700,margin:"0 auto",padding:"0 4px"}}>
+      {/* Header card */}
+      <div style={{background:"#fff",border:"0.5px solid "+BR,borderRadius:12,padding:20,marginBottom:16,display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}>
+        <Av f={member.first} l={member.last} sz={56}/>
+        <div style={{flex:1,minWidth:160}}>
+          <div style={{fontSize:20,fontWeight:600,color:N}}>{member.first} {member.last}</div>
+          <div style={{fontSize:13,color:MU,marginTop:2}}>{member.role||"Member"} · {member.status||"Active"}</div>
+          {member.email&&<div style={{fontSize:12,color:MU,marginTop:2}}>{member.email}</div>}
+        </div>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          {editMode
+            ?<><Btn onClick={save}>Save Changes</Btn><Btn v="ghost" onClick={()=>setEditMode(false)}>Cancel</Btn></>
+            :<Btn v="gold" onClick={()=>setEditMode(true)}>Edit Profile</Btn>}
+          <button onClick={onSignOut} style={{padding:"7px 14px",background:"#fee2e2",border:"0.5px solid #fca5a5",borderRadius:8,fontSize:12,fontWeight:600,color:"#dc2626",cursor:"pointer"}}>Sign Out</button>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div style={{display:"flex",gap:6,marginBottom:14}}>
+        {TABS.map(t=>(
+          <button key={t.id} onClick={()=>setTab(t.id)} style={{padding:"7px 16px",borderRadius:8,border:"0.5px solid "+BR,background:tab===t.id?N:"#fff",color:tab===t.id?"#fff":TX,fontWeight:500,fontSize:13,cursor:"pointer"}}>
+            {t.label}{t.id==="giving"&&myGiving.length?<span style={{marginLeft:6,background:G,color:N,borderRadius:10,fontSize:10,padding:"1px 7px",fontWeight:700}}>{myGiving.length}</span>:null}
+          </button>
+        ))}
+      </div>
+
+      {/* Personal Info Tab */}
+      {tab==="profile"&&(
+        <div style={{background:"#fff",border:"0.5px solid "+BR,borderRadius:12,padding:18}}>
+          {editMode?(
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                <Fld label="First Name"><Inp value={form.first} onChange={ef("first")}/></Fld>
+                <Fld label="Last Name"><Inp value={form.last} onChange={ef("last")}/></Fld>
+                <Fld label="Phone"><Inp value={form.phone||""} onChange={ef("phone")}/></Fld>
+                <Fld label="Email"><Inp value={form.email||""} onChange={ef("email")}/></Fld>
+                <Fld label="Birthday"><Inp type="date" value={form.birthday||""} onChange={ef("birthday")}/></Fld>
+                <Fld label="Anniversary"><Inp type="date" value={form.anniversary||""} onChange={ef("anniversary")}/></Fld>
+                <Fld label="Spouse Name"><Inp value={form.spouseName||""} onChange={ef("spouseName")}/></Fld>
+                <Fld label="Occupation"><Inp value={form.occupation||""} onChange={ef("occupation")}/></Fld>
+                <Fld label="Employer"><Inp value={form.employer||""} onChange={ef("employer")}/></Fld>
+                <Fld label="Baptism Date"><Inp type="date" value={form.baptismDate||""} onChange={ef("baptismDate")}/></Fld>
+                <Fld label="Salvation Date"><Inp type="date" value={form.salvationDate||""} onChange={ef("salvationDate")}/></Fld>
+              </div>
+              <Fld label="Street Address"><Inp value={form.address?.street||""} onChange={efa("street")}/></Fld>
+              <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr",gap:10}}>
+                <Fld label="City"><Inp value={form.address?.city||""} onChange={efa("city")}/></Fld>
+                <Fld label="State"><Inp value={form.address?.state||""} onChange={efa("state")}/></Fld>
+                <Fld label="ZIP"><Inp value={form.address?.zip||""} onChange={efa("zip")}/></Fld>
+              </div>
+              <Fld label="Emergency Contact Name"><Inp value={form.emergencyName||""} onChange={ef("emergencyName")}/></Fld>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                <Fld label="Emergency Phone"><Inp value={form.emergencyPhone||""} onChange={ef("emergencyPhone")}/></Fld>
+                <Fld label="Relation"><Inp value={form.emergencyRelation||""} onChange={ef("emergencyRelation")}/></Fld>
+              </div>
+              <div>
+                <div style={{fontSize:11,color:MU,fontWeight:500,marginBottom:6}}>Children</div>
+                {(form.children||[]).map((c:any,i:number)=>(
+                  <div key={i} style={{display:"flex",gap:8,marginBottom:6,alignItems:"center"}}>
+                    <Inp style={{flex:2}} value={c.name} onChange={(v:string)=>updChild(i,"name",v)} placeholder="Name"/>
+                    <Inp style={{flex:1}} type="date" value={c.birthday} onChange={(v:string)=>updChild(i,"birthday",v)}/>
+                    <button onClick={()=>remChild(i)} style={{background:"#fee2e2",border:"none",borderRadius:6,padding:"6px 10px",cursor:"pointer",color:"#dc2626",fontWeight:700,fontSize:13}}>×</button>
+                  </div>
+                ))}
+                <Btn v="ghost" onClick={addChild} style={{fontSize:12,marginTop:2}}>+ Add Child</Btn>
+              </div>
+              <Fld label="Medical Notes"><textarea value={form.medicalNotes||""} onChange={e=>ef("medicalNotes")(e.target.value)} rows={2} placeholder="Any medical info or notes..." style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",fontFamily:"inherit",resize:"vertical",boxSizing:"border-box"}}/></Fld>
+            </div>
+          ):(
+            <div>
+              <InfoRow label="Phone" value={member.phone}/>
+              <InfoRow label="Email" value={member.email}/>
+              <InfoRow label="Address" value={[member.address?.street,member.address?.city,member.address?.state,member.address?.zip].filter(Boolean).join(", ")}/>
+              <InfoRow label="Birthday" value={member.birthday?fd(member.birthday):null}/>
+              <InfoRow label="Anniversary" value={member.anniversary?fd(member.anniversary):null}/>
+              <InfoRow label="Spouse" value={member.spouseName}/>
+              <InfoRow label="Occupation" value={member.occupation}/>
+              <InfoRow label="Employer" value={member.employer}/>
+              <InfoRow label="Baptism Date" value={member.baptismDate?fd(member.baptismDate):null}/>
+              <InfoRow label="Salvation Date" value={member.salvationDate?fd(member.salvationDate):null}/>
+              <InfoRow label="Emergency Contact" value={member.emergencyName?`${member.emergencyName}${member.emergencyRelation?" ("+member.emergencyRelation+")":""} — ${member.emergencyPhone||""}`:null}/>
+              {(member.children||[]).length>0&&<div style={{padding:"7px 0",borderBottom:"0.5px solid "+BR}}>
+                <span style={{fontSize:11,color:MU,fontWeight:500}}>Children</span>
+                <div style={{marginTop:4}}>{(member.children||[]).map((c:any,i:number)=><div key={i} style={{fontSize:13,color:TX}}>{c.name}{c.birthday?" · "+fd(c.birthday):""}</div>)}</div>
+              </div>}
+              <InfoRow label="Medical Notes" value={member.medicalNotes}/>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Giving Tab */}
+      {tab==="giving"&&(
+        <div>
+          <div style={{display:"flex",gap:10,marginBottom:14,flexWrap:"wrap"}}>
+            <Stat label="Total Given" value={"$"+totalGiven.toLocaleString()} color={GR}/>
+            <Stat label="Gifts" value={myGiving.length}/>
+            <Stat label="Avg Gift" value={myGiving.length?"$"+Math.round(totalGiven/myGiving.length).toLocaleString():"—"}/>
+          </div>
+          {sorted.length===0
+            ?<div style={{background:"#fff",border:"0.5px solid "+BR,borderRadius:12,padding:40,textAlign:"center",color:MU}}>No giving records on file.</div>
+            :<div style={{display:"flex",flexDirection:"column",gap:8}}>
+              {sorted.map((g:any,i:number)=>(
+                <div key={i} style={{background:"#fff",border:"0.5px solid "+BR,borderRadius:10,padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                  <div>
+                    <div style={{fontSize:13,fontWeight:500,color:TX}}>{g.category||"General"}</div>
+                    <div style={{fontSize:11,color:MU}}>{fd(g.date)}{g.method?" · "+g.method:""}</div>
+                  </div>
+                  <div style={{fontSize:15,fontWeight:600,color:GR}}>${Number(g.amount||0).toLocaleString()}</div>
+                </div>
+              ))}
+            </div>
+          }
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── MAIN APP ──
 export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,loggedInEmail,isStaff}:any={}) {
   const _I = window.__NTCC_INIT__ || {};
@@ -9104,6 +9282,11 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   // Restricted users = staff who are NOT Super Admin and NOT Administrator role
   const _staffRoleName = _staffRecord ? (roles.find((r:any) => r.id === _staffRecord.roleId)||{}).name||'' : '';
   const isRestrictedUser = isStaff && !currentUser?.superAdmin && _staffRoleName !== 'Administrator';
+  // Member Portal: email/password login whose email matches a member record but is not in the staff users list
+  const portalMember = (isStaff && !currentUser)
+    ? (members.find((m:any) => m.email && m.email.toLowerCase() === (loggedInEmail||'').toLowerCase()) || null)
+    : null;
+  const isMemberPortal = !!portalMember;
   window.__CS__ = churchSettings;
   useEffect(()=>{
     try{
@@ -9124,6 +9307,14 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     try{localStorage.setItem(LS('church_settings'),JSON.stringify(churchSettings));}catch(e){}
   },[JSON.stringify(churchSettings)]);
   const [portalMembers,setPortalMembers] = useState([]);
+  // Set initial view for member portal users (once members load from Supabase)
+  const _portalViewInitRef = useRef(false);
+  useEffect(()=>{
+    if(isMemberPortal && !_portalViewInitRef.current){
+      setView('myprofile');
+      _portalViewInitRef.current = true;
+    }
+  },[isMemberPortal]);
   const [groups,setGroups] = useState(()=>{ const g=lsGet('groups') ?? _I.groups ?? []; return g.map((x:any)=>x.showOnCalendar===undefined?{...x,showOnCalendar:true}:x); });
   const [grpMeetings,setGrpMeetings] = useState(lsGet('grpMeetings') ?? _I.grpMeetings ?? []);
   const [recurring,setRecurring] = useState(lsGet('recurring') ?? INIT_RECURRING);
@@ -9346,7 +9537,13 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   // For staff, hide nav items they don't have "view" permission for
   // Additionally, restricted staff (non-Admin/non-SuperAdmin) always have maintenance/ai/email/sms hidden
   const RESTRICTED_NAV_HIDDEN = ['ai','email','sms'];
-  const visibleNAV = (!isStaff || !currentUser || currentUser.superAdmin)
+  const PORTAL_NAV = [
+    {id:"myprofile",label:"My Profile",icon:"👤"},
+    {id:"prayer",label:"Prayer Wall",icon:"Pr"},
+  ];
+  const visibleNAV = isMemberPortal
+    ? PORTAL_NAV
+    : (!isStaff || !currentUser || currentUser.superAdmin)
     ? NAV
     : NAV.filter(item => {
         if(isRestrictedUser && RESTRICTED_NAV_HIDDEN.includes(item.id)) return false;
@@ -9354,7 +9551,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
         if(!mod) return true;
         return checkPermission(currentUser, roles, permissions, mod, "view");
       });
-  const TITLES = {dashboard:"Dashboard",addperson:"Add Person to Database",people:"Members Profile",visitation:"Visitation & Follow-Up",education:"Education Department",maintenance:"Maintenance & Equipment",attendance:"Attendance",giving:"Giving Records",prayer:"Prayer Wall",email:"Email Center",sms:"SMS Center",access:"Access Control",ai:"AI Assistant",settings:"Church Settings",manual:"Staff Manual"};
+  const TITLES:any = {dashboard:"Dashboard",addperson:"Add Person to Database",people:"Members Profile",visitation:"Visitation & Follow-Up",education:"Education Department",maintenance:"Maintenance & Equipment",attendance:"Attendance",giving:"Giving Records",prayer:"Prayer Wall",email:"Email Center",sms:"SMS Center",access:"Access Control",ai:"AI Assistant",settings:"Church Settings",manual:"Staff Manual",myprofile:"My Profile"};
   const pending = users.filter(u=>u.status==="Pending").length;
   const fu = visitors.filter(v=>v.stage==="Follow-Up Needed").length;
   const inVis = visitRecords.filter(r=>r.stage!=="Complete").length;
@@ -9391,9 +9588,12 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       </div>
       <div style={{padding:"12px 14px",borderTop:"1px solid #ffffff18"}}>
         <div style={{color:"#7a9acc",fontSize:11,marginBottom:3}}>Signed in as</div>
-        {isStaff && currentUser ? (()=>{
-          const cm = [...members,...(visitors||[])].find(m=>String(m.id)===String(currentUser.memberId));
-          const cr = roles.find(r=>r.id===currentUser.roleId);
+        {isMemberPortal ? (<>
+          <div style={{color:"#fff",fontSize:12,fontWeight:500}}>{portalMember.first+" "+portalMember.last}</div>
+          <div style={{color:G,fontSize:11}}>Member</div>
+        </>) : isStaff && currentUser ? (()=>{
+          const cm = [...members,...(visitors||[])].find((m:any)=>String(m.id)===String(currentUser.memberId));
+          const cr = roles.find((r:any)=>r.id===currentUser.roleId);
           return (<>
             <div style={{color:"#fff",fontSize:12,fontWeight:500}}>{cm?cm.first+" "+cm.last:(loggedInEmail||"Staff")}</div>
             <div style={{color:G,fontSize:11}}>{cr?cr.name:"Staff Member"}</div>
@@ -9415,7 +9615,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     <div style={{display:"flex",height:"100vh",background:BG,fontFamily:"system-ui,sans-serif",fontSize:14,color:TX,overflow:"hidden"}}>
 
       {/* Staff account not linked — show friendly error */}
-      {isStaff && !currentUser && (
+      {isStaff && !currentUser && !isMemberPortal && (
         <div style={{position:"fixed",inset:0,background:N,display:"flex",alignItems:"center",justifyContent:"center",padding:20,zIndex:9999}}>
           <div style={{background:"#fff",borderRadius:16,padding:36,maxWidth:440,width:"100%",textAlign:"center",boxShadow:"0 24px 60px rgba(0,0,0,0.4)"}}>
             <div style={{fontSize:48,marginBottom:12}}>🔗</div>
@@ -9508,7 +9708,8 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           {view==="visitation" && <Visitation visitors={visitors} setVisitors={setVisitors} members={members} setMembers={setMembers} users={users} currentUser={currentUser} roles={roles} visitRecords={visitRecords} setVisitRecords={setVisitRecords} setView={setView}/>}
           {view==="attendance" && <Attendance attendance={attendance} setAttendance={setAttendance} setView={setView}/>}
           {view==="giving" && <Giving giving={giving} setGiving={setGiving} pledgeDrives={pledgeDrives} setPledgeDrives={setPledgeDrives} pledges={pledges} setPledges={setPledges} members={members} visitors={visitors} weeklyReports={weeklyReports} setWeeklyReports={setWeeklyReports} emailTemplates={emailTemplates}/>}
-          {view==="prayer" && <Prayer prayers={prayers} setPrayers={setPrayers}/>}
+          {view==="prayer" && <Prayer prayers={prayers} setPrayers={setPrayers} portalMode={isMemberPortal} portalMember={portalMember}/>}
+          {view==="myprofile" && isMemberPortal && <MemberProfilePortal member={portalMember} setMembers={setMembers} giving={giving} onSignOut={onSignOut}/>}
           {view==="sms" && <SmsCenter smsLog={smsLog} setSmsLog={setSmsLog} smsTemplates={smsTemplates} setSmsTemplates={setSmsTemplates} smsConfig={smsConfig} setSmsConfig={setSmsConfig} members={members} visitors={visitors} cs={churchSettings} onCompose={()=>openSmsComposer({})} onBulkCompose={()=>openBulkSmsComposer({recipients:[...members,...visitors].filter(p=>p.phone).map(p=>({...p,first:p.first,last:p.last,name:p.first+" "+p.last}))})}/>}
           {view==="email" && <EmailCenter emailLog={emailLog} setEmailLog={setEmailLog} emailTemplates={emailTemplates} setEmailTemplates={setEmailTemplates} emailConfig={emailConfig} setEmailConfig={setEmailConfig} members={members} visitors={visitors} cs={churchSettings} onCompose={()=>openEmailComposer({})} onBulkCompose={()=>openBulkEmailComposer({recipients:members.filter(m=>m.email).map(m=>({name:m.first+" "+m.last,first:m.first,last:m.last,email:m.email}))})}/>}
           {view==="access" && <Access members={members} users={users} setUsers={setUsers} roles={roles} setRoles={setRoles} permissions={permissions} setPermissions={setPermissions} portalMembers={portalMembers} setPortalMembers={setPortalMembers} currentUser={currentUser} churchId={churchId}/>}
