@@ -1028,7 +1028,7 @@ function BackupRestore({backupData,onRestore}:any){
   );
 }
 
-function ChurchSettingsPage({cs,setCs,members,setMembers,visitors,setVisitors,attendance,giving,prayers,groups,grpMeetings,visitRecords,checkIns,kidsCheckIns,children,pledgeDrives,pledges,weeklyReports,equipment,workOrders,schedMaint,backupData,onRestore}:any){
+function ChurchSettingsPage({cs,setCs,members,setMembers,visitors,setVisitors,attendance,giving,prayers,groups,grpMeetings,visitRecords,checkIns,kidsCheckIns,children,pledgeDrives,pledges,weeklyReports,equipment,workOrders,schedMaint,backupData,onRestore,darkMode,setDarkMode}:any){
   const [form,setForm]=useState({...cs});
   const [saved,setSaved]=useState(false);
   const [stab,setStab]=useState('general');
@@ -1080,6 +1080,20 @@ function ChurchSettingsPage({cs,setCs,members,setMembers,visitors,setVisitors,at
         <div style={{marginTop:12,padding:"10px 12px",background:N,borderRadius:8,display:"flex",alignItems:"center",gap:10}}>
           {form.logoUrl?<img src={form.logoUrl} style={{width:32,height:32,borderRadius:7,objectFit:"cover",flexShrink:0,border:"1px solid #ffffff33"}} alt="" onError={e=>e.target.style.display="none"}/>:<div style={{width:32,height:32,borderRadius:7,background:G,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"#fff",flexShrink:0}}>{logoInitials}</div>}
           <div style={{minWidth:0}}><div style={{color:"#fff",fontWeight:500,fontSize:12,lineHeight:1.2,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis"}}>{form.name||"Your Church"}</div><div style={{color:"#7a9acc",fontSize:10,marginTop:1}}>{form.pastorName||"Pastor Name"}</div></div>
+        </div>
+      </div>
+    </div>
+    {/* Appearance */}
+    <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:18,marginBottom:16}}>
+      <h3 style={{fontSize:14,fontWeight:500,color:N,margin:"0 0 14px"}}>🎨 Appearance</h3>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12}}>
+        <div>
+          <div style={{fontSize:13,fontWeight:500,color:TX}}>{darkMode?"Dark Mode":"Light Mode"}</div>
+          <div style={{fontSize:12,color:MU,marginTop:2}}>Choose your preferred color theme. Saved per device.</div>
+        </div>
+        <div style={{display:"flex",gap:8}}>
+          <button onClick={()=>setDarkMode(false)} style={{padding:"8px 18px",borderRadius:8,border:"0.5px solid "+(darkMode?BR:N),background:darkMode?W:N,color:darkMode?MU:"#fff",fontSize:13,fontWeight:500,cursor:"pointer"}}>☀️ Light</button>
+          <button onClick={()=>setDarkMode(true)} style={{padding:"8px 18px",borderRadius:8,border:"0.5px solid "+(darkMode?N:BR),background:darkMode?N:W,color:darkMode?"#fff":MU,fontSize:13,fontWeight:500,cursor:"pointer"}}>🌙 Dark</button>
         </div>
       </div>
     </div>
@@ -1364,8 +1378,10 @@ function MergeTool({members,setMembers,visitors,setVisitors}:any){
 
 
 
-const N="#1a2e5a",G="#c9a84c",GL="#f5e9c8",BG="#f4f6fb",W="#fff",BR="#e2e5ec";
-const MU="#6b7280",TX="#1f2937",GR="#16a34a",RE="#dc2626",AM="#d97706",BL="#2563eb",PU="#7c3aed",TE="#0891b2";
+const N="#1a2e5a",G="#c9a84c";
+let GL="#f5e9c8",BG="#f4f6fb",W="#fff",BR="#e2e5ec";
+let MU="#6b7280",TX="#1f2937";
+const GR="#16a34a",RE="#dc2626",AM="#d97706",BL="#2563eb",PU="#7c3aed",TE="#0891b2";
 
 const EL_KEY="sk_7fd85f85f4f23d141576c41114a2bd693939b9b8ecc81efd";
 const SILENT_WAV="data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
@@ -9286,6 +9302,10 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   const sbSyncTimer = useRef<any>(null);
   const [isMobile,setIsMobile] = useState(window.innerWidth<768);
   const [navOpen,setNavOpen] = useState(false);
+  const [darkMode,setDarkMode] = useState(()=>localStorage.getItem('ntcc_dark_mode')==='1');
+  // Update color variables for dark/light mode (runs on every render — must stay before any JSX)
+  if(darkMode){GL="#2d2208";BG="#0f172a";W="#1e293b";BR="#2d3748";MU="#94a3b8";TX="#e2e8f0";}
+  else{GL="#f5e9c8";BG="#f4f6fb";W="#fff";BR="#e2e5ec";MU="#6b7280";TX="#1f2937";}
   useEffect(()=>{
     const fn=()=>setIsMobile(window.innerWidth<768);
     window.addEventListener("resize",fn);
@@ -9344,6 +9364,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     : currentUser?.superAdmin
       ? true
       : checkPermission(currentUser, roles, permissions, 'addvisitor', 'create');
+  useEffect(()=>{ localStorage.setItem('ntcc_dark_mode', darkMode?'1':'0'); },[darkMode]);
   // Member Portal: email/password login whose email matches a member record but is not in the staff users list
   const _matchMemberByName = (list:any[]) => displayName
     ? list.find((m:any) => {
@@ -9689,6 +9710,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
 
   return (
     <div style={{display:"flex",height:"100vh",background:BG,fontFamily:"system-ui,sans-serif",fontSize:14,color:TX,overflow:"hidden"}}>
+      <style>{`*{transition:background-color 0.2s,color 0.2s,border-color 0.2s;}@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}`}</style>
 
       {/* Portal / staff loading guard — while Supabase loads, we don't know if they're portal or unlinked */}
       {isStaff && !currentUser && cloudSync === 'loading' && (
@@ -9752,6 +9774,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
             {cloudSync==='saved' && <div style={{fontSize:11,color:GR,display:"flex",alignItems:"center",gap:4}}><span style={{width:8,height:8,borderRadius:"50%",background:GR,display:"inline-block"}}></span>Saved ✓</div>}
             {cloudSync==='error' && <div style={{fontSize:11,color:RE,display:"flex",alignItems:"center",gap:4}}>⚠ Sync error</div>}
             {!isStaff && <button onClick={()=>{setView("ai");setNavOpen(false);}} style={{background:GL,border:"1px solid "+G,borderRadius:8,padding:isMobile?"7px 10px":"7px 12px",cursor:"pointer",fontSize:12,fontWeight:500,color:"#7a5c10",whiteSpace:"nowrap"}}>AI</button>}
+            <button onClick={()=>setDarkMode(d=>!d)} title={darkMode?"Switch to Light Mode":"Switch to Dark Mode"} style={{background:darkMode?"#334155":"#f1f5f9",border:"0.5px solid "+(darkMode?"#475569":"#e2e5ec"),borderRadius:8,padding:isMobile?"7px 10px":"7px 12px",cursor:"pointer",fontSize:14,lineHeight:1,flexShrink:0}}>{darkMode?"☀️":"🌙"}</button>
             {!isStaff && <button onClick={()=>{setView("settings");setNavOpen(false);}} style={{background:N+"12",border:"0.5px solid "+N+"33",borderRadius:8,padding:isMobile?"7px 10px":"7px 12px",cursor:"pointer",fontSize:12,fontWeight:500,color:N}}>⚙</button>}
             {onSignOut&&<button onClick={onSignOut} title="Sign Out" style={{background:"#fee2e2",border:"0.5px solid #fca5a5",borderRadius:8,padding:isMobile?"7px 10px":"7px 12px",cursor:"pointer",fontSize:12,fontWeight:600,color:"#dc2626",whiteSpace:"nowrap"}}>Sign Out</button>}
           </div>
@@ -9766,6 +9789,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
               const s=(setter:any,key:string,isArr=true)=>{if(d[key]===undefined)return;if(mode==='replace'){setter(d[key]);}else{if(isArr&&Array.isArray(d[key])){setter((cur:any[])=>[...cur,...d[key].filter((n:any)=>!cur.find(x=>String(x.id)===String(n.id)))]);}else{setter(d[key]);}}};
               s(setMembers,'members');s(setVisitors,'visitors');s(setAttendance,'attendance');s(setGiving,'giving');s(setPrayers,'prayers');s(setGroups,'groups');s(setGrpMeetings,'grpMeetings');s(setVisitRecords,'visitRecords');s(setCheckIns,'checkIns');s(setKidsCheckIns,'kidsCheckIns');s(setChildren,'children');s(setPledgeDrives,'pledgeDrives');s(setPledges,'pledges');s(setWeeklyReports,'weeklyReports');s(setEquipment,'equipment');s(setWorkOrders,'workOrders');s(setSchedMaint,'schedMaint');s(setSupplies,'supplies');s(setCheckoutItems,'checkoutItems');s(setCheckouts,'checkouts');s(setUsers,'users');s(setRoles,'roles');s(setPermissions,'permissions',false);s(setRecurring,'recurring');s(setCustom,'custom');s(setEmailLog,'emailLog');s(setEmailTemplates,'emailTemplates',false);s(setEmailConfig,'emailConfig',false);s(setIncidents,'incidents');s(setRollCalls,'rollCalls');s(setProgressNotes,'progressNotes');s(setTeacherSchedule,'teacherSchedule');if(d.churchSettings&&mode==='replace')setChurchSettings(d.churchSettings);
             }}
+            darkMode={darkMode} setDarkMode={setDarkMode}
           />}
           {!isMemberPortal && view==="dashboard" && <Dashboard members={members} visitors={visitors} attendance={attendance} giving={giving} prayers={prayers} setView={setView} canViewGiving={canViewGiving} isRestrictedUser={isRestrictedUser} canAddPerson={canAddPerson}/>}
           {!isMemberPortal && view==="addperson" && <AddMemberPage members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} currentUser={currentUser} roles={roles} permissions={permissions} setView={setView}/>}
