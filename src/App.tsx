@@ -5816,8 +5816,8 @@ function WeeklyReports({giving,weeklyReports,setWeeklyReports}){
                           style={{fontSize:12,fontWeight:600,color:N,border:"1.5px solid "+G,borderRadius:6,padding:"3px 6px",background:GL+"44",cursor:"pointer"}}
                           onClick={e=>e.stopPropagation()}
                         >
-                          {[10,20,30,40,50,60].map(p=>(
-                            <option key={p} value={p}>{p}%{p===globalDrawPct?" (default)":""}</option>
+                          {[0,10,20,30,40,50,60].map(p=>(
+                            <option key={p} value={p}>{p===0?"0% — No Draw":p+"%"}{p===globalDrawPct?" (default)":""}</option>
                           ))}
                         </select>
                       </div>
