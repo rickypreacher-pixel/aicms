@@ -8729,7 +8729,7 @@ function ManualPage(){
         <div style={{background:N,borderRadius:12,padding:'20px 24px',marginBottom:20}}>
           <div style={{color:'#fff',fontSize:21,fontWeight:600,letterSpacing:0.3}}>ChurchOS Staff Manual</div>
           <div style={{color:G,fontSize:13,marginTop:4}}>New Testament Christian Church — Administrator Guide</div>
-          <div style={{color:'#7a9acc',fontSize:12,marginTop:6}}>Version 5.1 · April 2026 · For internal staff use</div>
+          <div style={{color:'#7a9acc',fontSize:12,marginTop:6}}>Version 5.2 · April 2026 · For internal staff use</div>
         </div>
 
         <Sec><H id="s1">1. Getting Started</H>
@@ -8968,16 +8968,43 @@ function ManualPage(){
           <Warn>Replace All is permanent and immediate. Always download a fresh backup of your current data before restoring from an older file. You cannot undo a Replace All restore.</Warn>
         </Sec>
 
-        <Sec><H id="s18">18. Maintenance & Equipment</H>
-          <P>The <B>Maintenance</B> section tracks church property, equipment condition, work orders, and scheduled preventive maintenance tasks.</P>
+        <Sec><H id="s18">18. Maintenance &amp; Equipment</H>
+          <P>The <B>Maintenance</B> section tracks church property, equipment condition, work orders, scheduled preventive maintenance, loanable equipment checkouts, and cleaning/consumable supplies. It contains seven tabs: <B>Dashboard</B>, <B>Equipment</B>, <B>Work Orders</B>, <B>Scheduled</B>, <B>🔑 Checkouts</B>, <B>🧹 Supplies</B>, and <B>Reports</B>.</P>
           <H3>Equipment Register</H3>
-          <Ol><Li>Go to <B>Maintenance</B> in the sidebar and click <B>+ Add Equipment</B></Li><Li>Enter the item name, category, location (Sanctuary, Fellowship Hall, Office, Education), purchase date, warranty expiry date, and current condition</Li><Li>Click <B>Save</B></Li></Ol>
+          <Ol><Li>Go to <B>Maintenance</B> in the sidebar and click the <B>Equipment</B> tab, then <B>+ Add Equipment</B></Li><Li>Enter the item name, category, location (Sanctuary, Fellowship Hall, Office, Education), purchase date, warranty expiry date, and current condition</Li><Li>Click <B>Save</B></Li></Ol>
           <H3>Filing a Work Order</H3>
-          <Ol><Li>Click <B>+ New Work Order</B></Li><Li>Select the related equipment or describe the location and issue</Li><Li>Set priority: Low, Medium, High, or Critical</Li><Li>Assign to the responsible staff member or contractor</Li><Li>Click <B>Save</B></Li><Li>Update the status as work progresses: Open → In Progress → Complete</Li></Ol>
+          <Ol><Li>Click the <B>Work Orders</B> tab, then <B>+ New Work Order</B></Li><Li>Select the related equipment or describe the location and issue</Li><Li>Set priority: Low, Medium, High, or Critical</Li><Li>Assign to the responsible staff member or contractor</Li><Li>Click <B>Save</B></Li><Li>Update the status as work progresses: Open → In Progress → Complete</Li></Ol>
           <H3>Scheduling Preventive Maintenance</H3>
-          <Ol><Li>Click <B>+ Schedule Maintenance</B></Li><Li>Select the equipment item and maintenance type (inspection, filter change, calibration, etc.)</Li><Li>Set the recurrence: weekly, monthly, quarterly, or annually</Li><Li>Click <B>Save</B></Li></Ol>
-          <H3>Maintenance Alerts</H3>
-          <P>The Maintenance sidebar item shows a red badge when items are overdue or warranties are expiring. Review alerts regularly to stay ahead of equipment failures.</P>
+          <Ol><Li>Click the <B>Scheduled</B> tab, then <B>+ Schedule Maintenance</B></Li><Li>Select the equipment item and maintenance type (inspection, filter change, calibration, etc.)</Li><Li>Set the recurrence: weekly, monthly, quarterly, or annually</Li><Li>Click <B>Save</B></Li></Ol>
+          <H3>🔑 Equipment Checkout &amp; Return</H3>
+          <P>The <B>Checkouts</B> tab tracks items borrowed by members — chairs, tables, A/V gear, outdoor equipment, or any church asset you define as loanable. It has three sub-tabs: <B>Active Checkouts</B> (items currently out), <B>Return History</B> (full log of returned items), and <B>Loanable Items</B> (your custom catalog).</P>
+          <H3>Setting Up Loanable Items</H3>
+          <Ol><Li>Click <B>Maintenance → 🔑 Checkouts → Loanable Items</B></Li><Li>Click <B>+ Add Item</B></Li><Li>Enter the <B>Item Name</B> (e.g. "Folding Table", "PA Speaker"), <B>Category</B> (Furniture, Audio, Kitchen, Outdoor, Office, Other), and optional <B>Notes</B></Li><Li>Click <B>Save</B></Li></Ol>
+          <Note>Items in the <B>Equipment</B> register are also available at checkout automatically — they appear in a separate "Equipment" group in the item dropdown. You do not need to re-enter registered equipment as Loanable Items.</Note>
+          <H3>Checking Out an Item to a Member</H3>
+          <Ol><Li>Click <B>Maintenance → 🔑 Checkouts</B> and click <B>+ New Checkout</B></Li><Li><B>Member</B> — select from the dropdown (active members listed as Last, First)</Li><Li><B>Item</B> — choose from Custom Items or Equipment (grouped by source)</Li><Li><B>Qty</B> — number of units being loaned</Li><Li><B>Checkout Date</B> — defaults to today; adjust if backdating</Li><Li><B>Expected Return Date</B> — required for overdue tracking</Li><Li><B>Purpose / Event</B> — optional (e.g. "Family Reunion", "Youth Retreat")</Li><Li><B>Notes</B> — any special conditions, deposit info, etc.</Li><Li>Click <B>Check Out</B></Li></Ol>
+          <H3>Recording a Return</H3>
+          <Ol><Li>In <B>Active Checkouts</B>, click <B>✓ Return</B> on the item's row</Li><Li>Confirm the <B>Actual Return Date</B> (defaults to today)</Li><Li>Enter <B>Return Notes</B> — item condition, damage, or remarks</Li><Li>Click <B>Confirm Return</B> — the record moves to Return History</Li></Ol>
+          <H3>Overdue Alerts</H3>
+          <P>When a checked-out item passes its Expected Return Date without being returned, ChurchOS automatically:</P>
+          <Ul><Li>Shows a red <B>⏰ Overdue</B> banner at the top of the Checkouts tab</Li><Li>Changes the item's status badge from <B>Out</B> (blue) to <B>Overdue</B> (red)</Li><Li>Adds the count to the red badge on the <B>🔑 Checkouts</B> tab</Li><Li>Includes the overdue count in the <B>Maintenance</B> sidebar alert badge</Li></Ul>
+          <Tip>Always set an Expected Return Date for every checkout — this is what activates the overdue alert system. Without a return date, no alert is generated.</Tip>
+          <Warn>Checkouts are linked to active members only. If the borrower is not in the member database, add them as a member first before creating the checkout record.</Warn>
+          <H3>🧹 Cleaning Supplies Tracker</H3>
+          <P>The <B>Supplies</B> tab tracks consumable cleaning and maintenance supplies — paper goods, chemicals, janitorial items — with quantity-on-hand monitoring and low-stock alerts.</P>
+          <H3>Adding a Supply Item</H3>
+          <Ol><Li>Click <B>Maintenance → 🧹 Supplies</B> and click <B>+ Add Supply</B></Li><Li><B>Item Name</B> — descriptive name (e.g. "Paper Towels", "Hand Soap", "Trash Bags")</Li><Li><B>Category</B> — Paper Goods, Cleaning Chemicals, Janitorial, Personal Care, Office, or Other</Li><Li><B>Qty on Hand</B> — current stock count</Li><Li><B>Unit</B> — unit of measure (rolls, bottles, bags, boxes, gallons, etc.)</Li><Li><B>Max Qty</B> — your target full-stock level; used to calculate the 25% low-stock threshold</Li><Li><B>Reorder Level</B> — quantity at which a reorder should be placed</Li><Li><B>Vendor</B> and <B>Unit Cost</B> — optional supplier and price for purchasing reference</Li><Li>Click <B>Save</B></Li></Ol>
+          <H3>Logging a Purchase (Stock In)</H3>
+          <Ol><Li>Find the item in the list and click <B>+ Purchase</B></Li><Li>Enter the quantity received and the purchase date</Li><Li>Click <B>Save</B> — quantity on hand increases automatically</Li></Ol>
+          <H3>Logging Usage (Stock Out)</H3>
+          <Ol><Li>Click <B>Use</B> on the supply item</Li><Li>Enter the quantity consumed and the date</Li><Li>Click <B>Save</B> — quantity on hand decreases accordingly</Li></Ol>
+          <H3>Low-Stock Alerts</H3>
+          <P>When a supply item's quantity on hand drops to <B>25% or below</B> of its Max Qty, ChurchOS automatically:</P>
+          <Ul><Li>Turns the item row amber with a <B>⚠ Low Stock</B> badge</Li><Li>Adds the count to the red badge on the <B>🧹 Supplies</B> tab</Li><Li>Includes the low-supply count in the <B>Maintenance</B> sidebar alert badge</Li></Ul>
+          <Tip>Set Max Qty to the amount you normally keep fully stocked. The 25%-of-Max low-stock alert fires automatically — no additional configuration is needed.</Tip>
+          <H3>Maintenance Alerts Summary</H3>
+          <P>The Maintenance sidebar item's red badge aggregates all active alerts across every tab:</P>
+          <Ul><Li>Overdue work orders</Li><Li>Equipment warranties expiring within 60 days</Li><Li>Equipment warranties already expired</Li><Li>Supply items at or below 25% of Max Qty</Li><Li>Checkout items not returned by their Expected Return Date</Li></Ul>
           <Tip>Enter warranty expiry dates for all major equipment (HVAC, audio/video, projection) so ChurchOS alerts you before warranties lapse.</Tip>
         </Sec>
 
@@ -8996,7 +9023,7 @@ function ManualPage(){
         </Sec>
 
         <div style={{textAlign:'center',padding:'24px 0 8px',borderTop:'0.5px solid '+BR,marginTop:4}}>
-          <div style={{fontSize:12,color:MU}}>ChurchOS Staff Manual · New Testament Christian Church · Version 5.1 · April 2026</div>
+          <div style={{fontSize:12,color:MU}}>ChurchOS Staff Manual · New Testament Christian Church · Version 5.2 · April 2026</div>
           <div style={{fontSize:11,color:MU,marginTop:4}}>For technical support or feature requests, contact your system administrator.</div>
         </div>
       </div>
