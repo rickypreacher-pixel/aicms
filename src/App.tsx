@@ -3600,7 +3600,73 @@ function Visitation({visitors,setVisitors,members,setMembers,users,currentUser,r
   const [careAlertDismissed,setCareAlertDismissed] = useState(false);
   const [aiRep,setAiRep] = useState("");
   const [aiLoad,setAiLoad] = useState(false);
+  const [tyModal,setTyModal] = useState<any>(null); // {visitor, letterBody, generating}
+  const [tyBody,setTyBody] = useState("");
+  const [tyGenerating,setTyGenerating] = useState(false);
   const nid = useRef(700);
+
+  const openThankYouLetter = async (v:any) => {
+    const cs = window.__CS__ || {};
+    setTyModal(v);
+    setTyBody("");
+    setTyGenerating(true);
+    const prompt = `Write a warm, sincere Thank You letter from ${cs.pastorName||"Pastor"} of ${cs.name||"our church"} to ${v.first} ${v.last} who visited our church${v.firstVisit?" on "+fd(v.firstVisit):""}. The letter should:
+- Open by thanking them personally by first name for visiting
+- Express how much their presence meant to the congregation
+- Share a brief, encouraging scripture verse
+- Warmly invite them to return and give details that they are always welcome
+- Mention any upcoming service or event if you can
+- Close with a warm pastoral blessing and signature from ${cs.pastorName||"Pastor"}
+
+Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
+    const txt = await callAI([{role:"user",content:prompt}],[],[],[],[],[],{});
+    setTyBody(txt||"");
+    setTyGenerating(false);
+  };
+
+  const downloadThankYouDoc = (v:any) => {
+    const cs = window.__CS__ || {};
+    const today = new Date().toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"});
+    const logoHtml = cs.logoUrl ? `<img src="${cs.logoUrl}" style="max-height:70px;max-width:200px;object-fit:contain;" alt="logo"/><br/>` : '';
+    const html = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+<head><meta charset='utf-8'><style>
+  body{font-family:Georgia,serif;font-size:12pt;color:#1f2937;line-height:1.8;margin:0;padding:0;}
+  .page{width:6.5in;margin:1in auto;padding:0;}
+  .letterhead{text-align:center;border-bottom:2px solid #1a2e5a;padding-bottom:16pt;margin-bottom:24pt;}
+  .church-name{font-size:18pt;font-weight:bold;color:#1a2e5a;margin:6pt 0 2pt;}
+  .church-sub{font-size:10pt;color:#6b7280;}
+  .date{margin-bottom:18pt;color:#6b7280;font-size:11pt;}
+  .salutation{margin-bottom:12pt;font-size:12pt;}
+  .body p{margin:0 0 14pt;}
+  .signature{margin-top:32pt;}
+  .sig-name{font-size:13pt;font-weight:bold;color:#1a2e5a;}
+  .sig-title{font-size:10pt;color:#6b7280;}
+</style></head>
+<body><div class="page">
+  <div class="letterhead">
+    ${logoHtml}
+    <div class="church-name">${cs.name||"New Testament Christian Church"}</div>
+    <div class="church-sub">${[cs.address,cs.phone,cs.email].filter(Boolean).join(' &nbsp;·&nbsp; ')}</div>
+  </div>
+  <div class="date">${today}</div>
+  <div class="salutation">Dear ${v.first} ${v.last},</div>
+  <div class="body">${tyBody.split('\n').filter(l=>l.trim()).map(l=>`<p>${l}</p>`).join('')}</div>
+  <div class="signature">
+    <div style="margin-bottom:36pt;">Sincerely,</div>
+    <div class="sig-name">${cs.pastorName||"Pastor"}</div>
+    <div class="sig-title">${cs.name||"Our Church"}</div>
+    ${cs.phone?`<div class="sig-title">${cs.phone}</div>`:''}
+    ${cs.email?`<div class="sig-title">${cs.email}</div>`:''}
+  </div>
+</div></body></html>`;
+    const blob = new Blob(['\ufeff',html],{type:'application/msword'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Thank_You_Letter_${v.first}_${v.last}.doc`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   useEffect(()=>{
     const missing = visitors.filter(v=>!visitRecords.find(r=>r.visitorId===v.id));
@@ -3810,6 +3876,7 @@ function Visitation({visitors,setVisitors,members,setMembers,users,currentUser,r
                         <div style={{fontSize:11,color:MU,marginBottom:8}}>To: {getAssigned(rec)}</div>
                         {stage!=="Complete" && <Btn onClick={()=>{setLogModal(rec);setLogForm({method:"Call",date:td(),notes:"",completed:false});}} v="ai" style={{fontSize:11,padding:"4px 8px",width:"100%",justifyContent:"center"}}>Log Contact</Btn>}
                         {stage==="Complete" && <div style={{fontSize:11,color:TE,fontWeight:500,textAlign:"center"}}>Fully Complete</div>}
+                        <Btn onClick={()=>openThankYouLetter(v)} v="ghost" style={{fontSize:11,padding:"4px 8px",width:"100%",justifyContent:"center",marginTop:4}}>📄 Thank You Letter</Btn>
                       </div>
                     );
                   })}
@@ -3964,6 +4031,7 @@ function Visitation({visitors,setVisitors,members,setMembers,users,currentUser,r
                         <div style={{display:"flex",gap:6}}>
                           {rec.stage!=="Complete" && <Btn onClick={()=>{setLogModal(rec);setLogForm({method:"Call",date:td(),notes:"",completed:false});}} v="ai" style={{fontSize:11,padding:"4px 8px"}}>Log</Btn>}
                           <Btn onClick={()=>setExpandedId(expandedId===v.id?null:v.id)} v="ghost" style={{fontSize:11,padding:"4px 8px"}}>{expandedId===v.id?"Hide":"History"}</Btn>
+                          <Btn onClick={()=>openThankYouLetter(v)} v="ghost" style={{fontSize:11,padding:"4px 8px"}}>📄 Letter</Btn>
                         </div>
                       </td>
                     </tr>
@@ -4153,11 +4221,49 @@ function Visitation({visitors,setVisitors,members,setMembers,users,currentUser,r
           );
         })()}
       </Modal>
+
+      {/* ── Thank You Letter Modal ── */}
+      <Modal open={!!tyModal} onClose={()=>{setTyModal(null);setTyBody("");}} title={"📄 Thank You Letter"} width={620}>
+        {tyModal && (
+          <div>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14,padding:"10px 14px",background:BG,borderRadius:8,border:"0.5px solid "+BR}}>
+              <Av f={tyModal.first} l={tyModal.last} sz={36}/>
+              <div>
+                <div style={{fontSize:14,fontWeight:600,color:N}}>{tyModal.first} {tyModal.last}</div>
+                <div style={{fontSize:12,color:MU}}>Visited {tyModal.firstVisit?fd(tyModal.firstVisit):"—"}</div>
+              </div>
+              <div style={{marginLeft:"auto"}}>
+                <Btn onClick={()=>openThankYouLetter(tyModal)} v="ghost" style={{fontSize:12}} disabled={tyGenerating}>🔄 Regenerate</Btn>
+              </div>
+            </div>
+            {tyGenerating ? (
+              <div style={{textAlign:"center",padding:"32px 0",color:MU}}>
+                <div style={{fontSize:28,marginBottom:10}}>✍️</div>
+                <div style={{fontSize:13,fontWeight:500,color:N}}>AI is writing your letter…</div>
+                <div style={{fontSize:12,color:MU,marginTop:4}}>Personalizing for {tyModal.first}</div>
+              </div>
+            ) : (
+              <div>
+                <div style={{fontSize:12,color:MU,marginBottom:6}}>Edit the letter below before downloading:</div>
+                <textarea
+                  value={tyBody}
+                  onChange={e=>setTyBody(e.target.value)}
+                  rows={14}
+                  style={{width:"100%",padding:"10px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",fontFamily:"Georgia,serif",resize:"vertical",boxSizing:"border-box",lineHeight:1.8,color:TX,background:W}}
+                />
+                <div style={{display:"flex",gap:8,marginTop:12}}>
+                  <Btn onClick={()=>downloadThankYouDoc(tyModal)} style={{flex:1,justifyContent:"center"}} disabled={!tyBody}>⬇ Download as Word (.doc)</Btn>
+                  <Btn onClick={()=>{setTyModal(null);setTyBody("");}} v="ghost">Cancel</Btn>
+                </div>
+                <div style={{fontSize:11,color:MU,marginTop:8,textAlign:"center"}}>Opens in Microsoft Word or Google Docs. Save as .docx if needed.</div>
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
-
-// ── GROUPS MINISTRY ──
 function Groups({members,groups,setGroups,grpMeetings,setGrpMeetings}) {
   const [tab,setTab]=useState("groups");
   const [modal,setModal]=useState(false);
