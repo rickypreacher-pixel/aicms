@@ -9675,8 +9675,8 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
             {cloudSync==='saving' && <div style={{fontSize:11,color:AM,display:"flex",alignItems:"center",gap:4}}><span style={{width:8,height:8,borderRadius:"50%",background:AM,display:"inline-block"}}></span>Saving…</div>}
             {cloudSync==='saved' && <div style={{fontSize:11,color:GR,display:"flex",alignItems:"center",gap:4}}><span style={{width:8,height:8,borderRadius:"50%",background:GR,display:"inline-block"}}></span>Saved ✓</div>}
             {cloudSync==='error' && <div style={{fontSize:11,color:RE,display:"flex",alignItems:"center",gap:4}}>⚠ Sync error</div>}
-            <button onClick={()=>{setView("ai");setNavOpen(false);}} style={{background:GL,border:"1px solid "+G,borderRadius:8,padding:isMobile?"7px 10px":"7px 12px",cursor:"pointer",fontSize:12,fontWeight:500,color:"#7a5c10",whiteSpace:"nowrap",display:isMemberPortal?"none":"inline-flex"}}>AI</button>
-            <button onClick={()=>{setView("settings");setNavOpen(false);}} style={{background:N+"12",border:"0.5px solid "+N+"33",borderRadius:8,padding:isMobile?"7px 10px":"7px 12px",cursor:"pointer",fontSize:12,fontWeight:500,color:N,display:isMemberPortal?"none":"inline-flex"}}>⚙</button>
+            {!isStaff && <button onClick={()=>{setView("ai");setNavOpen(false);}} style={{background:GL,border:"1px solid "+G,borderRadius:8,padding:isMobile?"7px 10px":"7px 12px",cursor:"pointer",fontSize:12,fontWeight:500,color:"#7a5c10",whiteSpace:"nowrap"}}>AI</button>}
+            {!isStaff && <button onClick={()=>{setView("settings");setNavOpen(false);}} style={{background:N+"12",border:"0.5px solid "+N+"33",borderRadius:8,padding:isMobile?"7px 10px":"7px 12px",cursor:"pointer",fontSize:12,fontWeight:500,color:N}}>⚙</button>}
             {onSignOut&&<button onClick={onSignOut} title="Sign Out" style={{background:"#fee2e2",border:"0.5px solid #fca5a5",borderRadius:8,padding:isMobile?"7px 10px":"7px 12px",cursor:"pointer",fontSize:12,fontWeight:600,color:"#dc2626",whiteSpace:"nowrap"}}>Sign Out</button>}
           </div>
         </div>
