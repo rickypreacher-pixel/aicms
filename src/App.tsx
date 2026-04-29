@@ -4868,7 +4868,7 @@ function CalendarView({members,visitors,setVisitors,groups,recurring,setRecurrin
 }
 
 // ── DASHBOARD ──
-function Dashboard({members,visitors,attendance,giving,prayers,setView,canViewGiving}:any) {
+function Dashboard({members,visitors,attendance,giving,prayers,setView,canViewGiving,isRestrictedUser}:any) {
   const [insight,setInsight] = useState("");
   const [iLoad,setILoad] = useState(false);
   const [alerts,setAlerts] = useState([]);
@@ -4921,14 +4921,14 @@ function Dashboard({members,visitors,attendance,giving,prayers,setView,canViewGi
         <Stat label="Prayer Requests" value={prayers.filter((p:any)=>p.status==="Active").length} sub="Active" color={PU}/>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
-        <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:18}}>
+        {!isRestrictedUser && <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:18}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
             <h3 style={{fontSize:14,fontWeight:500,color:N,margin:0}}>AI Church Health</h3>
             <Btn onClick={genInsight} v="ai" style={{fontSize:12,padding:"5px 10px"}}>{iLoad?"Analyzing...":"Generate"}</Btn>
           </div>
           <p style={{fontSize:13,lineHeight:1.7,color:insight?TX:MU,fontStyle:insight?"normal":"italic",margin:0}}>{insight||"Click Generate for an AI summary of your church's health, Pastor Hall."}</p>
-        </div>
-        <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:18}}>
+        </div>}
+        {!isRestrictedUser && <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:18}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
             <h3 style={{fontSize:14,fontWeight:500,color:N,margin:0}}>Smart Alerts</h3>
             <Btn onClick={genAlerts} v="ai" style={{fontSize:12,padding:"5px 10px"}}>{aLoad?"Scanning...":"Scan Now"}</Btn>
@@ -4939,10 +4939,10 @@ function Dashboard({members,visitors,attendance,giving,prayers,setView,canViewGi
               <div><div style={{fontSize:13,fontWeight:500}}>{a.title}</div><div style={{fontSize:12,color:MU}}>{a.detail}</div></div>
             </div>
           )) : <p style={{fontSize:13,color:MU,fontStyle:"italic",margin:0}}>Click Scan Now to generate AI-powered action alerts.</p>}
-        </div>
+        </div>}
       </div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
-        <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:18}}>
+      <div style={{display:"grid",gridTemplateColumns:isRestrictedUser?"1fr":"1fr 1fr",gap:16}}>
+        {!isRestrictedUser && <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:18}}>
           <h3 style={{fontSize:14,fontWeight:500,color:N,margin:"0 0 14px"}}>Quick Navigation</h3>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
             {qnav.map(([label,id])=>(
@@ -4952,7 +4952,7 @@ function Dashboard({members,visitors,attendance,giving,prayers,setView,canViewGi
               </button>
             ))}
           </div>
-        </div>
+        </div>}
         <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:18}}>
           <h3 style={{fontSize:14,fontWeight:500,color:N,margin:"0 0 14px"}}>Recent Activity</h3>
           {(()=>{
@@ -9100,6 +9100,9 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     : _staffRecord
       ? GIVING_ROLES.includes((roles.find((r:any) => r.id === _staffRecord.roleId)||{}).name||'')
       : false; // staff login but no linked record — deny by default
+  // Restricted users = staff who are NOT Super Admin and NOT Administrator role
+  const _staffRoleName = _staffRecord ? (roles.find((r:any) => r.id === _staffRecord.roleId)||{}).name||'' : '';
+  const isRestrictedUser = isStaff && !currentUser?.superAdmin && _staffRoleName !== 'Administrator';
   window.__CS__ = churchSettings;
   useEffect(()=>{
     try{
@@ -9340,9 +9343,12 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     access:"settings", ai:null, settings:"settings", manual:null,
   };
   // For staff, hide nav items they don't have "view" permission for
+  // Additionally, restricted staff (non-Admin/non-SuperAdmin) always have maintenance/ai/email/sms hidden
+  const RESTRICTED_NAV_HIDDEN = ['maintenance','ai','email','sms'];
   const visibleNAV = (!isStaff || !currentUser || currentUser.superAdmin)
     ? NAV
     : NAV.filter(item => {
+        if(isRestrictedUser && RESTRICTED_NAV_HIDDEN.includes(item.id)) return false;
         const mod = NAV_MOD_MAP[item.id];
         if(!mod) return true;
         return checkPermission(currentUser, roles, permissions, mod, "view");
@@ -9474,7 +9480,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
               s(setMembers,'members');s(setVisitors,'visitors');s(setAttendance,'attendance');s(setGiving,'giving');s(setPrayers,'prayers');s(setGroups,'groups');s(setGrpMeetings,'grpMeetings');s(setVisitRecords,'visitRecords');s(setCheckIns,'checkIns');s(setKidsCheckIns,'kidsCheckIns');s(setChildren,'children');s(setPledgeDrives,'pledgeDrives');s(setPledges,'pledges');s(setWeeklyReports,'weeklyReports');s(setEquipment,'equipment');s(setWorkOrders,'workOrders');s(setSchedMaint,'schedMaint');s(setSupplies,'supplies');s(setCheckoutItems,'checkoutItems');s(setCheckouts,'checkouts');s(setUsers,'users');s(setRoles,'roles');s(setPermissions,'permissions',false);s(setRecurring,'recurring');s(setCustom,'custom');s(setEmailLog,'emailLog');s(setEmailTemplates,'emailTemplates',false);s(setEmailConfig,'emailConfig',false);s(setIncidents,'incidents');s(setRollCalls,'rollCalls');s(setProgressNotes,'progressNotes');s(setTeacherSchedule,'teacherSchedule');if(d.churchSettings&&mode==='replace')setChurchSettings(d.churchSettings);
             }}
           />}
-          {view==="dashboard" && <Dashboard members={members} visitors={visitors} attendance={attendance} giving={giving} prayers={prayers} setView={setView} canViewGiving={canViewGiving}/>}
+          {view==="dashboard" && <Dashboard members={members} visitors={visitors} attendance={attendance} giving={giving} prayers={prayers} setView={setView} canViewGiving={canViewGiving} isRestrictedUser={isRestrictedUser}/>}
           {view==="addperson" && <AddMemberPage members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} currentUser={currentUser} roles={roles} permissions={permissions} setView={setView}/>}
           {view==="people" && <People members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} prayers={prayers} groups={groups} grpMeetings={grpMeetings} visitRecords={visitRecords} setVisitRecords={setVisitRecords} checkIns={checkIns} setView={setView} canViewGiving={canViewGiving}/>}
           {view==="groups" && <Groups members={members} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings}/>}
