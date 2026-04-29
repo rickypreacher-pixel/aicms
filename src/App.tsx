@@ -1430,6 +1430,7 @@ const DEFAULT_PRINTER_CFG={preset:"dymo30334"};
 
 const MODULES=[
   {key:"addperson",label:"Add Person",icon:"Add",desc:"Add new members and visitors to the database",actions:["create"]},
+  {key:"addvisitor",label:"Add Visitor",icon:"AddV",desc:"Add new visitors to the follow-up pipeline",actions:["create"]},
   {key:"directory",label:"Members Profile",icon:"Dir",desc:"Member and visitor records",actions:["view","create","edit","delete"]},
   {key:"visitation",label:"Visitation",icon:"Vis",desc:"Follow-up pipeline and visits",actions:["view","create","edit","delete"]},
   {key:"groups",label:"Groups Ministry",icon:"Grp",desc:"Small groups and attendance",actions:["view","create","edit","delete"]},
@@ -3573,7 +3574,7 @@ function SmsCenter({smsLog,setSmsLog,smsTemplates,setSmsTemplates,smsConfig,setS
 }
 
 // ── VISITATION ──
-function Visitation({visitors,setVisitors,members,setMembers,users,currentUser,roles,visitRecords,setVisitRecords,setView}:any) {
+function Visitation({visitors,setVisitors,members,setMembers,users,currentUser,roles,visitRecords,setVisitRecords,setView,canAddVisitor}:any) {
   const [tab,setTab] = useState("pipeline");
   const [logModal,setLogModal] = useState(null);
   const [assignModal,setAssignModal] = useState(null);
@@ -3740,7 +3741,7 @@ function Visitation({visitors,setVisitors,members,setMembers,users,currentUser,r
             </button>
           ))}
         </div>
-        <Btn onClick={()=>setView("addperson")} v="gold" style={{flexShrink:0,fontSize:12}}>+ Add Visitor</Btn>
+        <Btn onClick={()=>setView("addperson")} v="gold" style={{flexShrink:0,fontSize:12,display:canAddVisitor?"inline-flex":"none"}}>+ Add Visitor</Btn>
       </div>
 
       {/* PIPELINE TAB */}
@@ -9289,6 +9290,11 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     : currentUser?.superAdmin
       ? true
       : checkPermission(currentUser, roles, permissions, 'addperson', 'create');
+  const canAddVisitor = !isStaff
+    ? true
+    : currentUser?.superAdmin
+      ? true
+      : checkPermission(currentUser, roles, permissions, 'addvisitor', 'create');
   // Member Portal: email/password login whose email matches a member record but is not in the staff users list
   const portalMember = (isStaff && !currentUser)
     ? (members.find((m:any) => m.email && m.email.toLowerCase() === (loggedInEmail||'').toLowerCase()) || null)
@@ -9723,7 +9729,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
               />
             </div>
           )}
-          {!isMemberPortal && view==="visitation" && <Visitation visitors={visitors} setVisitors={setVisitors} members={members} setMembers={setMembers} users={users} currentUser={currentUser} roles={roles} visitRecords={visitRecords} setVisitRecords={setVisitRecords} setView={setView}/>}
+          {!isMemberPortal && view==="visitation" && <Visitation visitors={visitors} setVisitors={setVisitors} members={members} setMembers={setMembers} users={users} currentUser={currentUser} roles={roles} visitRecords={visitRecords} setVisitRecords={setVisitRecords} setView={setView} canAddVisitor={canAddVisitor}/>}
           {!isMemberPortal && view==="attendance" && <Attendance attendance={attendance} setAttendance={setAttendance} setView={setView}/>}
           {!isMemberPortal && view==="giving" && <Giving giving={giving} setGiving={setGiving} pledgeDrives={pledgeDrives} setPledgeDrives={setPledgeDrives} pledges={pledges} setPledges={setPledges} members={members} visitors={visitors} weeklyReports={weeklyReports} setWeeklyReports={setWeeklyReports} emailTemplates={emailTemplates}/>}
           {/* ── Member Portal hard-gate: only myprofile and prayer allowed ── */}
