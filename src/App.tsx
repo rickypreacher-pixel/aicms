@@ -7045,29 +7045,78 @@ function Prayer({prayers,setPrayers,portalMode=false,portalMember=null}:any) {
     const txt = await callAI([{role:"user",content:prompt}],[],[],[],[],[],{});
     setAiResp(txt); setLoad(false);
   };
-  // Portal mode: only show submit form
+  // Portal mode: show submit form + member's own prayer history
   if(portalMode) {
-    if(submitted) return (
-      <div style={{maxWidth:500,margin:"40px auto",textAlign:"center",padding:32}}>
-        <div style={{fontSize:48,marginBottom:12}}>🙏</div>
-        <div style={{fontSize:20,fontWeight:600,color:N,marginBottom:8}}>Prayer Submitted</div>
-        <div style={{fontSize:14,color:MU,lineHeight:1.7,marginBottom:24}}>Your prayer request has been submitted. Our pastoral team will be praying with you.</div>
-        <Btn onClick={()=>{setSubmitted(false);setModal(true);}}>Submit Another Request</Btn>
-      </div>
-    );
+    const memberName = portalMember ? (portalMember.first+" "+portalMember.last).trim().toLowerCase() : null;
+    const myPrayers = memberName
+      ? [...prayers].filter((p:any)=>(p.name||"").trim().toLowerCase()===memberName).sort((a:any,b:any)=>b.date.localeCompare(a.date))
+      : [];
+    const [showForm,setShowForm] = useState(true);
+    const [justSubmitted,setJustSubmitted] = useState(false);
+    const portalSave = () => {
+      if(!form.request){alert("Prayer request is required.");return;}
+      setPrayers((ps:any[])=>[{...form,id:Date.now()},...ps]);
+      setForm({name:portalMember?(portalMember.first+" "+portalMember.last):"",request:"",date:td(),status:"Active"});
+      setJustSubmitted(true);
+      setShowForm(false);
+      setTimeout(()=>setJustSubmitted(false),4000);
+    };
     return (
-      <div style={{maxWidth:500,margin:"0 auto"}}>
-        <div style={{background:"#fff",border:"0.5px solid "+BR,borderRadius:12,padding:24}}>
-          <div style={{fontSize:16,fontWeight:600,color:N,marginBottom:4}}>🙏 Prayer Request</div>
-          <div style={{fontSize:13,color:MU,marginBottom:20,lineHeight:1.6}}>Share your prayer need with our pastoral team. Your request is confidential.</div>
-          <Fld label="Your Name">
-            <Inp value={form.name} onChange={sf("name")} placeholder="Your name (optional — leave blank for anonymous)"/>
-          </Fld>
-          <Fld label="Prayer Request *">
-            <textarea value={form.request} onChange={e=>sf("request")(e.target.value)} rows={5} placeholder="Share your prayer request..." style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",fontFamily:"inherit",resize:"vertical",boxSizing:"border-box"}}/>
-          </Fld>
-          <Btn onClick={save} style={{width:"100%",justifyContent:"center",marginTop:8}}>Submit Prayer Request</Btn>
+      <div style={{maxWidth:600,margin:"0 auto"}}>
+        {/* Header */}
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:18,fontWeight:600,color:N}}>🙏 Prayer Wall</div>
+          <div style={{fontSize:13,color:MU,marginTop:2}}>Submit a request or view your prayer history</div>
         </div>
+        {/* Success message */}
+        {justSubmitted && (
+          <div style={{background:"#dcfce7",border:"0.5px solid #86efac",borderRadius:10,padding:"12px 16px",marginBottom:14,display:"flex",alignItems:"center",gap:10}}>
+            <span style={{fontSize:18}}>✅</span>
+            <div>
+              <div style={{fontSize:13,fontWeight:600,color:"#166534"}}>Prayer Submitted</div>
+              <div style={{fontSize:12,color:"#166534"}}>Our pastoral team will be praying with you.</div>
+            </div>
+          </div>
+        )}
+        {/* Submit form */}
+        <div style={{background:"#fff",border:"0.5px solid "+BR,borderRadius:12,marginBottom:18,overflow:"hidden"}}>
+          <button onClick={()=>setShowForm(f=>!f)} style={{width:"100%",display:"flex",justifyContent:"space-between",alignItems:"center",padding:"14px 18px",background:"none",border:"none",cursor:"pointer",fontFamily:"inherit"}}>
+            <div style={{fontSize:14,fontWeight:600,color:N}}>+ Submit a Prayer Request</div>
+            <span style={{color:MU,fontSize:12}}>{showForm?"▲ Collapse":"▼ Expand"}</span>
+          </button>
+          {showForm && (
+            <div style={{padding:"0 18px 18px",borderTop:"0.5px solid "+BR}}>
+              <div style={{fontSize:12,color:MU,margin:"12px 0 14px",lineHeight:1.6}}>Share your prayer need with our pastoral team. Your request is confidential.</div>
+              <Fld label="Your Name">
+                <Inp value={form.name} onChange={sf("name")} placeholder="Your name (optional — leave blank for anonymous)"/>
+              </Fld>
+              <Fld label="Prayer Request *">
+                <textarea value={form.request} onChange={e=>sf("request")(e.target.value)} rows={4} placeholder="Share your prayer request..." style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",fontFamily:"inherit",resize:"vertical",boxSizing:"border-box"}}/>
+              </Fld>
+              <Btn onClick={portalSave} style={{width:"100%",justifyContent:"center",marginTop:10}}>Submit Prayer Request</Btn>
+            </div>
+          )}
+        </div>
+        {/* Member's own prayer history */}
+        {myPrayers.length>0 && (
+          <div>
+            <div style={{fontSize:13,fontWeight:600,color:N,marginBottom:10}}>My Prayer Requests ({myPrayers.length})</div>
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              {myPrayers.map((p:any)=>(
+                <div key={p.id} style={{background:"#fff",border:"0.5px solid "+BR,borderRadius:10,padding:"14px 16px"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6,gap:8}}>
+                    <div style={{fontSize:12,color:MU}}>{fd(p.date)}</div>
+                    <span style={{fontSize:11,fontWeight:500,borderRadius:20,padding:"2px 9px",background:p.status==="Answered"?"#dcfce7":"#fef9c3",color:p.status==="Answered"?GR:"#854d0e",flexShrink:0}}>{p.status}</span>
+                  </div>
+                  <p style={{fontSize:13,lineHeight:1.7,margin:0,color:TX}}>{p.request}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {myPrayers.length===0 && !justSubmitted && (
+          <div style={{textAlign:"center",padding:"30px 0",color:MU,fontSize:13}}>No prayer requests on file yet. Submit your first request above.</div>
+        )}
       </div>
     );
   }
