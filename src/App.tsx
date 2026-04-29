@@ -1429,6 +1429,7 @@ const LABEL_PRESETS=[
 const DEFAULT_PRINTER_CFG={preset:"dymo30334"};
 
 const MODULES=[
+  {key:"addperson",label:"Add Person",icon:"Add",desc:"Add new members and visitors to the database",actions:["create"]},
   {key:"directory",label:"Members Profile",icon:"Dir",desc:"Member and visitor records",actions:["view","create","edit","delete"]},
   {key:"visitation",label:"Visitation",icon:"Vis",desc:"Follow-up pipeline and visits",actions:["view","create","edit","delete"]},
   {key:"groups",label:"Groups Ministry",icon:"Grp",desc:"Small groups and attendance",actions:["view","create","edit","delete"]},
@@ -2285,7 +2286,8 @@ function PermTab({roles,permissions,setPermissions,currentUser}){
                     <button onClick={()=>toggleMod(mod.key,false)} style={{fontSize:9,color:RE,background:"none",border:"none",cursor:"pointer",padding:0}}>Revoke all</button>
                   </div>
                 </div>
-                {mod.actions.map(a=>{
+                {["view","create","edit","delete"].map(a=>{
+                  if(!mod.actions.includes(a)) return <div key={a}/>;
                   const on = !!mp[a];
                   return (
                     <div key={a} style={{display:"flex",justifyContent:"center"}}>
@@ -4869,7 +4871,7 @@ function CalendarView({members,visitors,setVisitors,groups,recurring,setRecurrin
 }
 
 // ── DASHBOARD ──
-function Dashboard({members,visitors,attendance,giving,prayers,setView,canViewGiving,isRestrictedUser}:any) {
+function Dashboard({members,visitors,attendance,giving,prayers,setView,canViewGiving,isRestrictedUser,canAddPerson}:any) {
   const [insight,setInsight] = useState("");
   const [iLoad,setILoad] = useState(false);
   const [alerts,setAlerts] = useState([]);
@@ -4905,8 +4907,8 @@ function Dashboard({members,visitors,attendance,giving,prayers,setView,canViewGi
 
   return (
     <div>
-      {/* Add Person Banner — hidden for restricted staff */}
-      {!isRestrictedUser && <div onClick={()=>setView("addperson")} style={{background:"linear-gradient(135deg,"+N+",#2a4a8a)",borderRadius:12,padding:"16px 22px",marginBottom:20,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+      {/* Add Person Banner — shown only when canAddPerson permission is granted */}
+      {canAddPerson && <div onClick={()=>setView("addperson")} style={{background:"linear-gradient(135deg,"+N+",#2a4a8a)",borderRadius:12,padding:"16px 22px",marginBottom:20,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <div>
           <div style={{color:G,fontSize:11,fontWeight:600,textTransform:"uppercase",letterSpacing:1.5,marginBottom:3}}>Central Intake</div>
           <div style={{color:"#fff",fontSize:16,fontWeight:500}}>➕ Add New Person to Database</div>
@@ -9282,6 +9284,11 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   // Restricted users = staff who are NOT Super Admin and NOT Administrator role
   const _staffRoleName = _staffRecord ? (roles.find((r:any) => r.id === _staffRecord.roleId)||{}).name||'' : '';
   const isRestrictedUser = isStaff && !currentUser?.superAdmin && _staffRoleName !== 'Administrator';
+  const canAddPerson = !isStaff
+    ? true
+    : currentUser?.superAdmin
+      ? true
+      : checkPermission(currentUser, roles, permissions, 'addperson', 'create');
   // Member Portal: email/password login whose email matches a member record but is not in the staff users list
   const portalMember = (isStaff && !currentUser)
     ? (members.find((m:any) => m.email && m.email.toLowerCase() === (loggedInEmail||'').toLowerCase()) || null)
@@ -9528,7 +9535,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   ];
   // Map nav IDs to MODULES keys for permission checking (null = always visible)
   const NAV_MOD_MAP:Record<string,string|null> = {
-    dashboard:null, addperson:"directory", people:"directory",
+    dashboard:null, addperson:"addperson", people:"directory",
     visitation:"visitation", groups:"groups", education:"education",
     maintenance:"maintenance", calendar:"events", attendance:"attendance",
     giving:"giving", prayer:"prayer", email:null, sms:null,
@@ -9549,7 +9556,8 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
         if(isRestrictedUser && RESTRICTED_NAV_HIDDEN.includes(item.id)) return false;
         const mod = NAV_MOD_MAP[item.id];
         if(!mod) return true;
-        return checkPermission(currentUser, roles, permissions, mod, "view");
+        const action = item.id === 'addperson' ? 'create' : 'view';
+        return checkPermission(currentUser, roles, permissions, mod, action);
       });
   const TITLES:any = {dashboard:"Dashboard",addperson:"Add Person to Database",people:"Members Profile",visitation:"Visitation & Follow-Up",education:"Education Department",maintenance:"Maintenance & Equipment",attendance:"Attendance",giving:"Giving Records",prayer:"Prayer Wall",email:"Email Center",sms:"SMS Center",access:"Access Control",ai:"AI Assistant",settings:"Church Settings",manual:"Staff Manual",myprofile:"My Profile"};
   const pending = users.filter(u=>u.status==="Pending").length;
@@ -9691,7 +9699,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
               s(setMembers,'members');s(setVisitors,'visitors');s(setAttendance,'attendance');s(setGiving,'giving');s(setPrayers,'prayers');s(setGroups,'groups');s(setGrpMeetings,'grpMeetings');s(setVisitRecords,'visitRecords');s(setCheckIns,'checkIns');s(setKidsCheckIns,'kidsCheckIns');s(setChildren,'children');s(setPledgeDrives,'pledgeDrives');s(setPledges,'pledges');s(setWeeklyReports,'weeklyReports');s(setEquipment,'equipment');s(setWorkOrders,'workOrders');s(setSchedMaint,'schedMaint');s(setSupplies,'supplies');s(setCheckoutItems,'checkoutItems');s(setCheckouts,'checkouts');s(setUsers,'users');s(setRoles,'roles');s(setPermissions,'permissions',false);s(setRecurring,'recurring');s(setCustom,'custom');s(setEmailLog,'emailLog');s(setEmailTemplates,'emailTemplates',false);s(setEmailConfig,'emailConfig',false);s(setIncidents,'incidents');s(setRollCalls,'rollCalls');s(setProgressNotes,'progressNotes');s(setTeacherSchedule,'teacherSchedule');if(d.churchSettings&&mode==='replace')setChurchSettings(d.churchSettings);
             }}
           />}
-          {!isMemberPortal && view==="dashboard" && <Dashboard members={members} visitors={visitors} attendance={attendance} giving={giving} prayers={prayers} setView={setView} canViewGiving={canViewGiving} isRestrictedUser={isRestrictedUser}/>}
+          {!isMemberPortal && view==="dashboard" && <Dashboard members={members} visitors={visitors} attendance={attendance} giving={giving} prayers={prayers} setView={setView} canViewGiving={canViewGiving} isRestrictedUser={isRestrictedUser} canAddPerson={canAddPerson}/>}
           {!isMemberPortal && view==="addperson" && <AddMemberPage members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} currentUser={currentUser} roles={roles} permissions={permissions} setView={setView}/>}
           {!isMemberPortal && view==="people" && <People members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} prayers={prayers} groups={groups} grpMeetings={grpMeetings} visitRecords={visitRecords} setVisitRecords={setVisitRecords} checkIns={checkIns} setView={setView} canViewGiving={canViewGiving}/>}
           {!isMemberPortal && view==="groups" && <Groups members={members} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings}/>}
