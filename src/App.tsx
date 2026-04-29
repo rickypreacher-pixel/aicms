@@ -8381,21 +8381,25 @@ function ManualPage(){
         <div style={{background:N,borderRadius:12,padding:'20px 24px',marginBottom:20}}>
           <div style={{color:'#fff',fontSize:21,fontWeight:600,letterSpacing:0.3}}>ChurchOS Staff Manual</div>
           <div style={{color:G,fontSize:13,marginTop:4}}>New Testament Christian Church — Administrator Guide</div>
-          <div style={{color:'#7a9acc',fontSize:12,marginTop:6}}>Version 5 · April 2026 · For internal staff use</div>
+          <div style={{color:'#7a9acc',fontSize:12,marginTop:6}}>Version 5.1 · April 2026 · For internal staff use</div>
         </div>
 
         <Sec><H id="s1">1. Getting Started</H>
           <H3>Logging In</H3>
           <P>ChurchOS is a web-based church management system accessible from any modern browser on any device. No software installation is required.</P>
-          <Ol><Li>Navigate to your ChurchOS URL (e.g. <B>https://aicms-pied.vercel.app</B>)</Li><Li>Enter your assigned email address and password, then click <B>Sign In</B></Li><Li>If this is a brand-new installation, a <B>Church Setup</B> wizard appears — enter your church name and pastor name to proceed</Li></Ol>
-          <Tip>Your login credentials are created by the Super Administrator under Access Control. Contact them if you are locked out.</Tip>
+          <P>The login screen has three tabs:</P>
+          <Ul><Li><B>Sign In</B> — for existing accounts (church admin or staff members who have already joined)</Li><Li><B>New Church</B> — register a brand-new church installation; creates the Super Administrator account</Li><Li><B>Join as Staff</B> — for staff members joining an existing church installation (see Section 14)</Li></Ul>
+          <Ol><Li>Navigate to your ChurchOS URL (e.g. <B>https://aicms-pied.vercel.app</B>)</Li><Li>Click the <B>Sign In</B> tab, enter your email address and password, then click <B>Sign In</B></Li><Li>If this is a brand-new installation, click <B>New Church</B> and enter your church name and pastor name to create your account</Li></Ol>
+          <Tip>Staff members do not use the church admin's password. They create their own account using the <B>Join as Staff</B> tab and the Church Access Code provided by the administrator. See Section 14 for the full setup process.</Tip>
           <H3>First-Time Setup</H3>
           <Ol><Li>After logging in for the first time, click <B>Settings</B> in the left sidebar</Li><Li>Under the <B>General</B> tab, fill in church name, pastor name, address, phone, email, and logo URL</Li><Li>Click <B>Save Settings</B></Li><Li>Your church name and logo will now appear throughout the entire application</Li></Ol>
           <H3>Navigating the App</H3>
           <P>All major sections are listed in the <B>left sidebar</B>. Click any item to open that section instantly. On mobile devices, tap the <B>☰ menu button</B> in the top-left corner to open the sidebar. The active section is highlighted in white.</P>
           <H3>Data Saving</H3>
           <P>ChurchOS saves data automatically — you do not need to press a global Save button. Data is stored in two places: your browser's local storage (instant, works offline) and Supabase cloud (synced when internet is available). The header shows <B>Saving…</B> and <B>Saved ✓</B> status indicators.</P>
-          <Note>If multiple staff members access ChurchOS from different devices using the same account, data is merged automatically on each sign-in from the cloud copy.</Note>
+          <H3>Multi-Device & Staff Access</H3>
+          <P>Because church data is stored in Supabase cloud, all staff members who join under the same Church Access Code share the same live database. Changes made by one staff member (adding a member, recording giving, logging attendance) are visible to all other staff on their next sign-in.</P>
+          <Note>Staff accounts load the church admin's data automatically via the linked Access Code — no manual data transfer is needed. The administrator's data is always the authoritative source.</Note>
         </Sec>
 
         <Sec><H id="s2">2. Dashboard</H>
@@ -8502,6 +8506,7 @@ function ManualPage(){
 
         <Sec><H id="s10">10. Giving & Pledges</H>
           <P>The <B>Giving</B> section records all financial contributions, manages pledge drives, and stores weekly financial reports.</P>
+          <Note>Access to the Giving section is restricted to staff with the <B>Administrator</B>, <B>Office</B>, or <B>Pastor</B> role. Staff with other roles (Staff, Volunteer, Check-In, etc.) will not see Giving in the sidebar or on the Dashboard. Contact your Super Administrator to update a role's permissions if access is needed.</Note>
           <H3>Recording a Donation</H3>
           <Ol><Li>Go to <B>Giving</B> in the sidebar and click <B>+ Record Gift</B></Li><Li>Select the donor (member or visitor), or enter a name manually for anonymous gifts</Li><Li>Enter the amount, date, fund (Tithe, Missions, Building, General, etc.), and payment method (Cash, Check, Card, Online)</Li><Li>Click <B>Save</B></Li></Ol>
           <H3>Managing Pledge Drives</H3>
@@ -8510,6 +8515,10 @@ function ManualPage(){
           <P>Each member's giving history is visible in their profile under the <B>Activity</B> tab — total given, number of gifts, and gift dates. This data is used for year-end giving statements.</P>
           <H3>Weekly Reports</H3>
           <P>Use the <B>Weekly Reports</B> tab to record and store a weekly financial summary (offering total, expenses, notes) for board records and treasurer reports.</P>
+          <H3>Pastor's Draw</H3>
+          <P>Each weekly report automatically calculates the <B>Pastor's Draw</B> — the pastor's portion of combined tithes and Sunday Morning Offering. The draw percentage can be set globally in Giving settings (default 60%) and overridden per individual report using the dropdown on the report card.</P>
+          <Ul><Li><B>0% — No Draw</B> — the pastor receives nothing from that week's tithes ($0.00). Useful for special services, missions weeks, or weeks where the pastor waives their draw.</Li><Li><B>10%–60%</B> — standard percentage options. The current global default is marked <B>(default)</B> in the dropdown.</Li></Ul>
+          <Tip>When a per-report override is set, the report card shows an <B>overridden</B> badge in amber so it is easy to identify reports that differ from the global default.</Tip>
           <Warn>Giving records may be required for IRS charitable donation receipts. Never delete historical giving records. Always keep accurate donor information linked to each gift.</Warn>
         </Sec>
 
@@ -8553,10 +8562,22 @@ function ManualPage(){
 
         <Sec><H id="s14">14. Access Control</H>
           <P>The <B>Access Control</B> section manages all staff user accounts, roles, and permissions. Only Super Administrators can access this section.</P>
-          <H3>Creating a User Account</H3>
-          <Ol><Li>Go to <B>Access Control</B> in the sidebar and click <B>+ Add User</B></Li><Li>Select the member from the dropdown</Li><Li>Assign a <B>Role</B> (see built-in roles below)</Li><Li>Set a <B>password</B> (for web login) and a 4-digit <B>PIN</B> (for kiosk check-in)</Li><Li>Set status to <B>Active</B> and click <B>Save</B></Li></Ol>
+          <H3>Step 1 — Administrator: Create a User Record</H3>
+          <Ol><Li>Go to <B>Access Control</B> in the sidebar and click <B>+ Add User</B></Li><Li>Select the staff member's name from the member dropdown</Li><Li>Enter their <B>email address</B> (they will use this to sign in)</Li><Li>Assign a <B>Role</B> (see Built-In Roles below) and set status to <B>Active</B></Li><Li>Set a 4-digit <B>PIN</B> for kiosk check-in if needed, then click <B>Save</B></Li></Ol>
+          <H3>Step 2 — Administrator: Share the Church Access Code</H3>
+          <P>At the top of the Access Control page, a <B>Staff Access Code</B> banner displays your church's unique code. Click <B>Copy</B> and share it privately with the staff member (e.g. by text or email). This code links their account to your church's data.</P>
+          <Warn>Keep the Staff Access Code confidential. Anyone with this code can create a staff account linked to your church. Rotate it by contacting your system administrator if it is ever shared unintentionally.</Warn>
+          <H3>Step 3 — Staff Member: Join as Staff</H3>
+          <Ol><Li>Have the staff member navigate to your ChurchOS URL</Li><Li>Click the <B>Join as Staff</B> tab on the login screen</Li><Li>Enter their first name, last name, email address (must match the one the administrator entered in Step 1), and create a password</Li><Li>Enter the <B>Church Access Code</B> provided by the administrator</Li><Li>Click <B>Join</B></Li></Ol>
+          <P>Their Supabase account is now created and linked to your church. On their next <B>Sign In</B>, they will have access to the sections permitted by their role.</P>
+          <Note>If the staff member's email does not match any Active user record in Access Control, they will see an <B>Account Not Linked</B> message. The administrator must add the exact email address to their user record before access is granted.</Note>
+          <H3>Role-Based Navigation</H3>
+          <P>Staff members only see the sections permitted by their assigned role. The sidebar automatically hides any module their role does not have access to. This applies to:</P>
+          <Ul><Li>Sidebar navigation items</Li><Li>Dashboard quick-action shortcuts</Li><Li>Dashboard stat cards (e.g. giving totals are hidden for non-finance roles)</Li></Ul>
+          <Tip>To see what a staff member can access, open their role in the <B>Roles</B> tab and review the enabled permissions. Adjust as needed — changes take effect on their next sign-in.</Tip>
           <H3>Built-In Roles</H3>
-          <Ul><Li><B>Super Admin</B> — full unrestricted access including user management</Li><Li><B>Admin</B> — full access to all features except Access Control user management</Li><Li><B>Pastor</B> — directory, giving, prayer, visitation, email, AI</Li><Li><B>Staff</B> — directory, attendance, events, groups</Li><Li><B>Volunteer</B> — directory view and event calendar only</Li><Li><B>Check-In</B> — Education check-in portal only</Li><Li><B>Finance</B> — giving records and reports only</Li></Ul>
+          <Ul><Li><B>Super Admin</B> — full unrestricted access including user management</Li><Li><B>Administrator</B> — full access to all features including Giving; excludes Access Control user management</Li><Li><B>Office</B> — full access to all features including Giving</Li><Li><B>Pastor</B> — directory, giving, prayer, visitation, email, AI</Li><Li><B>Staff</B> — directory, attendance, events, groups</Li><Li><B>Volunteer</B> — directory view and event calendar only</Li><Li><B>Check-In</B> — Education check-in portal only</Li><Li><B>Finance</B> — giving records and reports only</Li></Ul>
+          <Note>Access to the <B>Giving</B> section is limited to the <B>Administrator</B>, <B>Office</B>, and <B>Pastor</B> roles. All other roles cannot see Giving in the sidebar or on the Dashboard.</Note>
           <H3>Creating Custom Roles</H3>
           <Ol><Li>Click the <B>Roles</B> tab within Access Control and click <B>+ New Role</B></Li><Li>Name the role and toggle individual permissions per module: view, create, edit, delete</Li><Li>Click <B>Save Role</B></Li><Li>Assign the new role to users from the Users tab</Li></Ol>
           <H3>Pending Accounts</H3>
@@ -8627,7 +8648,7 @@ function ManualPage(){
         </Sec>
 
         <div style={{textAlign:'center',padding:'24px 0 8px',borderTop:'0.5px solid '+BR,marginTop:4}}>
-          <div style={{fontSize:12,color:MU}}>ChurchOS Staff Manual · New Testament Christian Church · Version 5 · April 2026</div>
+          <div style={{fontSize:12,color:MU}}>ChurchOS Staff Manual · New Testament Christian Church · Version 5.1 · April 2026</div>
           <div style={{fontSize:11,color:MU,marginTop:4}}>For technical support or feature requests, contact your system administrator.</div>
         </div>
       </div>
