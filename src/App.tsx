@@ -7024,12 +7024,14 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
 
 // ── PRAYER ──
 function Prayer({prayers,setPrayers,portalMode=false,portalMember=null}:any) {
-  const [modal,setModal] = useState(portalMode); // open form immediately in portal mode
+  const [modal,setModal] = useState(portalMode);
   const [submitted,setSubmitted] = useState(false);
   const [respModal,setRespModal] = useState(null);
   const [aiResp,setAiResp] = useState("");
   const [load,setLoad] = useState(false);
   const [form,setForm] = useState({name:portalMember?(portalMember.first+" "+portalMember.last):"",request:"",date:td(),status:"Active"});
+  const [showForm,setShowForm] = useState(true);
+  const [justSubmitted,setJustSubmitted] = useState(false);
   const nid = useRef(500);
   const sf = (k:string) => (v:any) => setForm((f:any)=>({...f,[k]:v}));
   const save = () => {
@@ -7051,8 +7053,6 @@ function Prayer({prayers,setPrayers,portalMode=false,portalMember=null}:any) {
     const myPrayers = memberName
       ? [...prayers].filter((p:any)=>(p.name||"").trim().toLowerCase()===memberName).sort((a:any,b:any)=>b.date.localeCompare(a.date))
       : [];
-    const [showForm,setShowForm] = useState(true);
-    const [justSubmitted,setJustSubmitted] = useState(false);
     const portalSave = () => {
       if(!form.request){alert("Prayer request is required.");return;}
       setPrayers((ps:any[])=>[{...form,id:Date.now()},...ps]);
