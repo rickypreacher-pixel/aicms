@@ -361,22 +361,168 @@ function MaintReports({equipment,workOrders,schedMaint}){
   </div>);
 }
 
-function Maintenance({users,members,currentUser,roles,permissions,equipment,setEquipment,workOrders,setWorkOrders,schedMaint,setSchedMaint}){
+function SuppliesTab({supplies,setSupplies,canEdit}){
+  const [modal,setModal]=useState(null);
+  const [detail,setDetail]=useState(null);
+  const [form,setForm]=useState({});
+  const [expandedId,setExpandedId]=useState(null);
+  const [search,setSearch]=useState('');
+  const LOW_PCT=0.25;
+  const isLow=item=>item.maxQty>0&&item.quantity<=Math.round(item.maxQty*LOW_PCT);
+  const lowCount=(supplies||[]).filter(isLow).length;
+  const filtered=(supplies||[]).filter(s=>!search||s.name.toLowerCase().includes(search.toLowerCase()));
+  const fds=d=>d?new Date(d+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';
+  const openM=(type,item,extra={})=>{setDetail(item||null);setForm(extra);setModal(type);};
+  const closeM=()=>{setModal(null);setForm({});setDetail(null);};
+  const addItem=()=>{
+    if(!form.name?.trim()){alert('Product name required.');return;}
+    setSupplies(p=>[...p,{id:Date.now(),name:form.name.trim(),unit:(form.unit||'units').trim(),quantity:0,maxQty:0,notes:form.notes||'',purchaseLog:[],usageLog:[]}]);
+    closeM();
+  };
+  const editItem=()=>{
+    if(!form.name?.trim()){alert('Product name required.');return;}
+    setSupplies(p=>p.map(s=>s.id===detail.id?{...s,name:form.name.trim(),unit:(form.unit||'units').trim(),notes:form.notes||''}:s));
+    closeM();
+  };
+  const logPurchase=()=>{
+    const qty=Number(form.qty);
+    if(!qty||qty<=0){alert('Enter quantity received.');return;}
+    setSupplies(p=>p.map(s=>{if(s.id!==detail.id)return s;const nq=s.quantity+qty;const entry={id:Date.now(),date:form.date||new Date().toISOString().split('T')[0],vendor:form.vendor||'',addedQty:qty};return{...s,quantity:nq,maxQty:Math.max(s.maxQty,nq),purchaseLog:[entry,...(s.purchaseLog||[])]};}));
+    closeM();
+  };
+  const logUsage=()=>{
+    const qty=Number(form.qty);
+    if(!qty||qty<=0){alert('Enter quantity used.');return;}
+    setSupplies(p=>p.map(s=>{if(s.id!==detail.id)return s;const nq=Math.max(0,s.quantity-qty);const entry={id:Date.now(),date:form.date||new Date().toISOString().split('T')[0],usedQty:qty,usedBy:form.usedBy||'',notes:form.usedNotes||''};return{...s,quantity:nq,usageLog:[entry,...(s.usageLog||[])]};}));
+    closeM();
+  };
+  const editQty=()=>{
+    const qty=Number(form.qty);
+    if(isNaN(qty)||qty<0){alert('Enter a valid quantity.');return;}
+    setSupplies(p=>p.map(s=>s.id!==detail.id?s:{...s,quantity:qty,maxQty:Math.max(s.maxQty,qty)}));
+    closeM();
+  };
+  const delItem=id=>{
+    if(!canEdit){alert('Permission required.');return;}
+    if(!window.confirm('Delete this supply item? This cannot be undone.'))return;
+    setSupplies(p=>p.filter(s=>s.id!==id));
+  };
+  const MB:any={position:'fixed',inset:0,background:'#0009',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:20};
+  const MC:any={background:W,borderRadius:14,padding:28,width:'100%',maxWidth:420,boxShadow:'0 20px 60px rgba(0,0,0,0.3)'};
+  const inp:any={width:'100%',padding:'8px 10px',border:'0.5px solid '+BR,borderRadius:8,fontSize:13,boxSizing:'border-box'};
+  const btnR:any={padding:'8px 20px',background:N,color:'#fff',border:'none',borderRadius:8,cursor:'pointer',fontSize:13,fontWeight:500};
+  const btnC:any={padding:'8px 18px',background:'none',border:'0.5px solid '+BR,borderRadius:8,cursor:'pointer',fontSize:13};
+  return(<div>
+    {lowCount>0&&<div style={{background:'#fef2f2',border:'0.5px solid #fca5a5',borderRadius:10,padding:'10px 16px',marginBottom:16,display:'flex',alignItems:'center',gap:10}}>
+      <span style={{fontSize:18}}>⚠️</span>
+      <div><div style={{fontWeight:600,color:RE,fontSize:13}}>{lowCount} item{lowCount>1?'s':''} low on stock</div><div style={{fontSize:12,color:'#7f1d1d'}}>Below 25% of normal quantity — reorder soon</div></div>
+    </div>}
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16,gap:10,flexWrap:'wrap'}}>
+      <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search supplies…" style={{flex:1,minWidth:160,padding:'7px 10px',border:'0.5px solid '+BR,borderRadius:8,fontSize:13}}/>
+      {canEdit&&<button onClick={()=>openM('add',null,{unit:'bottles'})} style={{background:N,color:'#fff',border:'none',borderRadius:8,padding:'8px 16px',cursor:'pointer',fontSize:13,fontWeight:500,whiteSpace:'nowrap'}}>+ Add Item</button>}
+    </div>
+    {filtered.length===0?<div style={{padding:40,textAlign:'center',color:MU,fontSize:14}}>{search?'No items match your search.':'No cleaning supplies added yet. Click "+ Add Item" to get started.'}</div>:(
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))',gap:16}}>
+        {filtered.map(item=>{
+          const low=isLow(item);
+          const pct=item.maxQty>0?Math.min(100,Math.round((item.quantity/item.maxQty)*100)):0;
+          const barColor=pct<=25?RE:pct<50?AM:GR;
+          const expanded=expandedId===item.id;
+          const logAll=[...(item.purchaseLog||[]).map((e:any)=>({...e,type:'purchase'})),...(item.usageLog||[]).map((e:any)=>({...e,type:'usage'}))].sort((a:any,b:any)=>b.date.localeCompare(a.date));
+          return(<div key={item.id} style={{background:W,border:'0.5px solid '+(low?'#fca5a5':BR),borderRadius:12,padding:'16px 18px',boxShadow:low?'0 0 0 2px #fca5a522':'none'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
+              <div><div style={{fontWeight:600,color:N,fontSize:15}}>{item.name}</div><div style={{fontSize:12,color:MU,marginTop:2}}>{item.unit}</div></div>
+              <div style={{display:'flex',gap:6,alignItems:'center'}}>
+                {low&&<span style={{background:'#fef2f2',color:RE,border:'0.5px solid #fca5a5',borderRadius:6,padding:'2px 7px',fontSize:10,fontWeight:600}}>⚠ LOW</span>}
+                {canEdit&&<button onClick={()=>openM('edit',item,{name:item.name,unit:item.unit,notes:item.notes||''})} title="Edit" style={{background:'none',border:'none',cursor:'pointer',fontSize:15,color:MU,padding:2}}>✏️</button>}
+                {canEdit&&<button onClick={()=>delItem(item.id)} title="Delete" style={{background:'none',border:'none',cursor:'pointer',fontSize:14,color:RE,padding:2,fontWeight:700}}>✕</button>}
+              </div>
+            </div>
+            <div style={{marginBottom:12}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:4}}>
+                <span style={{fontSize:24,fontWeight:700,color:N}}>{item.quantity} <span style={{fontSize:13,fontWeight:400,color:MU}}>{item.unit}</span></span>
+                <span style={{fontSize:12,color:MU}}>{item.maxQty>0?pct+'% of '+item.maxQty:'No baseline yet'}</span>
+              </div>
+              {item.maxQty>0&&<div style={{background:'#e5e7eb',borderRadius:99,height:7}}><div style={{background:barColor,width:Math.max(2,pct)+'%',borderRadius:99,height:7,transition:'width 0.3s'}}/></div>}
+              {low&&item.maxQty>0&&<div style={{fontSize:11,color:RE,marginTop:4}}>Reorder threshold: {Math.round(item.maxQty*LOW_PCT)} {item.unit}</div>}
+            </div>
+            {canEdit&&<div style={{display:'flex',gap:6,marginBottom:10}}>
+              <button onClick={()=>openM('purchase',item,{date:new Date().toISOString().split('T')[0]})} style={{flex:1,background:GR+'15',border:'0.5px solid '+GR+'44',borderRadius:7,padding:'6px 0',fontSize:12,fontWeight:500,color:GR,cursor:'pointer'}}>📦 Log Purchase</button>
+              <button onClick={()=>openM('usage',item,{date:new Date().toISOString().split('T')[0]})} style={{flex:1,background:RE+'0d',border:'0.5px solid '+RE+'33',borderRadius:7,padding:'6px 0',fontSize:12,fontWeight:500,color:RE,cursor:'pointer'}}>🧹 Log Usage</button>
+              <button onClick={()=>openM('editqty',item,{qty:String(item.quantity)})} title="Adjust quantity" style={{background:'none',border:'0.5px solid '+BR,borderRadius:7,padding:'6px 8px',fontSize:12,color:MU,cursor:'pointer'}}>✎</button>
+            </div>}
+            <button onClick={()=>setExpandedId(expanded?null:item.id)} style={{background:'none',border:'none',cursor:'pointer',fontSize:11,color:MU,padding:0,display:'flex',alignItems:'center',gap:4}}>{expanded?'▲':'▼'} {logAll.length} log entr{logAll.length===1?'y':'ies'}</button>
+            {expanded&&<div style={{marginTop:10,borderTop:'0.5px solid '+BR,paddingTop:10,maxHeight:200,overflowY:'auto'}}>
+              {logAll.length===0?<div style={{color:MU,fontSize:11}}>No log entries yet.</div>:logAll.map((e:any)=>(
+                <div key={e.id} style={{display:'flex',gap:8,alignItems:'flex-start',marginBottom:5,fontSize:11}}>
+                  <span style={{color:e.type==='purchase'?GR:RE,fontWeight:600,flexShrink:0,minWidth:28}}>{e.type==='purchase'?'+'+e.addedQty:'-'+e.usedQty}</span>
+                  <span style={{color:MU,flexShrink:0,minWidth:72}}>{fds(e.date)}</span>
+                  <span style={{color:TX}}>{e.type==='purchase'?('Purchased'+(e.vendor?' from '+e.vendor:'')):('Used'+(e.usedBy?' by '+e.usedBy:'')+(e.notes?' — '+e.notes:''))}</span>
+                </div>
+              ))}
+            </div>}
+          </div>);
+        })}
+      </div>
+    )}
+    {modal==='add'&&<div style={MB} onClick={closeM}><div style={MC} onClick={(e:any)=>e.stopPropagation()}>
+      <div style={{fontSize:16,fontWeight:600,color:N,marginBottom:20}}>Add Cleaning Supply</div>
+      <Fld label="Product Name *"><input value={form.name||''} onChange={e=>setForm((f:any)=>({...f,name:e.target.value}))} placeholder="e.g. Bleach, Paper Towels, Mop Heads" style={inp}/></Fld>
+      <Fld label="Unit Type"><input value={form.unit||''} onChange={e=>setForm((f:any)=>({...f,unit:e.target.value}))} placeholder="e.g. bottles, rolls, gallons, cases" style={inp}/></Fld>
+      <Fld label="Notes (optional)"><textarea value={form.notes||''} onChange={e=>setForm((f:any)=>({...f,notes:e.target.value}))} rows={2} style={{...inp,resize:'vertical'}}/></Fld>
+      <div style={{display:'flex',gap:10,justifyContent:'flex-end',marginTop:8}}><button onClick={closeM} style={btnC}>Cancel</button><button onClick={addItem} style={btnR}>Add Item</button></div>
+    </div></div>}
+    {modal==='edit'&&detail&&<div style={MB} onClick={closeM}><div style={MC} onClick={(e:any)=>e.stopPropagation()}>
+      <div style={{fontSize:16,fontWeight:600,color:N,marginBottom:20}}>Edit Item</div>
+      <Fld label="Product Name *"><input value={form.name||''} onChange={e=>setForm((f:any)=>({...f,name:e.target.value}))} style={inp}/></Fld>
+      <Fld label="Unit Type"><input value={form.unit||''} onChange={e=>setForm((f:any)=>({...f,unit:e.target.value}))} style={inp}/></Fld>
+      <Fld label="Notes"><textarea value={form.notes||''} onChange={e=>setForm((f:any)=>({...f,notes:e.target.value}))} rows={2} style={{...inp,resize:'vertical'}}/></Fld>
+      <div style={{display:'flex',gap:10,justifyContent:'flex-end',marginTop:8}}><button onClick={closeM} style={btnC}>Cancel</button><button onClick={editItem} style={btnR}>Save</button></div>
+    </div></div>}
+    {modal==='purchase'&&detail&&<div style={MB} onClick={closeM}><div style={MC} onClick={(e:any)=>e.stopPropagation()}>
+      <div style={{fontSize:16,fontWeight:600,color:N,marginBottom:4}}>Log Purchase</div>
+      <div style={{fontSize:13,color:MU,marginBottom:20}}>{detail.name} · {detail.quantity} {detail.unit} on hand</div>
+      <Fld label={'Quantity Received ('+detail.unit+') *'}><input type="number" min="1" value={form.qty||''} onChange={e=>setForm((f:any)=>({...f,qty:e.target.value}))} style={inp}/></Fld>
+      <Fld label="Date Purchased"><input type="date" value={form.date||''} onChange={e=>setForm((f:any)=>({...f,date:e.target.value}))} style={inp}/></Fld>
+      <Fld label="Vendor / Store Name"><input value={form.vendor||''} onChange={e=>setForm((f:any)=>({...f,vendor:e.target.value}))} placeholder="e.g. Costco, Sam's Club, Amazon" style={inp}/></Fld>
+      <div style={{display:'flex',gap:10,justifyContent:'flex-end',marginTop:8}}><button onClick={closeM} style={btnC}>Cancel</button><button onClick={logPurchase} style={{...btnR,background:GR}}>Log Purchase</button></div>
+    </div></div>}
+    {modal==='usage'&&detail&&<div style={MB} onClick={closeM}><div style={MC} onClick={(e:any)=>e.stopPropagation()}>
+      <div style={{fontSize:16,fontWeight:600,color:N,marginBottom:4}}>Log Usage</div>
+      <div style={{fontSize:13,color:MU,marginBottom:20}}>{detail.name} · {detail.quantity} {detail.unit} on hand</div>
+      <Fld label={'Quantity Used ('+detail.unit+') *'}><input type="number" min="1" value={form.qty||''} onChange={e=>setForm((f:any)=>({...f,qty:e.target.value}))} style={inp}/></Fld>
+      <Fld label="Date Used"><input type="date" value={form.date||''} onChange={e=>setForm((f:any)=>({...f,date:e.target.value}))} style={inp}/></Fld>
+      <Fld label="Used By (staff name)"><input value={form.usedBy||''} onChange={e=>setForm((f:any)=>({...f,usedBy:e.target.value}))} placeholder="Who used or distributed this?" style={inp}/></Fld>
+      <Fld label="Notes (optional)"><input value={form.usedNotes||''} onChange={e=>setForm((f:any)=>({...f,usedNotes:e.target.value}))} placeholder="What was it used for?" style={inp}/></Fld>
+      <div style={{display:'flex',gap:10,justifyContent:'flex-end',marginTop:8}}><button onClick={closeM} style={btnC}>Cancel</button><button onClick={logUsage} style={{...btnR,background:RE}}>Log Usage</button></div>
+    </div></div>}
+    {modal==='editqty'&&detail&&<div style={MB} onClick={closeM}><div style={{...MC,maxWidth:360}} onClick={(e:any)=>e.stopPropagation()}>
+      <div style={{fontSize:16,fontWeight:600,color:N,marginBottom:4}}>Adjust Quantity</div>
+      <div style={{fontSize:13,color:MU,marginBottom:20}}>{detail.name} · {detail.unit}</div>
+      <Fld label="Current Quantity on Hand"><input type="number" min="0" value={form.qty} onChange={e=>setForm((f:any)=>({...f,qty:e.target.value}))} style={inp}/></Fld>
+      <div style={{display:'flex',gap:10,justifyContent:'flex-end',marginTop:8}}><button onClick={closeM} style={btnC}>Cancel</button><button onClick={editQty} style={btnR}>Save</button></div>
+    </div></div>}
+  </div>);
+}
+
+function Maintenance({users,members,currentUser,roles,permissions,equipment,setEquipment,workOrders,setWorkOrders,schedMaint,setSchedMaint,supplies,setSupplies}){
   const [tab,setTab]=useState("dashboard");
   const alerts=computeMaintAlerts(equipment,schedMaint);
   const totalAlerts=alerts.overdue.length+alerts.urgent.length+alerts.warrantyExpired.length+alerts.warrantyExpiringSoon.length;
+  const lowSupplies=(supplies||[]).filter((s:any)=>s.maxQty>0&&s.quantity<=Math.round(s.maxQty*0.25)).length;
   const isAdmin=currentUser?.superAdmin||(currentUser?.roleId&&roles?.find(r=>r.id===currentUser.roleId)?.name==="Administrator");
   const canEdit=isAdmin||checkPermission(currentUser,roles,permissions,"maintenance","edit");
-  const TABS=[{id:"dashboard",label:"Dashboard"},{id:"equipment",label:"Equipment",count:equipment.filter(e=>e.status==="Active").length},{id:"workorders",label:"Work Orders",count:workOrders.filter(w=>w.status!=="Completed").length},{id:"scheduled",label:"Scheduled",count:schedMaint.filter(s=>s.active).length},{id:"reports",label:"Reports"}];
+  const TABS=[{id:"dashboard",label:"Dashboard"},{id:"equipment",label:"Equipment",count:equipment.filter(e=>e.status==="Active").length},{id:"workorders",label:"Work Orders",count:workOrders.filter(w=>w.status!=="Completed").length},{id:"scheduled",label:"Scheduled",count:schedMaint.filter(s=>s.active).length},{id:"supplies",label:"🧹 Supplies",count:lowSupplies||undefined},{id:"reports",label:"Reports"}];
   return (<div>
     {totalAlerts>0 && <MaintAlertBanner alerts={alerts}/>}
     <div style={{display:"flex",marginBottom:20,background:W,borderRadius:10,border:"0.5px solid "+BR,overflow:"hidden"}}>
-      {TABS.map(t=>(<button key={t.id} onClick={()=>setTab(t.id)} style={{flex:1,padding:"10px 8px",border:"none",borderBottom:"2px solid "+(tab===t.id?G:"transparent"),background:tab===t.id?"#f8f9fc":W,fontSize:13,fontWeight:tab===t.id?500:400,color:tab===t.id?N:MU,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>{t.label}{t.count!==undefined && t.count>0 && <span style={{background:N+"22",color:N,borderRadius:10,fontSize:10,padding:"1px 6px"}}>{t.count}</span>}{t.id==="dashboard" && totalAlerts>0 && <span style={{background:RE,color:"#fff",borderRadius:10,fontSize:10,padding:"1px 6px",fontWeight:600}}>{totalAlerts}</span>}</button>))}
+      {TABS.map(t=>(<button key={t.id} onClick={()=>setTab(t.id)} style={{flex:1,padding:"10px 8px",border:"none",borderBottom:"2px solid "+(tab===t.id?G:"transparent"),background:tab===t.id?"#f8f9fc":W,fontSize:13,fontWeight:tab===t.id?500:400,color:tab===t.id?N:MU,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>{t.label}{t.count!==undefined && t.count>0 && <span style={{background:t.id==="supplies"?RE+"22":N+"22",color:t.id==="supplies"?RE:N,borderRadius:10,fontSize:10,padding:"1px 6px"}}>{t.count}</span>}{t.id==="dashboard" && totalAlerts>0 && <span style={{background:RE,color:"#fff",borderRadius:10,fontSize:10,padding:"1px 6px",fontWeight:600}}>{totalAlerts}</span>}</button>))}
     </div>
     {tab==="dashboard" && <MaintDashboard equipment={equipment} workOrders={workOrders} schedMaint={schedMaint} alerts={alerts} setTab={setTab}/>}
     {tab==="equipment" && <EquipmentTab equipment={equipment} setEquipment={setEquipment} workOrders={workOrders} schedMaint={schedMaint} canEdit={canEdit}/>}
     {tab==="workorders" && <WorkOrdersTab workOrders={workOrders} setWorkOrders={setWorkOrders} equipment={equipment} users={users} members={members} canEdit={canEdit}/>}
     {tab==="scheduled" && <SchedMaintTab schedMaint={schedMaint} setSchedMaint={setSchedMaint} equipment={equipment} users={users} members={members} canEdit={canEdit}/>}
+    {tab==="supplies" && <SuppliesTab supplies={supplies||[]} setSupplies={setSupplies} canEdit={canEdit}/>}
     {tab==="reports" && <MaintReports equipment={equipment} workOrders={workOrders} schedMaint={schedMaint}/>}
   </div>);
 }
@@ -8752,6 +8898,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   const [equipment,setEquipment] = useState(lsGet('equipment') ?? window.__NTCC_INIT__?.equipment ?? []);
   const [workOrders,setWorkOrders] = useState(lsGet('workOrders') ?? window.__NTCC_INIT__?.workOrders ?? []);
   const [schedMaint,setSchedMaint] = useState(lsGet('schedMaint') ?? window.__NTCC_INIT__?.schedMaint ?? []);
+  const [supplies,setSupplies] = useState(lsGet('supplies') ?? window.__NTCC_INIT__?.supplies ?? []);
   const [pledgeDrives,setPledgeDrives] = useState(lsGet('pledgeDrives') ?? _I.pledgeDrives ?? []);
   const [pledges,setPledges] = useState(lsGet('pledges') ?? _I.pledges ?? []);
   const [weeklyReports,setWeeklyReports] = useState(lsGet('weeklyReports') ?? _I.weeklyReports ?? []);
@@ -8782,6 +8929,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   useEffect(()=>{lsSave('equipment',equipment);},[JSON.stringify(equipment)]);
   useEffect(()=>{lsSave('workOrders',workOrders);},[JSON.stringify(workOrders)]);
   useEffect(()=>{lsSave('schedMaint',schedMaint);},[JSON.stringify(schedMaint)]);
+  useEffect(()=>{lsSave('supplies',supplies);},[JSON.stringify(supplies)]);
   useEffect(()=>{lsSave('pledgeDrives',pledgeDrives);},[JSON.stringify(pledgeDrives)]);
   useEffect(()=>{lsSave('pledges',pledges);},[JSON.stringify(pledges)]);
   useEffect(()=>{lsSave('weeklyReports',weeklyReports);},[JSON.stringify(weeklyReports)]);
@@ -8823,7 +8971,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       if(Array.isArray(d.equipment)&&d.equipment.length) setEquipment(d.equipment);
       if(Array.isArray(d.workOrders)&&d.workOrders.length) setWorkOrders(d.workOrders);
       if(Array.isArray(d.schedMaint)&&d.schedMaint.length) setSchedMaint(d.schedMaint);
-      if(Array.isArray(d.pledgeDrives)&&d.pledgeDrives.length) setPledgeDrives(d.pledgeDrives);
+      if(Array.isArray(d.supplies)&&d.supplies.length) setSupplies(d.supplies);
       if(Array.isArray(d.pledges)&&d.pledges.length) setPledges(d.pledges);
       if(Array.isArray(d.weeklyReports)&&d.weeklyReports.length) setWeeklyReports(d.weeklyReports);
       if(Array.isArray(d.emailLog)&&d.emailLog.length) setEmailLog(d.emailLog);
@@ -8851,7 +8999,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     setCloudSync('saving');
     sbSyncTimer.current = setTimeout(async()=>{
       const blob = {members,visitors,attendance,giving,prayers,groups,grpMeetings,visitRecords,
-        children,classrooms,equipment,workOrders,schedMaint,pledgeDrives,pledges,weeklyReports,
+        children,classrooms,equipment,workOrders,schedMaint,supplies,pledgeDrives,pledges,weeklyReports,
         emailLog,emailTemplates,emailConfig,recurring,custom,checkIns,incidents,rollCalls,
         progressNotes,teacherSchedule,kidsCheckIns,roles,permissions,churchSettings,users};
       const {error} = await supabase.from('church_data').upsert(
@@ -8862,7 +9010,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       setTimeout(()=>setCloudSync('idle'),2500);
     },3000);
   },[JSON.stringify({members,visitors,attendance,giving,prayers,groups,grpMeetings,visitRecords,
-    children,classrooms,equipment,workOrders,schedMaint,pledgeDrives,pledges,weeklyReports,
+    children,classrooms,equipment,workOrders,schedMaint,supplies,pledgeDrives,pledges,weeklyReports,
     emailLog,emailTemplates,emailConfig,recurring,custom,checkIns,incidents,rollCalls,
     progressNotes,teacherSchedule,kidsCheckIns,roles,permissions,churchSettings,users})]);
 
@@ -8960,9 +9108,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   const fu = visitors.filter(v=>v.stage==="Follow-Up Needed").length;
   const inVis = visitRecords.filter(r=>r.stage!=="Complete").length;
   const maintAlerts = computeMaintAlerts(equipment, schedMaint);
-  const maintAlertCount = maintAlerts.overdue.length + maintAlerts.urgent.length + maintAlerts.warrantyExpired.length + maintAlerts.warrantyExpiringSoon.length;
-
-  const logoInitials=(churchSettings.name||"AI").split(" ").filter(w=>w).slice(0,2).map(w=>w[0]).join("").toUpperCase();
+  const maintAlertCount = maintAlerts.overdue.length + maintAlerts.urgent.length + maintAlerts.warrantyExpired.length + maintAlerts.warrantyExpiringSoon.length + (supplies||[]).filter((s:any)=>s.maxQty>0&&s.quantity<=Math.round(s.maxQty*0.25)).length;
   const LogoEl=()=>churchSettings.logoUrl
     ?<img src={churchSettings.logoUrl} style={{width:36,height:36,borderRadius:8,objectFit:"cover",flexShrink:0,border:"1px solid #ffffff33"}} alt="logo" onError={e=>e.target.style.display="none"}/>
     :<div style={{width:36,height:36,borderRadius:8,background:G,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:"#fff",flexShrink:0}}>{logoInitials}</div>;
@@ -9077,10 +9223,10 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
         <div style={{flex:1,padding:isMobile?12:24,overflow:"auto"}}>
           {showSetup && <SetupModal onSave={s=>{setChurchSettings(s);setShowSetup(false);}} initialName={churchName||''} initialPastorName={(adminFirst||adminLast)?`Pastor ${[adminFirst,adminLast].filter(Boolean).join(' ')}`:''}/>}
           {view==="settings" && <ChurchSettingsPage cs={churchSettings} setCs={setChurchSettings} members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} prayers={prayers} groups={groups} grpMeetings={grpMeetings} visitRecords={visitRecords} checkIns={checkIns} kidsCheckIns={kidsCheckIns} children={children} pledgeDrives={pledgeDrives} pledges={pledges} weeklyReports={weeklyReports} equipment={equipment} workOrders={workOrders} schedMaint={schedMaint}
-            backupData={{members,visitors,attendance,giving,prayers,groups,grpMeetings,visitRecords,checkIns,kidsCheckIns,children,pledgeDrives,pledges,weeklyReports,equipment,workOrders,schedMaint,users,roles,permissions,recurring,custom,emailLog,emailTemplates,emailConfig,incidents,rollCalls,progressNotes,teacherSchedule,churchSettings}}
+            backupData={{members,visitors,attendance,giving,prayers,groups,grpMeetings,visitRecords,checkIns,kidsCheckIns,children,pledgeDrives,pledges,weeklyReports,equipment,workOrders,schedMaint,supplies,users,roles,permissions,recurring,custom,emailLog,emailTemplates,emailConfig,incidents,rollCalls,progressNotes,teacherSchedule,churchSettings}}
             onRestore={(d:any,mode:string)=>{
               const s=(setter:any,key:string,isArr=true)=>{if(d[key]===undefined)return;if(mode==='replace'){setter(d[key]);}else{if(isArr&&Array.isArray(d[key])){setter((cur:any[])=>[...cur,...d[key].filter((n:any)=>!cur.find(x=>String(x.id)===String(n.id)))]);}else{setter(d[key]);}}};
-              s(setMembers,'members');s(setVisitors,'visitors');s(setAttendance,'attendance');s(setGiving,'giving');s(setPrayers,'prayers');s(setGroups,'groups');s(setGrpMeetings,'grpMeetings');s(setVisitRecords,'visitRecords');s(setCheckIns,'checkIns');s(setKidsCheckIns,'kidsCheckIns');s(setChildren,'children');s(setPledgeDrives,'pledgeDrives');s(setPledges,'pledges');s(setWeeklyReports,'weeklyReports');s(setEquipment,'equipment');s(setWorkOrders,'workOrders');s(setSchedMaint,'schedMaint');s(setUsers,'users');s(setRoles,'roles');s(setPermissions,'permissions',false);s(setRecurring,'recurring');s(setCustom,'custom');s(setEmailLog,'emailLog');s(setEmailTemplates,'emailTemplates',false);s(setEmailConfig,'emailConfig',false);s(setIncidents,'incidents');s(setRollCalls,'rollCalls');s(setProgressNotes,'progressNotes');s(setTeacherSchedule,'teacherSchedule');if(d.churchSettings&&mode==='replace')setChurchSettings(d.churchSettings);
+              s(setMembers,'members');s(setVisitors,'visitors');s(setAttendance,'attendance');s(setGiving,'giving');s(setPrayers,'prayers');s(setGroups,'groups');s(setGrpMeetings,'grpMeetings');s(setVisitRecords,'visitRecords');s(setCheckIns,'checkIns');s(setKidsCheckIns,'kidsCheckIns');s(setChildren,'children');s(setPledgeDrives,'pledgeDrives');s(setPledges,'pledges');s(setWeeklyReports,'weeklyReports');s(setEquipment,'equipment');s(setWorkOrders,'workOrders');s(setSchedMaint,'schedMaint');s(setSupplies,'supplies');s(setUsers,'users');s(setRoles,'roles');s(setPermissions,'permissions',false);s(setRecurring,'recurring');s(setCustom,'custom');s(setEmailLog,'emailLog');s(setEmailTemplates,'emailTemplates',false);s(setEmailConfig,'emailConfig',false);s(setIncidents,'incidents');s(setRollCalls,'rollCalls');s(setProgressNotes,'progressNotes');s(setTeacherSchedule,'teacherSchedule');if(d.churchSettings&&mode==='replace')setChurchSettings(d.churchSettings);
             }}
           />}
           {view==="dashboard" && <Dashboard members={members} visitors={visitors} attendance={attendance} giving={giving} prayers={prayers} setView={setView} canViewGiving={canViewGiving}/>}
@@ -9088,7 +9234,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           {view==="people" && <People members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} prayers={prayers} groups={groups} grpMeetings={grpMeetings} visitRecords={visitRecords} setVisitRecords={setVisitRecords} checkIns={checkIns} setView={setView} canViewGiving={canViewGiving}/>}
           {view==="groups" && <Groups members={members} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings}/>}
           {view==="education" && <Education members={members} visitors={visitors} users={users} roles={roles} children={children} setChildren={setChildren} classrooms={classrooms} setClassrooms={setClassrooms} teacherSchedule={teacherSchedule} setTeacherSchedule={setTeacherSchedule} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckIns} checkIns={checkIns} incidents={incidents} setIncidents={setIncidents} rollCalls={rollCalls} setRollCalls={setRollCalls} progressNotes={progressNotes} setProgressNotes={setProgressNotes} cs={churchSettings} printerConfig={printerConfig} setPrinterConfig={setPrinterConfig}/>}
-          {view==="maintenance" && <Maintenance users={users} members={members} currentUser={currentUser} roles={roles} permissions={permissions} equipment={equipment} setEquipment={setEquipment} workOrders={workOrders} setWorkOrders={setWorkOrders} schedMaint={schedMaint} setSchedMaint={setSchedMaint}/>}
+          {view==="maintenance" && <Maintenance users={users} members={members} currentUser={currentUser} roles={roles} permissions={permissions} equipment={equipment} setEquipment={setEquipment} workOrders={workOrders} setWorkOrders={setWorkOrders} schedMaint={schedMaint} setSchedMaint={setSchedMaint} supplies={supplies} setSupplies={setSupplies}/>}
           {view==="calendar" && (
             <div style={{height:"calc(100vh - 110px)",display:"flex",flexDirection:"column",margin:-24,overflow:"hidden"}}>
               <CalendarView
