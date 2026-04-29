@@ -55,6 +55,7 @@ function Root() {
       adminFirst={isStaff ? (meta.admin_first || '') : (meta.admin_first || '')}
       adminLast={isStaff ? (meta.admin_last || '') : (meta.admin_last || '')}
       loggedInEmail={session.user.email || ''}
+      displayName={meta.full_name || meta.name || meta.display_name || ''}
       isStaff={isStaff}
       onSignOut={() => supabase.auth.signOut()}
     />

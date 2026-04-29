@@ -9075,7 +9075,7 @@ function ManualPage(){
 }
 
 // ── MEMBER PORTAL — self-service profile + giving view for email/password members ──
-function MemberProfilePortal({member,setMembers,giving,onSignOut}:any) {
+function MemberProfilePortal({member,setMembers,giving,onSignOut,staffMode=false}:any) {
   const [tab,setTab] = useState("profile");
   const [editMode,setEditMode] = useState(false);
   const [form,setForm] = useState({...member,address:member.address||{...EMPTY_ADDR},children:member.children||[],allergies:member.allergies||[],medical:member.medical||[]});
@@ -9095,7 +9095,7 @@ function MemberProfilePortal({member,setMembers,giving,onSignOut}:any) {
   const totalGiven = myGiving.reduce((a:number,g:any)=>a+Number(g.amount||0),0);
   const sorted = [...myGiving].sort((a:any,b:any)=>b.date.localeCompare(a.date));
 
-  const TABS = [{id:"profile",label:"Personal Info"},{id:"giving",label:"My Giving"}];
+  const TABS = staffMode ? [{id:"profile",label:"Personal Info"}] : [{id:"profile",label:"Personal Info"},{id:"giving",label:"My Giving"}];
 
   const InfoRow = ({label,value,empty="Not on file"}:any) => (
     <div style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"0.5px solid "+BR,alignItems:"baseline",gap:10}}>
@@ -9118,7 +9118,7 @@ function MemberProfilePortal({member,setMembers,giving,onSignOut}:any) {
           {editMode
             ?<><Btn onClick={save}>Save Changes</Btn><Btn v="ghost" onClick={()=>setEditMode(false)}>Cancel</Btn></>
             :<Btn v="gold" onClick={()=>setEditMode(true)}>Edit Profile</Btn>}
-          <button onClick={onSignOut} style={{padding:"7px 14px",background:"#fee2e2",border:"0.5px solid #fca5a5",borderRadius:8,fontSize:12,fontWeight:600,color:"#dc2626",cursor:"pointer"}}>Sign Out</button>
+          <button onClick={onSignOut} style={{padding:"7px 14px",background:staffMode?"#f0f4ff":"#fee2e2",border:"0.5px solid "+(staffMode?"#bfcbff":"#fca5a5"),borderRadius:8,fontSize:12,fontWeight:600,color:staffMode?"#2563eb":"#dc2626",cursor:"pointer"}}>{staffMode?"← Back":"Sign Out"}</button>
         </div>
       </div>
 
@@ -9225,7 +9225,7 @@ function MemberProfilePortal({member,setMembers,giving,onSignOut}:any) {
 }
 
 // ── MAIN APP ──
-export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,loggedInEmail,isStaff}:any={}) {
+export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,loggedInEmail,isStaff,displayName=''}:any={}) {
   const _I = window.__NTCC_INIT__ || {};
   // Namespace localStorage by churchId so each church's data is isolated
   const LS = (key:string) => churchId ? `ntcc_${churchId}_${key}` : `ntcc_${key}`;
@@ -9296,10 +9296,20 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       ? true
       : checkPermission(currentUser, roles, permissions, 'addvisitor', 'create');
   // Member Portal: email/password login whose email matches a member record but is not in the staff users list
+  const _matchMemberByName = (list:any[]) => displayName
+    ? list.find((m:any) => {
+        const mn = ((m.first||'')+' '+(m.last||'')).trim().toLowerCase();
+        return mn && mn === displayName.trim().toLowerCase();
+      }) || null
+    : null;
   const portalMember = (isStaff && !currentUser)
-    ? (members.find((m:any) => m.email && m.email.toLowerCase() === (loggedInEmail||'').toLowerCase()) || null)
+    ? (members.find((m:any) => m.email && m.email.toLowerCase() === (loggedInEmail||'').toLowerCase()) || _matchMemberByName(members))
     : null;
   const isMemberPortal = !!portalMember;
+  // Staff member record: staff user who also has a record in the members list
+  const staffMemberRecord = (isStaff && currentUser)
+    ? (members.find((m:any) => m.email && m.email.toLowerCase() === (loggedInEmail||'').toLowerCase()) || _matchMemberByName(members))
+    : null;
   window.__CS__ = churchSettings;
   useEffect(()=>{
     try{
@@ -9557,14 +9567,17 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   const visibleNAV = isMemberPortal
     ? PORTAL_NAV
     : (!isStaff || !currentUser || currentUser.superAdmin)
-    ? NAV
-    : NAV.filter(item => {
-        if(isRestrictedUser && RESTRICTED_NAV_HIDDEN.includes(item.id)) return false;
-        const mod = NAV_MOD_MAP[item.id];
-        if(!mod) return true;
-        const action = item.id === 'addperson' ? 'create' : 'view';
-        return checkPermission(currentUser, roles, permissions, mod, action);
-      });
+    ? (staffMemberRecord ? [...NAV, {id:"myprofile",label:"My Profile",icon:"👤"}] : NAV)
+    : (() => {
+        const filtered = NAV.filter(item => {
+          if(isRestrictedUser && RESTRICTED_NAV_HIDDEN.includes(item.id)) return false;
+          const mod = NAV_MOD_MAP[item.id];
+          if(!mod) return true;
+          const action = item.id === 'addperson' ? 'create' : 'view';
+          return checkPermission(currentUser, roles, permissions, mod, action);
+        });
+        return staffMemberRecord ? [...filtered, {id:"myprofile",label:"My Profile",icon:"👤"}] : filtered;
+      })();
   const TITLES:any = {dashboard:"Dashboard",addperson:"Add Person to Database",people:"Members Profile",visitation:"Visitation & Follow-Up",education:"Education Department",maintenance:"Maintenance & Equipment",attendance:"Attendance",giving:"Giving Records",prayer:"Prayer Wall",email:"Email Center",sms:"SMS Center",access:"Access Control",ai:"AI Assistant",settings:"Church Settings",manual:"Staff Manual",myprofile:"My Profile"};
   const pending = users.filter(u=>u.status==="Pending").length;
   const fu = visitors.filter(v=>v.stage==="Follow-Up Needed").length;
@@ -9735,6 +9748,8 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           {/* ── Member Portal hard-gate: only myprofile and prayer allowed ── */}
           {isMemberPortal && view!=="prayer" && <MemberProfilePortal member={portalMember} setMembers={setMembers} giving={giving} onSignOut={onSignOut}/>}
           {isMemberPortal && view==="prayer" && <Prayer prayers={prayers} setPrayers={setPrayers} portalMode={true} portalMember={portalMember}/>}
+          {/* ── Staff My Profile: staff user whose login matches a member record ── */}
+          {!isMemberPortal && view==="myprofile" && staffMemberRecord && <MemberProfilePortal member={staffMemberRecord} setMembers={setMembers} giving={giving} onSignOut={()=>setView("dashboard")} staffMode={true}/>}
           {/* ── Staff / Admin views (never rendered for portal users) ── */}
           {!isMemberPortal && view==="sms" && <SmsCenter smsLog={smsLog} setSmsLog={setSmsLog} smsTemplates={smsTemplates} setSmsTemplates={setSmsTemplates} smsConfig={smsConfig} setSmsConfig={setSmsConfig} members={members} visitors={visitors} cs={churchSettings} onCompose={()=>openSmsComposer({})} onBulkCompose={()=>openBulkSmsComposer({recipients:[...members,...visitors].filter(p=>p.phone).map(p=>({...p,first:p.first,last:p.last,name:p.first+" "+p.last}))})}/>}
           {!isMemberPortal && view==="email" && <EmailCenter emailLog={emailLog} setEmailLog={setEmailLog} emailTemplates={emailTemplates} setEmailTemplates={setEmailTemplates} emailConfig={emailConfig} setEmailConfig={setEmailConfig} members={members} visitors={visitors} cs={churchSettings} onCompose={()=>openEmailComposer({})} onBulkCompose={()=>openBulkEmailComposer({recipients:members.filter(m=>m.email).map(m=>({name:m.first+" "+m.last,first:m.first,last:m.last,email:m.email}))})}/>}
