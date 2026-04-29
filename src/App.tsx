@@ -9588,7 +9588,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       </div>
       <div style={{padding:"12px 14px",borderTop:"1px solid #ffffff18"}}>
         <div style={{color:"#7a9acc",fontSize:11,marginBottom:3}}>Signed in as</div>
-        {isMemberPortal ? (<>
+        {isMemberPortal && portalMember ? (<>
           <div style={{color:"#fff",fontSize:12,fontWeight:500}}>{portalMember.first+" "+portalMember.last}</div>
           <div style={{color:G,fontSize:11}}>Member</div>
         </>) : isStaff && currentUser ? (()=>{
@@ -9614,8 +9614,18 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   return (
     <div style={{display:"flex",height:"100vh",background:BG,fontFamily:"system-ui,sans-serif",fontSize:14,color:TX,overflow:"hidden"}}>
 
+      {/* Portal / staff loading guard — while Supabase loads, we don't know if they're portal or unlinked */}
+      {isStaff && !currentUser && cloudSync === 'loading' && (
+        <div style={{position:"fixed",inset:0,background:N,display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999}}>
+          <div style={{textAlign:"center",color:"#fff"}}>
+            <div style={{fontSize:32,marginBottom:12}}>⛪</div>
+            <div style={{fontSize:16,fontWeight:500}}>Loading your profile...</div>
+          </div>
+        </div>
+      )}
+
       {/* Staff account not linked — show friendly error */}
-      {isStaff && !currentUser && !isMemberPortal && (
+      {isStaff && !currentUser && !isMemberPortal && cloudSync !== 'loading' && (
         <div style={{position:"fixed",inset:0,background:N,display:"flex",alignItems:"center",justifyContent:"center",padding:20,zIndex:9999}}>
           <div style={{background:"#fff",borderRadius:16,padding:36,maxWidth:440,width:"100%",textAlign:"center",boxShadow:"0 24px 60px rgba(0,0,0,0.4)"}}>
             <div style={{fontSize:48,marginBottom:12}}>🔗</div>
@@ -9665,8 +9675,8 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
             {cloudSync==='saving' && <div style={{fontSize:11,color:AM,display:"flex",alignItems:"center",gap:4}}><span style={{width:8,height:8,borderRadius:"50%",background:AM,display:"inline-block"}}></span>Saving…</div>}
             {cloudSync==='saved' && <div style={{fontSize:11,color:GR,display:"flex",alignItems:"center",gap:4}}><span style={{width:8,height:8,borderRadius:"50%",background:GR,display:"inline-block"}}></span>Saved ✓</div>}
             {cloudSync==='error' && <div style={{fontSize:11,color:RE,display:"flex",alignItems:"center",gap:4}}>⚠ Sync error</div>}
-            <button onClick={()=>{setView("ai");setNavOpen(false);}} style={{background:GL,border:"1px solid "+G,borderRadius:8,padding:isMobile?"7px 10px":"7px 12px",cursor:"pointer",fontSize:12,fontWeight:500,color:"#7a5c10",whiteSpace:"nowrap"}}>AI</button>
-            <button onClick={()=>{setView("settings");setNavOpen(false);}} style={{background:N+"12",border:"0.5px solid "+N+"33",borderRadius:8,padding:isMobile?"7px 10px":"7px 12px",cursor:"pointer",fontSize:12,fontWeight:500,color:N}}>⚙</button>
+            <button onClick={()=>{setView("ai");setNavOpen(false);}} style={{background:GL,border:"1px solid "+G,borderRadius:8,padding:isMobile?"7px 10px":"7px 12px",cursor:"pointer",fontSize:12,fontWeight:500,color:"#7a5c10",whiteSpace:"nowrap",display:isMemberPortal?"none":"inline-flex"}}>AI</button>
+            <button onClick={()=>{setView("settings");setNavOpen(false);}} style={{background:N+"12",border:"0.5px solid "+N+"33",borderRadius:8,padding:isMobile?"7px 10px":"7px 12px",cursor:"pointer",fontSize:12,fontWeight:500,color:N,display:isMemberPortal?"none":"inline-flex"}}>⚙</button>
             {onSignOut&&<button onClick={onSignOut} title="Sign Out" style={{background:"#fee2e2",border:"0.5px solid #fca5a5",borderRadius:8,padding:isMobile?"7px 10px":"7px 12px",cursor:"pointer",fontSize:12,fontWeight:600,color:"#dc2626",whiteSpace:"nowrap"}}>Sign Out</button>}
           </div>
         </div>
@@ -9674,20 +9684,20 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
         {/* Page content */}
         <div style={{flex:1,padding:isMobile?12:24,overflow:"auto"}}>
           {showSetup && <SetupModal onSave={s=>{setChurchSettings(s);setShowSetup(false);}} initialName={churchName||''} initialPastorName={(adminFirst||adminLast)?`Pastor ${[adminFirst,adminLast].filter(Boolean).join(' ')}`:''}/>}
-          {view==="settings" && <ChurchSettingsPage cs={churchSettings} setCs={setChurchSettings} members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} prayers={prayers} groups={groups} grpMeetings={grpMeetings} visitRecords={visitRecords} checkIns={checkIns} kidsCheckIns={kidsCheckIns} children={children} pledgeDrives={pledgeDrives} pledges={pledges} weeklyReports={weeklyReports} equipment={equipment} workOrders={workOrders} schedMaint={schedMaint}
+          {!isMemberPortal && view==="settings" && <ChurchSettingsPage cs={churchSettings} setCs={setChurchSettings} members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} prayers={prayers} groups={groups} grpMeetings={grpMeetings} visitRecords={visitRecords} checkIns={checkIns} kidsCheckIns={kidsCheckIns} children={children} pledgeDrives={pledgeDrives} pledges={pledges} weeklyReports={weeklyReports} equipment={equipment} workOrders={workOrders} schedMaint={schedMaint}
             backupData={{members,visitors,attendance,giving,prayers,groups,grpMeetings,visitRecords,checkIns,kidsCheckIns,children,pledgeDrives,pledges,weeklyReports,equipment,workOrders,schedMaint,supplies,checkoutItems,checkouts,users,roles,permissions,recurring,custom,emailLog,emailTemplates,emailConfig,incidents,rollCalls,progressNotes,teacherSchedule,churchSettings}}
             onRestore={(d:any,mode:string)=>{
               const s=(setter:any,key:string,isArr=true)=>{if(d[key]===undefined)return;if(mode==='replace'){setter(d[key]);}else{if(isArr&&Array.isArray(d[key])){setter((cur:any[])=>[...cur,...d[key].filter((n:any)=>!cur.find(x=>String(x.id)===String(n.id)))]);}else{setter(d[key]);}}};
               s(setMembers,'members');s(setVisitors,'visitors');s(setAttendance,'attendance');s(setGiving,'giving');s(setPrayers,'prayers');s(setGroups,'groups');s(setGrpMeetings,'grpMeetings');s(setVisitRecords,'visitRecords');s(setCheckIns,'checkIns');s(setKidsCheckIns,'kidsCheckIns');s(setChildren,'children');s(setPledgeDrives,'pledgeDrives');s(setPledges,'pledges');s(setWeeklyReports,'weeklyReports');s(setEquipment,'equipment');s(setWorkOrders,'workOrders');s(setSchedMaint,'schedMaint');s(setSupplies,'supplies');s(setCheckoutItems,'checkoutItems');s(setCheckouts,'checkouts');s(setUsers,'users');s(setRoles,'roles');s(setPermissions,'permissions',false);s(setRecurring,'recurring');s(setCustom,'custom');s(setEmailLog,'emailLog');s(setEmailTemplates,'emailTemplates',false);s(setEmailConfig,'emailConfig',false);s(setIncidents,'incidents');s(setRollCalls,'rollCalls');s(setProgressNotes,'progressNotes');s(setTeacherSchedule,'teacherSchedule');if(d.churchSettings&&mode==='replace')setChurchSettings(d.churchSettings);
             }}
           />}
-          {view==="dashboard" && <Dashboard members={members} visitors={visitors} attendance={attendance} giving={giving} prayers={prayers} setView={setView} canViewGiving={canViewGiving} isRestrictedUser={isRestrictedUser}/>}
-          {view==="addperson" && <AddMemberPage members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} currentUser={currentUser} roles={roles} permissions={permissions} setView={setView}/>}
-          {view==="people" && <People members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} prayers={prayers} groups={groups} grpMeetings={grpMeetings} visitRecords={visitRecords} setVisitRecords={setVisitRecords} checkIns={checkIns} setView={setView} canViewGiving={canViewGiving}/>}
-          {view==="groups" && <Groups members={members} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings}/>}
-          {view==="education" && <Education members={members} visitors={visitors} users={users} roles={roles} children={children} setChildren={setChildren} classrooms={classrooms} setClassrooms={setClassrooms} teacherSchedule={teacherSchedule} setTeacherSchedule={setTeacherSchedule} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckIns} checkIns={checkIns} incidents={incidents} setIncidents={setIncidents} rollCalls={rollCalls} setRollCalls={setRollCalls} progressNotes={progressNotes} setProgressNotes={setProgressNotes} cs={churchSettings} printerConfig={printerConfig} setPrinterConfig={setPrinterConfig}/>}
-          {view==="maintenance" && <Maintenance users={users} members={members} currentUser={currentUser} roles={roles} permissions={permissions} equipment={equipment} setEquipment={setEquipment} workOrders={workOrders} setWorkOrders={setWorkOrders} schedMaint={schedMaint} setSchedMaint={setSchedMaint} supplies={supplies} setSupplies={setSupplies} checkoutItems={checkoutItems} setCheckoutItems={setCheckoutItems} checkouts={checkouts} setCheckouts={setCheckouts}/>}
-          {view==="calendar" && (
+          {!isMemberPortal && view==="dashboard" && <Dashboard members={members} visitors={visitors} attendance={attendance} giving={giving} prayers={prayers} setView={setView} canViewGiving={canViewGiving} isRestrictedUser={isRestrictedUser}/>}
+          {!isMemberPortal && view==="addperson" && <AddMemberPage members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} currentUser={currentUser} roles={roles} permissions={permissions} setView={setView}/>}
+          {!isMemberPortal && view==="people" && <People members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} prayers={prayers} groups={groups} grpMeetings={grpMeetings} visitRecords={visitRecords} setVisitRecords={setVisitRecords} checkIns={checkIns} setView={setView} canViewGiving={canViewGiving}/>}
+          {!isMemberPortal && view==="groups" && <Groups members={members} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings}/>}
+          {!isMemberPortal && view==="education" && <Education members={members} visitors={visitors} users={users} roles={roles} children={children} setChildren={setChildren} classrooms={classrooms} setClassrooms={setClassrooms} teacherSchedule={teacherSchedule} setTeacherSchedule={setTeacherSchedule} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckIns} checkIns={checkIns} incidents={incidents} setIncidents={setIncidents} rollCalls={rollCalls} setRollCalls={setRollCalls} progressNotes={progressNotes} setProgressNotes={setProgressNotes} cs={churchSettings} printerConfig={printerConfig} setPrinterConfig={setPrinterConfig}/>}
+          {!isMemberPortal && view==="maintenance" && <Maintenance users={users} members={members} currentUser={currentUser} roles={roles} permissions={permissions} equipment={equipment} setEquipment={setEquipment} workOrders={workOrders} setWorkOrders={setWorkOrders} schedMaint={schedMaint} setSchedMaint={setSchedMaint} supplies={supplies} setSupplies={setSupplies} checkoutItems={checkoutItems} setCheckoutItems={setCheckoutItems} checkouts={checkouts} setCheckouts={setCheckouts}/>}
+          {!isMemberPortal && view==="calendar" && (
             <div style={{height:"calc(100vh - 110px)",display:"flex",flexDirection:"column",margin:-24,overflow:"hidden"}}>
               <CalendarView
                 members={members}
@@ -9705,16 +9715,18 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
               />
             </div>
           )}
-          {view==="visitation" && <Visitation visitors={visitors} setVisitors={setVisitors} members={members} setMembers={setMembers} users={users} currentUser={currentUser} roles={roles} visitRecords={visitRecords} setVisitRecords={setVisitRecords} setView={setView}/>}
-          {view==="attendance" && <Attendance attendance={attendance} setAttendance={setAttendance} setView={setView}/>}
-          {view==="giving" && <Giving giving={giving} setGiving={setGiving} pledgeDrives={pledgeDrives} setPledgeDrives={setPledgeDrives} pledges={pledges} setPledges={setPledges} members={members} visitors={visitors} weeklyReports={weeklyReports} setWeeklyReports={setWeeklyReports} emailTemplates={emailTemplates}/>}
-          {view==="prayer" && <Prayer prayers={prayers} setPrayers={setPrayers} portalMode={isMemberPortal} portalMember={portalMember}/>}
-          {view==="myprofile" && isMemberPortal && <MemberProfilePortal member={portalMember} setMembers={setMembers} giving={giving} onSignOut={onSignOut}/>}
-          {view==="sms" && <SmsCenter smsLog={smsLog} setSmsLog={setSmsLog} smsTemplates={smsTemplates} setSmsTemplates={setSmsTemplates} smsConfig={smsConfig} setSmsConfig={setSmsConfig} members={members} visitors={visitors} cs={churchSettings} onCompose={()=>openSmsComposer({})} onBulkCompose={()=>openBulkSmsComposer({recipients:[...members,...visitors].filter(p=>p.phone).map(p=>({...p,first:p.first,last:p.last,name:p.first+" "+p.last}))})}/>}
-          {view==="email" && <EmailCenter emailLog={emailLog} setEmailLog={setEmailLog} emailTemplates={emailTemplates} setEmailTemplates={setEmailTemplates} emailConfig={emailConfig} setEmailConfig={setEmailConfig} members={members} visitors={visitors} cs={churchSettings} onCompose={()=>openEmailComposer({})} onBulkCompose={()=>openBulkEmailComposer({recipients:members.filter(m=>m.email).map(m=>({name:m.first+" "+m.last,first:m.first,last:m.last,email:m.email}))})}/>}
-          {view==="access" && <Access members={members} users={users} setUsers={setUsers} roles={roles} setRoles={setRoles} permissions={permissions} setPermissions={setPermissions} portalMembers={portalMembers} setPortalMembers={setPortalMembers} currentUser={currentUser} churchId={churchId}/>}
-          {view==="ai" && <AIAssist aiChat={aiChat} setAiChat={setAiChat} members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} setAttendance={setAttendance} giving={giving} setGiving={setGiving} prayers={prayers} setView={setView} isMobile={isMobile}/>}
-          {view==="manual" && <ManualPage/>}
+          {!isMemberPortal && view==="visitation" && <Visitation visitors={visitors} setVisitors={setVisitors} members={members} setMembers={setMembers} users={users} currentUser={currentUser} roles={roles} visitRecords={visitRecords} setVisitRecords={setVisitRecords} setView={setView}/>}
+          {!isMemberPortal && view==="attendance" && <Attendance attendance={attendance} setAttendance={setAttendance} setView={setView}/>}
+          {!isMemberPortal && view==="giving" && <Giving giving={giving} setGiving={setGiving} pledgeDrives={pledgeDrives} setPledgeDrives={setPledgeDrives} pledges={pledges} setPledges={setPledges} members={members} visitors={visitors} weeklyReports={weeklyReports} setWeeklyReports={setWeeklyReports} emailTemplates={emailTemplates}/>}
+          {/* ── Member Portal hard-gate: only myprofile and prayer allowed ── */}
+          {isMemberPortal && view!=="prayer" && <MemberProfilePortal member={portalMember} setMembers={setMembers} giving={giving} onSignOut={onSignOut}/>}
+          {isMemberPortal && view==="prayer" && <Prayer prayers={prayers} setPrayers={setPrayers} portalMode={true} portalMember={portalMember}/>}
+          {/* ── Staff / Admin views (never rendered for portal users) ── */}
+          {!isMemberPortal && view==="sms" && <SmsCenter smsLog={smsLog} setSmsLog={setSmsLog} smsTemplates={smsTemplates} setSmsTemplates={setSmsTemplates} smsConfig={smsConfig} setSmsConfig={setSmsConfig} members={members} visitors={visitors} cs={churchSettings} onCompose={()=>openSmsComposer({})} onBulkCompose={()=>openBulkSmsComposer({recipients:[...members,...visitors].filter(p=>p.phone).map(p=>({...p,first:p.first,last:p.last,name:p.first+" "+p.last}))})}/>}
+          {!isMemberPortal && view==="email" && <EmailCenter emailLog={emailLog} setEmailLog={setEmailLog} emailTemplates={emailTemplates} setEmailTemplates={setEmailTemplates} emailConfig={emailConfig} setEmailConfig={setEmailConfig} members={members} visitors={visitors} cs={churchSettings} onCompose={()=>openEmailComposer({})} onBulkCompose={()=>openBulkEmailComposer({recipients:members.filter(m=>m.email).map(m=>({name:m.first+" "+m.last,first:m.first,last:m.last,email:m.email}))})}/>}
+          {!isMemberPortal && view==="access" && <Access members={members} users={users} setUsers={setUsers} roles={roles} setRoles={setRoles} permissions={permissions} setPermissions={setPermissions} portalMembers={portalMembers} setPortalMembers={setPortalMembers} currentUser={currentUser} churchId={churchId}/>}
+          {!isMemberPortal && view==="ai" && <AIAssist aiChat={aiChat} setAiChat={setAiChat} members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} setAttendance={setAttendance} giving={giving} setGiving={setGiving} prayers={prayers} setView={setView} isMobile={isMobile}/>}
+          {!isMemberPortal && view==="manual" && <ManualPage/>}
         </div>
       </div>
 
