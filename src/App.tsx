@@ -4905,15 +4905,15 @@ function Dashboard({members,visitors,attendance,giving,prayers,setView,canViewGi
 
   return (
     <div>
-      {/* Add Person Banner */}
-      <div onClick={()=>setView("addperson")} style={{background:"linear-gradient(135deg,"+N+",#2a4a8a)",borderRadius:12,padding:"16px 22px",marginBottom:20,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+      {/* Add Person Banner — hidden for restricted staff */}
+      {!isRestrictedUser && <div onClick={()=>setView("addperson")} style={{background:"linear-gradient(135deg,"+N+",#2a4a8a)",borderRadius:12,padding:"16px 22px",marginBottom:20,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <div>
           <div style={{color:G,fontSize:11,fontWeight:600,textTransform:"uppercase",letterSpacing:1.5,marginBottom:3}}>Central Intake</div>
           <div style={{color:"#fff",fontSize:16,fontWeight:500}}>➕ Add New Person to Database</div>
           <div style={{color:"#7a9acc",fontSize:12,marginTop:3}}>Members · Visitors · Full intake form with all fields</div>
         </div>
         <div style={{color:"#fff",fontSize:28,opacity:0.5}}>→</div>
-      </div>
+      </div>}
       <div style={{display:"flex",gap:12,marginBottom:20,flexWrap:"wrap"}}>
         <Stat label="Active Members" value={activeM} sub={"of "+members.length+" total"}/>
         <Stat label="Visitors" value={visitors.length} sub={fu+" need follow-up"} color={AM}/>
