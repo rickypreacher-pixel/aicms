@@ -5159,6 +5159,196 @@ function Dashboard({members,visitors,attendance,giving,prayers,setView,canViewGi
 }
 
 // ── PEOPLE ──
+// ── PROSPECTS ──
+const PROSPECT_STATUSES = [
+  {id:"Not Contacted", label:"Not Contacted", color:"#6b7280"},
+  {id:"Called",        label:"Called",         color:"#2563eb"},
+  {id:"Texted",        label:"Texted",         color:"#7c3aed"},
+  {id:"No Response",  label:"No Response",    color:"#d97706"},
+  {id:"Confirmed",    label:"Confirmed Coming",color:"#16a34a"},
+];
+
+function ProspectsPage({prospects,setProspects,members}:any) {
+  const blank = () => ({first:"",last:"",phone:"",street:"",city:"",state:"",zip:"",invitedBy:"",invitedById:null,status:"Not Contacted",notes:""});
+  const [form,setForm] = useState(blank());
+  const [modal,setModal] = useState(false);
+  const [editing,setEditing] = useState<any>(null);
+  const [filter,setFilter] = useState("All");
+  const [search,setSearch] = useState("");
+  const [invSug,setInvSug] = useState<any[]>([]);
+  const nid = useRef(7000);
+  const sf = (k:string) => (v:any) => setForm((f:any)=>({...f,[k]:v}));
+
+  const openAdd = () => { setEditing(null); setForm(blank()); setInvSug([]); setModal(true); };
+  const openEdit = (p:any) => {
+    setEditing(p);
+    setForm({first:p.first,last:p.last,phone:p.phone||"",street:p.address?.street||"",city:p.address?.city||"",state:p.address?.state||"",zip:p.address?.zip||"",invitedBy:p.invitedBy||"",invitedById:p.invitedById||null,status:p.status||"Not Contacted",notes:p.notes||""});
+    setInvSug([]); setModal(true);
+  };
+  const save = () => {
+    if(!form.first||!form.last){alert("First and last name required.");return;}
+    const rec = {first:form.first,last:form.last,phone:form.phone,address:{street:form.street,city:form.city,state:form.state,zip:form.zip},invitedBy:form.invitedBy,invitedById:form.invitedById,status:form.status,notes:form.notes,addedDate:editing?.addedDate||td()};
+    if(editing){
+      setProspects((ps:any[])=>ps.map((p:any)=>p.id===editing.id?{...p,...rec}:p));
+    } else {
+      setProspects((ps:any[])=>[{...rec,id:nid.current++},...ps]);
+    }
+    setModal(false);
+  };
+  const del = (id:number) => { if(confirm("Remove this prospect?")) setProspects((ps:any[])=>ps.filter((p:any)=>p.id!==id)); };
+  const updateStatus = (id:number,status:string) => setProspects((ps:any[])=>ps.map((p:any)=>p.id===id?{...p,status}:p));
+
+  const shown = prospects.filter((p:any)=>{
+    const nameMatch = (p.first+" "+p.last).toLowerCase().includes(search.toLowerCase());
+    const statusMatch = filter==="All" || p.status===filter;
+    return nameMatch && statusMatch;
+  });
+
+  const statCounts:any = {All:prospects.length};
+  PROSPECT_STATUSES.forEach(s=>{ statCounts[s.id]=prospects.filter((p:any)=>p.status===s.id).length; });
+
+  const getStatusStyle = (sid:string) => {
+    const s = PROSPECT_STATUSES.find(x=>x.id===sid)||PROSPECT_STATUSES[0];
+    return {background:s.color+"18",color:s.color,border:"0.5px solid "+s.color+"44"};
+  };
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:10}}>
+        <div>
+          <div style={{fontSize:11,color:MU,marginBottom:2}}>People who have been invited but not yet visited</div>
+        </div>
+        <Btn onClick={openAdd} v="gold">+ Add Prospect</Btn>
+      </div>
+
+      {/* Stats row */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(110px,1fr))",gap:8,marginBottom:16}}>
+        {[{label:"Total",val:prospects.length,color:N},{label:"Confirmed",val:statCounts["Confirmed"]||0,color:"#16a34a"},{label:"No Response",val:statCounts["No Response"]||0,color:"#d97706"},{label:"Not Contacted",val:statCounts["Not Contacted"]||0,color:"#6b7280"}].map(s=>(
+          <div key={s.label} style={{background:W,border:"0.5px solid "+BR,borderRadius:10,padding:"10px 14px"}}>
+            <div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:0.4}}>{s.label}</div>
+            <div style={{fontSize:22,fontWeight:600,color:s.color}}>{s.val}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Search + filter */}
+      <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap",alignItems:"center"}}>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search prospects..." style={{flex:1,minWidth:160,padding:"8px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}/>
+        <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+          {["All",...PROSPECT_STATUSES.map(s=>s.id)].map(f=>{
+            const active=filter===f;
+            const col = f==="All"?N:(PROSPECT_STATUSES.find(s=>s.id===f)||{color:N}).color;
+            return <button key={f} onClick={()=>setFilter(f)} style={{padding:"5px 12px",borderRadius:20,border:"0.5px solid "+(active?col:BR),background:active?col+"18":W,color:active?col:MU,fontSize:11,fontWeight:active?600:400,cursor:"pointer"}}>{f==="Confirmed"?"Confirmed Coming":f} {statCounts[f]!==undefined?"("+statCounts[f]+")":""}</button>;
+          })}
+        </div>
+      </div>
+
+      {/* List */}
+      {shown.length===0 && (
+        <div style={{textAlign:"center",padding:"48px 20px",color:MU}}>
+          <div style={{fontSize:32,marginBottom:8}}>🎯</div>
+          <div style={{fontSize:15,fontWeight:500,marginBottom:4}}>{search||filter!=="All"?"No prospects match your filter":"No Prospects Yet"}</div>
+          <div style={{fontSize:13}}>{search||filter!=="All"?"Try adjusting your search or filter":"Add people who have been invited and may visit soon"}</div>
+          {!search&&filter==="All"&&<button onClick={openAdd} style={{marginTop:16,padding:"9px 22px",background:N,color:"#fff",border:"none",borderRadius:8,cursor:"pointer",fontSize:13,fontWeight:500}}>+ Add First Prospect</button>}
+        </div>
+      )}
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        {shown.map((p:any)=>{
+          const inviter = p.invitedById ? members.find((m:any)=>m.id===p.invitedById) : null;
+          const addr = [p.address?.street,p.address?.city,p.address?.state].filter(Boolean).join(", ");
+          const sStyle = getStatusStyle(p.status||"Not Contacted");
+          return (
+            <div key={p.id} style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:"14px 16px",display:"flex",gap:14,alignItems:"flex-start",transition:"box-shadow 0.15s"}} onMouseEnter={e=>e.currentTarget.style.boxShadow="0 4px 14px #0000001a"} onMouseLeave={e=>e.currentTarget.style.boxShadow="none"}>
+              <Av f={p.first} l={p.last} sz={42}/>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4,flexWrap:"wrap"}}>
+                  <span style={{fontSize:15,fontWeight:600,color:TX}}>{p.first} {p.last}</span>
+                  <span style={{fontSize:11,padding:"2px 9px",borderRadius:20,fontWeight:500,...sStyle}}>{p.status||"Not Contacted"}</span>
+                </div>
+                <div style={{display:"flex",gap:16,flexWrap:"wrap",marginBottom:p.notes?6:0}}>
+                  {p.phone && <span style={{fontSize:12,color:BL}}><a href={"tel:"+p.phone} style={{color:BL,textDecoration:"none"}}>📞 {p.phone}</a></span>}
+                  {addr && <span style={{fontSize:12,color:MU}}>📍 {addr}</span>}
+                  {(p.invitedBy||inviter) && <span style={{fontSize:12,color:MU}}>👤 Invited by {inviter?(inviter.first+" "+inviter.last):p.invitedBy}</span>}
+                  {p.addedDate && <span style={{fontSize:11,color:MU}}>Added {p.addedDate}</span>}
+                </div>
+                {p.notes && <div style={{fontSize:12,color:MU,fontStyle:"italic",marginBottom:6,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:420}}>💬 {p.notes}</div>}
+                {/* Quick status change */}
+                <div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:6}}>
+                  {PROSPECT_STATUSES.map(s=>{
+                    const active=(p.status||"Not Contacted")===s.id;
+                    return <button key={s.id} onClick={()=>updateStatus(p.id,s.id)} style={{padding:"2px 8px",borderRadius:12,border:"0.5px solid "+(active?s.color:BR),background:active?s.color+"22":BG,color:active?s.color:MU,fontSize:10,fontWeight:active?600:400,cursor:"pointer"}}>{s.label}</button>;
+                  })}
+                </div>
+              </div>
+              <div style={{display:"flex",gap:6,flexShrink:0}}>
+                <button onClick={()=>openEdit(p)} style={{background:N+"12",border:"0.5px solid "+N+"33",borderRadius:7,padding:"6px 12px",cursor:"pointer",fontSize:11,color:N,fontWeight:500}}>Edit</button>
+                <button onClick={()=>del(p.id)} style={{background:"#fee2e2",border:"0.5px solid #fca5a5",borderRadius:7,padding:"6px 10px",cursor:"pointer",fontSize:11,color:RE,fontWeight:500}}>✕</button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Add / Edit Modal */}
+      <Modal open={modal} onClose={()=>setModal(false)} title={editing?"Edit Prospect":"Add Prospect"} width={500}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+          <Fld label="First Name *"><Inp value={form.first} onChange={sf("first")} placeholder="First"/></Fld>
+          <Fld label="Last Name *"><Inp value={form.last} onChange={sf("last")} placeholder="Last"/></Fld>
+        </div>
+        <Fld label="Phone"><Inp value={form.phone} onChange={sf("phone")} placeholder="(555) 000-0000"/></Fld>
+
+        <div style={{fontSize:11,color:MU,fontWeight:600,marginBottom:6,marginTop:4,textTransform:"uppercase",letterSpacing:0.4}}>Address</div>
+        <Fld label="Street"><Inp value={form.street} onChange={sf("street")} placeholder="123 Main St"/></Fld>
+        <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr",gap:8}}>
+          <Fld label="City"><Inp value={form.city} onChange={sf("city")} placeholder="City"/></Fld>
+          <Fld label="State"><Inp value={form.state} onChange={sf("state")} placeholder="FL"/></Fld>
+          <Fld label="Zip"><Inp value={form.zip} onChange={sf("zip")} placeholder="00000"/></Fld>
+        </div>
+
+        <div style={{position:"relative",marginBottom:12}}>
+          <Fld label="Invited By">
+            <Inp value={form.invitedBy} onChange={v=>{
+              sf("invitedBy")(v); sf("invitedById")(null);
+              const q=v.trim().toLowerCase();
+              setInvSug(q.length<1?[]:members.filter((m:any)=>(m.first+" "+m.last).toLowerCase().includes(q)).slice(0,5));
+            }} placeholder="Type a member's name or any name"/>
+          </Fld>
+          {form.invitedById && <div style={{fontSize:11,color:GR,marginTop:-8,marginBottom:6}}>✔ Linked to existing member</div>}
+          {invSug.length>0 && (
+            <div style={{border:"0.5px solid "+BR,borderRadius:8,background:W,boxShadow:"0 4px 12px rgba(0,0,0,0.1)",zIndex:50}}>
+              {invSug.map((m:any)=>(
+                <div key={m.id} onClick={()=>{sf("invitedBy")(m.first+" "+m.last);sf("invitedById")(m.id);setInvSug([]);}} style={{padding:"7px 12px",cursor:"pointer",fontSize:13,borderBottom:"0.5px solid "+BR+"88",display:"flex",alignItems:"center",gap:8}} onMouseEnter={e=>(e.currentTarget.style.background=BG)} onMouseLeave={e=>(e.currentTarget.style.background=W)}>
+                  <Av f={m.first} l={m.last} sz={22}/>
+                  <span style={{flex:1}}>{m.first} {m.last}</span>
+                  <span style={{fontSize:11,color:MU}}>{m.role||""}</span>
+                </div>
+              ))}
+              <div onClick={()=>setInvSug([])} style={{padding:"5px 12px",cursor:"pointer",fontSize:11,color:MU,textAlign:"center"}}>✕ Dismiss</div>
+            </div>
+          )}
+        </div>
+
+        <Fld label="Status">
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {PROSPECT_STATUSES.map(s=>{
+              const active=form.status===s.id;
+              return <button key={s.id} type="button" onClick={()=>sf("status")(s.id)} style={{padding:"4px 11px",borderRadius:20,border:"0.5px solid "+(active?s.color:BR),background:active?s.color+"22":W,color:active?s.color:MU,fontSize:12,fontWeight:active?600:400,cursor:"pointer"}}>{s.label}</button>;
+            })}
+          </div>
+        </Fld>
+
+        <Fld label="Notes"><textarea value={form.notes} onChange={e=>sf("notes")(e.target.value)} rows={3} placeholder="Any follow-up notes, how you met them, etc." style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",fontFamily:"inherit",resize:"vertical",boxSizing:"border-box"}}/></Fld>
+
+        <div style={{display:"flex",gap:8,marginTop:4}}>
+          <Btn onClick={save} style={{flex:1,justifyContent:"center"}}>{editing?"Save Changes":"Add Prospect"}</Btn>
+          <Btn v="ghost" onClick={()=>setModal(false)} style={{flex:1,justifyContent:"center"}}>Cancel</Btn>
+        </div>
+      </Modal>
+    </div>
+  );
+}
+
 // These must be at module level — NOT inside People — or every keystroke causes remount+scroll-to-top
 const InfoRow = ({label,value,empty="Not on file"}:any) => (
   <div style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"0.5px solid "+BR,alignItems:"baseline",gap:10}}>
@@ -8814,7 +9004,7 @@ function Education({members,visitors,users,roles,children,setChildren,classrooms
 const ALLERGY_OPTIONS=["Peanuts","Tree Nuts","Milk/Dairy","Eggs","Wheat/Gluten","Soy","Fish","Shellfish","Latex","Bee Stings","Penicillin","Aspirin","Ibuprofen","Sulfa Drugs"];
 const MEDICAL_OPTIONS=["Diabetes","High Blood Pressure","Heart Condition","Asthma","Epilepsy/Seizures","Mobility Impairment","Vision Impairment","Hearing Impairment","Cancer","Kidney Disease","Thyroid Disorder","Depression/Anxiety","PTSD","Autism Spectrum"];
 
-function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,roles,permissions,setView}:any){
+function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,roles,permissions,setView,prospects,setProspects}:any){
   const canAdd = checkPermission(currentUser,roles,permissions,"directory","create");
   const addedByName = (()=>{
     if(!currentUser) return "Unknown";
@@ -8920,6 +9110,8 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
       });
     } else {
       setVisitors((vs:any[])=>[{...record,type:"Visitor"},...vs]);
+      // Auto-remove any matching prospect (same first+last, case-insensitive)
+      if(setProspects) setProspects((ps:any[])=>ps.filter((p:any)=>!(p.first.toLowerCase()===form.first.toLowerCase()&&p.last.toLowerCase()===form.last.toLowerCase())));
     }
     setSaved({name:form.first+" "+form.last,type:pType,familyName:hasFamily?familyName:null});
     setSpouseLinked(null); setSpouseSug([]);
@@ -9753,6 +9945,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   const [view,setView] = useState("dashboard");
   const [members,setMembers] = useState(lsGet('members') ?? _I.members ?? []);
   const [visitors,setVisitors] = useState(lsGet('visitors') ?? _I.visitors ?? []);
+  const [prospects,setProspects] = useState(lsGet('prospects') ?? []);
   const [attendance,setAttendance] = useState(lsGet('attendance') ?? _I.attendance ?? []);
   const [giving,setGiving] = useState(lsGet('giving') ?? _I.giving ?? []);
   const [prayers,setPrayers] = useState(lsGet('prayers') ?? _I.prayers ?? []);
@@ -9917,6 +10110,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   useEffect(()=>{lsSave('users',users);},[JSON.stringify(users)]);
   useEffect(()=>{lsSave('roles',roles);},[JSON.stringify(roles)]);
   useEffect(()=>{lsSave('permissions',permissions);},[JSON.stringify(permissions)]);
+  useEffect(()=>{lsSave('prospects',prospects);},[JSON.stringify(prospects)]);
 
   // ── Load from Supabase on mount — cloud is source of truth across devices ──
   useEffect(()=>{
@@ -9957,6 +10151,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       if(Array.isArray(d.roles)&&d.roles.length) setRoles(d.roles);
       if(d.permissions&&Object.keys(d.permissions).length) setPermissions(d.permissions);
       if(Array.isArray(d.users)&&d.users.length) setUsers(d.users);
+      if(Array.isArray(d.prospects)&&d.prospects.length) setProspects(d.prospects);
       if(d.churchSettings?.name){setChurchSettings(d.churchSettings);try{localStorage.setItem(LS('church_settings'),JSON.stringify(d.churchSettings));}catch(e){}}
     })();
   },[churchId]);
@@ -9970,7 +10165,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       const blob = {members,visitors,attendance,giving,prayers,groups,grpMeetings,visitRecords,
         children,classrooms,equipment,workOrders,schedMaint,supplies,checkoutItems,checkouts,pledgeDrives,pledges,weeklyReports,
         emailLog,emailTemplates,emailConfig,recurring,custom,checkIns,incidents,rollCalls,
-        progressNotes,teacherSchedule,kidsCheckIns,roles,permissions,churchSettings,users};
+        progressNotes,teacherSchedule,kidsCheckIns,roles,permissions,churchSettings,users,prospects};
       const {error} = await supabase.from('church_data').upsert(
         {church_id:churchId,data:blob,updated_at:new Date().toISOString()},
         {onConflict:'church_id'}
@@ -9981,7 +10176,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   },[JSON.stringify({members,visitors,attendance,giving,prayers,groups,grpMeetings,visitRecords,
     children,classrooms,equipment,workOrders,schedMaint,supplies,checkoutItems,checkouts,pledgeDrives,pledges,weeklyReports,
     emailLog,emailTemplates,emailConfig,recurring,custom,checkIns,incidents,rollCalls,
-    progressNotes,teacherSchedule,kidsCheckIns,roles,permissions,churchSettings,users})]);
+    progressNotes,teacherSchedule,kidsCheckIns,roles,permissions,churchSettings,users,prospects})]);
 
   const nidEmail = useRef(8000);
   const logEmail = (data) => {
@@ -10041,6 +10236,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     {id:"dashboard",label:"Dashboard",icon:"D"},
     {id:"addperson",label:"Add Person",icon:"➕"},
     {id:"people",label:"Members Profile",icon:"P"},
+    {id:"prospects",label:"Prospects",icon:"🎯"},
     {id:"visitation",label:"Visitation",icon:"V"},
     {id:"groups",label:"Groups Ministry",icon:"G2"},
     {id:"education",label:"Education",icon:"Ed"},
@@ -10059,6 +10255,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   // Map nav IDs to MODULES keys for permission checking (null = always visible)
   const NAV_MOD_MAP:Record<string,string|null> = {
     dashboard:null, addperson:"addperson", people:"directory",
+    prospects:null,
     visitation:"visitation", groups:"groups", education:"education",
     maintenance:"maintenance", calendar:"events", attendance:"attendance",
     giving:"giving", prayer:"prayer", email:null, sms:null,
@@ -10085,7 +10282,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
         });
         return staffMemberRecord ? [...filtered, {id:"myprofile",label:"My Profile",icon:"👤"}] : filtered;
       })();
-  const TITLES:any = {dashboard:"Dashboard",addperson:"Add Person to Database",people:"Members Profile",visitation:"Visitation & Follow-Up",education:"Education Department",maintenance:"Maintenance & Equipment",attendance:"Attendance",giving:"Giving Records",prayer:"Prayer Wall",email:"Email Center",sms:"SMS Center",access:"Access Control",ai:"AI Assistant",settings:"Church Settings",manual:"Staff Manual",myprofile:"My Profile"};
+  const TITLES:any = {dashboard:"Dashboard",addperson:"Add Person to Database",people:"Members Profile",prospects:"Prospects",visitation:"Visitation & Follow-Up",education:"Education Department",maintenance:"Maintenance & Equipment",attendance:"Attendance",giving:"Giving Records",prayer:"Prayer Wall",email:"Email Center",sms:"SMS Center",access:"Access Control",ai:"AI Assistant",settings:"Church Settings",manual:"Staff Manual",myprofile:"My Profile"};
   const pending = users.filter(u=>u.status==="Pending").length;
   const fu = visitors.filter(v=>v.stage==="Follow-Up Needed").length;
   const inVis = visitRecords.filter(r=>r.stage!=="Complete").length;
@@ -10253,7 +10450,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
             }}
           />}
           {!isMemberPortal && view==="dashboard" && <Dashboard members={members} visitors={visitors} attendance={attendance} giving={giving} prayers={prayers} setView={setView} canViewGiving={canViewGiving} isRestrictedUser={isRestrictedUser} canAddPerson={canAddPerson}/>}
-          {!isMemberPortal && view==="addperson" && <AddMemberPage members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} currentUser={currentUser} roles={roles} permissions={permissions} setView={setView}/>}
+          {!isMemberPortal && view==="addperson" && <AddMemberPage members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} currentUser={currentUser} roles={roles} permissions={permissions} setView={setView} prospects={prospects} setProspects={setProspects}/>}
           {!isMemberPortal && view==="people" && <People members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} setGiving={setGiving} prayers={prayers} setPrayers={setPrayers} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings} visitRecords={visitRecords} setVisitRecords={setVisitRecords} checkIns={checkIns} setCheckIns={setCheckIns} setView={setView} canViewGiving={canViewGiving} currentUser={currentUser}/>}
           {!isMemberPortal && view==="groups" && <Groups members={members} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings}/>}
           {!isMemberPortal && view==="education" && <Education members={members} visitors={visitors} users={users} roles={roles} children={children} setChildren={setChildren} classrooms={classrooms} setClassrooms={setClassrooms} teacherSchedule={teacherSchedule} setTeacherSchedule={setTeacherSchedule} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckIns} checkIns={checkIns} incidents={incidents} setIncidents={setIncidents} rollCalls={rollCalls} setRollCalls={setRollCalls} progressNotes={progressNotes} setProgressNotes={setProgressNotes} cs={churchSettings} printerConfig={printerConfig} setPrinterConfig={setPrinterConfig}/>}
@@ -10276,6 +10473,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
               />
             </div>
           )}
+          {!isMemberPortal && view==="prospects" && <ProspectsPage prospects={prospects} setProspects={setProspects} members={members}/>}
           {!isMemberPortal && view==="visitation" && <Visitation visitors={visitors} setVisitors={setVisitors} members={members} setMembers={setMembers} users={users} currentUser={currentUser} roles={roles} visitRecords={visitRecords} setVisitRecords={setVisitRecords} setView={setView} canAddVisitor={canAddVisitor}/>}
           {!isMemberPortal && view==="attendance" && <Attendance attendance={attendance} setAttendance={setAttendance} setView={setView}/>}
           {!isMemberPortal && view==="giving" && <Giving giving={giving} setGiving={setGiving} pledgeDrives={pledgeDrives} setPledgeDrives={setPledgeDrives} pledges={pledges} setPledges={setPledges} members={members} visitors={visitors} weeklyReports={weeklyReports} setWeeklyReports={setWeeklyReports} emailTemplates={emailTemplates}/>}
