@@ -5101,7 +5101,7 @@ function Dashboard({members,visitors,attendance,giving,prayers,setView,canViewGi
 }
 
 // ── PEOPLE ──
-function People({members,setMembers,visitors,setVisitors,attendance,giving,prayers,groups,grpMeetings,visitRecords,setVisitRecords,checkIns,setView,canViewGiving}:any) {
+function People({members,setMembers,visitors,setVisitors,attendance,giving,setGiving,prayers,setPrayers,groups,setGroups,grpMeetings,setGrpMeetings,visitRecords,setVisitRecords,checkIns,setCheckIns,setView,canViewGiving,currentUser}:any) {
   const [tab,setTab] = useState("members");
   const [search,setSearch] = useState("");
   const [modal,setModal] = useState(false);
@@ -5175,10 +5175,21 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,praye
     else setVisitors(vs=>vs.map(v=>v.id===detail.id?{...v,...editForm}:v));
     setDetail({...detail,...editForm}); setEditMode(false);
   };
+  const hardDelete = (person:any, pType:string) => {
+    const fullName = (person.first+" "+person.last).trim();
+    if(pType==="members") setMembers((ms:any[])=>ms.filter(m=>m.id!==person.id));
+    else setVisitors((vs:any[])=>vs.filter(v=>v.id!==person.id));
+    if(setVisitRecords) setVisitRecords((rs:any[])=>rs.filter(r=>r.visitorId!==person.id));
+    if(setCheckIns) setCheckIns((cs:any[])=>cs.filter(c=>!(c.pid===person.id&&c.ptype===pType)));
+    if(setGiving) setGiving((gs:any[])=>gs.filter(g=>g.name!==fullName));
+    if(setPrayers) setPrayers((ps:any[])=>ps.filter(p=>p.name!==fullName));
+    if(setGroups) setGroups((gs:any[])=>gs.map((g:any)=>({...g,memberIds:g.memberIds.filter((id:any)=>id!==person.id),leaderId:g.leaderId===person.id?null:g.leaderId})));
+    if(setGrpMeetings) setGrpMeetings((ms:any[])=>ms.map((m:any)=>({...m,presentIds:m.presentIds.filter((id:any)=>id!==person.id),absentIds:m.absentIds.filter((id:any)=>id!==person.id)})));
+  };
   const delPerson = () => {
-    if(!confirm("Delete "+detail.first+" "+detail.last+"? This cannot be undone."))return;
-    if(detail._type==="members") setMembers(ms=>ms.filter(m=>m.id!==detail.id));
-    else setVisitors(vs=>vs.filter(v=>v.id!==detail.id));
+    if(!currentUser?.superAdmin){alert("Only Super Admins can delete people.");return;}
+    if(!confirm("Permanently delete "+detail.first+" "+detail.last+" and ALL their associated records? This cannot be undone."))return;
+    hardDelete(detail, detail._type);
     setDetail(null);
   };
   const convertToMember = () => {
@@ -5260,7 +5271,7 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,praye
                 <td style={{padding:"10px 14px"}} onClick={e=>e.stopPropagation()}>
                   <div style={{display:"flex",gap:6}}>
                     <Btn onClick={()=>openDetail(p)} v="ai" style={{fontSize:11,padding:"4px 8px"}}>View</Btn>
-                    <Btn onClick={()=>{if(confirm("Delete "+p.first+" "+p.last+"?")){if(tab==="members") setMembers(members.filter(m=>m.id!==p.id)); else setVisitors(visitors.filter(v=>v.id!==p.id));}}} v="danger" style={{fontSize:11,padding:"4px 8px"}}>X</Btn>
+                    {currentUser?.superAdmin && <Btn onClick={e=>{e.stopPropagation();if(!confirm("Permanently delete "+p.first+" "+p.last+" and ALL their records? This cannot be undone."))return;hardDelete(p,tab=="members"?"members":"visitors");}} v="danger" style={{fontSize:11,padding:"4px 8px"}}>🗑</Btn>}
                   </div>
                 </td>
               </tr>
@@ -9966,7 +9977,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           />}
           {!isMemberPortal && view==="dashboard" && <Dashboard members={members} visitors={visitors} attendance={attendance} giving={giving} prayers={prayers} setView={setView} canViewGiving={canViewGiving} isRestrictedUser={isRestrictedUser} canAddPerson={canAddPerson}/>}
           {!isMemberPortal && view==="addperson" && <AddMemberPage members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} currentUser={currentUser} roles={roles} permissions={permissions} setView={setView}/>}
-          {!isMemberPortal && view==="people" && <People members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} prayers={prayers} groups={groups} grpMeetings={grpMeetings} visitRecords={visitRecords} setVisitRecords={setVisitRecords} checkIns={checkIns} setView={setView} canViewGiving={canViewGiving}/>}
+          {!isMemberPortal && view==="people" && <People members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} setGiving={setGiving} prayers={prayers} setPrayers={setPrayers} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings} visitRecords={visitRecords} setVisitRecords={setVisitRecords} checkIns={checkIns} setCheckIns={setCheckIns} setView={setView} canViewGiving={canViewGiving} currentUser={currentUser}/>}
           {!isMemberPortal && view==="groups" && <Groups members={members} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings}/>}
           {!isMemberPortal && view==="education" && <Education members={members} visitors={visitors} users={users} roles={roles} children={children} setChildren={setChildren} classrooms={classrooms} setClassrooms={setClassrooms} teacherSchedule={teacherSchedule} setTeacherSchedule={setTeacherSchedule} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckIns} checkIns={checkIns} incidents={incidents} setIncidents={setIncidents} rollCalls={rollCalls} setRollCalls={setRollCalls} progressNotes={progressNotes} setProgressNotes={setProgressNotes} cs={churchSettings} printerConfig={printerConfig} setPrinterConfig={setPrinterConfig}/>}
           {!isMemberPortal && view==="maintenance" && <Maintenance users={users} members={members} currentUser={currentUser} roles={roles} permissions={permissions} equipment={equipment} setEquipment={setEquipment} workOrders={workOrders} setWorkOrders={setWorkOrders} schedMaint={schedMaint} setSchedMaint={setSchedMaint} supplies={supplies} setSupplies={setSupplies} checkoutItems={checkoutItems} setCheckoutItems={setCheckoutItems} checkouts={checkouts} setCheckouts={setCheckouts}/>}
