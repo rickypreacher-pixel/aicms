@@ -8916,7 +8916,8 @@ function ManualPage(){
     {id:'s7',label:'7. Education & Check-In'},{id:'s8',label:'8. Event Calendar'},{id:'s9',label:'9. Attendance'},
     {id:'s10',label:'10. Giving & Pledges'},{id:'s11',label:'11. Prayer Wall'},{id:'s12',label:'12. Email Center'},
     {id:'s13',label:'13. SMS Center'},{id:'s14',label:'14. Access Control'},{id:'s15',label:'15. AI Assistant'},
-    {id:'s16',label:'16. Settings'},{id:'s17',label:'17. Backup & Restore'},{id:'s18',label:'18. Maintenance'},{id:'s19',label:'19. Printer Setup'},
+    {id:'s16',label:'16. Settings'},{id:'s17',label:'17. Backup & Restore'},{id:'s18',label:'18. Maintenance'},
+    {id:'s19',label:'19. Printer Setup'},{id:'s20',label:'20. Member Portal'},
   ];
   const H=({id,children}:any)=><h2 ref={setRef(id)} style={{fontSize:17,fontWeight:600,color:N,margin:'0 0 14px',paddingBottom:10,borderBottom:'2px solid '+G}}>{children}</h2>;
   const H3=({children}:any)=><h3 style={{fontSize:13,fontWeight:600,color:N,margin:'18px 0 8px',textTransform:'uppercase',letterSpacing:0.4}}>{children}</h3>;
@@ -8943,7 +8944,7 @@ function ManualPage(){
         <div style={{background:N,borderRadius:12,padding:'20px 24px',marginBottom:20}}>
           <div style={{color:'#fff',fontSize:21,fontWeight:600,letterSpacing:0.3}}>ChurchOS Staff Manual</div>
           <div style={{color:G,fontSize:13,marginTop:4}}>New Testament Christian Church — Administrator Guide</div>
-          <div style={{color:'#7a9acc',fontSize:12,marginTop:6}}>Version 5.2 · April 2026 · For internal staff use</div>
+          <div style={{color:'#7a9acc',fontSize:12,marginTop:6}}>Version 5.3 · April 2026 · For internal staff use</div>
         </div>
 
         <Sec><H id="s1">1. Getting Started</H>
@@ -9014,6 +9015,11 @@ function ManualPage(){
           <H3>Logging a Contact Attempt</H3>
           <Ol><Li>Click the visitor's record to open it</Li><Li>Click <B>+ Log Contact</B></Li><Li>Enter the date, method (phone call, text, in-person visit), outcome, and notes</Li><Li>Update the stage to reflect any progression, then click <B>Save</B></Li></Ol>
           <Tip>Sort visitation records by stage to prioritize urgent follow-ups. Use the AI Assistant to generate personalized follow-up letters instantly.</Tip>
+          <H3>Thank You Letter Generator</H3>
+          <P>ChurchOS can instantly generate a personalized <B>Thank You letter</B> for any visitor using AI — and download it as a Microsoft Word document ready to print, sign, and mail.</P>
+          <Ol><Li>Open <B>Visitation</B> in the sidebar</Li><Li>On the <B>Pipeline</B> tab, click the <B>📄 Thank You Letter</B> button on any visitor's card. On the <B>Tracker</B> tab, click the <B>📄 Letter</B> button in the Actions column</Li><Li>The modal opens and AI immediately drafts a warm, personalized letter using the visitor's name, their first visit date, your church name, pastor name, address, and contact information</Li><Li>While the AI writes, a spinner shows <B>"AI is writing your letter…"</B></Li><Li>Once generated, you can <B>edit the letter directly</B> in the text area before downloading</Li><Li>Click <B>🔄 Regenerate</B> to get a fresh AI version if you prefer a different draft</Li><Li>Click <B>⬇ Download as Word (.doc)</B> to save the letter — it includes your church letterhead, logo (if configured), date, salutation, body, and pastor signature block</Li><Li>Open the downloaded file in Microsoft Word or Google Docs, add a handwritten signature, and mail it</Li></Ol>
+          <Tip>The letter is pre-addressed with the visitor's name. For best results, ensure your <B>church name</B>, <B>pastor name</B>, <B>address</B>, and <B>logo</B> are configured in Settings first — these are embedded in the letterhead automatically.</Tip>
+          <Note>The downloaded file uses the <B>.doc</B> format (Word-compatible HTML). If you need a true .docx, open the file in Word and use <B>Save As → Word Document (.docx)</B>.</Note>
         </Sec>
 
         <Sec><H id="s6">6. Groups Ministry</H>
@@ -9093,6 +9099,10 @@ function ManualPage(){
           <H3>Private Requests</H3>
           <P>Requests marked <B>Private</B> are visible only to users with Prayer Wall permission. They do not appear in any shared view or printed list.</P>
           <Tip>Use the AI Assistant to generate a personal, pastoral prayer for any request. Type: "Write a prayer for [request details]" in the AI chat.</Tip>
+          <H3>Member Portal — Prayer Wall</H3>
+          <P>Members who log in through the <B>Member Portal</B> (see Section 20) have their own personalized prayer experience within the Prayer Wall section:</P>
+          <Ul><Li><B>Submit a Request</B> — members see a collapsible form pre-filled with their name. They enter the prayer request text and click <B>Submit Prayer Request</B>.</Li><Li><B>My Prayer History</B> — below the submit form, members see a list of all their own past prayer requests, including the date submitted, status (Active or Answered), and the full request text.</Li><Li>Members cannot see other members' prayer requests — only their own submissions are visible in portal mode.</Li></Ul>
+          <Note>Staff with full access see the complete Prayer Wall with all requests, AI response tools, and the ability to mark any request as Answered.</Note>
         </Sec>
 
         <Sec><H id="s12">12. Email Center</H>
@@ -9140,6 +9150,10 @@ function ManualPage(){
           <H3>Built-In Roles</H3>
           <Ul><Li><B>Super Admin</B> — full unrestricted access including user management</Li><Li><B>Administrator</B> — full access to all features including Giving; excludes Access Control user management</Li><Li><B>Office</B> — full access to all features including Giving</Li><Li><B>Pastor</B> — directory, giving, prayer, visitation, email, AI</Li><Li><B>Staff</B> — directory, attendance, events, groups</Li><Li><B>Volunteer</B> — directory view and event calendar only</Li><Li><B>Check-In</B> — Education check-in portal only</Li><Li><B>Finance</B> — giving records and reports only</Li></Ul>
           <Note>Access to the <B>Giving</B> section is limited to the <B>Administrator</B>, <B>Office</B>, and <B>Pastor</B> roles. All other roles cannot see Giving in the sidebar or on the Dashboard.</Note>
+          <H3>Module-Level Permissions (Create / View / Edit / Delete)</H3>
+          <P>Inside each role, permissions are set per module with four granular actions: <B>Create</B>, <B>View</B>, <B>Edit</B>, and <B>Delete</B>. Two modules use a single <B>Create</B> action only:</P>
+          <Ul><Li><B>Add Person</B> — controls whether the staff member can add new members via the Add Person page. Restricted staff without this permission will not see the Add Person button.</Li><Li><B>Add Visitor</B> — controls whether the staff member can add new visitors via the Add Person page. Restricted staff without this permission will not see the Add Visitor button in the Visitation pipeline.</Li></Ul>
+          <Tip>Use <B>Add Visitor</B> permission to give certain roles (e.g., Greeters or Ushers) the ability to register new visitors on Sunday morning without granting full member-creation rights.</Tip>
           <H3>Creating Custom Roles</H3>
           <Ol><Li>Click the <B>Roles</B> tab within Access Control and click <B>+ New Role</B></Li><Li>Name the role and toggle individual permissions per module: view, create, edit, delete</Li><Li>Click <B>Save Role</B></Li><Li>Assign the new role to users from the Users tab</Li></Ol>
           <H3>Pending Accounts</H3>
@@ -9163,6 +9177,11 @@ function ManualPage(){
           <H3>General Tab — Church Information</H3>
           <Ul><Li><B>Church Name</B> — displayed in the sidebar header, printed output, and email signatures</Li><Li><B>Pastor Name</B> — shown in the sidebar footer</Li><Li><B>Address</B> — appears in the app header subtitle on every page</Li><Li><B>Phone / Email</B> — church contact info stored in the system for communications</Li><Li><B>Logo URL</B> — URL to your church logo image (use <B>/logo.png</B> if the logo file is placed in the app's public folder)</Li></Ul>
           <P>Click <B>Save Settings</B> after making any changes. Settings take effect immediately across the entire app.</P>
+          <H3>Appearance — Dark Mode / Light Mode</H3>
+          <P>ChurchOS supports a per-user <B>Dark Mode</B> that dims the entire interface for easier use in low-light environments (evening services, dim office lighting, personal preference).</P>
+          <Ul><Li><B>To toggle quickly:</B> click the <B>🌙 / ☀️ button</B> in the top-right header bar from any page in the app</Li><Li><B>Via Settings:</B> go to <B>Settings</B> in the sidebar. Under the <B>🎨 Appearance</B> card, click <B>☀️ Light Mode</B> or <B>🌙 Dark Mode</B></Li></Ul>
+          <P>Your preference is saved per device in the browser's local storage — it persists across sessions and does not affect other staff members' views. Each user can independently choose their preferred mode on each device they use.</P>
+          <Note>Dark mode applies to all sections of the app including the sidebar, all modals, data tables, cards, and text. All color transitions are animated smoothly (0.2-second fade).</Note>
           <H3>Merge Tool Tab</H3>
           <P>The Merge Tool identifies and resolves duplicate member or visitor records in your database.</P>
           <Ol><Li>Go to <B>Settings → Merge Tool</B></Li><Li>The tool lists potential duplicate pairs based on similar names</Li><Li>For each pair, select which record to keep as the <B>primary</B></Li><Li>Click <B>Merge</B> — data from both records is combined into the primary record</Li></Ol>
@@ -9236,8 +9255,33 @@ function ManualPage(){
           <Note>For Avery sheet labels, print to a standard laser or inkjet printer loaded with the matching Avery label sheets. Both labels print on the same sheet page.</Note>
         </Sec>
 
+        <Sec><H id="s20">20. Member Portal</H>
+          <P>The <B>Member Portal</B> is a self-service interface that allows individual church members to log in and view their own personal profile, giving history, and prayer requests — without access to the full staff system. It is designed for members who have been given a personal ChurchOS login.</P>
+          <H3>How Members Log In</H3>
+          <Ol><Li>The member navigates to the ChurchOS URL (same URL as staff)</Li><Li>They click <B>Sign In</B> and enter their email address and password</Li><Li>If ChurchOS finds a <B>member record</B> in the database that matches their email address (or their display name if set in their Supabase account), they are automatically placed into the <B>Member Portal</B> view</Li><Li>The portal sidebar shows only: <B>My Profile</B> and <B>Prayer Wall</B></Li></Ol>
+          <Note>If the member's email does not match any record in the member database, they will see the standard staff login experience. Make sure the member's email address in their ChurchOS profile exactly matches the email they use to sign in.</Note>
+          <H3>Setting Up a Member Portal Account</H3>
+          <Ol><Li>Ensure the member has a record in the <B>Members</B> database with their correct email address</Li><Li>Have the member navigate to the ChurchOS URL and click <B>Sign In</B></Li><Li>If they do not yet have a Supabase account, they will need to register — use the <B>New Church</B> tab if registering a brand-new email, or a specially provided signup link if available</Li><Li>Once their Supabase account email matches their member record email, the portal activates automatically on next sign-in</Li></Ol>
+          <Tip>The simplest way to provision member accounts at scale is to record each member's email in their profile during data entry. The system matches automatically at login — no additional configuration is needed.</Tip>
+          <H3>My Profile Tab</H3>
+          <P>The portal's <B>My Profile</B> tab displays the member's personal information pulled directly from the church database:</P>
+          <Ul><Li>Full name, phone, email address</Li><Li>Home address (with map link)</Li><Li>Important dates: birthday, anniversary, salvation date, baptism date</Li><Li>Spouse name, occupation, employer</Li><Li>Emergency contact name, phone, and relationship</Li><Li>Children names and birthdays</Li><Li>Medical notes and allergies</Li></Ul>
+          <P>Members can click <B>Edit Profile</B> to update their own contact information, address, spouse name, emergency contact, and children. Changes save instantly to the church database — staff see the updated info immediately.</P>
+          <H3>My Giving Tab</H3>
+          <P>The <B>My Giving</B> tab shows the member's complete personal giving history:</P>
+          <Ul><Li>Total given (all time)</Li><Li>Number of gifts recorded</Li><Li>A list of every donation: date, amount, fund, and payment method</Li></Ul>
+          <Note>Members see only their own giving. They cannot view anyone else's records. Giving records are matched to the member by their full name as it appears in the database.</Note>
+          <H3>Prayer Wall — Portal Mode</H3>
+          <P>When a member clicks <B>Prayer Wall</B> in their portal sidebar, they see a personalized prayer experience:</P>
+          <Ul><Li><B>Submit a Request</B> — a collapsible form pre-filled with their name where they can type a prayer request and click <B>Submit Prayer Request</B></Li><Li><B>My Prayer History</B> — a list of their own past prayer requests including date, status (Active or Answered), and the full text</Li></Ul>
+          <P>Submitted requests appear immediately on the staff <B>Prayer Wall</B> for pastoral review.</P>
+          <H3>Staff My Profile</H3>
+          <P>Staff members who also have a matching record in the member database gain an additional <B>My Profile</B> item in their regular staff sidebar. Clicking it opens a simplified read-only-by-default profile view of their own member record. They can edit their own personal info from this view. A <B>← Back</B> button returns them to the staff area.</P>
+          <Warn>Member Portal users cannot access any staff features — member lists, visitation records, giving reports, access control, or any administrative function. The portal is completely separated from the staff interface and shows only the logged-in member's own data.</Warn>
+        </Sec>
+
         <div style={{textAlign:'center',padding:'24px 0 8px',borderTop:'0.5px solid '+BR,marginTop:4}}>
-          <div style={{fontSize:12,color:MU}}>ChurchOS Staff Manual · New Testament Christian Church · Version 5.2 · April 2026</div>
+          <div style={{fontSize:12,color:MU}}>ChurchOS Staff Manual · New Testament Christian Church · Version 5.3 · April 2026</div>
           <div style={{fontSize:11,color:MU,marginTop:4}}>For technical support or feature requests, contact your system administrator.</div>
         </div>
       </div>
