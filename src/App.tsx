@@ -9396,12 +9396,13 @@ function ManualPage(){
   const [activeSection,setActiveSection]=useState('s1');
   const SECTIONS=[
     {id:'s1',label:'1. Getting Started'},{id:'s2',label:'2. Dashboard'},{id:'s3',label:'3. Adding People'},
-    {id:'s4',label:'4. Members Profile'},{id:'s5',label:'5. Visitation & Follow-Up'},{id:'s6',label:'6. Groups Ministry'},
-    {id:'s7',label:'7. Education & Check-In'},{id:'s8',label:'8. Event Calendar'},{id:'s9',label:'9. Attendance'},
-    {id:'s10',label:'10. Giving & Pledges'},{id:'s11',label:'11. Prayer Wall'},{id:'s12',label:'12. Email Center'},
-    {id:'s13',label:'13. SMS Center'},{id:'s14',label:'14. Access Control'},{id:'s15',label:'15. AI Assistant'},
-    {id:'s16',label:'16. Settings'},{id:'s17',label:'17. Backup & Restore'},{id:'s18',label:'18. Maintenance'},
-    {id:'s19',label:'19. Printer Setup'},{id:'s20',label:'20. Member Portal'},
+    {id:'s21',label:'4. Prospects'},{id:'s4',label:'5. Members Profile'},{id:'s5',label:'6. Visitation & Follow-Up'},
+    {id:'s6',label:'7. Groups Ministry'},{id:'s7',label:'8. Education & Check-In'},{id:'s8',label:'9. Event Calendar'},
+    {id:'s9',label:'10. Attendance'},{id:'s10',label:'11. Giving & Pledges'},{id:'s11',label:'12. Prayer Wall'},
+    {id:'s12',label:'13. Email Center'},{id:'s13',label:'14. SMS Center'},{id:'s14',label:'15. Access Control'},
+    {id:'s15',label:'16. AI Assistant'},{id:'s22',label:'17. Appearance & Themes'},{id:'s16',label:'18. Settings'},
+    {id:'s17',label:'19. Backup & Restore'},{id:'s18',label:'20. Maintenance'},{id:'s19',label:'21. Printer Setup'},
+    {id:'s20',label:'22. Member Portal'},
   ];
   const H=({id,children}:any)=><h2 ref={setRef(id)} style={{fontSize:17,fontWeight:600,color:N,margin:'0 0 14px',paddingBottom:10,borderBottom:'2px solid '+G}}>{children}</h2>;
   const H3=({children}:any)=><h3 style={{fontSize:13,fontWeight:600,color:N,margin:'18px 0 8px',textTransform:'uppercase',letterSpacing:0.4}}>{children}</h3>;
@@ -9428,7 +9429,7 @@ function ManualPage(){
         <div style={{background:N,borderRadius:12,padding:'20px 24px',marginBottom:20}}>
           <div style={{color:'#fff',fontSize:21,fontWeight:600,letterSpacing:0.3}}>ChurchOS Staff Manual</div>
           <div style={{color:G,fontSize:13,marginTop:4}}>New Testament Christian Church — Administrator Guide</div>
-          <div style={{color:'#7a9acc',fontSize:12,marginTop:6}}>Version 5.3 · April 2026 · For internal staff use</div>
+          <div style={{color:'#7a9acc',fontSize:12,marginTop:6}}>Version 6.0 · April 2026 · For internal staff use</div>
         </div>
 
         <Sec><H id="s1">1. Getting Started</H>
@@ -9470,22 +9471,46 @@ function ManualPage(){
           <Note>Visitors flagged as <B>Follow-Up Needed</B> show as a badge count on the Members Profile sidebar item so they are never overlooked.</Note>
           <H3>Converting a Visitor to a Member</H3>
           <Ol><Li>Go to <B>Members Profile</B> and switch to the <B>Visitors</B> tab</Li><Li>Click the visitor's row to open their profile</Li><Li>Click <B>Convert to Member</B> in the profile header</Li><Li>ChurchOS moves them to the members list, sets today as their join date, and automatically marks their visitation record as Complete</Li></Ol>
+          <H3>Adding a Family at Once (Spouse &amp; Children)</H3>
+          <P>When adding a new member or visitor you can link their spouse and children in the same form — no separate records needed.</P>
+          <Ol><Li>On the Add Person form, scroll to the <B>Spouse</B> section and enter the spouse's <B>First Name</B> and <B>Last Name</B></Li><Li>As you type, ChurchOS searches existing members and visitors — click a suggested name to link the two profiles. A green “Linked” badge confirms the connection.</Li><Li>Under <B>Children</B>, click <B>+ Add Child</B> for each child. Enter their <B>First Name</B>, <B>Last Name</B>, and <B>Date of Birth</B>. Children already in the database also auto-suggest for linking.</Li><Li>Click <B>Save</B>. All linked family members share a common <B>Family ID</B> — they are grouped as a family throughout the system (Calendar check-in, Education, etc.)</Li></Ol>
+          <Tip>If the spouse or child is not already in the database, leave them unlinked. ChurchOS will automatically create their member record at the same time you save — you do not need to add them separately.</Tip>
+          <Note>When a prospect you previously added visits and is saved as a Visitor through Add Person, ChurchOS automatically removes them from the Prospects list by matching First and Last name.</Note>
         </Sec>
 
-        <Sec><H id="s4">4. Members Profile</H>
+        <Sec><H id="s21">4. Prospects</H>
+          <P>The <B>Prospects</B> page tracks people who have been personally invited to church but have not yet attended. These are pre-visit contacts — not official Visitors — managed through an outreach follow-up workflow.</P>
+          <Note>Prospects only become Visitors once they physically attend a service and are entered through <B>Add Person</B>. At that point they are automatically removed from the Prospects list by name match.</Note>
+          <H3>Adding a Prospect</H3>
+          <Ol><Li>Click <B>Prospects</B> in the sidebar and click <B>+ Add Prospect</B></Li><Li>Enter <B>First Name</B> and <B>Last Name</B> (required), <B>Phone</B>, and full <B>Address</B> (Street, City, State, Zip)</Li><Li>In the <B>Invited By</B> field, type the inviting member’s name. Existing members auto-suggest — click to link to their profile.</Li><Li>Set a <B>Status</B> (default: Not Contacted) and add any <B>Notes</B> about the outreach</Li><Li>Click <B>Add Prospect</B></Li></Ol>
+          <H3>Follow-Up Status Tracking</H3>
+          <Ul><Li><B>Not Contacted</B> — added, no outreach yet (gray)</Li><Li><B>Called</B> — phone call made (blue)</Li><Li><B>Texted</B> — text message sent (purple)</Li><Li><B>No Response</B> — contact attempted but no reply (amber)</Li><Li><B>Confirmed Coming</B> — confirmed they plan to attend (green)</Li></Ul>
+          <Tip>Change a prospect’s status directly from their card without opening the edit form — click any status pill at the bottom of the card.</Tip>
+          <H3>Filtering and Searching</H3>
+          <Ul><Li>Use the <B>search bar</B> to filter by name</Li><Li>Use the colored <B>status filter buttons</B> to see only prospects at a specific stage</Li><Li>Stat cards at the top show totals for: Total, Confirmed, No Response, and Not Contacted</Li></Ul>
+          <H3>When a Prospect Visits</H3>
+          <Ol><Li>When they attend a service, go to <B>Add Person</B> and save them as a <B>Visitor</B></Li><Li>Use the same First and Last name as entered in Prospects</Li><Li>ChurchOS will automatically remove them from Prospects on save — no manual deletion needed</Li></Ol>
+          <Warn>The auto-removal is name-based (First + Last, case-insensitive). If the name was recorded differently (e.g. “Bob” vs “Robert”), delete the prospect card manually after adding them as a Visitor.</Warn>
+        </Sec>
+
+        <Sec><H id="s4">5. Members Profile</H>
           <P>The <B>Members Profile</B> section is the central directory for all members and visitors, supporting searching, detailed views, and full editing.</P>
           <H3>Searching and Filtering</H3>
           <Ul><Li>Use the <B>search bar</B> at the top to filter by name in real time</Li><Li>Toggle between <B>Members</B> and <B>Visitors</B> using the tabs at the top of the list</Li></Ul>
           <H3>Viewing a Profile</H3>
           <P>Click any row to open the full profile modal. Tabs inside the profile include:</P>
-          <Ul><Li><B>Personal</B> — contact info, address with map link, occupation, important dates (birthday, anniversary, salvation date, baptism date), emergency contact</Li><Li><B>Family</B> — spouse name, children (name + birthday), allergies, and medical conditions</Li><Li><B>Activity</B> — attendance history, giving history, group memberships, prayer requests</Li><Li><B>Groups</B> — groups this person belongs to or leads</Li><Li><B>Pastoral</B> — visitation notes and follow-up history</Li><Li><B>Notes</B> — free-form internal notes visible only to staff</Li></Ul>
+          <Ul><Li><B>Personal</B> — contact info, address with map link, occupation, important dates (birthday, anniversary, salvation date, baptism date), emergency contact</Li><Li><B>Family</B> — spouse, children, allergies, and medical conditions. Linked profiles show as <B>clickable underlined names</B> — click to navigate directly to that person’s profile.</Li><Li><B>Activity</B> — attendance history, giving history, group memberships, prayer requests</Li><Li><B>Groups</B> — groups this person belongs to or leads</Li><Li><B>Pastoral</B> — visitation notes and follow-up history</Li><Li><B>Notes</B> — free-form internal notes visible only to staff</Li></Ul>
           <H3>Editing a Profile</H3>
-          <Ol><Li>Open the profile and click <B>Edit Profile</B> in the top-right of the modal</Li><Li>Update any fields: full address, birthday, anniversary, salvation date, baptism date, emergency contact, spouse name, role, status</Li><Li>Click <B>Save Changes</B></Li></Ol>
-          <H3>Adding Children to a Member Profile</H3>
-          <Ol><Li>Open the member's profile, click <B>Edit Profile</B></Li><Li>Scroll to the <B>Children</B> section and click <B>+ Add Child</B></Li><Li>Enter the child's full name and date of birth, then click <B>Save Changes</B></Li></Ol>
-          <Tip>Children added on a member's profile automatically appear in Education Check-In with the parent's name and phone pre-filled, and a grade assigned by age.</Tip>
+          <Ol><Li>Open the profile and click <B>Edit Profile</B> in the top-right of the modal</Li><Li>Update any fields: full address, birthday (use ▲/▼ year spinner), anniversary, salvation date, baptism date, emergency contact, role, status</Li><Li>Click <B>Save Changes</B></Li></Ol>
+          <H3>Editing Spouse in a Profile</H3>
+          <P>The <B>Family</B> section in Edit mode has separate <B>First Name</B> and <B>Last Name</B> fields for the spouse instead of a single combined box.</P>
+          <Ol><Li>Click <B>Edit Profile</B> and scroll to the <B>Family</B> section</Li><Li>Type in either Spouse First or Last Name field. As you type, existing members and visitors auto-suggest below the fields.</Li><Li>Click a suggested name to <B>link</B> the spouse’s profile. A green “✔ Linked to existing member” badge appears.</Li><Li>Click <B>Save Changes</B>. The spouse’s profile is automatically updated to list this member as their spouse too (bidirectional). Both profiles receive the same shared Family ID.</Li></Ol>
+          <Tip>To unlink a spouse (without deleting the text), click the ✕ Unlink button next to the green badge before saving.</Tip>
+          <H3>Adding / Editing Children in a Profile</H3>
+          <Ol><Li>In Edit mode, scroll to the <B>Children</B> section and click <B>+ Add Child</B></Li><Li>Enter the child’s <B>First Name</B>, <B>Last Name</B>, and <B>Date of Birth</B> using the year spinner</Li><Li>If the child is already in the database, type their name and click the auto-suggest to link the two profiles</Li><Li>Click the ✕ button on any child row to remove them from this profile</Li><Li>Click <B>Save Changes</B></Li></Ol>
+          <Tip>Children added on a member’s profile automatically appear in Education Check-In with the parent’s name and phone pre-filled, and a grade assigned by age.</Tip>
           <H3>Deleting a Record</H3>
-          <Warn>Deleting a member or visitor is permanent. Click the red <B>X</B> button on the row or the <B>Delete</B> button inside the profile and confirm the prompt. There is no undo.</Warn>
+          <Warn>Only <B>Super Administrators</B> can permanently delete a member or visitor record. The red trash button on the row only appears when logged in as Super Admin. Deletion removes the person and all associated giving, attendance, prayer, and group data. There is no undo.</Warn>
           <H3>AI Follow-Up Generator</H3>
           <P>Inside any profile, click <B>Generate Follow-Up</B> to have the AI write a warm, personalized pastoral message. Copy it and send via Email Center or SMS Center.</P>
         </Sec>
@@ -9541,7 +9566,7 @@ function ManualPage(){
           <H3>Recurring Events</H3>
           <P>Regular services (Sunday Morning, Sunday Evening, Wednesday Bible Study) are configured as recurring events. They populate the calendar automatically without manual entry each week.</P>
           <H3>Check-In from the Calendar</H3>
-          <Ol><Li>Click an event on the calendar to open its detail panel</Li><Li>Click <B>Check In</B> to mark individual members as present for that specific event</Li></Ol>
+          <Ol><Li>Click an event on the calendar to open its detail panel</Li><Li>Click <B>Check In</B> next to a member’s or visitor’s name to mark them present</Li><Li>If the person has a linked family (spouse or children with a shared Family ID), ChurchOS will ask if you want to also check in any other family members at the same time. Select the family members to include, then click <B>Check In Selected</B>.</Li></Ol>
           <Tip>Group meetings appear on calendar days automatically when <B>Show on Calendar</B> is enabled in the group settings. Up to 2 groups show per cell; click the day to see all.</Tip>
         </Sec>
 
@@ -9656,16 +9681,24 @@ function ManualPage(){
           <Tip>The AI has context about your specific church data — it is not a generic chatbot. The more specific your prompt, the more useful and personalized the response.</Tip>
         </Sec>
 
-        <Sec><H id="s16">16. Settings</H>
+        <Sec><H id="s22">17. Appearance &amp; Themes</H>
+          <P>ChurchOS includes a built-in appearance system with <B>7 color themes</B> and a per-user <B>Dark Mode</B> toggle. Each user’s preferences are saved per device in the browser’s local storage and do not affect other staff members’ views.</P>
+          <H3>Changing the Color Theme</H3>
+          <Ol><Li>Click the <B>🎨 palette button</B> in the top-right header bar (between the AI button and the ⚙️ Settings button)</Li><Li>A theme picker dropdown appears showing all 7 available themes, each with a 4-color preview strip</Li><Li>Click any theme to apply it instantly across the entire app</Li><Li>Your selection saves automatically and persists on your next visit</Li></Ol>
+          <H3>Available Themes</H3>
+          <Ul><Li><B>Classic Navy &amp; Gold</B> — the default; deep navy with gold accents (light mode)</Li><Li><B>Midnight Dark</B> — dark navy background, full dark mode</Li><Li><B>Royal Purple</B> — deep purple tones (dark mode)</Li><Li><B>Warm Burgundy</B> — rich burgundy (dark mode)</Li><Li><B>Ocean Blue</B> — bright teal-blue (light mode)</Li><Li><B>Slate Gray</B> — professional gray (light mode)</Li><Li><B>Sunset Orange</B> — warm orange-gold (light mode)</Li></Ul>
+          <H3>Dark Mode / Light Mode</H3>
+          <P>In addition to themes, individual sections of ChurchOS respect the theme’s light/dark setting. Dark themes (Midnight, Royal Purple, Warm Burgundy) automatically darken backgrounds, card surfaces, sidebar, and text for comfortable low-light use.</P>
+          <Note>Theme and appearance preferences are per-device and per-user — each staff member independently chooses their preferred theme. The default theme (Classic Navy &amp; Gold) applies on any device where no preference has been set.</Note>
+          <Tip>Use a dark theme for evening services or low-light sanctuary environments. Switch back to Classic or another light theme for daytime office use.</Tip>
+        </Sec>
+
+        <Sec><H id="s16">18. Settings</H>
           <P>The <B>Settings</B> section controls church-wide configuration, the church profile, and advanced data management tools.</P>
           <H3>General Tab — Church Information</H3>
           <Ul><Li><B>Church Name</B> — displayed in the sidebar header, printed output, and email signatures</Li><Li><B>Pastor Name</B> — shown in the sidebar footer</Li><Li><B>Address</B> — appears in the app header subtitle on every page</Li><Li><B>Phone / Email</B> — church contact info stored in the system for communications</Li><Li><B>Logo URL</B> — URL to your church logo image (use <B>/logo.png</B> if the logo file is placed in the app's public folder)</Li></Ul>
           <P>Click <B>Save Settings</B> after making any changes. Settings take effect immediately across the entire app.</P>
-          <H3>Appearance — Dark Mode / Light Mode</H3>
-          <P>ChurchOS supports a per-user <B>Dark Mode</B> that dims the entire interface for easier use in low-light environments (evening services, dim office lighting, personal preference).</P>
-          <Ul><Li><B>To toggle quickly:</B> click the <B>🌙 / ☀️ button</B> in the top-right header bar from any page in the app</Li><Li><B>Via Settings:</B> go to <B>Settings</B> in the sidebar. Under the <B>🎨 Appearance</B> card, click <B>☀️ Light Mode</B> or <B>🌙 Dark Mode</B></Li></Ul>
-          <P>Your preference is saved per device in the browser's local storage — it persists across sessions and does not affect other staff members' views. Each user can independently choose their preferred mode on each device they use.</P>
-          <Note>Dark mode applies to all sections of the app including the sidebar, all modals, data tables, cards, and text. All color transitions are animated smoothly (0.2-second fade).</Note>
+          <Note>For color themes and dark mode, see <B>Section 17 — Appearance &amp; Themes</B>.</Note>
           <H3>Merge Tool Tab</H3>
           <P>The Merge Tool identifies and resolves duplicate member or visitor records in your database.</P>
           <Ol><Li>Go to <B>Settings → Merge Tool</B></Li><Li>The tool lists potential duplicate pairs based on similar names</Li><Li>For each pair, select which record to keep as the <B>primary</B></Li><Li>Click <B>Merge</B> — data from both records is combined into the primary record</Li></Ol>
@@ -9765,7 +9798,7 @@ function ManualPage(){
         </Sec>
 
         <div style={{textAlign:'center',padding:'24px 0 8px',borderTop:'0.5px solid '+BR,marginTop:4}}>
-          <div style={{fontSize:12,color:MU}}>ChurchOS Staff Manual · New Testament Christian Church · Version 5.3 · April 2026</div>
+          <div style={{fontSize:12,color:MU}}>ChurchOS Staff Manual · New Testament Christian Church · Version 6.0 · April 2026</div>
           <div style={{fontSize:11,color:MU,marginTop:4}}>For technical support or feature requests, contact your system administrator.</div>
         </div>
       </div>
