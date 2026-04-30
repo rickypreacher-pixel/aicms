@@ -1381,7 +1381,7 @@ function MergeTool({members,setMembers,visitors,setVisitors}:any){
 const N="#1a2e5a",G="#c9a84c";
 let GL="#f5e9c8",BG="#f4f6fb",W="#fff",BR="#e2e5ec";
 let MU="#6b7280",TX="#1f2937";
-const GR="#16a34a",RE="#dc2626",AM="#d97706",BL="#2563eb",PU="#7c3aed",TE="#0891b2";
+const GR="#16a34a",RE="#dc2626",AM="#d97706",PU="#7c3aed",TE="#0891b2"; let BL="#2563eb";
 
 const EL_KEY="sk_7fd85f85f4f23d141576c41114a2bd693939b9b8ecc81efd";
 const SILENT_WAV="data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
@@ -9454,8 +9454,8 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   const [navOpen,setNavOpen] = useState(false);
   const [darkMode,setDarkMode] = useState(()=>localStorage.getItem('ntcc_dark_mode')==='1');
   // Update color variables for dark/light mode (runs on every render — must stay before any JSX)
-  if(darkMode){GL="#2d2208";BG="#0f172a";W="#1e293b";BR="#2d3748";MU="#94a3b8";TX="#e2e8f0";}
-  else{GL="#f5e9c8";BG="#f4f6fb";W="#fff";BR="#e2e5ec";MU="#6b7280";TX="#1f2937";}
+  if(darkMode){GL="#2d2208";BG="#0f172a";W="#1e293b";BR="#2d3748";MU="#94a3b8";TX="#e2e8f0";BL="#60a5fa";}
+  else{GL="#f5e9c8";BG="#f4f6fb";W="#fff";BR="#e2e5ec";MU="#6b7280";TX="#1f2937";BL="#2563eb";}
   useEffect(()=>{
     const fn=()=>setIsMobile(window.innerWidth<768);
     window.addEventListener("resize",fn);
