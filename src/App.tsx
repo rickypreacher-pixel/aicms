@@ -1365,10 +1365,20 @@ function MergeTool({members,setMembers,visitors,setVisitors}:any){
 
 
 
-const N="#1a2e5a",G="#c9a84c";
+let N="#1a2e5a",G="#c9a84c";
 let GL="#f5e9c8",BG="#f4f6fb",W="#fff",BR="#e2e5ec";
 let MU="#6b7280",TX="#1f2937";
-const GR="#16a34a",RE="#dc2626",AM="#d97706",BL="#2563eb",PU="#7c3aed",TE="#0891b2";
+const GR="#16a34a",RE="#dc2626",AM="#d97706",PU="#7c3aed",TE="#0891b2"; let BL="#2563eb";
+
+const THEMES=[
+  {id:'classic',name:'Classic Navy & Gold',dark:false,colors:{N:'#1a2e5a',G:'#c9a84c',GL:'#f5e9c8',BG:'#f4f6fb',W:'#fff',BR:'#e2e5ec',MU:'#6b7280',TX:'#1f2937',BL:'#2563eb'}},
+  {id:'midnight',name:'Midnight Dark',dark:true,colors:{N:'#e6edf3',G:'#f0b429',GL:'#0a1628',BG:'#0d1117',W:'#161b22',BR:'#21262d',MU:'#8b949e',TX:'#c9d1d9',BL:'#58a6ff'}},
+  {id:'purple',name:'Royal Purple',dark:false,colors:{N:'#4c1d95',G:'#7c3aed',GL:'#ede9fe',BG:'#f5f0ff',W:'#fff',BR:'#e4d9ff',MU:'#7c6a9e',TX:'#1f1235',BL:'#6d28d9'}},
+  {id:'burgundy',name:'Warm Burgundy',dark:false,colors:{N:'#7f1d1d',G:'#b91c1c',GL:'#fef2f2',BG:'#fdf4f4',W:'#fff',BR:'#f5d9d9',MU:'#9e6b6b',TX:'#3f0a0a',BL:'#dc2626'}},
+  {id:'ocean',name:'Ocean Blue',dark:false,colors:{N:'#0c4a6e',G:'#0284c7',GL:'#e0f2fe',BG:'#f0f7ff',W:'#fff',BR:'#bfdbfe',MU:'#5b8baa',TX:'#0a2540',BL:'#0369a1'}},
+  {id:'slate',name:'Slate Gray',dark:false,colors:{N:'#1e293b',G:'#64748b',GL:'#f1f5f9',BG:'#f8fafc',W:'#fff',BR:'#e2e8f0',MU:'#94a3b8',TX:'#334155',BL:'#475569'}},
+  {id:'sunset',name:'Sunset Orange',dark:false,colors:{N:'#7c2d12',G:'#ea580c',GL:'#fff7ed',BG:'#fff9f0',W:'#fff',BR:'#fed7aa',MU:'#9a6b4b',TX:'#431407',BL:'#c2410c'}},
+];
 
 const EL_KEY="sk_7fd85f85f4f23d141576c41114a2bd693939b9b8ecc81efd";
 const SILENT_WAV="data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
@@ -9439,12 +9449,17 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   const sbSyncTimer = useRef<any>(null);
   const [isMobile,setIsMobile] = useState(window.innerWidth<768);
   const [navOpen,setNavOpen] = useState(false);
+  const [theme,setTheme] = useState(()=>localStorage.getItem('ntcc_theme')||'classic');
+  const [showThemePicker,setShowThemePicker] = useState(false);
+  // Apply theme colors on every render (must stay before JSX)
+  {const _t=THEMES.find(t=>t.id===theme)||THEMES[0];N=_t.colors.N;G=_t.colors.G;GL=_t.colors.GL;BG=_t.colors.BG;W=_t.colors.W;BR=_t.colors.BR;MU=_t.colors.MU;TX=_t.colors.TX;BL=_t.colors.BL;}
 
   useEffect(()=>{
     const fn=()=>setIsMobile(window.innerWidth<768);
     window.addEventListener("resize",fn);
     return()=>window.removeEventListener("resize",fn);
   },[]);
+  useEffect(()=>{localStorage.setItem('ntcc_theme',theme);},[theme]);
   const [churchSettings,setChurchSettings] = useState(_I.churchSettings || DEFAULT_CS);
   const [showSetup,setShowSetup] = useState(false);
   const [view,setView] = useState("dashboard");
@@ -9908,6 +9923,31 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
             {cloudSync==='saved' && <div style={{fontSize:11,color:GR,display:"flex",alignItems:"center",gap:4}}><span style={{width:8,height:8,borderRadius:"50%",background:GR,display:"inline-block"}}></span>Saved ✓</div>}
             {cloudSync==='error' && <div style={{fontSize:11,color:RE,display:"flex",alignItems:"center",gap:4}}>⚠ Sync error</div>}
             {!isStaff && <button onClick={()=>{setView("ai");setNavOpen(false);}} style={{background:GL,border:"1px solid "+G,borderRadius:8,padding:isMobile?"7px 10px":"7px 12px",cursor:"pointer",fontSize:12,fontWeight:500,color:"#7a5c10",whiteSpace:"nowrap"}}>AI</button>}
+
+            {/* 🎨 Theme Picker */}
+            <div style={{position:"relative"}}>
+              <button onClick={()=>setShowThemePicker(p=>!p)} title="Change Theme" style={{background:W,border:"0.5px solid "+BR,borderRadius:8,padding:isMobile?"7px 10px":"7px 12px",cursor:"pointer",fontSize:14,lineHeight:1,flexShrink:0}}>🎨</button>
+              {showThemePicker && <>
+                <div onClick={()=>setShowThemePicker(false)} style={{position:"fixed",inset:0,zIndex:999}}/>
+                <div style={{position:"absolute",right:0,top:"calc(100% + 6px)",background:W,border:"0.5px solid "+BR,borderRadius:12,padding:10,zIndex:1000,minWidth:230,boxShadow:"0 8px 28px #00000022"}} onClick={e=>e.stopPropagation()}>
+                  <div style={{fontSize:11,color:MU,fontWeight:600,textTransform:"uppercase",letterSpacing:0.5,marginBottom:8,padding:"0 4px"}}>Color Theme</div>
+                  {THEMES.map(t=>(
+                    <button key={t.id} onClick={()=>{setTheme(t.id);setShowThemePicker(false);localStorage.setItem('ntcc_theme',t.id);}} style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"8px 8px",border:"none",background:theme===t.id?N+"15":"transparent",borderRadius:8,cursor:"pointer",marginBottom:2}}>
+                      <div style={{display:"flex",gap:2,flexShrink:0}}>
+                        {[t.colors.BG,t.colors.N,t.colors.G,t.colors.BL].map((c,i)=>(
+                          <div key={i} style={{width:12,height:22,background:c,borderRadius:3,border:"0.5px solid #00000018"}}/>
+                        ))}
+                      </div>
+                      <div style={{textAlign:"left",flex:1}}>
+                        <div style={{fontSize:12,fontWeight:theme===t.id?600:400,color:theme===t.id?N:TX}}>{t.name}</div>
+                        {t.dark&&<div style={{fontSize:10,color:MU}}>Dark theme</div>}
+                      </div>
+                      {theme===t.id&&<span style={{fontSize:12,color:N,marginLeft:"auto"}}>✓</span>}
+                    </button>
+                  ))}
+                </div>
+              </>}
+            </div>
 
             {!isStaff && <button onClick={()=>{setView("settings");setNavOpen(false);}} style={{background:N+"12",border:"0.5px solid "+N+"33",borderRadius:8,padding:isMobile?"7px 10px":"7px 12px",cursor:"pointer",fontSize:12,fontWeight:500,color:N}}>⚙</button>}
             {onSignOut&&<button onClick={onSignOut} title="Sign Out" style={{background:"#fee2e2",border:"0.5px solid #fca5a5",borderRadius:8,padding:isMobile?"7px 10px":"7px 12px",cursor:"pointer",fontSize:12,fontWeight:600,color:"#dc2626",whiteSpace:"nowrap"}}>Sign Out</button>}
