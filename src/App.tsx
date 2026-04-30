@@ -5388,6 +5388,18 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
   const [childSug,setChildSug] = useState<{[k:number]:any[]}>({});
   const nid = useRef(200);
 
+  // ── Filter & Selection ──────────────────────────────────────────
+  const BLANK_FILTERS = {status:"all",gender:"all",ageRange:"all",membershipClass:"all",baptism:"all",groupId:"all",giving:"all",joinRange:"all",hasPhone:"all",hasEmail:"all",birthdayThisMonth:false};
+  const [filterOpen,setFilterOpen] = useState(false);
+  const [filters,setFilters] = useState({...BLANK_FILTERS});
+  const [selected,setSelected] = useState<Set<number>>(new Set());
+  const [groupAssignOpen,setGroupAssignOpen] = useState(false);
+  const [roleAssignOpen,setRoleAssignOpen] = useState(false);
+  const [roleAssignVal,setRoleAssignVal] = useState("");
+  const sf2 = (k:string) => (v:any) => setFilters(f=>({...f,[k]:v}));
+  const clearFilters = () => setFilters({...BLANK_FILTERS});
+  const activeFiltersCount = Object.entries(filters).filter(([k,v])=>k==="birthdayThisMonth"?v:v!=="all").length;
+
   const blankForm = () => ({first:"",last:"",status:"Active",role:"",phone:"",email:"",joined:td(),family:"",notes:"",stage:"First Visit",firstVisit:td(),sponsor:"",...EMPTY_PERSON_FIELDS,address:{...EMPTY_ADDR}});
   const [form,setForm] = useState(blankForm());
 
@@ -5429,7 +5441,87 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
     return {gives,totalGiven,lastGift,avgGift,byCat,memberGroups,ledGroups,groupAttendance,personPrayers,activePrayers,answeredPrayers,personCIs,lastAttended,uniqueEvents,visitRecord,daysInPipeline};
   };
 
-  const filt = tab==="members" ? members.filter(m=>(m.first+" "+m.last).toLowerCase().includes(search.toLowerCase())) : visitors.filter(v=>(v.first+" "+v.last).toLowerCase().includes(search.toLowerCase()));
+  const applyFilters = (list:any[]) => list.filter(p => {
+    const fullName = (p.first+" "+p.last).toLowerCase();
+    if(search && !fullName.includes(search.toLowerCase())) return false;
+    if(tab==="members") {
+      if(filters.status!=="all" && p.status!==filters.status) return false;
+    }
+    if(filters.gender!=="all") { if((p.gender||"").toLowerCase()!==filters.gender.toLowerCase()) return false; }
+    if(filters.ageRange!=="all") {
+      const dob = p.birthday||p.dob; if(!dob) return false;
+      const age = Math.floor((Date.now()-new Date(dob+"T00:00:00").getTime())/(1000*60*60*24*365.25));
+      if(filters.ageRange==="under18" && age>=18) return false;
+      if(filters.ageRange==="18-35" && (age<18||age>35)) return false;
+      if(filters.ageRange==="36-55" && (age<36||age>55)) return false;
+      if(filters.ageRange==="55+" && age<55) return false;
+    }
+    if(filters.membershipClass!=="all") {
+      const has = !!(p.membershipClassDate||p.membershipClass);
+      if(filters.membershipClass==="yes"&&!has) return false;
+      if(filters.membershipClass==="no"&&has) return false;
+    }
+    if(filters.baptism!=="all") {
+      const bap = !!p.baptismDate;
+      if(filters.baptism==="yes"&&!bap) return false;
+      if(filters.baptism==="no"&&bap) return false;
+    }
+    if(filters.groupId!=="all") {
+      const inGroup = groups.some((g:any)=>String(g.id)===String(filters.groupId)&&g.memberIds.includes(p.id));
+      if(!inGroup) return false;
+    }
+    if(filters.giving!=="all") {
+      const fn2 = p.first+" "+p.last;
+      const hasGiven = giving.some((g:any)=>g.name===fn2);
+      if(filters.giving==="yes"&&!hasGiven) return false;
+      if(filters.giving==="no"&&hasGiven) return false;
+    }
+    if(filters.joinRange!=="all") {
+      const d = p.joined||p.firstVisit; if(!d) return false;
+      const days = Math.floor((Date.now()-new Date(d+"T00:00:00").getTime())/(1000*60*60*24));
+      if(days>parseInt(filters.joinRange)) return false;
+    }
+    if(filters.hasPhone!=="all") {
+      if(filters.hasPhone==="yes"&&!p.phone) return false;
+      if(filters.hasPhone==="no"&&p.phone) return false;
+    }
+    if(filters.hasEmail!=="all") {
+      if(filters.hasEmail==="yes"&&!p.email) return false;
+      if(filters.hasEmail==="no"&&p.email) return false;
+    }
+    if(filters.birthdayThisMonth) {
+      const dob = p.birthday||p.dob; if(!dob) return false;
+      if(new Date(dob+"T00:00:00").getMonth()!==new Date().getMonth()) return false;
+    }
+    return true;
+  });
+  const rawList = tab==="members" ? members : visitors;
+  const filt = applyFilters(rawList);
+  const selectedPeople = filt.filter((p:any)=>selected.has(p.id));
+  const allSelected = filt.length>0 && filt.every((p:any)=>selected.has(p.id));
+  const toggleSelectAll = () => {
+    if(allSelected) setSelected(new Set());
+    else setSelected(new Set(filt.map((p:any)=>p.id)));
+  };
+  const toggleSelect = (id:number) => setSelected(s => { const n=new Set(s); n.has(id)?n.delete(id):n.add(id); return n; });
+  const exportCSV = (people:any[]) => {
+    const rows = [["First Name","Last Name","Phone","Email","Address","City","State","Zip","Status"]];
+    people.forEach(p => {
+      const a = p.address||{};
+      rows.push([p.first,p.last,p.phone||"",p.email||"",a.street||"",a.city||"",a.state||"",a.zip||"",p.status||""]);
+    });
+    const csv = rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(",")).join("\n");
+    const blob = new Blob([csv],{type:"text/csv"});
+    const url = URL.createObjectURL(blob);
+    const a2 = document.createElement("a"); a2.href=url; a2.download="members-export.csv"; a2.click();
+    URL.revokeObjectURL(url);
+  };
+  const printDirectory = (people:any[]) => {
+    const html = "<html><head><title>Member Directory</title><style>body{font-family:sans-serif;font-size:12px}h1{font-size:16px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:6px 8px;text-align:left}th{background:#f0f0f0;font-weight:600}</style></head><body><h1>Member Directory — "+new Date().toLocaleDateString()+"</h1><table><tr><th>Name</th><th>Phone</th><th>Email</th><th>Status</th></tr>"
+      +people.map(p=>"<tr><td>"+p.first+" "+p.last+"</td><td>"+(p.phone||"—")+"</td><td>"+(p.email||"—")+"</td><td>"+(p.status||"—")+"</td></tr>").join("")
+      +"</table></body></html>";
+    const w = window.open("","_blank"); if(w){w.document.write(html);w.document.close();w.focus();w.print();}
+  };
   const stats = detail ? getStats(detail) : null;
 
   const saveNew = () => {
@@ -5532,31 +5624,78 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
 
   return (
     <div>
-      <div style={{display:"flex",gap:8,marginBottom:16,alignItems:"center"}}>
+      {/* ── Tab / Search / Action bar ─────────────────────────────── */}
+      <div style={{display:"flex",gap:8,marginBottom:8,alignItems:"center",flexWrap:"wrap"}}>
         {["members","visitors"].map(t=>(
-          <button key={t} onClick={()=>setTab(t)} style={{padding:"8px 18px",borderRadius:8,cursor:"pointer",border:"0.5px solid "+BR,background:tab===t?N:W,color:tab===t?"#fff":TX,fontSize:13,fontWeight:tab===t?500:400}}>
+          <button key={t} onClick={()=>{setTab(t);setSelected(new Set());}} style={{padding:"8px 18px",borderRadius:8,cursor:"pointer",border:"0.5px solid "+BR,background:tab===t?N:W,color:tab===t?"#fff":TX,fontSize:13,fontWeight:tab===t?500:400}}>
             {t==="members"?"Members ("+members.length+")":"Visitors ("+visitors.length+")"}
           </button>
         ))}
-        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search..." style={{flex:1,padding:"8px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}/>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search by name..." style={{flex:1,minWidth:120,padding:"8px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}/>
+        <button onClick={()=>setFilterOpen(true)} style={{display:"flex",alignItems:"center",gap:5,padding:"8px 14px",borderRadius:8,border:"0.5px solid "+(activeFiltersCount>0?G:BR),background:activeFiltersCount>0?GL:W,cursor:"pointer",fontSize:13,fontWeight:activeFiltersCount>0?600:400,color:activeFiltersCount>0?N:TX}}>
+          🔍 Filter {activeFiltersCount>0&&<span style={{background:G,color:"#fff",borderRadius:20,fontSize:10,padding:"1px 7px",fontWeight:600}}>{activeFiltersCount}</span>}
+        </button>
+        {activeFiltersCount>0&&<button onClick={clearFilters} style={{padding:"8px 10px",borderRadius:8,border:"0.5px solid "+BR,background:W,cursor:"pointer",fontSize:12,color:MU}}>✕ Clear</button>}
         <Btn onClick={()=>setView("addperson")}>+ Add {tab==="members"?"Member":"Visitor"}</Btn>
       </div>
+
+      {/* ── Bulk Action Toolbar (appears when items selected) ────── */}
+      {selected.size>0 && (
+        <div style={{display:"flex",alignItems:"center",gap:6,padding:"8px 14px",background:GL,border:"0.5px solid "+G,borderRadius:10,marginBottom:8,flexWrap:"wrap"}}>
+          <span style={{fontSize:12,fontWeight:600,color:N,marginRight:4}}>{selected.size} selected</span>
+          <Btn v="primary" style={{fontSize:11,padding:"5px 10px"}} onClick={()=>{
+            const recips = selectedPeople.map(p=>({name:p.first+" "+p.last,email:p.email||""}));
+            if(window.__openBulkEmailComposer__) window.__openBulkEmailComposer__({recipients:recips,relatedType:"member"});
+          }}>📧 Email</Btn>
+          <Btn v="primary" style={{fontSize:11,padding:"5px 10px"}} onClick={()=>{
+            const recips = selectedPeople.map(p=>({name:p.first+" "+p.last,phone:p.phone||""}));
+            if(window.__openBulkSmsComposer__) window.__openBulkSmsComposer__({recipients:recips,relatedType:"member"});
+          }}>📱 SMS</Btn>
+          <Btn v="gold" style={{fontSize:11,padding:"5px 10px"}} onClick={()=>exportCSV(selectedPeople)}>📤 Export CSV</Btn>
+          <Btn v="ghost" style={{fontSize:11,padding:"5px 10px"}} onClick={()=>setGroupAssignOpen(true)}>👥 Assign Group</Btn>
+          <Btn v="ghost" style={{fontSize:11,padding:"5px 10px"}} onClick={()=>{setRoleAssignVal("");setRoleAssignOpen(true);}}>🏷️ Set Role</Btn>
+          <Btn v="ghost" style={{fontSize:11,padding:"5px 10px"}} onClick={()=>printDirectory(selectedPeople)}>🖨️ Print</Btn>
+          <Btn v="ghost" style={{fontSize:11,padding:"5px 10px"}} onClick={()=>{
+            const lines = selectedPeople.map(p=>p.first+" "+p.last+(p.phone?" | "+p.phone:"")+(p.email?" | "+p.email:"")).join("\n");
+            navigator.clipboard.writeText(lines).then(()=>alert("Copied "+selected.size+" contacts to clipboard."));
+          }}>📋 Copy List</Btn>
+          <button onClick={()=>setSelected(new Set())} style={{marginLeft:"auto",background:"none",border:"none",cursor:"pointer",color:MU,fontSize:12}}>✕ Deselect all</button>
+        </div>
+      )}
+
+      {/* ── Results info row ─────────────────────────────────────── */}
+      {(activeFiltersCount>0||search) && (
+        <div style={{fontSize:11,color:MU,marginBottom:6,padding:"4px 2px"}}>
+          Showing <b style={{color:N}}>{filt.length}</b> of {rawList.length} {tab}
+          {activeFiltersCount>0&&<span style={{marginLeft:8}}>({activeFiltersCount} filter{activeFiltersCount>1?"s":""} active)</span>}
+        </div>
+      )}
+
+      {/* ── Table ────────────────────────────────────────────────── */}
       <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,overflow:"hidden"}}>
         <table style={{width:"100%",borderCollapse:"collapse"}}>
-          <thead><tr style={{background:"#f8f9fc"}}>{hdrs.map(h=><th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:11,fontWeight:500,color:MU,textTransform:"uppercase",letterSpacing:0.5,borderBottom:"0.5px solid "+BR}}>{h}</th>)}</tr></thead>
+          <thead><tr style={{background:"#f8f9fc"}}>
+            <th style={{padding:"10px 12px",width:36}}>
+              <input type="checkbox" checked={allSelected} onChange={toggleSelectAll} style={{cursor:"pointer"}}/>
+            </th>
+            {hdrs.map(h=><th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:11,fontWeight:500,color:MU,textTransform:"uppercase",letterSpacing:0.5,borderBottom:"0.5px solid "+BR}}>{h}</th>)}
+          </tr></thead>
           <tbody>
             {filt.map(p=>(
-              <tr key={p.id} onClick={()=>openDetail(p)} style={{borderBottom:"0.5px solid "+BR,cursor:"pointer",transition:"background 0.1s"}} onMouseEnter={e=>e.currentTarget.style.background="#f8f9fc"} onMouseLeave={e=>e.currentTarget.style.background=W}>
-                <td style={{padding:"10px 14px"}}>
+              <tr key={p.id} style={{borderBottom:"0.5px solid "+BR,cursor:"pointer",transition:"background 0.1s",background:selected.has(p.id)?GL:W}} onMouseEnter={e=>!selected.has(p.id)&&(e.currentTarget.style.background="#f8f9fc")} onMouseLeave={e=>!selected.has(p.id)&&(e.currentTarget.style.background=W)}>
+                <td style={{padding:"10px 12px"}} onClick={e=>e.stopPropagation()}>
+                  <input type="checkbox" checked={selected.has(p.id)} onChange={()=>toggleSelect(p.id)} style={{cursor:"pointer"}}/>
+                </td>
+                <td style={{padding:"10px 14px"}} onClick={()=>openDetail(p)}>
                   <div style={{display:"flex",alignItems:"center",gap:10}}>
                     <Av f={p.first} l={p.last}/>
                     <div><div style={{fontSize:13,fontWeight:500,color:N}}>{p.first} {p.last}</div><div style={{fontSize:11,color:MU}}>{p.email||"No email"}</div></div>
                   </div>
                 </td>
-                <td style={{padding:"10px 14px",fontSize:13}}>{tab==="members"?(p.role||"Member"):<Badge label={p.stage}/>}</td>
-                <td style={{padding:"10px 14px",fontSize:13}}>{p.phone||"No phone"}</td>
-                <td style={{padding:"10px 14px",fontSize:13}}>{fd(tab==="members"?p.joined:p.firstVisit)}</td>
-                <td style={{padding:"10px 14px",fontSize:13}}>{tab==="members"?<Badge label={p.status}/>:(p.sponsor||"Unassigned")}</td>
+                <td style={{padding:"10px 14px",fontSize:13}} onClick={()=>openDetail(p)}>{tab==="members"?(p.role||"Member"):<Badge label={p.stage}/>}</td>
+                <td style={{padding:"10px 14px",fontSize:13}} onClick={()=>openDetail(p)}>{p.phone||"No phone"}</td>
+                <td style={{padding:"10px 14px",fontSize:13}} onClick={()=>openDetail(p)}>{fd(tab==="members"?p.joined:p.firstVisit)}</td>
+                <td style={{padding:"10px 14px",fontSize:13}} onClick={()=>openDetail(p)}>{tab==="members"?<Badge label={p.status}/>:(p.sponsor||"Unassigned")}</td>
                 <td style={{padding:"10px 14px"}} onClick={e=>e.stopPropagation()}>
                   <div style={{display:"flex",gap:6}}>
                     <Btn onClick={()=>openDetail(p)} v="ai" style={{fontSize:11,padding:"4px 8px"}}>View</Btn>
@@ -5565,10 +5704,100 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
                 </td>
               </tr>
             ))}
-            {filt.length===0 && <tr><td colSpan={6} style={{padding:40,textAlign:"center",color:MU}}>No records found.</td></tr>}
+            {filt.length===0 && <tr><td colSpan={7} style={{padding:40,textAlign:"center",color:MU}}>{activeFiltersCount>0||search?"No records match the current filters.":"No records found."}</td></tr>}
           </tbody>
         </table>
       </div>
+
+      {/* ── Filter Modal ──────────────────────────────────────────── */}
+      <Modal open={filterOpen} onClose={()=>setFilterOpen(false)} title="🔍 Filter Members" width={520}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          {tab==="members" && <Fld label="Status">
+            <Slt value={filters.status} onChange={sf2("status")} opts={[{v:"all",l:"Any Status"},{v:"Active",l:"Active"},{v:"Inactive",l:"Inactive"}]}/>
+          </Fld>}
+          <Fld label="Gender">
+            <Slt value={filters.gender} onChange={sf2("gender")} opts={[{v:"all",l:"Any Gender"},{v:"Male",l:"Male"},{v:"Female",l:"Female"}]}/>
+          </Fld>
+          <Fld label="Age Range">
+            <Slt value={filters.ageRange} onChange={sf2("ageRange")} opts={[{v:"all",l:"Any Age"},{v:"under18",l:"Under 18"},{v:"18-35",l:"18–35"},{v:"36-55",l:"36–55"},{v:"55+",l:"55+"}]}/>
+          </Fld>
+          <Fld label="Membership Class">
+            <Slt value={filters.membershipClass} onChange={sf2("membershipClass")} opts={[{v:"all",l:"Any"},{v:"yes",l:"Completed"},{v:"no",l:"Not Completed"}]}/>
+          </Fld>
+          <Fld label="Baptism">
+            <Slt value={filters.baptism} onChange={sf2("baptism")} opts={[{v:"all",l:"Any"},{v:"yes",l:"Baptized"},{v:"no",l:"Not Baptized"}]}/>
+          </Fld>
+          <Fld label="Group / Ministry">
+            <Slt value={filters.groupId} onChange={sf2("groupId")} opts={[{v:"all",l:"Any Group"},...groups.map((g:any)=>({v:String(g.id),l:g.name}))]}/>
+          </Fld>
+          <Fld label="Giving Status">
+            <Slt value={filters.giving} onChange={sf2("giving")} opts={[{v:"all",l:"Any"},{v:"yes",l:"Has Given"},{v:"no",l:"Never Given"}]}/>
+          </Fld>
+          <Fld label={tab==="members"?"Joined Within":"Visited Within"}>
+            <Slt value={filters.joinRange} onChange={sf2("joinRange")} opts={[{v:"all",l:"Any Time"},{v:"30",l:"Last 30 Days"},{v:"90",l:"Last 90 Days"},{v:"365",l:"Last Year"}]}/>
+          </Fld>
+          <Fld label="Has Phone">
+            <Slt value={filters.hasPhone} onChange={sf2("hasPhone")} opts={[{v:"all",l:"Any"},{v:"yes",l:"Has Phone"},{v:"no",l:"No Phone"}]}/>
+          </Fld>
+          <Fld label="Has Email">
+            <Slt value={filters.hasEmail} onChange={sf2("hasEmail")} opts={[{v:"all",l:"Any"},{v:"yes",l:"Has Email"},{v:"no",l:"No Email"}]}/>
+          </Fld>
+        </div>
+        <div style={{marginTop:8,display:"flex",alignItems:"center",gap:8,padding:"8px 10px",background:BG,borderRadius:8}}>
+          <input type="checkbox" id="bmonth" checked={filters.birthdayThisMonth} onChange={e=>setFilters(f=>({...f,birthdayThisMonth:e.target.checked}))} style={{cursor:"pointer"}}/>
+          <label htmlFor="bmonth" style={{fontSize:13,cursor:"pointer",color:TX}}>🎂 Birthday this month only</label>
+        </div>
+        <div style={{marginTop:14,display:"flex",gap:8}}>
+          <Btn style={{flex:1,justifyContent:"center"}} onClick={()=>setFilterOpen(false)}>Apply Filters</Btn>
+          <Btn v="ghost" style={{flex:1,justifyContent:"center"}} onClick={()=>{clearFilters();setFilterOpen(false);}}>Clear All</Btn>
+        </div>
+        {filt.length>0&&<div style={{textAlign:"center",fontSize:11,color:MU,marginTop:8}}>{filt.length} result{filt.length!==1?"s":""} match current filters</div>}
+      </Modal>
+
+      {/* ── Assign to Group Modal ─────────────────────────────────── */}
+      <Modal open={groupAssignOpen} onClose={()=>setGroupAssignOpen(false)} title={"👥 Assign "+selected.size+" to Group"} width={400}>
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {groups.length===0 && <p style={{color:MU,fontSize:13}}>No groups created yet. Create a group first in the Groups section.</p>}
+          {groups.map((g:any)=>(
+            <button key={g.id} onClick={()=>{
+              const ids = selectedPeople.map((p:any)=>p.id);
+              setGroups((gs:any[])=>gs.map((grp:any)=>grp.id===g.id?{...grp,memberIds:[...new Set([...grp.memberIds,...ids])]}:grp));
+              setGroupAssignOpen(false);
+              alert(selected.size+" member(s) added to "+g.name+".");
+              setSelected(new Set());
+            }} style={{padding:"10px 14px",borderRadius:8,border:"0.5px solid "+BR,background:W,cursor:"pointer",textAlign:"left",display:"flex",alignItems:"center",gap:10}}>
+              <span style={{width:10,height:10,borderRadius:"50%",background:g.color||N,display:"inline-block"}}/>
+              <span style={{fontSize:13,fontWeight:500,color:TX}}>{g.name}</span>
+              <span style={{fontSize:11,color:MU,marginLeft:"auto"}}>{g.memberIds.length} members</span>
+            </button>
+          ))}
+        </div>
+        <Btn v="ghost" style={{marginTop:12,width:"100%",justifyContent:"center"}} onClick={()=>setGroupAssignOpen(false)}>Cancel</Btn>
+      </Modal>
+
+      {/* ── Set Role Modal ───────────────────────────────────────── */}
+      <Modal open={roleAssignOpen} onClose={()=>setRoleAssignOpen(false)} title={"🏷️ Set Role for "+selected.size+" Member(s)"} width={380}>
+        <Fld label="New Role / Title">
+          <Inp value={roleAssignVal} onChange={setRoleAssignVal} placeholder="e.g. Deacon, Choir, Usher..."/>
+        </Fld>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
+          {["Deacon","Deaconess","Choir","Usher","Elder","Minister","Teacher","Youth Leader"].map(r=>(
+            <button key={r} onClick={()=>setRoleAssignVal(r)} style={{padding:"4px 10px",borderRadius:20,border:"0.5px solid "+BR,background:roleAssignVal===r?GL:W,color:roleAssignVal===r?N:TX,fontSize:12,cursor:"pointer"}}>{r}</button>
+          ))}
+        </div>
+        <div style={{display:"flex",gap:8}}>
+          <Btn style={{flex:1,justifyContent:"center"}} onClick={()=>{
+            if(!roleAssignVal){alert("Enter a role.");return;}
+            const ids = new Set(selectedPeople.map((p:any)=>p.id));
+            setMembers((ms:any[])=>ms.map(m=>ids.has(m.id)?{...m,role:roleAssignVal}:m));
+            setVisitors((vs:any[])=>vs.map(v=>ids.has(v.id)?{...v,role:roleAssignVal}:v));
+            setRoleAssignOpen(false);
+            alert("Role \u201c"+roleAssignVal+"\u201d applied to "+selected.size+" person(s).");
+            setSelected(new Set());
+          }}>Apply Role</Btn>
+          <Btn v="ghost" style={{flex:1,justifyContent:"center"}} onClick={()=>setRoleAssignOpen(false)}>Cancel</Btn>
+        </div>
+      </Modal>
 
       {/* Add New Modal — simplified, rich fields editable after */}
       <Modal open={modal} onClose={()=>setModal(false)} title={"Add "+(tab==="members"?"Member":"Visitor")}>
