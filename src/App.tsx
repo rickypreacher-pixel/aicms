@@ -1378,6 +1378,11 @@ const THEMES=[
   {id:'ocean',name:'Ocean Blue',dark:false,colors:{N:'#0c4a6e',G:'#0284c7',GL:'#e0f2fe',BG:'#f0f7ff',W:'#fff',BR:'#bfdbfe',MU:'#5b8baa',TX:'#0a2540',BL:'#0369a1'}},
   {id:'slate',name:'Slate Gray',dark:false,colors:{N:'#1e293b',G:'#64748b',GL:'#f1f5f9',BG:'#f8fafc',W:'#fff',BR:'#e2e8f0',MU:'#94a3b8',TX:'#334155',BL:'#475569'}},
   {id:'sunset',name:'Sunset Orange',dark:false,colors:{N:'#7c2d12',G:'#ea580c',GL:'#fff7ed',BG:'#fff9f0',W:'#fff',BR:'#fed7aa',MU:'#9a6b4b',TX:'#431407',BL:'#c2410c'}},
+  {id:'emerald',name:'Emerald & Sage',dark:false,colors:{N:'#064e3b',G:'#10b981',GL:'#d1fae5',BG:'#f0fdf4',W:'#fff',BR:'#a7f3d0',MU:'#6b8f7e',TX:'#022c22',BL:'#059669'}},
+  {id:'indigo',name:'Indigo Night',dark:true,colors:{N:'#a5b4fc',G:'#818cf8',GL:'#1e1b4b',BG:'#0f0e22',W:'#1e1b4b',BR:'#2d2b66',MU:'#8187c0',TX:'#c7d2fe',BL:'#6366f1'}},
+  {id:'rose',name:'Rose & Blush',dark:false,colors:{N:'#881337',G:'#f43f5e',GL:'#fff1f2',BG:'#fff5f7',W:'#fff',BR:'#fecdd3',MU:'#9e687a',TX:'#4c0519',BL:'#e11d48'}},
+  {id:'forest',name:'Forest Pine',dark:false,colors:{N:'#14532d',G:'#16a34a',GL:'#dcfce7',BG:'#f7fef9',W:'#fff',BR:'#bbf7d0',MU:'#6b9e7a',TX:'#052e16',BL:'#15803d'}},
+  {id:'cyber',name:'Cyber Teal',dark:true,colors:{N:'#67e8f9',G:'#22d3ee',GL:'#042f3e',BG:'#020d14',W:'#051923',BR:'#0e3d52',MU:'#5ba8b8',TX:'#cffafe',BL:'#0891b2'}},
 ];
 
 const EL_KEY="sk_7fd85f85f4f23d141576c41114a2bd693939b9b8ecc81efd";
@@ -9682,13 +9687,13 @@ function ManualPage(){
         </Sec>
 
         <Sec><H id="s22">17. Appearance &amp; Themes</H>
-          <P>ChurchOS includes a built-in appearance system with <B>7 color themes</B> and a per-user <B>Dark Mode</B> toggle. Each user’s preferences are saved per device in the browser’s local storage and do not affect other staff members’ views.</P>
+          <P>ChurchOS includes a built-in appearance system with <B>12 color themes</B> and a per-user <B>Dark Mode</B> toggle. Each user’s preferences are saved per device in the browser’s local storage and do not affect other staff members’ views.</P>
           <H3>Changing the Color Theme</H3>
-          <Ol><Li>Click the <B>🎨 palette button</B> in the top-right header bar (between the AI button and the ⚙️ Settings button)</Li><Li>A theme picker dropdown appears showing all 7 available themes, each with a 4-color preview strip</Li><Li>Click any theme to apply it instantly across the entire app</Li><Li>Your selection saves automatically and persists on your next visit</Li></Ol>
+          <Ol><Li>Click the <B>🎨 palette button</B> in the top-right header bar (between the AI button and the ⚙️ Settings button)</Li><Li>A theme picker dropdown appears showing all 12 available themes, each with a 4-color preview strip</Li><Li>Click any theme to apply it instantly across the entire app</Li><Li>Your selection saves automatically and persists on your next visit</Li></Ol>
           <H3>Available Themes</H3>
-          <Ul><Li><B>Classic Navy &amp; Gold</B> — the default; deep navy with gold accents (light mode)</Li><Li><B>Midnight Dark</B> — dark navy background, full dark mode</Li><Li><B>Royal Purple</B> — deep purple tones (dark mode)</Li><Li><B>Warm Burgundy</B> — rich burgundy (dark mode)</Li><Li><B>Ocean Blue</B> — bright teal-blue (light mode)</Li><Li><B>Slate Gray</B> — professional gray (light mode)</Li><Li><B>Sunset Orange</B> — warm orange-gold (light mode)</Li></Ul>
+          <Ul><Li><B>Classic Navy &amp; Gold</B> — the default; deep navy with gold accents (light)</Li><Li><B>Midnight Dark</B> — dark navy, full dark mode</Li><Li><B>Royal Purple</B> — deep purple tones (dark)</Li><Li><B>Warm Burgundy</B> — rich burgundy (light)</Li><Li><B>Ocean Blue</B> — bright teal-blue (light)</Li><Li><B>Slate Gray</B> — professional cool gray (light)</Li><Li><B>Sunset Orange</B> — warm orange-gold (light)</Li><Li><B>Emerald &amp; Sage</B> — fresh deep green with mint accents (light)</Li><Li><B>Indigo Night</B> — deep indigo with soft purple glow (dark)</Li><Li><B>Rose &amp; Blush</B> — sophisticated rose-pink with blush tones (light)</Li><Li><B>Forest Pine</B> — earthy pine green with leafy accents (light)</Li><Li><B>Cyber Teal</B> — ultra-dark with electric cyan highlights (dark)</Li></Ul>
           <H3>Dark Mode / Light Mode</H3>
-          <P>In addition to themes, individual sections of ChurchOS respect the theme’s light/dark setting. Dark themes (Midnight, Royal Purple, Warm Burgundy) automatically darken backgrounds, card surfaces, sidebar, and text for comfortable low-light use.</P>
+          <P>In addition to themes, individual sections of ChurchOS respect the theme’s light/dark setting. Dark themes (Midnight, Indigo Night, Cyber Teal, Royal Purple) automatically darken backgrounds, card surfaces, sidebar, and text for comfortable low-light use.</P>
           <Note>Theme and appearance preferences are per-device and per-user — each staff member independently chooses their preferred theme. The default theme (Classic Navy &amp; Gold) applies on any device where no preference has been set.</Note>
           <Tip>Use a dark theme for evening services or low-light sanctuary environments. Switch back to Classic or another light theme for daytime office use.</Tip>
         </Sec>
