@@ -5159,6 +5159,26 @@ function Dashboard({members,visitors,attendance,giving,prayers,setView,canViewGi
 }
 
 // ── PEOPLE ──
+// These must be at module level — NOT inside People — or every keystroke causes remount+scroll-to-top
+const InfoRow = ({label,value,empty="Not on file"}:any) => (
+  <div style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"0.5px solid "+BR,alignItems:"baseline",gap:10}}>
+    <span style={{fontSize:11,color:MU,fontWeight:500,flexShrink:0}}>{label}</span>
+    <span style={{fontSize:13,fontWeight:500,color:value?TX:MU,fontStyle:value?"normal":"italic",textAlign:"right",wordBreak:"break-word"}}>{value||empty}</span>
+  </div>
+);
+const SectionCard = ({title,children}:any) => (
+  <div style={{background:W,border:"0.5px solid "+BR,borderRadius:10,padding:"12px 14px",marginBottom:10}}>
+    <div style={{fontSize:11,color:N,textTransform:"uppercase",letterSpacing:0.5,marginBottom:8,fontWeight:600}}>{title}</div>
+    {children}
+  </div>
+);
+const MiniStat = ({label,value,color=N,sub}:any) => (
+  <div style={{background:BG,border:"0.5px solid "+BR,borderRadius:8,padding:"9px 11px",flex:1,minWidth:0}}>
+    <div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:0.4,marginBottom:2}}>{label}</div>
+    <div style={{fontSize:17,fontWeight:500,color,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{value}</div>
+    {sub && <div style={{fontSize:10,color:MU,marginTop:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{sub}</div>}
+  </div>
+);
 function People({members,setMembers,visitors,setVisitors,attendance,giving,setGiving,prayers,setPrayers,groups,setGroups,grpMeetings,setGrpMeetings,visitRecords,setVisitRecords,checkIns,setCheckIns,setView,canViewGiving,currentUser}:any) {
   const [tab,setTab] = useState("members");
   const [search,setSearch] = useState("");
@@ -5277,25 +5297,6 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
 
   const hdrs = ["Name",tab==="members"?"Role":"Stage","Phone",tab==="members"?"Joined":"First Visit",tab==="members"?"Status":"Sponsor","Actions"];
 
-  const InfoRow = ({label,value,empty="Not on file"}) => (
-    <div style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"0.5px solid "+BR,alignItems:"baseline",gap:10}}>
-      <span style={{fontSize:11,color:MU,fontWeight:500,flexShrink:0}}>{label}</span>
-      <span style={{fontSize:13,fontWeight:500,color:value?TX:MU,fontStyle:value?"normal":"italic",textAlign:"right",wordBreak:"break-word"}}>{value||empty}</span>
-    </div>
-  );
-  const SectionCard = ({title,children}) => (
-    <div style={{background:W,border:"0.5px solid "+BR,borderRadius:10,padding:"12px 14px",marginBottom:10}}>
-      <div style={{fontSize:11,color:N,textTransform:"uppercase",letterSpacing:0.5,marginBottom:8,fontWeight:600}}>{title}</div>
-      {children}
-    </div>
-  );
-  const MiniStat = ({label,value,color=N,sub}) => (
-    <div style={{background:BG,border:"0.5px solid "+BR,borderRadius:8,padding:"9px 11px",flex:1,minWidth:0}}>
-      <div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:0.4,marginBottom:2}}>{label}</div>
-      <div style={{fontSize:17,fontWeight:500,color,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{value}</div>
-      {sub && <div style={{fontSize:10,color:MU,marginTop:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{sub}</div>}
-    </div>
-  );
   const formatAddr = a => !a||!a.street ? "" : a.street + (a.city?", "+a.city:"") + (a.state?", "+a.state:"") + (a.zip?" "+a.zip:"");
   const TABS = [{id:"personal",label:"Personal"},{id:"family",label:"Family"},{id:"activity",label:"Activity"},{id:"groups",label:"Groups"},{id:"pastoral",label:"Pastoral"},{id:"notes",label:"Notes"}];
 
@@ -9451,13 +9452,6 @@ function MemberProfilePortal({member,setMembers,giving,onSignOut,staffMode=false
   const sorted = [...myGiving].sort((a:any,b:any)=>b.date.localeCompare(a.date));
 
   const TABS = staffMode ? [{id:"profile",label:"Personal Info"}] : [{id:"profile",label:"Personal Info"},{id:"giving",label:"My Giving"}];
-
-  const InfoRow = ({label,value,empty="Not on file"}:any) => (
-    <div style={{display:"flex",justifyContent:"space-between",padding:"7px 0",borderBottom:"0.5px solid "+BR,alignItems:"baseline",gap:10}}>
-      <span style={{fontSize:11,color:MU,fontWeight:500,flexShrink:0}}>{label}</span>
-      <span style={{fontSize:13,fontWeight:500,color:value?TX:MU,fontStyle:value?"normal":"italic",textAlign:"right",wordBreak:"break-word"}}>{value||empty}</span>
-    </div>
-  );
 
   return (
     <div style={{maxWidth:700,margin:"0 auto",padding:"0 4px"}}>
