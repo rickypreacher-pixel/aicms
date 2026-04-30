@@ -4660,11 +4660,28 @@ function MedSection({allergies=[],medical=[],medNotes="",onChange,required=false
   );
 }
 
+function BirthdaySpinner({value,onChange}){
+  const curYear=new Date().getFullYear();
+  const getYr=()=>{if(!value)return curYear;const m=value.match(/^(\d{4})/);return m?parseInt(m[1]):curYear;};
+  const spinYr=d=>{const ny=Math.max(1940,Math.min(curYear,getYr()+d));onChange(value?value.replace(/^\d{4}/,String(ny)):ny+"-01-01");};
+  const yr=value?getYr():null;
+  const btnS={background:BG,border:"0.5px solid "+BR,borderRadius:4,width:24,height:20,cursor:"pointer",fontSize:10,padding:0,lineHeight:1,display:"flex",alignItems:"center",justifyContent:"center",color:TX};
+  return(
+    <div style={{display:"flex",alignItems:"center",gap:6}}>
+      <input type="date" value={value||""} onChange={e=>onChange(e.target.value)} style={{flex:1,padding:"5px 8px",border:"0.5px solid "+BR,borderRadius:6,fontSize:12,outline:"none",boxSizing:"border-box"}}/>
+      <div style={{display:"flex",flexDirection:"column",gap:2,flexShrink:0,alignItems:"center"}}>
+        <button type="button" onClick={()=>spinYr(1)} disabled={!!yr&&yr>=curYear} title="Year +1" style={btnS}>▲</button>
+        <div style={{fontSize:10,color:MU,fontWeight:600,minWidth:34,textAlign:"center",lineHeight:"13px"}}>{yr||"year"}</div>
+        <button type="button" onClick={()=>spinYr(-1)} disabled={!!yr&&yr<=1940} title="Year −1" style={btnS}>▼</button>
+      </div>
+    </div>
+  );
+}
 function BirthdayRow({dob,onChange,color}){
   const age=calcAge(dob);
   return(
     <div style={{display:"grid",gridTemplateColumns:"1fr auto",gap:6,alignItems:"end",marginBottom:6}}>
-      <div><div style={{fontSize:10,color:MU,marginBottom:3}}>Birthday (full date)</div><input type="date" value={dob||""} onChange={e=>onChange(e.target.value)} style={{width:"100%",padding:"5px 8px",border:"0.5px solid "+BR,borderRadius:6,fontSize:12,outline:"none",boxSizing:"border-box"}}/></div>
+      <div><div style={{fontSize:10,color:MU,marginBottom:3}}>Birthday (full date)</div><BirthdaySpinner value={dob||""} onChange={onChange}/></div>
       {age!==""&&<div style={{background:(color||N)+"14",borderRadius:6,padding:"6px 12px",fontSize:12,color:color||N,fontWeight:600,whiteSpace:"nowrap"}}>Age {age}</div>}
     </div>
   );
@@ -5625,7 +5642,7 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
 
                 <SectionCard title="Important Dates">
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-                    <Fld label="Birthday"><Inp type="date" value={editForm.birthday||""} onChange={ef("birthday")}/></Fld>
+                    <Fld label="Birthday"><BirthdaySpinner value={editForm.birthday||""} onChange={ef("birthday")}/></Fld>
                     <Fld label="Anniversary"><Inp type="date" value={editForm.anniversary||""} onChange={ef("anniversary")}/></Fld>
                   </div>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
@@ -5659,7 +5676,7 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
                   {(editForm.children||[]).map((c,i)=>(
                     <div key={i} style={{display:"grid",gridTemplateColumns:"2fr 1fr auto",gap:8,marginBottom:6,alignItems:"center"}}>
                       <Inp value={c.name} onChange={v=>updChild(i,"name",v)} placeholder="Child name"/>
-                      <Inp type="date" value={c.birthday||""} onChange={v=>updChild(i,"birthday",v)}/>
+                      <BirthdaySpinner value={c.birthday||""} onChange={v=>updChild(i,"birthday",v)}/>
                       <button onClick={()=>remChild(i)} style={{background:"#fee2e2",border:"0.5px solid #fca5a5",borderRadius:6,padding:"6px 10px",cursor:"pointer",color:RE,fontSize:11,fontWeight:500}}>X</button>
                     </div>
                   ))}
@@ -9364,7 +9381,7 @@ function MemberProfilePortal({member,setMembers,giving,onSignOut,staffMode=false
                 <Fld label="Last Name"><Inp value={form.last} onChange={ef("last")}/></Fld>
                 <Fld label="Phone"><Inp value={form.phone||""} onChange={ef("phone")}/></Fld>
                 <Fld label="Email"><Inp value={form.email||""} onChange={ef("email")}/></Fld>
-                <Fld label="Birthday"><Inp type="date" value={form.birthday||""} onChange={ef("birthday")}/></Fld>
+                <Fld label="Birthday"><BirthdaySpinner value={form.birthday||""} onChange={ef("birthday")}/></Fld>
                 <Fld label="Anniversary"><Inp type="date" value={form.anniversary||""} onChange={ef("anniversary")}/></Fld>
                 <Fld label="Spouse Name"><Inp value={form.spouseName||""} onChange={ef("spouseName")}/></Fld>
                 <Fld label="Occupation"><Inp value={form.occupation||""} onChange={ef("occupation")}/></Fld>
@@ -9388,7 +9405,7 @@ function MemberProfilePortal({member,setMembers,giving,onSignOut,staffMode=false
                 {(form.children||[]).map((c:any,i:number)=>(
                   <div key={i} style={{display:"flex",gap:8,marginBottom:6,alignItems:"center"}}>
                     <Inp style={{flex:2}} value={c.name} onChange={(v:string)=>updChild(i,"name",v)} placeholder="Name"/>
-                    <Inp style={{flex:1}} type="date" value={c.birthday} onChange={(v:string)=>updChild(i,"birthday",v)}/>
+                    <div style={{flex:1}}><BirthdaySpinner value={c.birthday||""} onChange={(v:string)=>updChild(i,"birthday",v)}/></div>
                     <button onClick={()=>remChild(i)} style={{background:"#fee2e2",border:"none",borderRadius:6,padding:"6px 10px",cursor:"pointer",color:"#dc2626",fontWeight:700,fontSize:13}}>×</button>
                   </div>
                 ))}
