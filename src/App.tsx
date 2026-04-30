@@ -9454,7 +9454,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   const [navOpen,setNavOpen] = useState(false);
   const [darkMode,setDarkMode] = useState(()=>localStorage.getItem('ntcc_dark_mode')==='1');
   // Update color variables for dark/light mode (runs on every render — must stay before any JSX)
-  if(darkMode){N="#e2e8f0";GL="#0f2a33";BG="#1a1f2e";W="#242b3d";BR="#2e3a52";MU="#64748b";TX="#cbd5e1";BL="#2dd4bf";}
+  if(darkMode){N="#e6edf3";GL="#0a1628";BG="#0d1117";W="#161b22";BR="#21262d";MU="#8b949e";TX="#c9d1d9";BL="#58a6ff";}
   else{N="#1a2e5a";GL="#f5e9c8";BG="#f4f6fb";W="#fff";BR="#e2e5ec";MU="#6b7280";TX="#1f2937";BL="#2563eb";}
   useEffect(()=>{
     const fn=()=>setIsMobile(window.innerWidth<768);
