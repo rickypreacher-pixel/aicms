@@ -4762,10 +4762,24 @@ function CalendarView({members,visitors,setVisitors,groups,recurring,setRecurrin
   const prevMo=()=>{if(mo===0){setMo(11);setYr(y=>y-1);}else setMo(m=>m-1);};
   const nextMo=()=>{if(mo===11){setMo(0);setYr(y=>y+1);}else setMo(m=>m+1);};
   const initV=()=>({first:"",last:"",phone:"",email:"",familyName:"",dob:"",spouseFirst:"",spouseLast:"",spouseDob:"",spouseAllergies:[],spouseMedical:[],spouseMedNotes:"",allergies:[],medical:[],medNotes:"",broughtBy:"",children:[]});
+  const [famCIModal,setFamCIModal] = useState<any>(null);
+  const [famCISel,setFamCISel] = useState<Set<any>>(new Set());
+
+  const performCI=(person:any)=>{
+    setCheckIns(cs=>[...cs,{id:nid.current++,iid:selEvt.iid,eid:selEvt.id,ename:selEvt.name,date:selEvt.date,time:selEvt.time,pid:person.id,ptype:person.ptype,first:person.first,last:person.last,phone:person.phone||"",isNew:false,role:"",family:person.family||"",broughtBy:"",dob:"",age:"",allergies:[],medical:[],medNotes:"",at:new Date().toLocaleTimeString()}]);
+  };
 
   const doCI=person=>{
     if(checkedIds.has(person.id))return;
-    setCheckIns(cs=>[...cs,{id:nid.current++,iid:selEvt.iid,eid:selEvt.id,ename:selEvt.name,date:selEvt.date,time:selEvt.time,pid:person.id,ptype:person.ptype,first:person.first,last:person.last,phone:person.phone||"",isNew:false,role:"",family:"",broughtBy:"",dob:"",age:"",allergies:[],medical:[],medNotes:"",at:new Date().toLocaleTimeString()}]);
+    if(person.familyId){
+      const famMembers=allPeople.filter(p=>p.familyId===person.familyId&&p.id!==person.id&&!checkedIds.has(p.id));
+      if(famMembers.length>0){
+        setFamCIModal({person,famMembers});
+        setFamCISel(new Set(famMembers.map((p:any)=>p.id)));
+        return;
+      }
+    }
+    performCI(person);
     setSearch("");
   };
 
@@ -5003,6 +5017,33 @@ function CalendarView({members,visitors,setVisitors,groups,recurring,setRecurrin
         {evtForm.recurring?<Fld label="Day of Week"><div style={{display:"flex",gap:5,flexWrap:"wrap"}}>{CDNAMES.map((d,i)=><button key={i} onClick={()=>ef("dow")(i)} style={{padding:"5px 9px",borderRadius:6,border:"0.5px solid "+(evtForm.dow===i?N:BR),background:evtForm.dow===i?N:W,color:evtForm.dow===i?"#fff":TX,fontSize:11,cursor:"pointer"}}>{d}</button>)}</div></Fld>:<Fld label="Event Date"><Inp type="date" value={evtForm.date} onChange={ef("date")}/></Fld>}
         <div style={{display:"flex",gap:8,marginTop:4}}><Btn onClick={saveEvt} style={{flex:1,justifyContent:"center"}}>Save Event</Btn><Btn onClick={()=>{setEvtModal(false);setEditEvt(null);}} v="ghost" style={{flex:1,justifyContent:"center"}}>Cancel</Btn></div>
       </Modal>
+
+      {/* Family Check-In Prompt */}
+      {famCIModal&&(
+        <div style={{position:"fixed",inset:0,background:"#00000055",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={()=>setFamCIModal(null)}>
+          <div style={{background:W,border:"0.5px solid "+BR,borderRadius:14,padding:24,maxWidth:400,width:"90%",boxShadow:"0 16px 48px #00000033"}} onClick={e=>e.stopPropagation()}>
+            <div style={{fontSize:16,fontWeight:600,color:N,marginBottom:4}}>🏠 Check in the whole family?</div>
+            <div style={{fontSize:12,color:MU,marginBottom:16}}>Other family members found for <strong>{famCIModal.person.first} {famCIModal.person.last}</strong>. Select who else attended:</div>
+            {famCIModal.famMembers.map((p:any)=>(
+              <div key={p.id} onClick={()=>setFamCISel(s=>{const n=new Set(s);n.has(p.id)?n.delete(p.id):n.add(p.id);return n;})} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",borderRadius:8,border:"0.5px solid "+BR,marginBottom:6,cursor:"pointer",background:famCISel.has(p.id)?N+"10":W}}>
+                <div style={{width:18,height:18,borderRadius:4,border:"1.5px solid "+(famCISel.has(p.id)?N:MU),background:famCISel.has(p.id)?N:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                  {famCISel.has(p.id)&&<span style={{color:"#fff",fontSize:11,fontWeight:700}}>✓</span>}
+                </div>
+                <Av f={p.first} l={p.last}/>
+                <div><div style={{fontSize:13,fontWeight:500,color:N}}>{p.first} {p.last}</div><div style={{fontSize:11,color:MU}}>{p.ptype||"member"}</div></div>
+              </div>
+            ))}
+            <div style={{display:"flex",gap:8,marginTop:16}}>
+              <Btn onClick={()=>{
+                performCI(famCIModal.person);
+                famCIModal.famMembers.filter((p:any)=>famCISel.has(p.id)).forEach((p:any)=>performCI(p));
+                setFamCIModal(null); setSearch("");
+              }} style={{flex:1,justifyContent:"center"}}>Check In Selected</Btn>
+              <Btn onClick={()=>{performCI(famCIModal.person);setFamCIModal(null);setSearch("");}} v="ghost" style={{flex:1,justifyContent:"center"}}>Just {famCIModal.person.first}</Btn>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -8638,6 +8679,8 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
   const knownZips   = Array.from(new Set(allPeople.map((p:any)=>p.address?.zip).filter(Boolean))).sort() as string[];
 
   const [pType,setPType] = useState<"member"|"visitor">("member");
+  const [spouseSug,setSpouseSug] = useState<any[]>([]);
+  const [spouseLinked,setSpouseLinked] = useState<any>(null);
   const blankForm=()=>({
     first:"",last:"",phone:"",email:"",
     // Member fields
@@ -8648,6 +8691,7 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
     address:{street:"",city:"",state:"AZ",zip:""},
     // Personal
     birthday:"",anniversary:"",spouseName:"",
+    spouseFirst:"",spouseLast:"",spouseId:null as any,
     children:[] as any[],
     // Emergency
     emergencyName:"",emergencyPhone:"",emergencyRelation:"",
@@ -8671,7 +8715,7 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
     const arr:string[]=f[field]||[];
     return {...f,[field]:arr.includes(item)?arr.filter((x:string)=>x!==item):[...arr,item]};
   });
-  const addChild=()=>setForm((f:any)=>({...f,children:[...f.children,{name:"",birthday:""}]}));
+  const addChild=()=>setForm((f:any)=>({...f,children:[...f.children,{first:"",last:"",birthday:"",memberId:null as any}]}));
   const updChild=(i:number,k:string,v:string)=>setForm((f:any)=>({...f,children:f.children.map((c:any,idx:number)=>idx===i?{...c,[k]:v}:c)}));
   const remChild=(i:number)=>setForm((f:any)=>({...f,children:f.children.filter((_:any,idx:number)=>idx!==i)}));
 
@@ -8689,13 +8733,44 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
 
   const doSave=()=>{
     const id=nid.current++;
-    const record={...form,id,addedBy:addedByName,addedDate:td()};
+    const famId="fam_"+id;
+    const spN=form.spouseFirst&&form.spouseLast?(form.spouseFirst+" "+form.spouseLast):(form.spouseName||"");
+    const hasFamily=!!(form.spouseFirst||form.children.some((c:any)=>c.first));
+    const familyId=hasFamily?famId:null;
+    const familyName=form.family||((form.last||"")+" Family");
+    const record:any={...form,id,addedBy:addedByName,addedDate:td(),familyId:familyId||null,
+      family:hasFamily?familyName:form.family,spouseName:spN};
     if(pType==="member"){
-      setMembers((ms:any[])=>[{...record,type:"Member"},...ms]);
+      setMembers((ms:any[])=>{
+        let newMs=[{...record,type:"Member"},...ms];
+        if(hasFamily){
+          if(form.spouseFirst&&form.spouseLast){
+            if(form.spouseId){
+              newMs=newMs.map((m:any)=>m.id===form.spouseId?{...m,familyId,spouseName:form.first+" "+form.last,family:familyName}:m);
+            } else {
+              const sid=nid.current++;
+              const spouseRec:any={id:sid,first:form.spouseFirst,last:form.spouseLast,type:"Member",status:"Active",role:"",joined:td(),family:familyName,familyId,addedBy:addedByName,addedDate:td(),spouseName:form.first+" "+form.last,...EMPTY_PERSON_FIELDS,address:{...form.address}};
+              newMs=[...newMs,spouseRec];
+            }
+          }
+          form.children.forEach((c:any)=>{
+            if(c.first&&c.last){
+              if(c.memberId){
+                newMs=newMs.map((m:any)=>m.id===c.memberId?{...m,familyId,family:familyName}:m);
+              } else {
+                const cid=nid.current++;
+                newMs=[...newMs,{id:cid,first:c.first,last:c.last,type:"Member",status:"Active",role:"",joined:td(),family:familyName,familyId,addedBy:addedByName,addedDate:td(),birthday:c.birthday||"",...EMPTY_PERSON_FIELDS,address:{...EMPTY_ADDR}}];
+              }
+            }
+          });
+        }
+        return newMs;
+      });
     } else {
       setVisitors((vs:any[])=>[{...record,type:"Visitor"},...vs]);
     }
-    setSaved({name:form.first+" "+form.last,type:pType});
+    setSaved({name:form.first+" "+form.last,type:pType,familyName:hasFamily?familyName:null});
+    setSpouseLinked(null); setSpouseSug([]);
     setForm(blankForm());
     setDupWarning(null);
   };
@@ -8737,7 +8812,8 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
       <div style={{maxWidth:520,margin:"60px auto",textAlign:"center",padding:32}}>
         <div style={{width:64,height:64,borderRadius:"50%",background:"#e8f5e9",display:"flex",alignItems:"center",justifyContent:"center",fontSize:28,margin:"0 auto 16px"}}>✓</div>
         <h2 style={{fontSize:20,fontWeight:500,color:GR,marginBottom:6}}>{saved.name} added!</h2>
-        <p style={{fontSize:13,color:MU,marginBottom:24}}>{saved.name} has been added to the database as a {saved.type}.</p>
+        <p style={{fontSize:13,color:MU,marginBottom:saved.familyName?8:24}}>{saved.name} has been added to the database as a {saved.type}.</p>
+        {saved.familyName&&<p style={{fontSize:13,color:N,fontWeight:500,marginBottom:24,background:N+"0d",borderRadius:8,padding:"8px 14px"}}>🏠 Family unit created: <strong>{saved.familyName}</strong> — all linked members saved.</p>}
         <div style={{display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"}}>
           <Btn onClick={()=>setSaved(null)} v="gold">+ Add Another Person</Btn>
           <Btn onClick={()=>setView("people")} v="outline">Go to {saved.type==="member"?"Members":"Visitation"} →</Btn>
@@ -8855,7 +8931,41 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <Fld label="Birthday"><Inp type="date" value={form.birthday} onChange={sf("birthday")}/></Fld>
           <Fld label="Anniversary"><Inp type="date" value={form.anniversary} onChange={sf("anniversary")}/></Fld>
-          <Fld label="Spouse Name"><Inp value={form.spouseName} onChange={sf("spouseName")} placeholder="Spouse's full name"/></Fld>
+        </div>
+        {/* Spouse */}
+        <div style={{marginTop:12,marginBottom:4}}>
+          <div style={{fontSize:12,fontWeight:500,color:N,marginBottom:8}}>Spouse</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,position:"relative"}}>
+            <Fld label="Spouse First Name">
+              <Inp value={form.spouseFirst} onChange={v=>{
+                sf("spouseFirst")(v); setSpouseLinked(null);
+                const q=(v+" "+(form.spouseLast||"")).trim().toLowerCase();
+                if(q.length>1) setSpouseSug(allPeople.filter(p=>(p.first+" "+p.last).toLowerCase().includes(q)).slice(0,5));
+                else setSpouseSug([]);
+              }} placeholder="First name"/>
+            </Fld>
+            <Fld label="Spouse Last Name">
+              <Inp value={form.spouseLast} onChange={v=>{
+                sf("spouseLast")(v); setSpouseLinked(null);
+                const q=((form.spouseFirst||"")+" "+v).trim().toLowerCase();
+                if(q.length>1) setSpouseSug(allPeople.filter(p=>(p.first+" "+p.last).toLowerCase().includes(q)).slice(0,5));
+                else setSpouseSug([]);
+              }} placeholder="Last name"/>
+            </Fld>
+          </div>
+          {spouseSug.length>0&&!spouseLinked&&(
+            <div style={{background:W,border:"0.5px solid "+BR,borderRadius:8,marginTop:4,overflow:"hidden",boxShadow:"0 4px 12px #00000015"}}>
+              <div style={{fontSize:10,color:MU,padding:"6px 12px 2px",fontWeight:600,textTransform:"uppercase",letterSpacing:0.4}}>Link to existing member?</div>
+              {spouseSug.map((p:any)=>(
+                <div key={p.id} onClick={()=>{sf("spouseFirst")(p.first);sf("spouseLast")(p.last);setForm((f:any)=>({...f,spouseFirst:p.first,spouseLast:p.last,spouseId:p.id}));setSpouseLinked(p);setSpouseSug([]);}} style={{padding:"7px 12px",cursor:"pointer",display:"flex",alignItems:"center",gap:8,borderTop:"0.5px solid "+BR}} onMouseEnter={e=>(e.currentTarget.style.background=BG)} onMouseLeave={e=>(e.currentTarget.style.background=W)}>
+                  <Av f={p.first} l={p.last}/>
+                  <div><div style={{fontSize:13,fontWeight:500,color:N}}>{p.first} {p.last}</div><div style={{fontSize:11,color:MU}}>{p.type||"Member"} · {p.phone||"No phone"}</div></div>
+                </div>
+              ))}
+              <div onClick={()=>{setSpouseSug([]);}} style={{padding:"6px 12px",cursor:"pointer",fontSize:11,color:MU,borderTop:"0.5px solid "+BR,background:"#fafafa"}}>+ Create as new member record instead</div>
+            </div>
+          )}
+          {spouseLinked&&<div style={{background:GR+"12",border:"0.5px solid "+GR+"44",borderRadius:8,padding:"6px 12px",marginTop:4,fontSize:12,color:GR,fontWeight:500}}>✓ Linked to {spouseLinked.first} {spouseLinked.last} (existing member)</div>}
         </div>
         {/* Children */}
         <div style={{marginTop:12}}>
@@ -8864,10 +8974,15 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
             <Btn onClick={addChild} v="outline" style={{fontSize:11,padding:"3px 10px"}}>+ Add Child</Btn>
           </div>
           {form.children.map((c:any,i:number)=>(
-            <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 1fr auto",gap:8,marginBottom:8,alignItems:"end"}}>
-              <Fld label={`Child ${i+1} Name`}><Inp value={c.name} onChange={v=>updChild(i,"name",v)} placeholder="Full name"/></Fld>
-              <Fld label="Birthday"><Inp type="date" value={c.birthday} onChange={v=>updChild(i,"birthday",v)}/></Fld>
-              <button onClick={()=>remChild(i)} style={{height:34,marginBottom:2,border:"none",background:"transparent",cursor:"pointer",color:RE,fontSize:18,padding:"0 6px"}}>×</button>
+            <div key={i} style={{background:BG,border:"0.5px solid "+BR,borderRadius:8,padding:"10px 12px",marginBottom:8}}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+                <Fld label={`Child ${i+1} First Name`}><Inp value={c.first} onChange={v=>updChild(i,"first",v)} placeholder="First name"/></Fld>
+                <Fld label="Last Name"><Inp value={c.last} onChange={v=>updChild(i,"last",v)} placeholder="Last name"/></Fld>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <div style={{flex:1}}><Fld label="Birthday"><BirthdaySpinner value={c.birthday||""} onChange={v=>updChild(i,"birthday",v)}/></Fld></div>
+                <button onClick={()=>remChild(i)} style={{marginTop:18,height:34,border:"none",background:"transparent",cursor:"pointer",color:RE,fontSize:18,padding:"0 6px"}}>×</button>
+              </div>
             </div>
           ))}
           {form.children.length===0&&<div style={{fontSize:11,color:MU,fontStyle:"italic"}}>No children added yet.</div>}
