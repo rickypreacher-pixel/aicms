@@ -1028,7 +1028,7 @@ function BackupRestore({backupData,onRestore}:any){
   );
 }
 
-function ChurchSettingsPage({cs,setCs,members,setMembers,visitors,setVisitors,attendance,giving,prayers,groups,grpMeetings,visitRecords,checkIns,kidsCheckIns,children,pledgeDrives,pledges,weeklyReports,equipment,workOrders,schedMaint,backupData,onRestore,darkMode,setDarkMode}:any){
+function ChurchSettingsPage({cs,setCs,members,setMembers,visitors,setVisitors,attendance,giving,prayers,groups,grpMeetings,visitRecords,checkIns,kidsCheckIns,children,pledgeDrives,pledges,weeklyReports,equipment,workOrders,schedMaint,backupData,onRestore}:any){
   const [form,setForm]=useState({...cs});
   const [saved,setSaved]=useState(false);
   const [stab,setStab]=useState('general');
@@ -1083,20 +1083,7 @@ function ChurchSettingsPage({cs,setCs,members,setMembers,visitors,setVisitors,at
         </div>
       </div>
     </div>
-    {/* Appearance */}
-    <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:18,marginBottom:16}}>
-      <h3 style={{fontSize:14,fontWeight:500,color:N,margin:"0 0 14px"}}>🎨 Appearance</h3>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12}}>
-        <div>
-          <div style={{fontSize:13,fontWeight:500,color:TX}}>{darkMode?"Dark Mode":"Light Mode"}</div>
-          <div style={{fontSize:12,color:MU,marginTop:2}}>Choose your preferred color theme. Saved per device.</div>
-        </div>
-        <div style={{display:"flex",gap:8}}>
-          <button onClick={()=>setDarkMode(false)} style={{padding:"8px 18px",borderRadius:8,border:"0.5px solid "+(darkMode?BR:N),background:darkMode?W:N,color:darkMode?MU:"#fff",fontSize:13,fontWeight:500,cursor:"pointer"}}>☀️ Light</button>
-          <button onClick={()=>setDarkMode(true)} style={{padding:"8px 18px",borderRadius:8,border:"0.5px solid "+(darkMode?N:BR),background:darkMode?N:W,color:darkMode?"#fff":MU,fontSize:13,fontWeight:500,cursor:"pointer"}}>🌙 Dark</button>
-        </div>
-      </div>
-    </div>
+
     <div style={{background:W,border:"1.5px solid "+G,borderRadius:12,padding:18,marginBottom:16}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
         <div><h3 style={{fontSize:14,fontWeight:500,color:N,margin:0}}>Download App as HTML</h3><p style={{fontSize:12,color:MU,marginTop:4,marginBottom:0,lineHeight:1.6}}>Creates a self-contained HTML file with all your current data embedded. Open in any browser. Requires internet on first open to load React — then works offline.</p></div>
@@ -1378,10 +1365,10 @@ function MergeTool({members,setMembers,visitors,setVisitors}:any){
 
 
 
-let N="#1a2e5a"; const G="#c9a84c";
+const N="#1a2e5a",G="#c9a84c";
 let GL="#f5e9c8",BG="#f4f6fb",W="#fff",BR="#e2e5ec";
 let MU="#6b7280",TX="#1f2937";
-const GR="#16a34a",RE="#dc2626",AM="#d97706",PU="#7c3aed",TE="#0891b2"; let BL="#2563eb";
+const GR="#16a34a",RE="#dc2626",AM="#d97706",BL="#2563eb",PU="#7c3aed",TE="#0891b2";
 
 const EL_KEY="sk_7fd85f85f4f23d141576c41114a2bd693939b9b8ecc81efd";
 const SILENT_WAV="data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
@@ -9452,10 +9439,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   const sbSyncTimer = useRef<any>(null);
   const [isMobile,setIsMobile] = useState(window.innerWidth<768);
   const [navOpen,setNavOpen] = useState(false);
-  const [darkMode,setDarkMode] = useState(()=>localStorage.getItem('ntcc_dark_mode')==='1');
-  // Update color variables for dark/light mode (runs on every render — must stay before any JSX)
-  if(darkMode){N="#ffffff";GL="#181818";BG="#111111";W="#1e1e1e";BR="#2d2d2d";MU="#6e6e6e";TX="#d4d4d4";BL="#569cd6";}
-  else{N="#1a2e5a";GL="#f5e9c8";BG="#f4f6fb";W="#fff";BR="#e2e5ec";MU="#6b7280";TX="#1f2937";BL="#2563eb";}
+
   useEffect(()=>{
     const fn=()=>setIsMobile(window.innerWidth<768);
     window.addEventListener("resize",fn);
@@ -9514,7 +9498,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     : currentUser?.superAdmin
       ? true
       : checkPermission(currentUser, roles, permissions, 'addvisitor', 'create');
-  useEffect(()=>{ localStorage.setItem('ntcc_dark_mode', darkMode?'1':'0'); },[darkMode]);
+
   // Member Portal: email/password login whose email matches a member record but is not in the staff users list
   const _matchMemberByName = (list:any[]) => displayName
     ? list.find((m:any) => {
@@ -9924,7 +9908,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
             {cloudSync==='saved' && <div style={{fontSize:11,color:GR,display:"flex",alignItems:"center",gap:4}}><span style={{width:8,height:8,borderRadius:"50%",background:GR,display:"inline-block"}}></span>Saved ✓</div>}
             {cloudSync==='error' && <div style={{fontSize:11,color:RE,display:"flex",alignItems:"center",gap:4}}>⚠ Sync error</div>}
             {!isStaff && <button onClick={()=>{setView("ai");setNavOpen(false);}} style={{background:GL,border:"1px solid "+G,borderRadius:8,padding:isMobile?"7px 10px":"7px 12px",cursor:"pointer",fontSize:12,fontWeight:500,color:"#7a5c10",whiteSpace:"nowrap"}}>AI</button>}
-            <button onClick={()=>setDarkMode(d=>!d)} title={darkMode?"Switch to Light Mode":"Switch to Dark Mode"} style={{background:darkMode?"#334155":"#f1f5f9",border:"0.5px solid "+(darkMode?"#475569":"#e2e5ec"),borderRadius:8,padding:isMobile?"7px 10px":"7px 12px",cursor:"pointer",fontSize:14,lineHeight:1,flexShrink:0}}>{darkMode?"☀️":"🌙"}</button>
+
             {!isStaff && <button onClick={()=>{setView("settings");setNavOpen(false);}} style={{background:N+"12",border:"0.5px solid "+N+"33",borderRadius:8,padding:isMobile?"7px 10px":"7px 12px",cursor:"pointer",fontSize:12,fontWeight:500,color:N}}>⚙</button>}
             {onSignOut&&<button onClick={onSignOut} title="Sign Out" style={{background:"#fee2e2",border:"0.5px solid #fca5a5",borderRadius:8,padding:isMobile?"7px 10px":"7px 12px",cursor:"pointer",fontSize:12,fontWeight:600,color:"#dc2626",whiteSpace:"nowrap"}}>Sign Out</button>}
           </div>
@@ -9939,7 +9923,6 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
               const s=(setter:any,key:string,isArr=true)=>{if(d[key]===undefined)return;if(mode==='replace'){setter(d[key]);}else{if(isArr&&Array.isArray(d[key])){setter((cur:any[])=>[...cur,...d[key].filter((n:any)=>!cur.find(x=>String(x.id)===String(n.id)))]);}else{setter(d[key]);}}};
               s(setMembers,'members');s(setVisitors,'visitors');s(setAttendance,'attendance');s(setGiving,'giving');s(setPrayers,'prayers');s(setGroups,'groups');s(setGrpMeetings,'grpMeetings');s(setVisitRecords,'visitRecords');s(setCheckIns,'checkIns');s(setKidsCheckIns,'kidsCheckIns');s(setChildren,'children');s(setPledgeDrives,'pledgeDrives');s(setPledges,'pledges');s(setWeeklyReports,'weeklyReports');s(setEquipment,'equipment');s(setWorkOrders,'workOrders');s(setSchedMaint,'schedMaint');s(setSupplies,'supplies');s(setCheckoutItems,'checkoutItems');s(setCheckouts,'checkouts');s(setUsers,'users');s(setRoles,'roles');s(setPermissions,'permissions',false);s(setRecurring,'recurring');s(setCustom,'custom');s(setEmailLog,'emailLog');s(setEmailTemplates,'emailTemplates',false);s(setEmailConfig,'emailConfig',false);s(setIncidents,'incidents');s(setRollCalls,'rollCalls');s(setProgressNotes,'progressNotes');s(setTeacherSchedule,'teacherSchedule');if(d.churchSettings&&mode==='replace')setChurchSettings(d.churchSettings);
             }}
-            darkMode={darkMode} setDarkMode={setDarkMode}
           />}
           {!isMemberPortal && view==="dashboard" && <Dashboard members={members} visitors={visitors} attendance={attendance} giving={giving} prayers={prayers} setView={setView} canViewGiving={canViewGiving} isRestrictedUser={isRestrictedUser} canAddPerson={canAddPerson}/>}
           {!isMemberPortal && view==="addperson" && <AddMemberPage members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} currentUser={currentUser} roles={roles} permissions={permissions} setView={setView}/>}
