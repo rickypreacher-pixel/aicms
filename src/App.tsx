@@ -5442,8 +5442,6 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
   };
 
   const applyFilters = (list:any[]) => list.filter(p => {
-    const fullName = (p.first+" "+p.last).toLowerCase();
-    if(search && !fullName.includes(search.toLowerCase())) return false;
     if(tab==="members") {
       if(filters.status!=="all" && p.status!==filters.status) return false;
     }
@@ -5496,7 +5494,8 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
     return true;
   });
   const rawList = tab==="members" ? members : visitors;
-  const filt = applyFilters(rawList);
+  const _q = search.trim().toLowerCase();
+  const filt = applyFilters(_q ? rawList.filter((p:any)=>((p.first||"")+" "+(p.last||"")).toLowerCase().includes(_q)) : rawList);
   const selectedPeople = filt.filter((p:any)=>selected.has(p.id));
   const allSelected = filt.length>0 && filt.every((p:any)=>selected.has(p.id));
   const toggleSelectAll = () => {
@@ -5617,7 +5616,7 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
   const remChild = i => setEditForm(f=>({...f,children:f.children.filter((_,idx)=>idx!==i)}));
   const toggleArr = (field,item) => setEditForm(f=>{const arr=f[field]||[];return {...f,[field]:arr.includes(item)?arr.filter(x=>x!==item):[...arr,item]};});
 
-  const hdrs = ["Name",tab==="members"?"Role":"Stage","Phone",tab==="members"?"Joined":"First Visit",tab==="members"?"Status":"Sponsor","Actions"];
+  const hdrs = ["Name",tab==="members"?"Role":"Status","Phone",tab==="members"?"Joined":"First Visit",tab==="members"?"Status":"Sponsor","Actions"];
 
   const formatAddr = a => !a||!a.street ? "" : a.street + (a.city?", "+a.city:"") + (a.state?", "+a.state:"") + (a.zip?" "+a.zip:"");
   const TABS = [{id:"personal",label:"Personal"},{id:"family",label:"Family"},{id:"activity",label:"Activity"},{id:"groups",label:"Groups"},{id:"pastoral",label:"Pastoral"},{id:"notes",label:"Notes"}];
@@ -8543,17 +8542,47 @@ function CheckInPortal({classrooms,children,setChildren,kidsCheckIns,setKidsChec
   );
 }
 
-function ChildrenRoster({children,setChildren,classrooms,members,kidsCheckIns,incidents}){
+function ChildrenRoster({children,setChildren,classrooms,members,setMembers,kidsCheckIns,incidents}){
   const [search,setSearch]=useState("");
   const [filterGrade,setFilterGrade]=useState("all");
   const [modal,setModal]=useState(false);
   const [editing,setEditing]=useState(null);
-  const [form,setForm]=useState({first:"",last:"",dob:"",grade:"",parentName:"",parentPhone:"",parentMemberId:null,allergies:[],medical:[],medicalNotes:"",emergencyPickup:"",status:"Active"});
+  const blankForm=()=>({first:"",last:"",dob:"",grade:"",classroomId:null as any,parentName:"",parentPhone:"",parentMemberId:null as any,allergies:[],medical:[],medicalNotes:"",emergencyPickup:"",status:"Active"});
+  const [form,setForm]=useState(blankForm());
+  const [parentQuery,setParentQuery]=useState("");
+  const [parentSugs,setParentSugs]=useState<any[]>([]);
   const nid=useRef(700);
   const filtered=children.filter(c=>{if(search&&!(c.first+" "+c.last).toLowerCase().includes(search.toLowerCase()))return false;if(filterGrade!=="all"&&c.grade!==filterGrade)return false;return true;});
-  const openEdit=ch=>{setEditing(ch);setForm({...ch,allergies:ch.allergies||[],medical:ch.medical||[]});setModal(true);};
-  const openAdd=()=>{setEditing(null);setForm({first:"",last:"",dob:"",grade:"",parentName:"",parentPhone:"",parentMemberId:null,allergies:[],medical:[],medicalNotes:"",emergencyPickup:"",status:"Active"});setModal(true);};
-  const save=()=>{if(!form.first||!form.last||!form.grade){alert("Name and level required.");return;}if(editing)setChildren(cs=>cs.map(c=>c.id===editing.id?{...c,...form}:c));else setChildren(cs=>[...cs,{...form,id:nid.current++}]);setModal(false);};
+  useEffect(()=>{
+    if(form.parentMemberId){setParentSugs([]);return;}
+    if(parentQuery.length<2){setParentSugs([]);return;}
+    const q=parentQuery.toLowerCase();
+    setParentSugs(members.filter((m:any)=>(m.first+" "+m.last).toLowerCase().includes(q)).slice(0,6));
+  },[parentQuery,members,form.parentMemberId]);
+  const linkParent=(m:any)=>{setForm(f=>({...f,parentMemberId:m.id,parentName:m.first+" "+m.last,parentPhone:m.phone||f.parentPhone}));setParentQuery("");setParentSugs([]);};
+  const unlinkParent=()=>{const name=form.parentName||"";setForm(f=>({...f,parentMemberId:null}));setParentQuery(name);};
+  const openEdit=(ch:any)=>{setEditing(ch);setForm({...ch,classroomId:ch.classroomId||null,allergies:ch.allergies||[],medical:ch.medical||[]});setParentQuery(ch.parentMemberId?"":ch.parentName||"");setParentSugs([]);setModal(true);};
+  const openAdd=()=>{setEditing(null);setForm(blankForm());setParentQuery("");setParentSugs([]);setModal(true);};
+  const save=()=>{
+    if(!form.first||!form.last){alert("Name required.");return;}
+    const cl:any=form.classroomId?classrooms.find((c:any)=>c.id===form.classroomId):null;
+    const finalGrade=cl?cl.grade:(form.grade||"");
+    if(!finalGrade){alert("Classroom / level required.");return;}
+    const savedChild={...form,grade:finalGrade};
+    let savedId:any=editing?.id;
+    if(editing){setChildren((cs:any[])=>cs.map(c=>c.id===editing.id?{...c,...savedChild}:c));}
+    else{savedId=nid.current++;setChildren((cs:any[])=>[...cs,{...savedChild,id:savedId}]);}
+    if(form.parentMemberId&&setMembers){
+      setMembers((ms:any[])=>ms.map((m:any)=>{
+        if(m.id!==form.parentMemberId)return m;
+        const existing:any[]=m.children||[];
+        const matchId=(c:any)=>c.memberId&&(c.memberId===savedId||c.memberId===editing?.id);
+        if(existing.some(matchId)){return{...m,children:existing.map(c=>matchId(c)?{...c,first:form.first,last:form.last,birthday:form.dob,memberId:savedId}:c)};}
+        else{return{...m,children:[...existing,{first:form.first,last:form.last,birthday:form.dob,memberId:savedId}]};}
+      }));
+    }
+    setModal(false);
+  };
   return(
     <div>
       <div style={{display:"flex",gap:8,marginBottom:16,alignItems:"center"}}>
@@ -8566,23 +8595,44 @@ function ChildrenRoster({children,setChildren,classrooms,members,kidsCheckIns,in
       </div>
       <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,overflow:"hidden"}}>
         <table style={{width:"100%",borderCollapse:"collapse"}}>
-          <thead><tr style={{background:"#f8f9fc"}}>{["Child","Age","Level","Parent","Medical","Last Visit",""].map(h=><th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:11,fontWeight:500,color:MU,textTransform:"uppercase",letterSpacing:0.5,borderBottom:"0.5px solid "+BR}}>{h}</th>)}</tr></thead>
+          <thead><tr style={{background:"#f8f9fc"}}>{["Child","Age","Level","Parent","Medical","Last Visit","Actions"].map(h=><th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:11,fontWeight:500,color:MU,textTransform:"uppercase",letterSpacing:0.5,borderBottom:"0.5px solid "+BR}}>{h}</th>)}</tr></thead>
           <tbody>
-            {filtered.map(ch=>{const last=[...kidsCheckIns].filter(ci=>ci.childId===ch.id).sort((a,b)=>b.date.localeCompare(a.date))[0];const hasMed=(ch.allergies?.length>0||ch.medical?.length>0);const hasOpenInc=(incidents||[]).some(i=>i.childId===ch.id&&i.status!=="Resolved");return (<tr key={ch.id} onClick={()=>openEdit(ch)} style={{borderBottom:"0.5px solid "+BR,cursor:"pointer"}} onMouseEnter={e=>e.currentTarget.style.background="#f8f9fc"} onMouseLeave={e=>e.currentTarget.style.background=W}><td style={{padding:"10px 14px"}}><div style={{display:"flex",alignItems:"center",gap:10}}><Av f={ch.first} l={ch.last} sz={30}/><div><div style={{fontSize:13,fontWeight:500}}>{ch.first} {ch.last}</div>{hasOpenInc&&<span style={{fontSize:10,background:"#fee2e2",color:RE,borderRadius:10,padding:"1px 6px",fontWeight:600}}>Incident</span>}</div></div></td><td style={{padding:"10px 14px",fontSize:13}}>{calcAge(ch.dob)}</td><td style={{padding:"10px 14px",fontSize:13}}>{ch.grade}</td><td style={{padding:"10px 14px",fontSize:13}}><div>{ch.parentName||"-"}</div><div style={{fontSize:11,color:MU}}>{ch.parentPhone||""}</div></td><td style={{padding:"10px 14px"}}>{hasMed?(<span style={{fontSize:11,background:"#fee2e2",color:RE,borderRadius:4,padding:"2px 7px",fontWeight:500}}>Alert</span>):(<span style={{fontSize:11,color:MU}}>None</span>)}</td><td style={{padding:"10px 14px",fontSize:12,color:MU}}>{last?fd(last.date):"Never"}</td><td style={{padding:"10px 14px"}} onClick={e=>e.stopPropagation()}><Btn onClick={()=>{if(confirm("Remove "+ch.first+" "+ch.last+"?"))setChildren(cs=>cs.filter(c=>c.id!==ch.id));}} v="danger" style={{fontSize:11,padding:"4px 8px"}}>X</Btn></td></tr>);})}
+            {filtered.map(ch=>{const last=[...kidsCheckIns].filter(ci=>ci.childId===ch.id).sort((a,b)=>b.date.localeCompare(a.date))[0];const hasMed=(ch.allergies?.length>0||ch.medical?.length>0);const hasOpenInc=(incidents||[]).some(i=>i.childId===ch.id&&i.status!=="Resolved");const hasParent=!!(ch.parentName||ch.parentMemberId);return (<tr key={ch.id} style={{borderBottom:"0.5px solid "+BR}} onMouseEnter={e=>e.currentTarget.style.background="#f8f9fc"} onMouseLeave={e=>e.currentTarget.style.background=W}><td style={{padding:"10px 14px"}}><div style={{display:"flex",alignItems:"center",gap:10}}><Av f={ch.first} l={ch.last} sz={30}/><div><div style={{fontSize:13,fontWeight:500}}>{ch.first} {ch.last}</div><div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:2}}>{hasOpenInc&&<span style={{fontSize:10,background:"#fee2e2",color:RE,borderRadius:10,padding:"1px 6px",fontWeight:600}}>Incident</span>}{!hasParent&&<span style={{fontSize:10,background:"#fef3c7",color:"#b45309",borderRadius:10,padding:"1px 6px",fontWeight:600}}>No parent</span>}</div></div></div></td><td style={{padding:"10px 14px",fontSize:13}}>{ch.dob?calcAge(ch.dob):<span style={{color:MU,fontStyle:"italic"}}>—</span>}</td><td style={{padding:"10px 14px",fontSize:13}}>{ch.grade||<span style={{color:MU,fontStyle:"italic"}}>—</span>}</td><td style={{padding:"10px 14px",fontSize:13}}><div style={{fontWeight:ch.parentMemberId?500:400,color:ch.parentName?TX:MU,fontStyle:ch.parentName?"normal":"italic"}}>{ch.parentName||"Not linked"}</div><div style={{fontSize:11,color:MU}}>{ch.parentPhone||""}</div>{ch.parentMemberId&&<span style={{fontSize:10,background:"#d1fae5",color:"#065f46",borderRadius:10,padding:"1px 6px",fontWeight:600,display:"inline-block",marginTop:2}}>✓ linked</span>}</td><td style={{padding:"10px 14px"}}>{hasMed?(<span style={{fontSize:11,background:"#fee2e2",color:RE,borderRadius:4,padding:"2px 7px",fontWeight:500}}>Alert</span>):(<span style={{fontSize:11,color:MU}}>None</span>)}</td><td style={{padding:"10px 14px",fontSize:12,color:MU}}>{last?fd(last.date):"Never"}</td><td style={{padding:"10px 14px"}}><div style={{display:"flex",gap:6}}><Btn onClick={()=>openEdit(ch)} v="outline" style={{fontSize:11,padding:"4px 9px"}}>✎ Edit</Btn><Btn onClick={e=>{e.stopPropagation();if(confirm("Remove "+ch.first+" "+ch.last+"?"))setChildren((cs:any[])=>cs.filter(c=>c.id!==ch.id));}} v="danger" style={{fontSize:11,padding:"4px 8px"}}>✕</Btn></div></td></tr>);})}
             {filtered.length===0&&<tr><td colSpan={7} style={{padding:40,textAlign:"center",color:MU}}>No children registered.</td></tr>}
           </tbody>
         </table>
       </div>
-      <Modal open={modal} onClose={()=>setModal(false)} title={editing?"Edit Child":"Register New Child"} width={500}>
+      <Modal open={modal} onClose={()=>setModal(false)} title={editing?"Edit Child":"Register New Child"} width={520}>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
           <Fld label="First Name *"><Inp value={form.first} onChange={v=>setForm(f=>({...f,first:v}))}/></Fld>
           <Fld label="Last Name *"><Inp value={form.last} onChange={v=>setForm(f=>({...f,last:v}))}/></Fld>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-          <Fld label="Date of Birth"><Inp type="date" value={form.dob||""} onChange={v=>setForm(f=>({...f,dob:v}))}/></Fld>
-          <Fld label="Level *"><select value={form.grade} onChange={e=>setForm(f=>({...f,grade:e.target.value}))} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}><option value="">Select level</option>{CHURCH_LEVELS.map(l=><option key={l.name} value={l.name}>{l.label}</option>)}</select></Fld>
+          <Fld label="🎂 Birthday (Date of Birth)"><Inp type="date" value={form.dob||""} onChange={v=>setForm(f=>({...f,dob:v}))}/></Fld>
+          <Fld label="Classroom *"><select value={form.classroomId||""} onChange={e=>{const id=+e.target.value||null;const cl:any=id?(classrooms as any[]).find(c=>c.id===id):null;setForm(f=>({...f,classroomId:id,grade:cl?cl.grade:f.grade}));}} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}><option value="">Select classroom / level</option>{(classrooms as any[]).map(cl=><option key={cl.id} value={cl.id}>{cl.name} — {cl.location}</option>)}</select></Fld>
         </div>
-        <Fld label="Parent (link to member)"><select value={form.parentMemberId||""} onChange={e=>{const id=+e.target.value||null;const m=members.find(x=>x.id===id);setForm(f=>({...f,parentMemberId:id,parentName:m?m.first+" "+m.last:f.parentName,parentPhone:m?m.phone:f.parentPhone}));}} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}><option value="">Not linked (manual entry)</option>{members.map(m=><option key={m.id} value={m.id}>{m.first} {m.last}</option>)}</select></Fld>
+        <Fld label="Parent / Guardian (search member)">
+          {form.parentMemberId?(
+            <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",background:"#f0fdf4",border:"1.5px solid #86efac",borderRadius:8}}>
+              <span style={{fontSize:13,fontWeight:500,color:"#065f46",flex:1}}>✓ {form.parentName}</span>
+              {form.parentPhone&&<span style={{fontSize:12,color:"#16a34a"}}>{form.parentPhone}</span>}
+              <button type="button" onClick={unlinkParent} style={{background:"none",border:"none",cursor:"pointer",color:RE,fontSize:16,padding:"0 4px",fontWeight:700,lineHeight:1}}>×</button>
+            </div>
+          ):(
+            <div style={{position:"relative"}}>
+              <input value={parentQuery} onChange={e=>setParentQuery(e.target.value)} placeholder="Type a member's name to link..." style={{width:"100%",padding:"8px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",boxSizing:"border-box"}}/>
+              {parentSugs.length>0&&(
+                <div style={{position:"absolute",top:"calc(100% + 2px)",left:0,right:0,background:W,border:"0.5px solid "+BR,borderRadius:8,boxShadow:"0 4px 16px #00000018",zIndex:50,maxHeight:180,overflowY:"auto"}}>
+                  {parentSugs.map((m:any)=>(
+                    <div key={m.id} onMouseDown={()=>linkParent(m)} style={{padding:"8px 12px",cursor:"pointer",fontSize:13,borderBottom:"0.5px solid "+BR+"66"}} onMouseEnter={e=>e.currentTarget.style.background="#f8f9fc"} onMouseLeave={e=>e.currentTarget.style.background=W}>
+                      <span style={{fontWeight:500}}>{m.first} {m.last}</span>{m.phone&&<span style={{color:MU,marginLeft:8,fontSize:12}}>{m.phone}</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </Fld>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
           <Fld label="Parent Name"><Inp value={form.parentName||""} onChange={v=>setForm(f=>({...f,parentName:v}))}/></Fld>
           <Fld label="Parent Phone"><Inp value={form.parentPhone||""} onChange={v=>setForm(f=>({...f,parentPhone:v}))}/></Fld>
@@ -9203,7 +9253,7 @@ function PrinterSettings({printerConfig,setPrinterConfig}){
   );
 }
 
-function Education({members,visitors,users,roles,children,setChildren,classrooms,setClassrooms,teacherSchedule,setTeacherSchedule,kidsCheckIns,setKidsCheckIns,checkIns,incidents,setIncidents,rollCalls,setRollCalls,progressNotes,setProgressNotes,cs,printerConfig,setPrinterConfig}:any){
+function Education({members,setMembers,visitors,users,roles,children,setChildren,classrooms,setClassrooms,teacherSchedule,setTeacherSchedule,kidsCheckIns,setKidsCheckIns,checkIns,incidents,setIncidents,rollCalls,setRollCalls,progressNotes,setProgressNotes,cs,printerConfig,setPrinterConfig}:any){
   const [tab,setTab]=useState("dashboard");
   const today=td();
   const todayCI=(kidsCheckIns as any[]).filter((c:any)=>c.date===today);
@@ -9221,7 +9271,7 @@ function Education({members,visitors,users,roles,children,setChildren,classrooms
       {tab==="dashboard"&&<EdDashboard classrooms={classrooms} children={children} kidsCheckIns={kidsCheckIns} teacherSchedule={teacherSchedule} users={users} members={members} checkIns={checkIns} setTab={setTab}/>}
       {tab==="checkin"&&<CheckInPortal classrooms={classrooms} children={children} setChildren={setChildren} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckIns} members={members} printerConfig={printerConfig}/>}
       {tab==="rollcall"&&<ClassRollCall classrooms={classrooms} children={children} rollCalls={rollCalls} setRollCalls={setRollCalls} teacherSchedule={teacherSchedule} users={users} members={members} cs={cs}/>}
-      {tab==="children"&&<ChildrenRoster children={children} setChildren={setChildren} classrooms={classrooms} members={members} kidsCheckIns={kidsCheckIns} incidents={incidents}/>}
+      {tab==="children"&&<ChildrenRoster children={children} setChildren={setChildren} classrooms={classrooms} members={members} setMembers={setMembers} kidsCheckIns={kidsCheckIns} incidents={incidents}/>}
       {tab==="progress"&&<ChildProgress children={children} classrooms={classrooms} rollCalls={rollCalls} progressNotes={progressNotes} setProgressNotes={setProgressNotes} cs={cs}/>}
       {tab==="classrooms"&&<ClassroomsManager classrooms={classrooms} setClassrooms={setClassrooms} teacherSchedule={teacherSchedule} users={users} members={members} kidsCheckIns={kidsCheckIns}/>}
       {tab==="teachers"&&<TeacherScheduleMgr classrooms={classrooms} teacherSchedule={teacherSchedule} setTeacherSchedule={setTeacherSchedule} users={users} members={members} roles={roles}/>}
@@ -10736,7 +10786,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           {!isMemberPortal && view==="addperson" && <AddMemberPage members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} currentUser={currentUser} roles={roles} permissions={permissions} setView={setView} prospects={prospects} setProspects={setProspects}/>}
           {!isMemberPortal && view==="people" && <People members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} setGiving={setGiving} prayers={prayers} setPrayers={setPrayers} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings} visitRecords={visitRecords} setVisitRecords={setVisitRecords} checkIns={checkIns} setCheckIns={setCheckIns} setView={setView} canViewGiving={canViewGiving} currentUser={currentUser}/>}
           {!isMemberPortal && view==="groups" && <Groups members={members} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings}/>}
-          {!isMemberPortal && view==="education" && <Education members={members} visitors={visitors} users={users} roles={roles} children={children} setChildren={setChildren} classrooms={classrooms} setClassrooms={setClassrooms} teacherSchedule={teacherSchedule} setTeacherSchedule={setTeacherSchedule} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckIns} checkIns={checkIns} incidents={incidents} setIncidents={setIncidents} rollCalls={rollCalls} setRollCalls={setRollCalls} progressNotes={progressNotes} setProgressNotes={setProgressNotes} cs={churchSettings} printerConfig={printerConfig} setPrinterConfig={setPrinterConfig}/>}
+          {!isMemberPortal && view==="education" && <Education members={members} setMembers={setMembers} visitors={visitors} users={users} roles={roles} children={children} setChildren={setChildren} classrooms={classrooms} setClassrooms={setClassrooms} teacherSchedule={teacherSchedule} setTeacherSchedule={setTeacherSchedule} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckIns} checkIns={checkIns} incidents={incidents} setIncidents={setIncidents} rollCalls={rollCalls} setRollCalls={setRollCalls} progressNotes={progressNotes} setProgressNotes={setProgressNotes} cs={churchSettings} printerConfig={printerConfig} setPrinterConfig={setPrinterConfig}/>}
           {!isMemberPortal && view==="maintenance" && <Maintenance users={users} members={members} currentUser={currentUser} roles={roles} permissions={permissions} equipment={equipment} setEquipment={setEquipment} workOrders={workOrders} setWorkOrders={setWorkOrders} schedMaint={schedMaint} setSchedMaint={setSchedMaint} supplies={supplies} setSupplies={setSupplies} checkoutItems={checkoutItems} setCheckoutItems={setCheckoutItems} checkouts={checkouts} setCheckouts={setCheckouts}/>}
           {!isMemberPortal && view==="calendar" && (
             <div style={{height:"calc(100vh - 110px)",display:"flex",flexDirection:"column",margin:-24,overflow:"hidden"}}>
