@@ -1477,7 +1477,7 @@ const METH_IC={Text:"💬",Call:"📞",Visit:"🚪"};
 const METH_CLR={Text:{bg:"#f3e8ff",c:PU},Call:{bg:"#eff6ff",c:BL},Visit:{bg:"#dcfce7",c:GR}};
 const AVC=["#1a2e5a","#c9a84c","#2e7d32","#1565c0","#6a1b9a","#00695c","#c62828","#e65100"];
 const avc=s=>{let x=0;for(let c of(s||""))x+=c.charCodeAt(0);return AVC[x%AVC.length];};
-const ini=(f,l)=>((f||"")[0]+(l||"")[0]).toUpperCase();
+const ini=(f,l)=>(((f||"")[0]||"")+((l||"")[0]||"")).toUpperCase();
 const f$=n=>"$"+Number(n).toLocaleString();
 const fd=d=>d?new Date(d+"T00:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}):"—";
 const td=()=>new Date().toISOString().split("T")[0];
@@ -5377,6 +5377,7 @@ const MiniStat = ({label,value,color=N,sub}:any) => (
 function People({members,setMembers,visitors,setVisitors,attendance,giving,setGiving,prayers,setPrayers,groups,setGroups,grpMeetings,setGrpMeetings,visitRecords,setVisitRecords,checkIns,setCheckIns,setView,canViewGiving,currentUser}:any) {
   const [tab,setTab] = useState("members");
   const [search,setSearch] = useState("");
+  const [showSug,setShowSug] = useState(false);
   const [modal,setModal] = useState(false);
   const [detail,setDetail] = useState(null);
   const [editMode,setEditMode] = useState(false);
@@ -5441,7 +5442,8 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
     return {gives,totalGiven,lastGift,avgGift,byCat,memberGroups,ledGroups,groupAttendance,personPrayers,activePrayers,answeredPrayers,personCIs,lastAttended,uniqueEvents,visitRecord,daysInPipeline};
   };
 
-  const applyFilters = (list:any[]) => list.filter(p => {
+  const applyFilters = (list:any[], q:string = "") => list.filter(p => {
+    if(q.length>0) { if(!((p.first||"")+" "+(p.last||"")).toLowerCase().includes(q)) return false; }
     if(tab==="members") {
       if(filters.status!=="all" && p.status!==filters.status) return false;
     }
@@ -5494,8 +5496,7 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
     return true;
   });
   const rawList = tab==="members" ? members : visitors;
-  const _q = search.trim().toLowerCase();
-  const filt = applyFilters(_q ? rawList.filter((p:any)=>((p.first||"")+" "+(p.last||"")).toLowerCase().includes(_q)) : rawList);
+  const filt = applyFilters(rawList, search.trim().toLowerCase());
   const selectedPeople = filt.filter((p:any)=>selected.has(p.id));
   const allSelected = filt.length>0 && filt.every((p:any)=>selected.has(p.id));
   const toggleSelectAll = () => {
@@ -5626,11 +5627,25 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
       {/* ── Tab / Search / Action bar ─────────────────────────────── */}
       <div style={{display:"flex",gap:8,marginBottom:8,alignItems:"center",flexWrap:"wrap"}}>
         {["members","visitors"].map(t=>(
-          <button key={t} onClick={()=>{setTab(t);setSelected(new Set());}} style={{padding:"8px 18px",borderRadius:8,cursor:"pointer",border:"0.5px solid "+BR,background:tab===t?N:W,color:tab===t?"#fff":TX,fontSize:13,fontWeight:tab===t?500:400}}>
+          <button key={t} onClick={()=>{setTab(t);setSelected(new Set());setSearch("");setShowSug(false);}} style={{padding:"8px 18px",borderRadius:8,cursor:"pointer",border:"0.5px solid "+BR,background:tab===t?N:W,color:tab===t?"#fff":TX,fontSize:13,fontWeight:tab===t?500:400}}>
             {t==="members"?"Members ("+members.length+")":"Visitors ("+visitors.length+")"}
           </button>
         ))}
-        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search by name..." style={{flex:1,minWidth:120,padding:"8px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}/>
+        <div style={{flex:1,minWidth:120,position:"relative"}}>
+          <input value={search} onChange={e=>{setSearch(e.target.value);setShowSug(true);}} onFocus={()=>setShowSug(true)} onBlur={()=>setTimeout(()=>setShowSug(false),160)} autoComplete="off" placeholder="Search by name..." style={{width:"100%",boxSizing:"border-box",padding:"8px "+(search?"30px":"12px")+" 8px 12px",border:"0.5px solid "+(showSug&&search?N:BR),borderRadius:8,fontSize:13,outline:"none",transition:"border-color 0.15s"}}/>
+          {search&&<button onMouseDown={e=>{e.preventDefault();setSearch("");setShowSug(false);}} style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:MU,fontSize:14,lineHeight:1,padding:2}}>✕</button>}
+          {showSug&&search.trim().length>0&&filt.length>0&&(
+            <div style={{position:"absolute",top:"calc(100% + 4px)",left:0,right:0,background:W,border:"0.5px solid "+BR,borderRadius:8,boxShadow:"0 4px 20px rgba(0,0,0,0.12)",zIndex:200,overflow:"hidden"}}>
+              {filt.slice(0,8).map((p:any)=>(
+                <div key={p.id} onMouseDown={()=>{openDetail(p);setShowSug(false);setSearch("");}} style={{padding:"8px 14px",cursor:"pointer",fontSize:13,color:TX,display:"flex",alignItems:"center",gap:10,borderBottom:"0.5px solid "+BR}} onMouseEnter={e=>(e.currentTarget.style.background=BG)} onMouseLeave={e=>(e.currentTarget.style.background=W)}>
+                  <Av f={p.first} l={p.last} sz={28}/>
+                  <div><div style={{fontWeight:500,color:N}}>{p.first} {p.last}</div><div style={{fontSize:11,color:MU}}>{p.email||p.phone||(tab==="members"?p.role||"Member":p.stage||"Visitor")}</div></div>
+                </div>
+              ))}
+              {filt.length>8&&<div style={{padding:"6px 14px",fontSize:11,color:MU,borderTop:"0.5px solid "+BR}}>+{filt.length-8} more — keep typing to narrow results</div>}
+            </div>
+          )}
+        </div>
         <button onClick={()=>setFilterOpen(true)} style={{display:"flex",alignItems:"center",gap:5,padding:"8px 14px",borderRadius:8,border:"0.5px solid "+(activeFiltersCount>0?G:BR),background:activeFiltersCount>0?GL:W,cursor:"pointer",fontSize:13,fontWeight:activeFiltersCount>0?600:400,color:activeFiltersCount>0?N:TX}}>
           🔍 Filter {activeFiltersCount>0&&<span style={{background:G,color:"#fff",borderRadius:20,fontSize:10,padding:"1px 7px",fontWeight:600}}>{activeFiltersCount}</span>}
         </button>
