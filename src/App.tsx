@@ -6385,7 +6385,7 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
                           </Fld>
                           <button onClick={()=>{remChild(i);setChildSug((cs:any)=>{const n={...cs};delete n[i];return n;});}} style={{background:"#fee2e2",border:"0.5px solid #fca5a5",borderRadius:6,padding:"6px 10px",cursor:"pointer",color:RE,fontSize:11,fontWeight:500,marginBottom:4}}>✕</button>
                         </div>
-                        <BirthdaySpinner value={c.birthday||""} onChange={(v:string)=>{updChild(i,"birthday",v);const ag=calcAge(v);if(typeof ag==="number"&&ag>=0)updChild(i,"grade",gradeFromAge(ag));}}/>
+                        <Fld label="Birthday"><Inp type="date" value={c.birthday||""} onChange={(v:string)=>{updChild(i,"birthday",v);const ag=calcAge(v);if(typeof ag==="number"&&ag>=0)updChild(i,"grade",gradeFromAge(ag));}}/></Fld>
                         <Fld label="Grade Level"><Slt value={c.grade||""} onChange={(v:string)=>updChild(i,"grade",v)} opts={["", ...CHILD_GRADES]}/></Fld>
                         {(childSug[i]||[]).length>0 && (
                           <div style={{border:"0.5px solid "+BR,borderRadius:8,background:W,boxShadow:"0 4px 12px rgba(0,0,0,0.1)",marginTop:4}}>
