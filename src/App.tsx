@@ -197,11 +197,11 @@ function WorkOrdersTab({workOrders,setWorkOrders,equipment,users,members,canEdit
   const [editing,setEditing]=useState(null);
   const [detail,setDetail]=useState(null);
   const [updateNote,setUpdateNote]=useState("");
-  const [form,setForm]=useState({title:"",description:"",equipmentId:null,priority:"Medium",status:"Open",assignedType:"free",assignedUserId:null,assignedMemberId:null,assignedName:"",createdDate:td(),completedDate:null,updates:[]});
+  const [form,setForm]=useState({title:"",description:"",equipmentId:null,priority:"Medium",status:"Open",assignedType:"free",assignedUserId:null,assignedMemberId:null,assignedName:"",createdDate:td(),completedDate:null,updates:[],costParts:"",costLabor:"",workType:"in-house",contractorName:"",contractorPhone:""});
   const nid=useRef(5000);
   const sf=k=>v=>setForm(f=>({...f,[k]:v}));
   const filtered=workOrders.filter(w=>{if(search&&!(w.title+" "+(w.description||"")+" "+(w.assignedName||"")).toLowerCase().includes(search.toLowerCase())) return false;if(filterStatus!=="all"&&w.status!==filterStatus) return false;if(filterPriority!=="all"&&w.priority!==filterPriority) return false;return true;});
-  const openAdd=()=>{if(!canEdit){alert("Permission required.");return;}setEditing(null);setForm({title:"",description:"",equipmentId:null,priority:"Medium",status:"Open",assignedType:"free",assignedUserId:null,assignedMemberId:null,assignedName:"",createdDate:td(),completedDate:null,updates:[]});setModal(true);};
+  const openAdd=()=>{if(!canEdit){alert("Permission required.");return;}setEditing(null);setForm({title:"",description:"",equipmentId:null,priority:"Medium",status:"Open",assignedType:"free",assignedUserId:null,assignedMemberId:null,assignedName:"",createdDate:td(),completedDate:null,updates:[],costParts:"",costLabor:"",workType:"in-house",contractorName:"",contractorPhone:""});setModal(true);};
   const openEdit=wo=>{if(!canEdit){alert("Permission required.");return;}setEditing(wo);setForm({...wo,equipmentId:wo.equipmentId||null});setModal(true);};
   const save=()=>{if(!form.title){alert("Title required.");return;}const data={...form,completedDate:form.status==="Completed"&&!form.completedDate?td():form.status!=="Completed"?null:form.completedDate};if(editing) setWorkOrders(ws=>ws.map(w=>w.id===editing.id?{...w,...data}:w));else setWorkOrders(ws=>[...ws,{...data,id:nid.current++}]);setModal(false);};
   const del=id=>{if(!canEdit){alert("Permission required.");return;}if(confirm("Delete this work order?")) setWorkOrders(ws=>ws.filter(w=>w.id!==id));};
@@ -241,6 +241,26 @@ function WorkOrdersTab({workOrders,setWorkOrders,equipment,users,members,canEdit
       <Fld label="Related Equipment (optional)"><select value={form.equipmentId||""} onChange={e=>sf("equipmentId")(+e.target.value||null)} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}><option value="">Not related to specific equipment</option>{equipment.map(e=><option key={e.id} value={e.id}>{e.name} ({e.location})</option>)}</select></Fld>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}><Fld label="Priority"><Slt value={form.priority} onChange={sf("priority")} opts={WO_PRIORITIES}/></Fld><Fld label="Status"><Slt value={form.status} onChange={sf("status")} opts={WO_STATUSES}/></Fld></div>
       <Fld label="Assigned To"><AssigneePicker value={{type:form.assignedType,userId:form.assignedUserId,memberId:form.assignedMemberId,name:form.assignedName}} onChange={v=>setForm(f=>({...f,assignedType:v.type,assignedUserId:v.userId,assignedMemberId:v.memberId,assignedName:v.name}))} users={users} members={members}/></Fld>
+      <div style={{padding:"12px 14px",background:BG,borderRadius:8,border:"0.5px solid "+BR,marginBottom:4}}>
+        <div style={{fontSize:11,fontWeight:600,color:N,textTransform:"uppercase",letterSpacing:0.5,marginBottom:10}}>Cost &amp; Labor</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:10}}>
+          <Fld label="Parts Cost ($)"><Inp type="number" value={form.costParts||""} onChange={sf("costParts")} placeholder="0.00"/></Fld>
+          <Fld label="Labor Cost ($)"><Inp type="number" value={form.costLabor||""} onChange={sf("costLabor")} placeholder="0.00"/></Fld>
+        </div>
+        {((+form.costParts||0)+(+form.costLabor||0))>0 && <div style={{fontSize:12,fontWeight:600,color:GR,marginBottom:10}}>Total: {f$((+form.costParts||0)+(+form.costLabor||0))}</div>}
+        <div style={{marginBottom:form.workType==="contracted"?10:0}}>
+          <div style={{fontSize:11,color:MU,marginBottom:6}}>Work performed by:</div>
+          <div style={{display:"flex",gap:8}}>
+            {["in-house","contracted"].map(t=>(
+              <button key={t} type="button" onClick={()=>sf("workType")(t)} style={{padding:"5px 14px",borderRadius:6,border:"0.5px solid "+(form.workType===t?N:BR),background:form.workType===t?N:W,color:form.workType===t?"#fff":TX,fontSize:12,cursor:"pointer"}}>{t==="in-house"?"In-House":"Contracted Out"}</button>
+            ))}
+          </div>
+        </div>
+        {form.workType==="contracted" && <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginTop:10}}>
+          <Fld label="Contractor Name"><Inp value={form.contractorName||""} onChange={sf("contractorName")} placeholder="Company or person"/></Fld>
+          <Fld label="Contractor Phone"><Inp value={form.contractorPhone||""} onChange={sf("contractorPhone")} placeholder="Phone number"/></Fld>
+        </div>}
+      </div>
       <Fld label="Created Date"><Inp type="date" value={form.createdDate} onChange={sf("createdDate")}/></Fld>
       <div style={{display:"flex",gap:8}}><Btn onClick={save} v="success" style={{flex:1,justifyContent:"center"}}>Save Work Order</Btn><Btn onClick={()=>setModal(false)} v="ghost" style={{flex:1,justifyContent:"center"}}>Cancel</Btn></div>
     </Modal>
@@ -256,6 +276,18 @@ function WorkOrdersTab({workOrders,setWorkOrders,equipment,users,members,canEdit
         {canEdit && detail.status!=="Completed" && <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}><span style={{fontSize:11,color:MU}}>Change status:</span>{WO_STATUSES.filter(s=>s!==detail.status).map(s=><button key={s} onClick={()=>changeStatus(detail,s)} style={{padding:"4px 10px",borderRadius:6,border:"0.5px solid "+BR,background:W,color:WO_STATUS_COLORS[s],fontSize:11,cursor:"pointer",fontWeight:500}}>{s}</button>)}</div>}
         {detail.description && <div style={{marginBottom:14}}><div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:0.5,fontWeight:600,marginBottom:4}}>Description</div><div style={{fontSize:13,lineHeight:1.6,padding:"10px 12px",background:BG,borderRadius:8,border:"0.5px solid "+BR}}>{detail.description}</div></div>}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>{[["Assigned To",detail.assignedName||"Unassigned"],["Created",fd(detail.createdDate)],["Completed",detail.completedDate?fd(detail.completedDate):"—"],["Equipment",eq?eq.name:"—"]].map(([k,v])=>(<div key={k} style={{background:BG,borderRadius:8,padding:"8px 12px",border:"0.5px solid "+BR}}><div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:0.5}}>{k}</div><div style={{fontSize:13,fontWeight:500,marginTop:2}}>{v}</div></div>))}</div>
+        {(((+detail.costParts||0)+(+detail.costLabor||0))>0||detail.workType==="contracted")&&(
+          <div style={{marginBottom:14,padding:"12px 14px",background:BG,borderRadius:8,border:"0.5px solid "+BR}}>
+            <div style={{fontSize:11,fontWeight:600,color:N,textTransform:"uppercase",letterSpacing:0.5,marginBottom:10}}>Cost & Labor</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:8}}>
+              <div><div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:0.5}}>Parts Cost</div><div style={{fontSize:13,fontWeight:500,marginTop:2}}>{(+detail.costParts||0)>0?f$(+detail.costParts):"—"}</div></div>
+              <div><div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:0.5}}>Labor Cost</div><div style={{fontSize:13,fontWeight:500,marginTop:2}}>{(+detail.costLabor||0)>0?f$(+detail.costLabor):"—"}</div></div>
+              <div><div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:0.5}}>Total</div><div style={{fontSize:13,fontWeight:600,color:GR,marginTop:2}}>{((+detail.costParts||0)+(+detail.costLabor||0))>0?f$((+detail.costParts||0)+(+detail.costLabor||0)):"—"}</div></div>
+            </div>
+            <div style={{fontSize:11,color:MU,marginBottom:4}}>Performed by: <span style={{fontWeight:500,color:TX}}>{detail.workType==="contracted"?"Contracted Out":"In-House"}</span></div>
+            {detail.workType==="contracted"&&detail.contractorName&&<div style={{fontSize:12,color:TX}}>{detail.contractorName}{detail.contractorPhone?" · "+detail.contractorPhone:""}</div>}
+          </div>
+        )}
         <div><div style={{fontSize:12,fontWeight:500,color:N,marginBottom:8,textTransform:"uppercase",letterSpacing:0.5}}>Updates & Notes ({(detail.updates||[]).length})</div>
           {(detail.updates||[]).length===0 && <div style={{fontSize:12,color:MU,fontStyle:"italic",marginBottom:10}}>No updates yet.</div>}
           {(detail.updates||[]).map((u,i)=>(<div key={i} style={{padding:"8px 12px",background:BG,borderRadius:8,border:"0.5px solid "+BR,marginBottom:6}}><div style={{fontSize:11,color:MU,marginBottom:3}}>{fd(u.date)}</div><div style={{fontSize:12,lineHeight:1.5}}>{u.note}</div></div>))}
