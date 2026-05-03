@@ -3606,6 +3606,7 @@ function Visitation({visitors,setVisitors,members,setMembers,users,currentUser,r
   const [tyBody,setTyBody] = useState("");
   const [tyGenerating,setTyGenerating] = useState(false);
   const nid = useRef(700);
+  const pastorDisplayName = (()=>{ const pm = members.find((m:any)=>(m.role||'').toLowerCase().includes('pastor')); return pm ? pm.first+' '+pm.last : (window.__CS__?.pastorName||'Pastor'); })();
 
   const openThankYouLetter = async (v:any) => {
     const cs = window.__CS__ || {};
@@ -3686,7 +3687,7 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
   };
   const getAssigned = rec => {
     if(!rec) return "—";
-    if(rec.stage==="Pastor") return "Pastor Hall";
+    if(rec.stage==="Pastor") return pastorDisplayName;
     if(rec.stage==="TeamLeader") return rec.teamLeaderUserId ? getUName(rec.teamLeaderUserId) : "Needs Assignment";
     if(rec.stage==="Sponsor" || rec.stage==="OngoingCare") return rec.sponsorUserId ? getUName(rec.sponsorUserId) : "Needs Assignment";
     return "Complete";
@@ -3783,7 +3784,7 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
     const overdue = overdueRecords.length;
     const rate = total ? Math.round(done/total*100) : 0;
     const byStage = Object.keys(VS).map(k=>VS[k]+": "+visibleRecords.filter(r=>r.stage===k).length).join(", ");
-    const txt = await callAI([{role:"user",content:"Generate a 3-4 paragraph pastoral visitation report for Pastor Hall. Total: "+total+". By stage: "+byStage+". Currently in Ongoing Sponsor Care: "+ongoing+", of which "+overdue+" are overdue. Initial pipeline completion rate: "+rate+"%. Include a scripture and mention the importance of ongoing sponsor care."}],[],[],[],[],[],{});
+    const txt = await callAI([{role:"user",content:"Generate a 3-4 paragraph pastoral visitation report for "+pastorDisplayName+". Total: "+total+". By stage: "+byStage+". Currently in Ongoing Sponsor Care: "+ongoing+", of which "+overdue+" are overdue. Initial pipeline completion rate: "+rate+"%. Include a scripture and mention the importance of ongoing sponsor care."}],[],[],[],[],[],{});
     setAiRep(txt); setAiLoad(false);
   };
 
@@ -4096,7 +4097,7 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
                 {aiRep && <Btn onClick={()=>navigator.clipboard.writeText(aiRep)} v="ghost" style={{fontSize:12,padding:"5px 10px"}}>Copy</Btn>}
               </div>
             </div>
-            <div style={{fontSize:13,lineHeight:1.9,color:aiRep?TX:MU,fontStyle:aiRep?"normal":"italic",whiteSpace:"pre-wrap"}}>{aiRep||"Click Generate Report for an AI-powered pastoral visitation narrative, Pastor Hall."}</div>
+            <div style={{fontSize:13,lineHeight:1.9,color:aiRep?TX:MU,fontStyle:aiRep?"normal":"italic",whiteSpace:"pre-wrap"}}>{aiRep||"Click Generate Report for an AI-powered pastoral visitation narrative, "+pastorDisplayName+"."}</div>
           </div>
           <h3 style={{fontSize:14,fontWeight:500,color:N,marginBottom:14}}>Detailed Visitor Timeline</h3>
           <div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -4203,7 +4204,7 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
           return (
             <div>
               <div style={{background:GL,border:"0.5px solid "+G,borderRadius:8,padding:"10px 14px",marginBottom:16,fontSize:13,color:"#7a5c10",lineHeight:1.6}}>
-                {isTL?"Pastor Hall completed the first visit for ":"The Team Leader completed follow-up for "}
+                {isTL?pastorDisplayName+" completed the first visit for ":"The Team Leader completed follow-up for "}
                 <strong>{v?.first} {v?.last}</strong>. Assign a {isTL?"Team Leader":"Sponsor"} to continue.
               </div>
               <Fld label={"Select "+(isTL?"Team Leader":"Sponsor")+" *"}>
