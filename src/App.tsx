@@ -1086,11 +1086,12 @@ function ChurchSettingsPage({cs,setCs,members,setMembers,visitors,setVisitors,at
   return (<div>
     {/* Tab bar */}
     <div style={{display:'flex',gap:4,marginBottom:20,borderBottom:'1.5px solid '+BR,paddingBottom:0}}>
-      {[{id:'general',label:'⚙ General'},{id:'merge',label:'🔀 Merge Tool'},{id:'backup',label:'💾 Backup & Restore'}].map(t=>(
+      {[{id:'general',label:'⚙ General'},{id:'merge',label:'🔀 Merge Tool'},{id:'breeze',label:'🌐 Breeze Import'},{id:'backup',label:'💾 Backup & Restore'}].map(t=>(
         <button key={t.id} onClick={()=>setStab(t.id)} style={{padding:'8px 18px',fontSize:13,fontWeight:stab===t.id?600:400,color:stab===t.id?N:MU,background:'none',border:'none',borderBottom:stab===t.id?'2.5px solid '+N:'2.5px solid transparent',cursor:'pointer',marginBottom:-1.5}}>{t.label}</button>
       ))}
     </div>
     {stab==='merge'&&<MergeTool members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors}/>}
+    {stab==='breeze'&&<BreezeMergeTool members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors}/>}
     {stab==='backup'&&<BackupRestore backupData={backupData} onRestore={onRestore}/>}
     {stab==='general'&&<div>
     {saved&&<div style={{background:"#dcfce7",border:"0.5px solid #86efac",borderRadius:9,padding:"10px 16px",marginBottom:14,fontSize:13,color:"#14532d",fontWeight:500}}>Settings saved successfully.</div>}
@@ -1401,6 +1402,235 @@ function MergeTool({members,setMembers,visitors,setVisitors}:any){
         <div style={{fontSize:11,color:MU,lineHeight:1.9,flexWrap:'wrap',display:'flex',gap:4}}>
           {['First Name','Last Name','Phone','Email','Status','Birthday','Anniversary','Spouse','Children (semicolons)','Address','City','State','Zip','Gender','Join Date','Notes'].map(c=>(
             <code key={c} style={{background:'#e0e7ff',borderRadius:3,padding:'1px 6px'}}>{c}</code>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── BREEZE CHMS IMPORT TOOL ──
+function BreezeMergeTool({members,setMembers,visitors,setVisitors}:any){
+  const [step,setStep]=useState<'upload'|'preview'|'done'>('upload');
+  const [importTarget,setImportTarget]=useState('members');
+  const [newOnes,setNewOnes]=useState<any[]>([]);
+  const [conflicts,setConflicts]=useState<any[]>([]);
+  const [acceptNew,setAcceptNew]=useState<Set<number>>(new Set());
+  const [acceptConflict,setAcceptConflict]=useState<Set<number>>(new Set());
+  const [choices,setChoices]=useState<any>({});
+  const [result,setResult]=useState<any>(null);
+  const [err,setErr]=useState('');
+  const [detectedBreeze,setDetectedBreeze]=useState(false);
+  const [totalRows,setTotalRows]=useState(0);
+  const BF=[
+    {key:'first',label:'First Name'},{key:'last',label:'Last Name'},
+    {key:'status',label:'Status'},{key:'phone',label:'Phone'},
+    {key:'email',label:'Email'},{key:'birthday',label:'Birthday'},
+    {key:'anniversary',label:'Anniversary'},{key:'gender',label:'Gender'},
+    {key:'address',label:'Address',fmt:(v:any)=>v?[v.street,v.city,v.state,v.zip].filter(Boolean).join(', '):''},
+    {key:'joined',label:'Join Date'},{key:'notes',label:'Notes'},{key:'grade',label:'Grade'},
+  ];
+  const breezeDate=(d:string)=>{if(!d)return'';const m=d.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);if(m)return`${m[3]}-${m[1].padStart(2,'0')}-${m[2].padStart(2,'0')}`;return d;};
+  function breezeMap(raw:any):any{
+    const col=(name:string)=>{const norm=(s:string)=>s.toLowerCase().replace(/[^a-z0-9]/g,'');const k=Object.keys(raw).find(k=>norm(k)===norm(name))||Object.keys(raw).find(k=>norm(k).includes(norm(name)));return k?String(raw[k]||'').trim():'';};
+    let first=col('firstname')||col('nickname')||col('preferredname')||col('first');
+    let last=col('lastname')||col('last');
+    if((!first||!last)&&raw['Name']){const n=String(raw['Name']).trim();if(n.includes(',')){const[l,f]=n.split(',').map((s:string)=>s.trim());first=first||f;last=last||l;}else{const p=n.split(' ');first=first||p[0];last=last||(p.length>1?p.slice(1).join(' '):'');}}
+    if(!first&&!last)return null;
+    const phone=col('mobilephone')||col('cellphone')||col('mobile')||col('phone')||col('homephone');
+    const email=col('email')||col('emailprimary')||col('primaryemail');
+    const rawStatus=(col('status')||col('membershipstatus')||col('membertype')||'').toLowerCase();
+    let status='Active';
+    if(rawStatus.includes('inactive'))status='Inactive';
+    else if(rawStatus.includes('member'))status='Active';
+    else if(rawStatus)status=rawStatus.split(' ').map((w:string)=>w[0]?.toUpperCase()+w.slice(1)).join(' ');
+    const street=col('address')||col('street')||col('streetaddress')||col('address1');
+    return{id:`brz_${Date.now()}_${Math.random()}`,first,last,phone,email,status,
+      birthday:breezeDate(col('birthday')||col('birthdate')||col('dateofbirth')||col('dob')),
+      anniversary:breezeDate(col('anniversary')||col('anniversarydate')||col('weddingdate')),
+      joined:breezeDate(col('joindate')||col('memberdate')||col('membershipdate')||col('joined')),
+      gender:col('gender')||col('sex'),
+      address:{street,city:col('city'),state:col('state'),zip:col('zip')||col('zipcode')||col('postalcode')},
+      notes:col('notes')||col('note')||col('comments'),
+      grade:col('grade')||col('schoolgrade'),
+      role:col('familyrole')||col('role')||col('position'),
+    };
+  }
+  function parseCSV(text:string):any[]{
+    const lines=text.trim().split(/\r?\n/);if(lines.length<2)return[];
+    const headers=lines[0].split(',').map((h:string)=>h.trim().replace(/^"|"$/g,''));
+    setDetectedBreeze(headers.some((h:string)=>['Nick Name','Family Role','Member Date','Primary Email','Mobile Phone'].includes(h)));
+    return lines.slice(1).filter((l:string)=>l.trim()).map((line:string)=>{
+      const vals:string[]=[]; let cur='',inQ=false;
+      for(const ch of line){if(ch==='"')inQ=!inQ;else if(ch===','&&!inQ){vals.push(cur);cur='';}else cur+=ch;}
+      vals.push(cur);
+      const obj:any={};headers.forEach((h:string,i:number)=>{obj[h]=(vals[i]||'').trim().replace(/^"|"$/g,'');});
+      return breezeMap(obj);
+    }).filter(Boolean);
+  }
+  function process(file:File){
+    setErr('');
+    if(!file.name.toLowerCase().endsWith('.csv')){setErr('Breeze import only supports CSV files. Export from Breeze as CSV.');return;}
+    const reader=new FileReader();
+    reader.onload=(e:any)=>{
+      const text=e.target?.result as string;
+      let records:any[];
+      try{records=parseCSV(text);}catch{setErr('Could not parse CSV. Please check the file.');return;}
+      if(!records.length){setErr('No valid people found. Ensure the CSV has First Name (or Nick Name) and Last Name columns.');return;}
+      setTotalRows(records.length);
+      const pool=importTarget==='visitors'?visitors:members;
+      const nw:any[]=[],cf:any[]=[];
+      records.forEach((inc:any)=>{
+        const match=(pool||[]).find((m:any)=>m.first?.trim().toLowerCase()===inc.first?.trim().toLowerCase()&&m.last?.trim().toLowerCase()===inc.last?.trim().toLowerCase());
+        if(match)cf.push({incoming:inc,existing:match});else nw.push(inc);
+      });
+      setNewOnes(nw);setConflicts(cf);
+      setAcceptNew(new Set(nw.map((_:any,i:number)=>i)));setAcceptConflict(new Set());
+      const defs:any={};cf.forEach((_:any,ci:number)=>{defs[ci]={};BF.forEach((f:any)=>{defs[ci][f.key]='existing';});});
+      setChoices(defs);setStep('preview');
+    };
+    reader.readAsText(file);
+  }
+  function doMerge(){
+    let added=0,upd=0;
+    const applyFields=(base:any,inc:any,ci:number)=>{const u={...base};BF.forEach((f:any)=>{if(choices[ci]?.[f.key]==='incoming')u[f.key]=inc[f.key];});return u;};
+    if(importTarget==='visitors'){
+      let list=[...visitors];
+      newOnes.forEach((rec:any,i:number)=>{if(acceptNew.has(i)){list.push({...rec,id:Date.now()+Math.random(),type:'Visitor',stage:'First Visit',firstVisit:rec.joined||td()});added++;}});
+      conflicts.forEach((c:any,ci:number)=>{if(acceptConflict.has(ci)){const idx=list.findIndex((v:any)=>v.id===c.existing.id);if(idx>=0){list[idx]=applyFields(list[idx],c.incoming,ci);upd++;}}});
+      setVisitors(list);
+    }else{
+      let list=[...members];
+      newOnes.forEach((rec:any,i:number)=>{if(acceptNew.has(i)){list.push({...rec,id:Date.now()+Math.random(),type:'Member'});added++;}});
+      conflicts.forEach((c:any,ci:number)=>{if(acceptConflict.has(ci)){const idx=list.findIndex((m:any)=>m.id===c.existing.id);if(idx>=0){list[idx]=applyFields(list[idx],c.incoming,ci);upd++;}}});
+      setMembers(list);
+    }
+    setResult({added,merged:upd,target:importTarget,total:totalRows});setStep('done');
+  }
+  const fv=(f:any,rec:any)=>{if(f.fmt)return f.fmt(rec[f.key]);return String(rec[f.key]||'');};
+  if(step==='done')return(
+    <div style={{textAlign:'center',padding:48}}>
+      <div style={{fontSize:48,marginBottom:12}}>✅</div>
+      <h3 style={{fontSize:18,fontWeight:600,color:N,margin:'0 0 8px'}}>Breeze Import Complete</h3>
+      <p style={{color:MU,fontSize:14,marginBottom:4}}>
+        <strong style={{color:GR}}>{result.added}</strong> new {result.target==='visitors'?'visitor':'member'}{result.added!==1?'s':''} added &nbsp;·&nbsp;
+        <strong style={{color:BL}}>{result.merged}</strong> profile{result.merged!==1?'s':''} updated &nbsp;·&nbsp;
+        <span style={{color:MU}}>{result.total-result.added-result.merged} skipped</span>
+      </p>
+      <p style={{color:MU,fontSize:12}}>Imported into <strong>{result.target==='visitors'?'Visitors/Guests':'Members'}</strong></p>
+      <Btn onClick={()=>{setStep('upload');setResult(null);setDetectedBreeze(false);}} v="ghost" style={{marginTop:16}}>Import Another File</Btn>
+    </div>
+  );
+  if(step==='preview')return(
+    <div>
+      {detectedBreeze&&<div style={{background:'#eff6ff',border:'0.5px solid #93c5fd',borderRadius:9,padding:'10px 16px',fontSize:13,color:BL,fontWeight:500,marginBottom:14}}>✓ Breeze ChMS format detected — field names mapped automatically</div>}
+      <div style={{display:'flex',gap:12,marginBottom:20,flexWrap:'wrap'}}>
+        <div style={{background:'#dcfce7',border:'0.5px solid #86efac',borderRadius:9,padding:'10px 16px',fontSize:13,color:'#14532d',fontWeight:500}}>{newOnes.length} new · {acceptNew.size} selected to add to <strong>{importTarget==='visitors'?'Visitors':'Members'}</strong></div>
+        <div style={{background:'#fef9c3',border:'0.5px solid #fde047',borderRadius:9,padding:'10px 16px',fontSize:13,color:'#713f12',fontWeight:500}}>{conflicts.length} already in database · {acceptConflict.size} to update</div>
+      </div>
+      {newOnes.length>0&&<div style={{background:W,border:'0.5px solid '+BR,borderRadius:12,padding:18,marginBottom:16}}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+          <h3 style={{fontSize:14,fontWeight:600,color:N,margin:0}}>New People to Add ({newOnes.length})</h3>
+          <div style={{display:'flex',gap:8}}>
+            <Btn v="ghost" onClick={()=>setAcceptNew(new Set(newOnes.map((_:any,i:number)=>i)))} style={{fontSize:11,padding:'4px 10px'}}>All</Btn>
+            <Btn v="ghost" onClick={()=>setAcceptNew(new Set())} style={{fontSize:11,padding:'4px 10px'}}>None</Btn>
+          </div>
+        </div>
+        <div style={{display:'flex',flexDirection:'column',gap:5}}>
+          {newOnes.map((rec:any,i:number)=>(
+            <label key={i} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 12px',background:acceptNew.has(i)?'#f0fdf4':'#f9fafb',border:'0.5px solid '+(acceptNew.has(i)?'#86efac':BR),borderRadius:8,cursor:'pointer'}}>
+              <input type="checkbox" checked={acceptNew.has(i)} onChange={()=>{const s=new Set(acceptNew);s.has(i)?s.delete(i):s.add(i);setAcceptNew(s);}}/>
+              <span style={{fontWeight:500,color:TX}}>{rec.first} {rec.last}</span>
+              <span style={{fontSize:11,color:MU,marginLeft:6}}>{[rec.phone,rec.email,rec.birthday?'🎂 '+rec.birthday:'',rec.grade].filter(Boolean).join(' · ')}</span>
+            </label>
+          ))}
+        </div>
+      </div>}
+      {conflicts.length>0&&<div style={{background:W,border:'0.5px solid '+BR,borderRadius:12,padding:18,marginBottom:16}}>
+        <h3 style={{fontSize:14,fontWeight:600,color:N,margin:'0 0 4px'}}>Already in Database ({conflicts.length})</h3>
+        <p style={{fontSize:12,color:MU,marginBottom:14}}>Same first + last name found. Check to update, then choose which field values to keep.</p>
+        {conflicts.map((c:any,ci:number)=>(
+          <div key={ci} style={{border:'0.5px solid '+(acceptConflict.has(ci)?'#93c5fd':BR),borderRadius:10,marginBottom:10,overflow:'hidden'}}>
+            <label style={{display:'flex',alignItems:'center',gap:10,padding:'10px 14px',background:acceptConflict.has(ci)?'#eff6ff':'#f9fafb',cursor:'pointer'}}>
+              <input type="checkbox" checked={acceptConflict.has(ci)} onChange={()=>{const s=new Set(acceptConflict);s.has(ci)?s.delete(ci):s.add(ci);setAcceptConflict(s);}}/>
+              <span style={{fontWeight:500,color:TX}}>{c.existing.first} {c.existing.last}</span>
+              <span style={{fontSize:11,color:MU,marginLeft:6}}>check to review fields</span>
+            </label>
+            {acceptConflict.has(ci)&&<div style={{padding:14,overflowX:'auto'}}>
+              <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+                <thead><tr>
+                  <th style={{padding:'6px 8px',textAlign:'left',color:MU,fontWeight:600,background:'#f9fafb',width:110}}>Field</th>
+                  <th style={{padding:'6px 8px',textAlign:'left',color:GR,fontWeight:600,background:'#f0fdf4'}}>✔ Keep Existing</th>
+                  <th style={{padding:'6px 8px',textAlign:'left',color:BL,fontWeight:600,background:'#eff6ff'}}>↩ Use Breeze Data</th>
+                </tr></thead>
+                <tbody>
+                  {BF.map((f:any)=>{
+                    const ev=fv(f,c.existing),iv=fv(f,c.incoming);
+                    if(!ev&&!iv)return null;
+                    const sel=choices[ci]?.[f.key]||'existing';
+                    return(<tr key={f.key} style={{borderTop:'0.5px solid '+BR}}>
+                      <td style={{padding:'7px 8px',fontWeight:500,color:TX,whiteSpace:'nowrap'}}>{f.label}</td>
+                      <td style={{padding:'6px 8px',background:sel==='existing'?'#f0fdf4':''}}>
+                        <label style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer'}}>
+                          <input type="radio" name={`brz-${ci}-${f.key}`} checked={sel==='existing'} onChange={()=>setChoices((p:any)=>({...p,[ci]:{...p[ci],[f.key]:'existing'}}))}/>
+                          <span style={{fontSize:11,color:ev?TX:MU,fontStyle:ev?'normal':'italic'}}>{ev||'(empty)'}</span>
+                        </label>
+                      </td>
+                      <td style={{padding:'6px 8px',background:sel==='incoming'?'#eff6ff':''}}>
+                        <label style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer'}}>
+                          <input type="radio" name={`brz-${ci}-${f.key}`} checked={sel==='incoming'} onChange={()=>setChoices((p:any)=>({...p,[ci]:{...p[ci],[f.key]:'incoming'}}))}/>
+                          <span style={{fontSize:11,color:iv?TX:MU,fontStyle:iv?'normal':'italic'}}>{iv||'(empty)'}</span>
+                        </label>
+                      </td>
+                    </tr>);
+                  })}
+                </tbody>
+              </table>
+            </div>}
+          </div>
+        ))}
+      </div>}
+      <div style={{display:'flex',gap:10}}>
+        <Btn onClick={doMerge} v="success" style={{fontSize:14,padding:'10px 24px'}}>Confirm Import ({acceptNew.size+acceptConflict.size} records)</Btn>
+        <Btn onClick={()=>setStep('upload')} v="ghost">← Back</Btn>
+      </div>
+    </div>
+  );
+  return(
+    <div>
+      <div style={{background:'#eff6ff',border:'1px solid #bfdbfe',borderRadius:12,padding:16,marginBottom:20,display:'flex',gap:14,alignItems:'flex-start'}}>
+        <div style={{fontSize:28,flexShrink:0}}>🌐</div>
+        <div>
+          <div style={{fontWeight:600,color:N,fontSize:14,marginBottom:4}}>Breeze ChMS People Import</div>
+          <div style={{fontSize:12,color:MU,lineHeight:1.7}}>Export your people from Breeze at <strong>breezechms.com → People → Export → CSV</strong>. Upload the file here. Breeze column names (Nick Name, Mobile Phone, Family Role, MM/DD/YYYY dates) are auto-mapped. Duplicates are detected by first + last name.</div>
+        </div>
+      </div>
+      <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:20,background:W,border:'0.5px solid '+BR,borderRadius:10,padding:'12px 16px'}}>
+        <span style={{fontSize:13,fontWeight:500,color:TX,whiteSpace:'nowrap'}}>Import into:</span>
+        <div style={{display:'flex',gap:6}}>
+          {[['members','👥 Members'],['visitors','🙋 Visitors']].map(([id,label])=>(
+            <button key={id} onClick={()=>setImportTarget(id)} style={{padding:'7px 16px',borderRadius:8,border:'1.5px solid '+(importTarget===id?N:BR),background:importTarget===id?N:'transparent',color:importTarget===id?'#fff':MU,fontSize:13,fontWeight:importTarget===id?600:400,cursor:'pointer'}}>{label}</button>
+          ))}
+        </div>
+        <span style={{fontSize:11,color:MU,marginLeft:'auto'}}>Duplicates checked against existing {importTarget}</span>
+      </div>
+      {err&&<div style={{background:'#fee2e2',border:'0.5px solid #fca5a5',borderRadius:8,padding:'10px 14px',color:'#b91c1c',fontSize:13,marginBottom:14}}>{err}</div>}
+      <div
+        onDragOver={e=>e.preventDefault()}
+        onDrop={e=>{e.preventDefault();const f=e.dataTransfer.files[0];if(f)process(f);}}
+        onClick={()=>document.getElementById('brz-file-inp')?.click()}
+        style={{border:'2px dashed #93c5fd',borderRadius:14,padding:48,textAlign:'center',background:'#f0f7ff',cursor:'pointer'}}
+      >
+        <div style={{fontSize:40,marginBottom:8}}>📋</div>
+        <div style={{fontWeight:600,color:N,fontSize:15,marginBottom:4}}>Drop Breeze CSV here</div>
+        <div style={{color:MU,fontSize:12}}>or click to browse · CSV files only</div>
+        <input id="brz-file-inp" type="file" accept=".csv" style={{display:'none'}} onChange={e=>{const f=e.target.files?.[0];if(f)process(f);(e.target as any).value='';}}/>
+      </div>
+      <div style={{marginTop:16,background:'#f8fafc',border:'0.5px solid '+BR,borderRadius:10,padding:14}}>
+        <div style={{fontWeight:500,color:N,fontSize:13,marginBottom:6}}>Breeze CSV columns recognized (auto-mapped):</div>
+        <div style={{fontSize:11,color:MU,lineHeight:1.9,flexWrap:'wrap',display:'flex',gap:4}}>
+          {['First Name','Nick Name','Last Name','Birthday (MM/DD/YYYY)','Mobile Phone','Home Phone','Email','Primary Email','Status','Member Date','Family Role','Gender','Address','City','State','Zip','Anniversary','Grade','Notes'].map((c:string)=>(
+            <code key={c} style={{background:'#dbeafe',borderRadius:3,padding:'1px 6px'}}>{c}</code>
           ))}
         </div>
       </div>
