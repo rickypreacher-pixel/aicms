@@ -1464,6 +1464,8 @@ const IMEETINGS:any[]=[];
 // ── Education Department Constants ──
 const CL_COLORS=["#1a2e5a","#c9a84c","#16a34a","#2563eb","#7c3aed","#dc2626","#d97706","#0891b2","#be185d","#065f46","#ea580c","#4f46e5","#db2777","#0e7490"];
 function levelFromAge(age){if(age<=2)return"Nursery";if(age<=4)return"Pre-K";if(age===5)return"Kindergarten";if(age<=10)return"Elementary";if(age<=13)return"Middle School";if(age<=17)return"High School";return"Young Adult";}
+const CHILD_GRADES=["Nursery","Toddler","Pre-K","Kindergarten","1st Grade","2nd Grade","3rd Grade","4th Grade","5th Grade","6th Grade","7th Grade","8th Grade","9th Grade","10th Grade","11th Grade","12th Grade"];
+function gradeFromAge(age){if(typeof age!=="number"||age<0)return"";if(age<=1)return"Nursery";if(age<=3)return"Toddler";if(age===4)return"Pre-K";if(age===5)return"Kindergarten";if(age===6)return"1st Grade";if(age===7)return"2nd Grade";if(age===8)return"3rd Grade";if(age===9)return"4th Grade";if(age===10)return"5th Grade";if(age===11)return"6th Grade";if(age===12)return"7th Grade";if(age===13)return"8th Grade";if(age===14)return"9th Grade";if(age===15)return"10th Grade";if(age===16)return"11th Grade";return"12th Grade";}
 const CHURCH_LEVELS=[
   {id:1,name:"Nursery",grade:"Nursery",ageMin:0,ageMax:2,label:"Nursery (ages 0-2)",location:"Room 101",capacity:10,color:"#1a2e5a",checkin:true},
   {id:2,name:"Pre-K",grade:"Pre-K",ageMin:3,ageMax:4,label:"Pre-K (ages 3-4)",location:"Room 102",capacity:12,color:"#c9a84c",checkin:true},
@@ -4744,7 +4746,7 @@ function FamilyForm({newVis,setNewVis,onSubmit,allPeople}){
   const [bbS,setBbS]=useState("");const[showBb,setShowBb]=useState(false);
   const fName=newVis.last?(newVis.last+" Family"):"Family";
   const bbR=bbS.trim().length>1?allPeople.filter(p=>(p.first+" "+p.last).toLowerCase().includes(bbS.toLowerCase())).slice(0,5):[];
-  const addChild=()=>setNewVis(f=>({...f,children:[...(f.children||[]),{first:"",last:"",dob:"",allergies:[],medical:[],medNotes:""}]}));
+  const addChild=()=>setNewVis(f=>({...f,children:[...(f.children||[]),{first:"",last:"",dob:"",grade:"",allergies:[],medical:[],medNotes:""}]}));
   const remChild=idx=>setNewVis(f=>({...f,children:f.children.filter((_,i)=>i!==idx)}));
   const updChild=(idx,k,v)=>setNewVis(f=>({...f,children:f.children.map((c,i)=>i===idx?{...c,[k]:v}:c)}));
   const preview=[newVis.first&&newVis.last?(newVis.first+" "+newVis.last+(calcAge(newVis.dob)!==""?" (age "+calcAge(newVis.dob)+")":"")):null,newVis.spouseFirst&&newVis.spouseLast?(newVis.spouseFirst+" "+newVis.spouseLast+(calcAge(newVis.spouseDob)!==""?" (age "+calcAge(newVis.spouseDob)+")":"")):null,...(newVis.children||[]).filter(c=>c.first).map(c=>c.first+(c.last?" "+c.last:"")+(calcAge(c.dob)!==""?" (age "+calcAge(c.dob)+")":""))].filter(Boolean);
@@ -4780,7 +4782,8 @@ function FamilyForm({newVis,setNewVis,onSubmit,allPeople}){
           <div key={ci} style={{background:BG,borderRadius:8,padding:10,marginBottom:8,border:"0.5px solid "+BR}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}><div style={{fontSize:11,color:AM,fontWeight:600}}>Child {ci+1}</div><button onClick={()=>remChild(ci)} style={{background:"#fee2e2",border:"0.5px solid #fca5a5",borderRadius:5,padding:"3px 8px",cursor:"pointer",color:RE,fontSize:11,fontWeight:600}}>Remove</button></div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:6}}><SmlInp value={child.first} onChange={v=>updChild(ci,"first",v)} placeholder="First name *"/><SmlInp value={child.last} onChange={v=>updChild(ci,"last",v)} placeholder="Last name *"/></div>
-            <BirthdayRow dob={child.dob||""} onChange={v=>updChild(ci,"dob",v)} color={AM}/>
+            <BirthdayRow dob={child.dob||""} onChange={v=>{updChild(ci,"dob",v);const ag=calcAge(v);if(typeof ag==="number"&&ag>=0)updChild(ci,"grade",gradeFromAge(ag));}} color={AM}/>
+            <div style={{display:"grid",gridTemplateColumns:"auto 1fr",gap:6,alignItems:"center",marginTop:4,marginBottom:4}}><div style={{fontSize:11,color:MU,fontWeight:500}}>Grade:</div><select value={child.grade||""} onChange={e=>updChild(ci,"grade",e.target.value)} style={{padding:"4px 8px",border:"0.5px solid "+BR,borderRadius:6,fontSize:12,outline:"none",background:W,flex:1}}><option value="">-- Select grade --</option>{CHILD_GRADES.map(g=><option key={g} value={g}>{g}</option>)}</select></div>
             <MedSection allergies={child.allergies||[]} medical={child.medical||[]} medNotes={child.medNotes||""} onChange={(k,v)=>updChild(ci,k,v)} required={true}/>
           </div>
         ))}
@@ -5675,7 +5678,7 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
     setMembers(ms=>ms.map(m=>m.id===detail.id?{...m,status:newStatus}:m));
     setDetail({...detail,status:newStatus});
   };
-  const addChild = () => setEditForm(f=>({...f,children:[...(f.children||[]),{first:"",last:"",birthday:"",memberId:null}]}));
+  const addChild = () => setEditForm(f=>({...f,children:[...(f.children||[]),{first:"",last:"",birthday:"",grade:"",memberId:null}]}));
   const updChild = (i,k,v) => setEditForm(f=>({...f,children:f.children.map((c,idx)=>idx===i?{...c,[k]:v}:c)}));
   const remChild = i => setEditForm(f=>({...f,children:f.children.filter((_,idx)=>idx!==i)}));
   const toggleArr = (field,item) => setEditForm(f=>{const arr=f[field]||[];return {...f,[field]:arr.includes(item)?arr.filter(x=>x!==item):[...arr,item]};});
@@ -6382,7 +6385,8 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
                           </Fld>
                           <button onClick={()=>{remChild(i);setChildSug((cs:any)=>{const n={...cs};delete n[i];return n;});}} style={{background:"#fee2e2",border:"0.5px solid #fca5a5",borderRadius:6,padding:"6px 10px",cursor:"pointer",color:RE,fontSize:11,fontWeight:500,marginBottom:4}}>✕</button>
                         </div>
-                        <BirthdaySpinner value={c.birthday||""} onChange={(v:string)=>updChild(i,"birthday",v)}/>
+                        <BirthdaySpinner value={c.birthday||""} onChange={(v:string)=>{updChild(i,"birthday",v);const ag=calcAge(v);if(typeof ag==="number"&&ag>=0)updChild(i,"grade",gradeFromAge(ag));}}/>
+                        <Fld label="Grade Level"><Slt value={c.grade||""} onChange={(v:string)=>updChild(i,"grade",v)} opts={["", ...CHILD_GRADES]}/></Fld>
                         {(childSug[i]||[]).length>0 && (
                           <div style={{border:"0.5px solid "+BR,borderRadius:8,background:W,boxShadow:"0 4px 12px rgba(0,0,0,0.1)",marginTop:4}}>
                             <div style={{fontSize:10,color:MU,padding:"4px 10px",borderBottom:"0.5px solid "+BR}}>Link existing member:</div>
