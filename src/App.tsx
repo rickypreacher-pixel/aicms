@@ -1142,14 +1142,29 @@ function ChurchSettingsPage({cs,setCs,members,setMembers,visitors,setVisitors,at
     </div>
     <div style={{marginTop:16,background:"#fef2f2",border:"1.5px solid "+RE+"55",borderRadius:12,padding:18}}>
       <h3 style={{fontSize:14,fontWeight:600,color:RE,margin:"0 0 6px"}}>Clear All Data — Go Live</h3>
-      <p style={{fontSize:12,color:"#7f1d1d",marginBottom:14,lineHeight:1.6}}>This permanently removes ALL records from this browser (members, visitors, giving, attendance, groups, children, prayer, equipment, work orders, etc.) and resets the app to a clean slate. This cannot be undone. Use this to clear test data before going live with real information.</p>
-      <Btn onClick={()=>{
-        if(!confirm("PERMANENTLY delete ALL data from this browser? This cannot be undone.")) return;
-        if(!confirm("Are you absolutely sure? All members, visitors, giving, attendance, and every other record will be erased.")) return;
+      <p style={{fontSize:12,color:"#7f1d1d",marginBottom:14,lineHeight:1.6}}>This permanently removes ALL records from this browser AND the cloud backup (members, visitors, giving, attendance, groups, children, prayer, equipment, work orders, etc.) and resets the app to a clean slate. Church settings and API keys are preserved. This cannot be undone. Use this to clear test data before going live with real information.</p>
+      <Btn onClick={async ()=>{
+        if(!confirm("PERMANENTLY delete ALL data from this browser and cloud backup? This cannot be undone.")) return;
+        if(!confirm("Are you absolutely sure? All members, visitors, giving, attendance, and every other record will be erased from both this browser AND the cloud. Church settings will be kept.")) return;
+        // Save church settings & API keys before clearing
+        const savedSettings = {...cs};
+        const aiKey = localStorage.getItem("ntcc_ai_api_key")||"";
+        const elKey = localStorage.getItem("ntcc_el_api_key")||"";
+        // Clear all ntcc localStorage keys
         const prefix = cs._churchId ? `ntcc_${cs._churchId}_` : "ntcc_";
         const keysToRemove = [];
         for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&(k.startsWith(prefix)||k.startsWith("ntcc_")))keysToRemove.push(k);}
         keysToRemove.forEach(k=>localStorage.removeItem(k));
+        // Restore church settings & API keys
+        const csKey = cs._churchId ? `ntcc_${cs._churchId}_church_settings` : "ntcc_church_settings";
+        try{localStorage.setItem(csKey,JSON.stringify(savedSettings));}catch(e){}
+        if(aiKey) try{localStorage.setItem("ntcc_ai_api_key",aiKey);}catch(e){}
+        if(elKey) try{localStorage.setItem("ntcc_el_api_key",elKey);}catch(e){}
+        // Write empty blob to Supabase so data doesn't reload from cloud on next sign-in
+        if(cs._churchId){
+          const emptyBlob = {members:[],visitors:[],attendance:[],giving:[],prayers:[],groups:[],grpMeetings:[],visitRecords:[],children:[],classrooms:[],equipment:[],workOrders:[],schedMaint:[],supplies:[],checkoutItems:[],checkouts:[],pledgeDrives:[],pledges:[],weeklyReports:[],emailLog:[],recurring:[],custom:[],checkIns:[],incidents:[],rollCalls:[],progressNotes:[],teacherSchedule:[],kidsCheckIns:[],roles:[],users:[],prospects:[],emailTemplates:null,emailConfig:{},permissions:{},churchSettings:savedSettings};
+          await supabase.from('church_data').upsert({church_id:cs._churchId,data:emptyBlob,updated_at:new Date().toISOString()},{onConflict:'church_id'});
+        }
         window.location.reload();
       }} v="danger" style={{fontSize:13}}>Clear All Data & Reload</Btn>
     </div>
