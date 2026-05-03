@@ -1464,8 +1464,9 @@ const IMEETINGS:any[]=[];
 // ── Education Department Constants ──
 const CL_COLORS=["#1a2e5a","#c9a84c","#16a34a","#2563eb","#7c3aed","#dc2626","#d97706","#0891b2","#be185d","#065f46","#ea580c","#4f46e5","#db2777","#0e7490"];
 function levelFromAge(age){if(age<=2)return"Nursery";if(age<=4)return"Pre-K";if(age===5)return"Kindergarten";if(age<=10)return"Elementary";if(age<=13)return"Middle School";if(age<=17)return"High School";return"Young Adult";}
-const CHILD_GRADES=["Nursery","Toddler","Pre-K","Kindergarten","1st Grade","2nd Grade","3rd Grade","4th Grade","5th Grade","6th Grade","7th Grade","8th Grade","9th Grade","10th Grade","11th Grade","12th Grade"];
+const CHILD_GRADES=["Nursery","Toddler","Pre-K","Kindergarten","1st Grade","2nd Grade","3rd Grade","4th Grade","5th Grade","Elementary","6th Grade","7th Grade","8th Grade","Middle School","9th Grade","10th Grade","11th Grade","12th Grade","High School"];
 function gradeFromAge(age){if(typeof age!=="number"||age<0)return"";if(age<=1)return"Nursery";if(age<=3)return"Toddler";if(age===4)return"Pre-K";if(age===5)return"Kindergarten";if(age===6)return"1st Grade";if(age===7)return"2nd Grade";if(age===8)return"3rd Grade";if(age===9)return"4th Grade";if(age===10)return"5th Grade";if(age===11)return"6th Grade";if(age===12)return"7th Grade";if(age===13)return"8th Grade";if(age===14)return"9th Grade";if(age===15)return"10th Grade";if(age===16)return"11th Grade";return"12th Grade";}
+function gradeToClassroom(grade){if(!grade)return"";if(["Nursery","Toddler"].includes(grade))return"Nursery";if(grade==="Pre-K")return"Pre-K";if(grade==="Kindergarten")return"Kindergarten";if(["Elementary","1st Grade","2nd Grade","3rd Grade","4th Grade","5th Grade"].includes(grade))return"Elementary";if(["Middle School","6th Grade","7th Grade","8th Grade"].includes(grade))return"Middle School";if(["High School","9th Grade","10th Grade","11th Grade","12th Grade"].includes(grade))return"High School";return"";}
 const CHURCH_LEVELS=[
   {id:1,name:"Nursery",grade:"Nursery",ageMin:0,ageMax:2,label:"Nursery (ages 0-2)",location:"Room 101",capacity:10,color:"#1a2e5a",checkin:true},
   {id:2,name:"Pre-K",grade:"Pre-K",ageMin:3,ageMax:4,label:"Pre-K (ages 3-4)",location:"Room 102",capacity:12,color:"#c9a84c",checkin:true},
@@ -5593,7 +5594,7 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
     const kids = (p.children||[]).map((c:any)=>{
       const f = c.first||(c.name?c.name.trim().split(" ")[0]:"");
       const l = c.last||(c.name?c.name.trim().split(" ").slice(1).join(" "):"");
-      return {first:f,last:l,birthday:c.birthday||"",memberId:c.memberId||null};
+      return {first:f,last:l,birthday:c.birthday||"",grade:c.grade||"",memberId:c.memberId||null};
     });
     setEditForm({...p,address:p.address||{...EMPTY_ADDR},children:kids,allergies:p.allergies||[],medical:p.medical||[],spouseFirst:spF,spouseLast:spL,spouseId:p.spouseId||null,fatherFirst:p.fatherFirst||"",fatherLast:p.fatherLast||"",fatherId:p.fatherId||null,motherFirst:p.motherFirst||"",motherLast:p.motherLast||"",motherId:p.motherId||null});
     setSpouseSug([]); setChildSug({}); setFatherSug([]); setMotherSug([]);
@@ -8526,7 +8527,7 @@ function EdDashboard({classrooms,children,kidsCheckIns,teacherSchedule,users,mem
             <h3 style={{fontSize:14,fontWeight:500,color:N,margin:0}}>Today's Check-Ins</h3>
             {activeCI.length>0&&<Btn onClick={()=>setTab("checkin")} v="ai" style={{fontSize:11,padding:"4px 9px"}}>Portal</Btn>}
           </div>
-          {activeCI.length===0?(<div style={{textAlign:"center",padding:24}}><div style={{fontSize:13,color:MU,marginBottom:12}}>No kids checked in yet today.</div><Btn onClick={()=>setTab("checkin")} v="primary">Open Check-In Portal</Btn></div>):(<div style={{display:"flex",flexDirection:"column",gap:6,maxHeight:320,overflowY:"auto"}}>{activeCI.slice(0,8).map(ci=>{const ch=children.find(c=>c.id===ci.childId);const cl=classrooms.find(c=>c.id===ci.classroomId);if(!ch||!cl)return null;return (<div key={ci.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 11px",background:BG,borderRadius:8,border:"0.5px solid "+BR}}><Av f={ch.first} l={ch.last} sz={28}/><div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:500}}>{ch.first} {ch.last}</div><div style={{fontSize:11,color:cl.color,fontWeight:500}}>{cl.name} - {ci.time}</div></div><div style={{fontFamily:"monospace",fontSize:13,fontWeight:600,color:N}}>{ci.code}</div>{(ch.allergies?.length>0||ch.medical?.length>0)&&<span style={{fontSize:10,background:"#fee2e2",color:RE,borderRadius:4,padding:"2px 5px",fontWeight:500}}>!</span>}</div>);})}</div>)}
+          {activeCI.length===0?(<div style={{textAlign:"center",padding:24}}><div style={{fontSize:13,color:MU,marginBottom:12}}>No kids checked in yet today.</div><Btn onClick={()=>setTab("checkin")} v="primary">Open Check-In Portal</Btn></div>):(<div style={{display:"flex",flexDirection:"column",gap:6,maxHeight:320,overflowY:"auto"}}>{activeCI.slice(0,8).map(ci=>{const ch=children.find(c=>c.id===ci.childId);const cl=classrooms.find(c=>c.id===ci.classroomId);if(!ch||!cl)return null;return (<div key={ci.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 11px",background:BG,borderRadius:8,border:"0.5px solid "+BR}}><Av f={ch.first} l={ch.last} sz={28}/><div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:500}}>{ch.first} {ch.last}</div>{ch.grade&&<div style={{fontSize:10,color:MU,marginTop:1}}>{ch.grade}</div>}<div style={{fontSize:11,color:cl.color,fontWeight:500}}>{cl.name} - {ci.time}</div></div><div style={{fontFamily:"monospace",fontSize:13,fontWeight:600,color:N}}>{ci.code}</div>{(ch.allergies?.length>0||ch.medical?.length>0)&&<span style={{fontSize:10,background:"#fee2e2",color:RE,borderRadius:4,padding:"2px 5px",fontWeight:500}}>!</span>}</div>);})}</div>)}
         </div>
         <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:18}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
@@ -9545,7 +9546,7 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
     const arr:string[]=f[field]||[];
     return {...f,[field]:arr.includes(item)?arr.filter((x:string)=>x!==item):[...arr,item]};
   });
-  const addChild=()=>setForm((f:any)=>({...f,children:[...f.children,{first:"",last:"",birthday:"",memberId:null as any}]}));
+  const addChild=()=>setForm((f:any)=>({...f,children:[...f.children,{first:"",last:"",birthday:"",grade:"",memberId:null as any}]}));
   const updChild=(i:number,k:string,v:string)=>setForm((f:any)=>({...f,children:f.children.map((c:any,idx:number)=>idx===i?{...c,[k]:v}:c)}));
   const remChild=(i:number)=>setForm((f:any)=>({...f,children:f.children.filter((_:any,idx:number)=>idx!==i)}));
 
@@ -9811,10 +9812,11 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
                 <Fld label={`Child ${i+1} First Name`}><Inp value={c.first} onChange={v=>updChild(i,"first",v)} placeholder="First name"/></Fld>
                 <Fld label="Last Name"><Inp value={c.last} onChange={v=>updChild(i,"last",v)} placeholder="Last name"/></Fld>
               </div>
-              <div style={{display:"flex",alignItems:"center",gap:8}}>
-                <div style={{flex:1}}><Fld label="Birthday"><BirthdaySpinner value={c.birthday||""} onChange={v=>updChild(i,"birthday",v)}/></Fld></div>
-                <button onClick={()=>remChild(i)} style={{marginTop:18,height:34,border:"none",background:"transparent",cursor:"pointer",color:RE,fontSize:18,padding:"0 6px"}}>×</button>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                <Fld label="Birthday"><Inp type="date" value={c.birthday||""} onChange={v=>{updChild(i,"birthday",v);const ag=calcAge(v);if(typeof ag==="number"&&ag>=0)updChild(i,"grade",gradeFromAge(ag));}}/></Fld>
+                <Fld label="Grade Level"><Slt value={c.grade||""} onChange={v=>updChild(i,"grade",v)} opts={["", ...CHILD_GRADES]}/></Fld>
               </div>
+              <div style={{textAlign:"right",marginTop:4}}><button onClick={()=>remChild(i)} style={{border:"none",background:"transparent",cursor:"pointer",color:RE,fontSize:18,padding:"0 6px"}}>×</button></div>
             </div>
           ))}
           {form.children.length===0&&<div style={{fontSize:11,color:MU,fontStyle:"italic"}}>No children added yet.</div>}
@@ -10621,7 +10623,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   useEffect(()=>{lsSave('visitRecords',visitRecords);},[JSON.stringify(visitRecords)]);
   useEffect(()=>{lsSave('children',children);},[JSON.stringify(children)]);
   // Auto-sync children from member/visitor profiles into Education children list
-  useEffect(()=>{setChildren(cs=>{let u=[...cs];let chg=false;[...members,...visitors].forEach(m=>{(m.children||[]).forEach(mc=>{const cf=mc.first||(mc.name?mc.name.trim().split(" ")[0]:"");const cl=mc.last||(mc.name?mc.name.trim().split(" ").slice(1).join(" "):"");if(!cf)return;const norm=(cf+" "+cl).trim().toLowerCase();const existIdx=u.findIndex(c=>(c.first+" "+c.last).toLowerCase()===norm);if(existIdx>=0){const pn=m.first+" "+m.last;const pp=m.phone||"";if(u[existIdx].parentName!==pn||u[existIdx].parentPhone!==pp){u=[...u];u[existIdx]={...u[existIdx],parentName:pn,parentPhone:pp,parentMemberId:m.id};chg=true;}}else{const rawAge=calcAge(mc.birthday);const age=typeof rawAge==="number"?rawAge:-1;const grade=age>=0?levelFromAge(age):"";const maxId=u.length?Math.max(...u.map(c=>+(c.id)||0)):699;u=[...u,{id:maxId+1,first:cf,last:cl,dob:mc.birthday||"",grade,parentName:m.first+" "+m.last,parentPhone:m.phone||"",parentMemberId:m.id,allergies:[],medical:[],medicalNotes:"",emergencyPickup:"",status:"Active"}];chg=true;}});});return chg?u:cs;});},[JSON.stringify([...members,...visitors].map(m=>({id:m.id,ch:m.children||[],p:m.phone||""})))]);
+  useEffect(()=>{setChildren(cs=>{let u=[...cs];let chg=false;[...members,...visitors].forEach(m=>{(m.children||[]).forEach(mc=>{const cf=mc.first||(mc.name?mc.name.trim().split(" ")[0]:"");const cl=mc.last||(mc.name?mc.name.trim().split(" ").slice(1).join(" "):"");if(!cf)return;const norm=(cf+" "+cl).trim().toLowerCase();const existIdx=u.findIndex(c=>(c.first+" "+c.last).toLowerCase()===norm);if(existIdx>=0){const pn=m.first+" "+m.last;const pp=m.phone||"";const pg=mc.grade||"";if(u[existIdx].parentName!==pn||u[existIdx].parentPhone!==pp||(pg&&u[existIdx].grade!==pg)){u=[...u];u[existIdx]={...u[existIdx],parentName:pn,parentPhone:pp,parentMemberId:m.id,...(pg?{grade:pg}:{})};chg=true;}}else{const rawAge=calcAge(mc.birthday);const age=typeof rawAge==="number"?rawAge:-1;const grade=mc.grade||(age>=0?levelFromAge(age):"");const maxId=u.length?Math.max(...u.map(c=>+(c.id)||0)):699;u=[...u,{id:maxId+1,first:cf,last:cl,dob:mc.birthday||"",grade,parentName:m.first+" "+m.last,parentPhone:m.phone||"",parentMemberId:m.id,allergies:[],medical:[],medicalNotes:"",emergencyPickup:"",status:"Active"}];chg=true;}});});return chg?u:cs;});},[JSON.stringify([...members,...visitors].map(m=>({id:m.id,ch:m.children||[],p:m.phone||""})))]);
   useEffect(()=>{lsSave('classrooms',classrooms);},[JSON.stringify(classrooms)]);
   useEffect(()=>{lsSave('equipment',equipment);},[JSON.stringify(equipment)]);
   useEffect(()=>{lsSave('workOrders',workOrders);},[JSON.stringify(workOrders)]);
