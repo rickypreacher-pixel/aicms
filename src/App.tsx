@@ -1060,7 +1060,7 @@ function BackupRestore({backupData,onRestore}:any){
   );
 }
 
-function ChurchSettingsPage({cs,setCs,members,setMembers,visitors,setVisitors,attendance,giving,prayers,groups,grpMeetings,visitRecords,checkIns,kidsCheckIns,children,pledgeDrives,pledges,weeklyReports,equipment,workOrders,schedMaint,backupData,onRestore}:any){
+function ChurchSettingsPage({cs,setCs,churchId,members,setMembers,visitors,setVisitors,attendance,giving,prayers,groups,grpMeetings,visitRecords,checkIns,kidsCheckIns,children,pledgeDrives,pledges,weeklyReports,equipment,workOrders,schedMaint,backupData,onRestore}:any){
   const [form,setForm]=useState({...cs});
   const [saved,setSaved]=useState(false);
   const [stab,setStab]=useState('general');
@@ -1152,19 +1152,20 @@ function ChurchSettingsPage({cs,setCs,members,setMembers,visitors,setVisitors,at
         const aiKey = localStorage.getItem("ntcc_ai_api_key")||"";
         const elKey = localStorage.getItem("ntcc_el_api_key")||"";
         // Clear all ntcc localStorage keys
-        const prefix = cs._churchId ? `ntcc_${cs._churchId}_` : "ntcc_";
+        const prefix = churchId ? `ntcc_${churchId}_` : "ntcc_";
         const keysToRemove = [];
         for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&(k.startsWith(prefix)||k.startsWith("ntcc_")))keysToRemove.push(k);}
         keysToRemove.forEach(k=>localStorage.removeItem(k));
         // Restore church settings & API keys
-        const csKey = cs._churchId ? `ntcc_${cs._churchId}_church_settings` : "ntcc_church_settings";
+        const csKey = churchId ? `ntcc_${churchId}_church_settings` : "ntcc_church_settings";
         try{localStorage.setItem(csKey,JSON.stringify(savedSettings));}catch(e){}
         if(aiKey) try{localStorage.setItem("ntcc_ai_api_key",aiKey);}catch(e){}
         if(elKey) try{localStorage.setItem("ntcc_el_api_key",elKey);}catch(e){}
         // Write empty blob to Supabase so data doesn't reload from cloud on next sign-in
-        if(cs._churchId){
+        if(churchId){
           const emptyBlob = {members:[],visitors:[],attendance:[],giving:[],prayers:[],groups:[],grpMeetings:[],visitRecords:[],children:[],classrooms:[],equipment:[],workOrders:[],schedMaint:[],supplies:[],checkoutItems:[],checkouts:[],pledgeDrives:[],pledges:[],weeklyReports:[],emailLog:[],recurring:[],custom:[],checkIns:[],incidents:[],rollCalls:[],progressNotes:[],teacherSchedule:[],kidsCheckIns:[],roles:[],users:[],prospects:[],emailTemplates:null,emailConfig:{},permissions:{},churchSettings:savedSettings};
-          await supabase.from('church_data').upsert({church_id:cs._churchId,data:emptyBlob,updated_at:new Date().toISOString()},{onConflict:'church_id'});
+          const {error:clrErr} = await supabase.from('church_data').upsert({church_id:churchId,data:emptyBlob,updated_at:new Date().toISOString()},{onConflict:'church_id'});
+          if(clrErr){alert('Cloud clear failed: '+clrErr.message+'\n\nPlease try again or contact support.');return;}
         }
         window.location.reload();
       }} v="danger" style={{fontSize:13}}>Clear All Data & Reload</Btn>
@@ -11211,7 +11212,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
         {/* Page content */}
         <div style={{flex:1,padding:isMobile?12:24,overflow:"auto"}}>
           {showSetup && <SetupModal onSave={s=>{setChurchSettings(s);setShowSetup(false);}} initialName={churchName||''} initialPastorName={(adminFirst||adminLast)?`Pastor ${[adminFirst,adminLast].filter(Boolean).join(' ')}`:''}/>}
-          {!isMemberPortal && view==="settings" && <ChurchSettingsPage cs={churchSettings} setCs={setChurchSettings} members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} prayers={prayers} groups={groups} grpMeetings={grpMeetings} visitRecords={visitRecords} checkIns={checkIns} kidsCheckIns={kidsCheckIns} children={children} pledgeDrives={pledgeDrives} pledges={pledges} weeklyReports={weeklyReports} equipment={equipment} workOrders={workOrders} schedMaint={schedMaint}
+          {!isMemberPortal && view==="settings" && <ChurchSettingsPage cs={churchSettings} setCs={setChurchSettings} churchId={churchId} members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} prayers={prayers} groups={groups} grpMeetings={grpMeetings} visitRecords={visitRecords} checkIns={checkIns} kidsCheckIns={kidsCheckIns} children={children} pledgeDrives={pledgeDrives} pledges={pledges} weeklyReports={weeklyReports} equipment={equipment} workOrders={workOrders} schedMaint={schedMaint}
             backupData={{members,visitors,attendance,giving,prayers,groups,grpMeetings,visitRecords,checkIns,kidsCheckIns,children,pledgeDrives,pledges,weeklyReports,equipment,workOrders,schedMaint,supplies,checkoutItems,checkouts,users,roles,permissions,recurring,custom,emailLog,emailTemplates,emailConfig,incidents,rollCalls,progressNotes,teacherSchedule,churchSettings}}
             onRestore={(d:any,mode:string)=>{
               const s=(setter:any,key:string,isArr=true)=>{if(d[key]===undefined)return;if(mode==='replace'){setter(d[key]);}else{if(isArr&&Array.isArray(d[key])){setter((cur:any[])=>[...cur,...d[key].filter((n:any)=>!cur.find(x=>String(x.id)===String(n.id)))]);}else{setter(d[key]);}}};
