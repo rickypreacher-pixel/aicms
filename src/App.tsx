@@ -5435,6 +5435,8 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
   const [detailTab,setDetailTab] = useState("personal");
   const [spouseSug,setSpouseSug] = useState<any[]>([]);
   const [childSug,setChildSug] = useState<{[k:number]:any[]}>({});
+  const [fatherSug,setFatherSug] = useState<any[]>([]);
+  const [motherSug,setMotherSug] = useState<any[]>([]);
   const nid = useRef(200);
 
   // ── Filter & Selection ──────────────────────────────────────────
@@ -5590,8 +5592,8 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
       const l = c.last||(c.name?c.name.trim().split(" ").slice(1).join(" "):"");
       return {first:f,last:l,birthday:c.birthday||"",memberId:c.memberId||null};
     });
-    setEditForm({...p,address:p.address||{...EMPTY_ADDR},children:kids,allergies:p.allergies||[],medical:p.medical||[],spouseFirst:spF,spouseLast:spL,spouseId:p.spouseId||null});
-    setSpouseSug([]); setChildSug({});
+    setEditForm({...p,address:p.address||{...EMPTY_ADDR},children:kids,allergies:p.allergies||[],medical:p.medical||[],spouseFirst:spF,spouseLast:spL,spouseId:p.spouseId||null,fatherFirst:p.fatherFirst||"",fatherLast:p.fatherLast||"",fatherId:p.fatherId||null,motherFirst:p.motherFirst||"",motherLast:p.motherLast||"",motherId:p.motherId||null});
+    setSpouseSug([]); setChildSug({}); setFatherSug([]); setMotherSug([]);
     setEditMode(false); setAiMsg(""); setDetailTab("personal");
   };
   const saveEdit = () => {
@@ -5599,9 +5601,10 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
     // Compose spouseName for backward compat display
     const spFull = [editForm.spouseFirst,editForm.spouseLast].filter(Boolean).join(" ");
     const updatedForm = {...editForm, spouseName: spFull||editForm.spouseName||""};
-    // Determine familyId: reuse existing or create new when linking a spouse
+    // Determine familyId: reuse existing or create new when linking a spouse/parent
     let fid = updatedForm.familyId || null;
     if(updatedForm.spouseId && !fid) fid = "fam_"+detail.id;
+    if((updatedForm.fatherId||updatedForm.motherId) && !fid) fid = "fam_"+detail.id;
     if(fid) updatedForm.familyId = fid;
 
     if(detail._type==="members") setMembers((ms:any[])=>ms.map((m:any)=>{
@@ -5617,6 +5620,18 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
       // Bidirectional child link
       if(updatedForm.children&&updatedForm.children.some((c:any)=>c.memberId===m.id)){
         return {...m, familyId:fid||m.familyId};
+      }
+      // Father link: add this person to father's children array
+      if(updatedForm.fatherId && m.id===updatedForm.fatherId){
+        const existing=(m.children||[]).some((c:any)=>c.memberId===detail.id||(c.first===editForm.first&&c.last===editForm.last));
+        if(!existing){return {...m,familyId:fid||m.familyId,children:[...(m.children||[]),{first:editForm.first,last:editForm.last,birthday:editForm.birthday||"",memberId:detail.id}]};}
+        return {...m,familyId:fid||m.familyId};
+      }
+      // Mother link: add this person to mother's children array
+      if(updatedForm.motherId && m.id===updatedForm.motherId){
+        const existing=(m.children||[]).some((c:any)=>c.memberId===detail.id||(c.first===editForm.first&&c.last===editForm.last));
+        if(!existing){return {...m,familyId:fid||m.familyId,children:[...(m.children||[]),{first:editForm.first,last:editForm.last,birthday:editForm.birthday||"",memberId:detail.id}]};}
+        return {...m,familyId:fid||m.familyId};
       }
       return m;
     }));
@@ -6000,6 +6015,36 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
                         );
                       })() : <div style={{fontSize:12,color:MU,fontStyle:"italic"}}>No spouse listed</div>}
                     </SectionCard>
+                    {(detail.fatherFirst||detail.fatherLast) && (
+                      <SectionCard title="Father">
+                        {(()=>{
+                          const fName=[detail.fatherFirst||"",detail.fatherLast||""].filter(Boolean).join(" ");
+                          const linked=detail.fatherId?[...members,...visitors].find((m:any)=>m.id===detail.fatherId):null;
+                          return (<div style={{display:"flex",alignItems:"center",gap:10,padding:"6px 0"}}>
+                            <Av f={detail.fatherFirst||"?"} l={detail.fatherLast||"?"} sz={32}/>
+                            <div style={{flex:1}}>
+                              {linked?<button onClick={()=>openDetail({...linked,_type:members.find((m:any)=>m.id===linked.id)?"members":"visitors"})} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,fontWeight:600,color:N,padding:0,textDecoration:"underline",textDecorationStyle:"dotted",textDecorationColor:N+"66"}}>{fName}</button>:<div style={{fontSize:14,fontWeight:600,color:TX}}>{fName}</div>}
+                              {linked && <div style={{fontSize:11,color:MU}}>{linked.role||linked.stage||""}</div>}
+                            </div>
+                          </div>);
+                        })()}
+                      </SectionCard>
+                    )}
+                    {(detail.motherFirst||detail.motherLast) && (
+                      <SectionCard title="Mother">
+                        {(()=>{
+                          const mName=[detail.motherFirst||"",detail.motherLast||""].filter(Boolean).join(" ");
+                          const linked=detail.motherId?[...members,...visitors].find((m:any)=>m.id===detail.motherId):null;
+                          return (<div style={{display:"flex",alignItems:"center",gap:10,padding:"6px 0"}}>
+                            <Av f={detail.motherFirst||"?"} l={detail.motherLast||"?"} sz={32}/>
+                            <div style={{flex:1}}>
+                              {linked?<button onClick={()=>openDetail({...linked,_type:members.find((m:any)=>m.id===linked.id)?"members":"visitors"})} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,fontWeight:600,color:N,padding:0,textDecoration:"underline",textDecorationStyle:"dotted",textDecorationColor:N+"66"}}>{mName}</button>:<div style={{fontSize:14,fontWeight:600,color:TX}}>{mName}</div>}
+                              {linked && <div style={{fontSize:11,color:MU}}>{linked.role||linked.stage||""}</div>}
+                            </div>
+                          </div>);
+                        })()}
+                      </SectionCard>
+                    )}
                     <SectionCard title={"Children ("+(detail.children||[]).length+")"}>
                       {(detail.children||[]).length===0 ? <div style={{fontSize:12,color:MU,fontStyle:"italic"}}>No children listed</div> :
                         <div style={{display:"flex",flexDirection:"column",gap:6}}>
@@ -6358,6 +6403,98 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
                         )}
                       </div>
                     ))}
+                  </div>
+
+                  {/* ── Father ── */}
+                  <div style={{marginTop:12,marginBottom:12}}>
+                    <div style={{fontSize:11,color:MU,fontWeight:600,marginBottom:6,textTransform:"uppercase",letterSpacing:0.4}}>Father</div>
+                    {editForm.fatherId && (
+                      <div style={{fontSize:11,color:GR,background:GR+"11",border:"0.5px solid "+GR+"44",borderRadius:6,padding:"4px 10px",marginBottom:6,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                        <span>✔ Linked to existing member</span>
+                        <button onClick={()=>setEditForm((f:any)=>({...f,fatherId:null}))} style={{background:"none",border:"none",cursor:"pointer",fontSize:11,color:RE,fontWeight:600,padding:0}}>✕ Unlink</button>
+                      </div>
+                    )}
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,position:"relative"}}>
+                      <Fld label="First Name">
+                        <Inp value={editForm.fatherFirst||""} onChange={v=>{
+                          setEditForm((f:any)=>({...f,fatherFirst:v,fatherId:null}));
+                          const q=(v+" "+(editForm.fatherLast||"")).trim().toLowerCase();
+                          if(q.length<1){setFatherSug([]);return;}
+                          const all=[...members,...visitors].filter((m:any)=>m.id!==detail?.id);
+                          setFatherSug(all.filter((m:any)=>(m.first+" "+m.last).toLowerCase().includes(q)).slice(0,5));
+                        }} placeholder="First name"/>
+                      </Fld>
+                      <Fld label="Last Name">
+                        <Inp value={editForm.fatherLast||""} onChange={v=>{
+                          setEditForm((f:any)=>({...f,fatherLast:v,fatherId:null}));
+                          const q=((editForm.fatherFirst||"")+" "+v).trim().toLowerCase();
+                          if(q.length<1){setFatherSug([]);return;}
+                          const all=[...members,...visitors].filter((m:any)=>m.id!==detail?.id);
+                          setFatherSug(all.filter((m:any)=>(m.first+" "+m.last).toLowerCase().includes(q)).slice(0,5));
+                        }} placeholder="Last name"/>
+                      </Fld>
+                    </div>
+                    {fatherSug.length>0 && (
+                      <div style={{border:"0.5px solid "+BR,borderRadius:8,background:W,boxShadow:"0 4px 12px rgba(0,0,0,0.1)",zIndex:50,marginTop:2}}>
+                        <div style={{fontSize:10,color:MU,padding:"4px 10px",borderBottom:"0.5px solid "+BR}}>Select existing member to link:</div>
+                        {fatherSug.map((m:any)=>(
+                          <div key={m.id} onClick={()=>{setEditForm((f:any)=>({...f,fatherFirst:m.first,fatherLast:m.last,fatherId:m.id}));setFatherSug([]);}}
+                            style={{padding:"7px 12px",cursor:"pointer",fontSize:13,borderBottom:"0.5px solid "+BR+"88",display:"flex",alignItems:"center",gap:8}}
+                            onMouseEnter={e=>(e.currentTarget.style.background=BG)} onMouseLeave={e=>(e.currentTarget.style.background=W)}>
+                            <Av f={m.first} l={m.last} sz={22}/>
+                            <span style={{flex:1}}>{m.first} {m.last}</span>
+                            <span style={{fontSize:11,color:MU}}>{m.role||m.stage||""}</span>
+                          </div>
+                        ))}
+                        <div onClick={()=>setFatherSug([])} style={{padding:"5px 12px",cursor:"pointer",fontSize:11,color:MU,textAlign:"center"}}>✕ Dismiss</div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ── Mother ── */}
+                  <div style={{marginBottom:12}}>
+                    <div style={{fontSize:11,color:MU,fontWeight:600,marginBottom:6,textTransform:"uppercase",letterSpacing:0.4}}>Mother</div>
+                    {editForm.motherId && (
+                      <div style={{fontSize:11,color:GR,background:GR+"11",border:"0.5px solid "+GR+"44",borderRadius:6,padding:"4px 10px",marginBottom:6,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                        <span>✔ Linked to existing member</span>
+                        <button onClick={()=>setEditForm((f:any)=>({...f,motherId:null}))} style={{background:"none",border:"none",cursor:"pointer",fontSize:11,color:RE,fontWeight:600,padding:0}}>✕ Unlink</button>
+                      </div>
+                    )}
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,position:"relative"}}>
+                      <Fld label="First Name">
+                        <Inp value={editForm.motherFirst||""} onChange={v=>{
+                          setEditForm((f:any)=>({...f,motherFirst:v,motherId:null}));
+                          const q=(v+" "+(editForm.motherLast||"")).trim().toLowerCase();
+                          if(q.length<1){setMotherSug([]);return;}
+                          const all=[...members,...visitors].filter((m:any)=>m.id!==detail?.id);
+                          setMotherSug(all.filter((m:any)=>(m.first+" "+m.last).toLowerCase().includes(q)).slice(0,5));
+                        }} placeholder="First name"/>
+                      </Fld>
+                      <Fld label="Last Name">
+                        <Inp value={editForm.motherLast||""} onChange={v=>{
+                          setEditForm((f:any)=>({...f,motherLast:v,motherId:null}));
+                          const q=((editForm.motherFirst||"")+" "+v).trim().toLowerCase();
+                          if(q.length<1){setMotherSug([]);return;}
+                          const all=[...members,...visitors].filter((m:any)=>m.id!==detail?.id);
+                          setMotherSug(all.filter((m:any)=>(m.first+" "+m.last).toLowerCase().includes(q)).slice(0,5));
+                        }} placeholder="Last name"/>
+                      </Fld>
+                    </div>
+                    {motherSug.length>0 && (
+                      <div style={{border:"0.5px solid "+BR,borderRadius:8,background:W,boxShadow:"0 4px 12px rgba(0,0,0,0.1)",zIndex:50,marginTop:2}}>
+                        <div style={{fontSize:10,color:MU,padding:"4px 10px",borderBottom:"0.5px solid "+BR}}>Select existing member to link:</div>
+                        {motherSug.map((m:any)=>(
+                          <div key={m.id} onClick={()=>{setEditForm((f:any)=>({...f,motherFirst:m.first,motherLast:m.last,motherId:m.id}));setMotherSug([]);}}
+                            style={{padding:"7px 12px",cursor:"pointer",fontSize:13,borderBottom:"0.5px solid "+BR+"88",display:"flex",alignItems:"center",gap:8}}
+                            onMouseEnter={e=>(e.currentTarget.style.background=BG)} onMouseLeave={e=>(e.currentTarget.style.background=W)}>
+                            <Av f={m.first} l={m.last} sz={22}/>
+                            <span style={{flex:1}}>{m.first} {m.last}</span>
+                            <span style={{fontSize:11,color:MU}}>{m.role||m.stage||""}</span>
+                          </div>
+                        ))}
+                        <div onClick={()=>setMotherSug([])} style={{padding:"5px 12px",cursor:"pointer",fontSize:11,color:MU,textAlign:"center"}}>✕ Dismiss</div>
+                      </div>
+                    )}
                   </div>
                 </SectionCard>
 
@@ -8548,7 +8685,7 @@ function CheckInPortal({classrooms,children,setChildren,kidsCheckIns,setKidsChec
   const nid=useRef(900);
   const dateCI=kidsCheckIns.filter(c=>c.date===selDate);
   const activeCI=dateCI.filter(c=>!c.checkedOut);
-  const results=search.length>1?children.filter(c=>(c.first+" "+c.last).toLowerCase().includes(search.toLowerCase())&&c.status==="Active"):[];
+  const results=search.length>1?children.filter(c=>{const q=search.toLowerCase();return c.status==="Active"&&((c.first+" "+c.last).toLowerCase().includes(q)||(c.parentName||"").toLowerCase().includes(q));}):[]; 
   const pickChild=c=>{const age=calcAge(c.dob);const minorRooms=classrooms.filter(cl=>cl.checkin!==false&&cl.id<=6);setSelChild(c);setSelClass(minorRooms.find(cl=>typeof age==="number"&&age>=cl.ageMin&&age<=cl.ageMax)||minorRooms.find(cl=>cl.grade===c.grade)||minorRooms[3]||null);setSearch("");};
   const doCheckIn=()=>{if(!selChild||!selClass)return;const code=genCode();const ci={id:nid.current++,childId:selChild.id,classroomId:selClass.id,date:selDate,time:new Date().toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit",hour12:true}),code,checkedOut:false};setKidsCheckIns(cs=>[...cs,ci]);setPrintData({ci,child:selChild,classroom:selClass});setSelChild(null);setSelClass(null);};
   const doCheckOut=id=>{if(!confirm("Verify parent code matches child tag, then check out?"))return;setKidsCheckIns(cs=>cs.map(c=>c.id===id?{...c,checkedOut:true,checkOutAt:new Date().toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit",hour12:true})}:c));};
@@ -10479,8 +10616,8 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   useEffect(()=>{lsSave('grpMeetings',grpMeetings);},[JSON.stringify(grpMeetings)]);
   useEffect(()=>{lsSave('visitRecords',visitRecords);},[JSON.stringify(visitRecords)]);
   useEffect(()=>{lsSave('children',children);},[JSON.stringify(children)]);
-  // Auto-sync children from member profiles into Education children list
-  useEffect(()=>{setChildren(cs=>{let u=[...cs];let chg=false;members.forEach(m=>{(m.children||[]).forEach(mc=>{if(!mc.name||!mc.name.trim())return;const norm=mc.name.trim().toLowerCase();const exists=u.some(c=>(c.first+" "+c.last).toLowerCase()===norm);if(!exists){const pts=mc.name.trim().split(" ");const first=pts[0]||"";const last=pts.slice(1).join(" ")||"";const rawAge=calcAge(mc.birthday);const age=typeof rawAge==="number"?rawAge:-1;const grade=age>=0?levelFromAge(age):"";const maxId=u.length?Math.max(...u.map(c=>+(c.id)||0)):699;u=[...u,{id:maxId+1,first,last,dob:mc.birthday||"",grade,parentName:m.first+" "+m.last,parentPhone:m.phone||"",parentMemberId:m.id,allergies:[],medical:[],medicalNotes:"",emergencyPickup:"",status:"Active"}];chg=true;}});});return chg?u:cs;});},[JSON.stringify(members.map(m=>({id:m.id,ch:m.children||[]})))]);
+  // Auto-sync children from member/visitor profiles into Education children list
+  useEffect(()=>{setChildren(cs=>{let u=[...cs];let chg=false;[...members,...visitors].forEach(m=>{(m.children||[]).forEach(mc=>{const cf=mc.first||(mc.name?mc.name.trim().split(" ")[0]:"");const cl=mc.last||(mc.name?mc.name.trim().split(" ").slice(1).join(" "):"");if(!cf)return;const norm=(cf+" "+cl).trim().toLowerCase();const existIdx=u.findIndex(c=>(c.first+" "+c.last).toLowerCase()===norm);if(existIdx>=0){const pn=m.first+" "+m.last;const pp=m.phone||"";if(u[existIdx].parentName!==pn||u[existIdx].parentPhone!==pp){u=[...u];u[existIdx]={...u[existIdx],parentName:pn,parentPhone:pp,parentMemberId:m.id};chg=true;}}else{const rawAge=calcAge(mc.birthday);const age=typeof rawAge==="number"?rawAge:-1;const grade=age>=0?levelFromAge(age):"";const maxId=u.length?Math.max(...u.map(c=>+(c.id)||0)):699;u=[...u,{id:maxId+1,first:cf,last:cl,dob:mc.birthday||"",grade,parentName:m.first+" "+m.last,parentPhone:m.phone||"",parentMemberId:m.id,allergies:[],medical:[],medicalNotes:"",emergencyPickup:"",status:"Active"}];chg=true;}});});return chg?u:cs;});},[JSON.stringify([...members,...visitors].map(m=>({id:m.id,ch:m.children||[],p:m.phone||""})))]);
   useEffect(()=>{lsSave('classrooms',classrooms);},[JSON.stringify(classrooms)]);
   useEffect(()=>{lsSave('equipment',equipment);},[JSON.stringify(equipment)]);
   useEffect(()=>{lsSave('workOrders',workOrders);},[JSON.stringify(workOrders)]);
