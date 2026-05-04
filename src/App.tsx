@@ -1167,6 +1167,8 @@ function ChurchSettingsPage({cs,setCs,churchId,members,setMembers,visitors,setVi
           const {error:clrErr} = await supabase.from('church_data').upsert({church_id:churchId,data:emptyBlob,updated_at:new Date().toISOString()},{onConflict:'church_id'});
           if(clrErr){alert('Cloud clear failed: '+clrErr.message+'\n\nPlease try again or contact support.');return;}
         }
+        // Set a cross-tab guard so any other open tabs' debounced save won't overwrite the empty cloud blob
+        localStorage.setItem('ntcc_data_cleared', Date.now().toString());
         window.location.reload();
       }} v="danger" style={{fontSize:13}}>Clear All Data & Reload</Btn>
     </div>
@@ -10932,6 +10934,9 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     if(sbSyncTimer.current) clearTimeout(sbSyncTimer.current);
     setCloudSync('saving');
     sbSyncTimer.current = setTimeout(async()=>{
+      // Cross-tab guard: skip save if another tab ran Clear All Data in the last 5 minutes
+      const clearedAt = parseInt(localStorage.getItem('ntcc_data_cleared')||'0');
+      if(clearedAt && Date.now()-clearedAt < 300000){setCloudSync('idle');return;}
       const blob = {members,visitors,attendance,giving,prayers,groups,grpMeetings,visitRecords,
         children,classrooms,equipment,workOrders,schedMaint,supplies,checkoutItems,checkouts,pledgeDrives,pledges,weeklyReports,
         emailLog,emailTemplates,emailConfig,recurring,custom,checkIns,incidents,rollCalls,
