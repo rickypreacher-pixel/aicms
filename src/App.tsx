@@ -10769,6 +10769,8 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   const sbSyncTimer = useRef<any>(null);
   const [syncTrigger,setSyncTrigger] = useState(0);
   const lastSyncAt = useRef(0);
+  const suppressSave = useRef(false);
+  const suppressSaveTimer = useRef<any>(null);
   const [isMobile,setIsMobile] = useState(window.innerWidth<768);
   const [navOpen,setNavOpen] = useState(false);
   const [theme,setTheme] = useState(()=>localStorage.getItem('ntcc_theme')||'classic');
@@ -10959,9 +10961,11 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     if(!churchId) return;
     setCloudSync('loading');
     (async()=>{
-      const {data:row,error} = await supabase.from('church_data').select('data').eq('church_id',churchId).maybeSingle();
+      const {data:row,error} = await supabase.from('church_data').select('data,updated_at').eq('church_id',churchId).maybeSingle();
       setCloudSync('idle');
       if(error||!row?.data) return;
+      // Record when we last loaded from cloud so the save guard can compare
+      if(row.updated_at) lastSyncAt.current = new Date(row.updated_at).getTime();
       const d = row.data;
       // If this blob was from a recent "Clear All Data" (within 10 min), propagate the guard to this device
       // so it doesn't auto-save empty state back to Supabase and overwrite the desktop's new data
@@ -11006,6 +11010,11 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       if(Array.isArray(d.prospects)&&d.prospects.length) setProspects(d.prospects);
       if(d.churchSettings?.name){setChurchSettings(d.churchSettings);try{localStorage.setItem(LS('church_settings'),JSON.stringify(d.churchSettings));}catch(e){}}
       lastSyncAt.current = Date.now();
+      // Suppress the next auto-save triggered by these state changes — we just loaded from cloud,
+      // no need to immediately write back what we just read
+      suppressSave.current = true;
+      if(suppressSaveTimer.current) clearTimeout(suppressSaveTimer.current);
+      suppressSaveTimer.current = setTimeout(()=>{ suppressSave.current = false; }, 8000);
     })();
   },[churchId,syncTrigger]);
 
@@ -11031,10 +11040,22 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       // Cross-tab / cross-device guard: skip save if another tab ran Clear All Data in the last 5 minutes
       const clearedAt = parseInt(localStorage.getItem('ntcc_data_cleared')||'0');
       if(clearedAt && Date.now()-clearedAt < 300000){setCloudSync('idle');return;}
+      // Suppress save triggered by a cloud load (not a user change) — wait for the suppress window to expire
+      if(suppressSave.current){setCloudSync('idle');return;}
       // Empty-state guard: don't overwrite Supabase with blank data unless THIS device intentionally cleared it.
       // This prevents a phone/tab that loaded empty state from wiping the live database.
       const hasAnyData = members.length>0||visitors.length>0||giving.length>0||attendance.length>0||children.length>0||users.length>0;
       if(!hasAnyData && !(clearedAt && Date.now()-clearedAt < 300000)){setCloudSync('idle');return;}
+      // Staleness guard: check if Supabase was updated more recently than our last load.
+      // If so, another device saved after us — re-sync instead of overwriting their changes.
+      const {data:meta} = await supabase.from('church_data').select('updated_at').eq('church_id',churchId).maybeSingle();
+      const remoteTs = meta?.updated_at ? new Date(meta.updated_at).getTime() : 0;
+      if(remoteTs > lastSyncAt.current + 2000){
+        // Remote is newer than our last load — pull the latest data instead of overwriting
+        setSyncTrigger(t=>t+1);
+        setCloudSync('idle');
+        return;
+      }
       const blob = {members,visitors,attendance,giving,prayers,groups,grpMeetings,visitRecords,
         children,classrooms,equipment,workOrders,schedMaint,supplies,checkoutItems,checkouts,pledgeDrives,pledges,weeklyReports,
         emailLog,emailTemplates,emailConfig,recurring,custom,checkIns,incidents,rollCalls,
