@@ -10963,12 +10963,16 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       setCloudSync('idle');
       if(error||!row?.data) return;
       const d = row.data;
-      // If this blob was from a recent "Clear All Data", propagate the guard to this device
+      // If this blob was from a recent "Clear All Data" (within 10 min), propagate the guard to this device
       // so it doesn't auto-save empty state back to Supabase and overwrite the desktop's new data
       if(d._clearedAt && Date.now()-d._clearedAt < 600000){
         localStorage.setItem('ntcc_data_cleared', d._clearedAt.toString());
         return; // don't load the empty blob into state — wait for next poll to get real data
       }
+      // Safety check: if Supabase blob has no meaningful data, don't wipe our local state
+      const cloudHasData = (Array.isArray(d.members)&&d.members.length>0)||(Array.isArray(d.visitors)&&d.visitors.length>0)||(Array.isArray(d.giving)&&d.giving.length>0)||(Array.isArray(d.attendance)&&d.attendance.length>0);
+      const localHasData = members.length>0||visitors.length>0||giving.length>0||attendance.length>0;
+      if(!cloudHasData && localHasData) return; // cloud is empty but we have local data — don't overwrite
       if(Array.isArray(d.members)&&d.members.length) setMembers(d.members);
       if(Array.isArray(d.visitors)&&d.visitors.length) setVisitors(d.visitors);
       if(Array.isArray(d.attendance)&&d.attendance.length) setAttendance(d.attendance);
@@ -11027,6 +11031,10 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       // Cross-tab / cross-device guard: skip save if another tab ran Clear All Data in the last 5 minutes
       const clearedAt = parseInt(localStorage.getItem('ntcc_data_cleared')||'0');
       if(clearedAt && Date.now()-clearedAt < 300000){setCloudSync('idle');return;}
+      // Empty-state guard: don't overwrite Supabase with blank data unless THIS device intentionally cleared it.
+      // This prevents a phone/tab that loaded empty state from wiping the live database.
+      const hasAnyData = members.length>0||visitors.length>0||giving.length>0||attendance.length>0||children.length>0||users.length>0;
+      if(!hasAnyData && !(clearedAt && Date.now()-clearedAt < 300000)){setCloudSync('idle');return;}
       const blob = {members,visitors,attendance,giving,prayers,groups,grpMeetings,visitRecords,
         children,classrooms,equipment,workOrders,schedMaint,supplies,checkoutItems,checkouts,pledgeDrives,pledges,weeklyReports,
         emailLog,emailTemplates,emailConfig,recurring,custom,checkIns,incidents,rollCalls,
