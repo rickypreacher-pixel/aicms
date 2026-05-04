@@ -9015,6 +9015,7 @@ function CheckInPortal({classrooms,children,setChildren,kidsCheckIns,setKidsChec
 
 function ChildrenRoster({children,setChildren,classrooms,members,setMembers,kidsCheckIns,incidents}){
   const [search,setSearch]=useState("");
+  const [cDrop,setCDrop]=useState(false);
   const [filterGrade,setFilterGrade]=useState("all");
   const [modal,setModal]=useState(false);
   const [editing,setEditing]=useState(null);
@@ -9057,7 +9058,26 @@ function ChildrenRoster({children,setChildren,classrooms,members,setMembers,kids
   return(
     <div>
       <div style={{display:"flex",gap:8,marginBottom:16,alignItems:"center"}}>
-        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search children..." style={{flex:1,padding:"8px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}/>
+        <div style={{flex:1,position:"relative"}}>
+          <input value={search} onChange={e=>{setSearch(e.target.value);setCDrop(true);}} onFocus={()=>setCDrop(true)} onBlur={()=>setTimeout(()=>setCDrop(false),150)} placeholder="Search children..." style={{width:"100%",padding:"8px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",boxSizing:"border-box"}}/>
+          {search&&<button onClick={()=>{setSearch("");setCDrop(false);}} style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",fontSize:16,color:MU,lineHeight:1}}>×</button>}
+          {cDrop&&search.trim().length>0&&(
+            <div style={{position:"absolute",top:"calc(100% + 2px)",left:0,right:0,background:W,border:"0.5px solid "+BR,borderRadius:8,boxShadow:"0 4px 16px rgba(0,0,0,.10)",zIndex:200,maxHeight:200,overflowY:"auto"}}>
+              {(children as any[]).filter((c:any)=>{const q=search.toLowerCase();return c.first?.toLowerCase().includes(q)||c.last?.toLowerCase().includes(q)||(c.first+" "+c.last).toLowerCase().includes(q);}).length===0
+                ?<div style={{padding:"10px 14px",fontSize:12,color:MU}}>No children found</div>
+                :(children as any[]).filter((c:any)=>{const q=search.toLowerCase();return c.first?.toLowerCase().includes(q)||c.last?.toLowerCase().includes(q)||(c.first+" "+c.last).toLowerCase().includes(q);}).map((c:any)=>(
+                  <div key={c.id} onMouseDown={()=>{setSearch(c.first+" "+c.last);setCDrop(false);}}
+                    style={{padding:"9px 14px",cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",gap:10,borderBottom:"0.5px solid "+BR+"55"}}
+                    onMouseEnter={e=>e.currentTarget.style.background="#f5f3ff"}
+                    onMouseLeave={e=>e.currentTarget.style.background=W}>
+                    <Av f={c.first} l={c.last} sz={26}/>
+                    <div style={{fontWeight:500,color:N}}>{c.first} {c.last}</div>
+                  </div>
+                ))
+              }
+            </div>
+          )}
+        </div>
         <select value={filterGrade} onChange={e=>setFilterGrade(e.target.value)} style={{padding:"8px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W}}>
           <option value="all">All levels</option>
           {CHURCH_LEVELS.map(l=><option key={l.name} value={l.name}>{l.name}</option>)}
