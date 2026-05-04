@@ -1163,7 +1163,7 @@ function ChurchSettingsPage({cs,setCs,churchId,members,setMembers,visitors,setVi
         if(elKey) try{localStorage.setItem("ntcc_el_api_key",elKey);}catch(e){}
         // Write empty blob to Supabase so data doesn't reload from cloud on next sign-in
         if(churchId){
-          const emptyBlob = {members:[],visitors:[],attendance:[],giving:[],prayers:[],groups:[],grpMeetings:[],visitRecords:[],children:[],classrooms:[],equipment:[],workOrders:[],schedMaint:[],supplies:[],checkoutItems:[],checkouts:[],pledgeDrives:[],pledges:[],weeklyReports:[],emailLog:[],recurring:[],custom:[],checkIns:[],incidents:[],rollCalls:[],progressNotes:[],teacherSchedule:[],kidsCheckIns:[],roles:[],users:[],prospects:[],emailTemplates:null,emailConfig:{},permissions:{},churchSettings:savedSettings};
+          const emptyBlob = {members:[],visitors:[],attendance:[],giving:[],prayers:[],groups:[],grpMeetings:[],visitRecords:[],children:[],classrooms:[],equipment:[],workOrders:[],schedMaint:[],supplies:[],checkoutItems:[],checkouts:[],pledgeDrives:[],pledges:[],weeklyReports:[],emailLog:[],recurring:[],custom:[],checkIns:[],incidents:[],rollCalls:[],progressNotes:[],teacherSchedule:[],kidsCheckIns:[],roles:[],users:[],prospects:[],emailTemplates:null,emailConfig:{},permissions:{},churchSettings:savedSettings,_clearedAt:Date.now()};
           const {error:clrErr} = await supabase.from('church_data').upsert({church_id:churchId,data:emptyBlob,updated_at:new Date().toISOString()},{onConflict:'church_id'});
           if(clrErr){alert('Cloud clear failed: '+clrErr.message+'\n\nPlease try again or contact support.');return;}
         }
@@ -10767,6 +10767,8 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   // ── Cloud sync state ──
   const [cloudSync,setCloudSync] = useState<'idle'|'loading'|'saving'|'saved'|'error'>('idle');
   const sbSyncTimer = useRef<any>(null);
+  const [syncTrigger,setSyncTrigger] = useState(0);
+  const lastSyncAt = useRef(0);
   const [isMobile,setIsMobile] = useState(window.innerWidth<768);
   const [navOpen,setNavOpen] = useState(false);
   const [theme,setTheme] = useState(()=>localStorage.getItem('ntcc_theme')||'classic');
@@ -10961,6 +10963,12 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       setCloudSync('idle');
       if(error||!row?.data) return;
       const d = row.data;
+      // If this blob was from a recent "Clear All Data", propagate the guard to this device
+      // so it doesn't auto-save empty state back to Supabase and overwrite the desktop's new data
+      if(d._clearedAt && Date.now()-d._clearedAt < 600000){
+        localStorage.setItem('ntcc_data_cleared', d._clearedAt.toString());
+        return; // don't load the empty blob into state — wait for next poll to get real data
+      }
       if(Array.isArray(d.members)&&d.members.length) setMembers(d.members);
       if(Array.isArray(d.visitors)&&d.visitors.length) setVisitors(d.visitors);
       if(Array.isArray(d.attendance)&&d.attendance.length) setAttendance(d.attendance);
@@ -10993,7 +11001,21 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       if(Array.isArray(d.users)&&d.users.length) setUsers(d.users);
       if(Array.isArray(d.prospects)&&d.prospects.length) setProspects(d.prospects);
       if(d.churchSettings?.name){setChurchSettings(d.churchSettings);try{localStorage.setItem(LS('church_settings'),JSON.stringify(d.churchSettings));}catch(e){}}
+      lastSyncAt.current = Date.now();
     })();
+  },[churchId,syncTrigger]);
+
+  // ── Keep all devices in sync: poll every 60 s + re-sync when tab becomes visible ──
+  useEffect(()=>{
+    if(!churchId) return;
+    const trigger = ()=>{
+      if(Date.now()-lastSyncAt.current < 30000) return; // throttle: max once per 30 s
+      setSyncTrigger(t=>t+1);
+    };
+    const interval = setInterval(trigger, 60000);
+    const onVisible = ()=>{ if(document.visibilityState==='visible') trigger(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return()=>{ clearInterval(interval); document.removeEventListener('visibilitychange', onVisible); };
   },[churchId]);
 
   // ── Debounced Supabase cloud-save (3 s after last change) ──
@@ -11002,7 +11024,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     if(sbSyncTimer.current) clearTimeout(sbSyncTimer.current);
     setCloudSync('saving');
     sbSyncTimer.current = setTimeout(async()=>{
-      // Cross-tab guard: skip save if another tab ran Clear All Data in the last 5 minutes
+      // Cross-tab / cross-device guard: skip save if another tab ran Clear All Data in the last 5 minutes
       const clearedAt = parseInt(localStorage.getItem('ntcc_data_cleared')||'0');
       if(clearedAt && Date.now()-clearedAt < 300000){setCloudSync('idle');return;}
       const blob = {members,visitors,attendance,giving,prayers,groups,grpMeetings,visitRecords,
