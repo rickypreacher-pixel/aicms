@@ -10205,7 +10205,7 @@ function ManualPage(){
         <div style={{background:N,borderRadius:12,padding:'20px 24px',marginBottom:20}}>
           <div style={{color:'#fff',fontSize:21,fontWeight:600,letterSpacing:0.3}}>ChurchOS Staff Manual</div>
           <div style={{color:G,fontSize:13,marginTop:4}}>New Testament Christian Church — Administrator Guide</div>
-          <div style={{color:'#7a9acc',fontSize:12,marginTop:6}}>Version 6.0 · April 2026 · For internal staff use</div>
+          <div style={{color:'#7a9acc',fontSize:12,marginTop:6}}>Version 6.1 · May 2026 · For internal staff use</div>
         </div>
 
         <Sec><H id="s1">1. Getting Started</H>
@@ -10337,7 +10337,7 @@ function ManualPage(){
         <Sec><H id="s7">7. Education Department & Check-In</H>
           <P>The <B>Education</B> section is a full-featured children's ministry platform with secure check-in, classroom management, roll call, incident tracking, and printed security labels.</P>
           <H3>Tabs Overview</H3>
-          <Ul><Li><B>Overview</B> — live dashboard: today's check-ins, active classroom counts, teacher on duty</Li><Li><B>Check-In</B> — search and check children in/out with printable security labels</Li><Li><B>Roll Call</B> — take structured attendance by classroom for a service date</Li><Li><B>Children</B> — full roster of registered children with medical and allergy info</Li><Li><B>Progress</B> — track individual child spiritual development notes</Li><Li><B>Classrooms</B> — manage room names, age ranges, capacities, and colors</Li><Li><B>Teachers</B> — assign teachers to classrooms and manage weekly schedules</Li><Li><B>Incidents</B> — log and track behavioral or medical incidents</Li><Li><B>Reports</B> — enrollment and attendance reports by classroom or period</Li><Li><B>🖨 Printer</B> — configure the label size for your label maker</Li></Ul>
+          <Ul><Li><B>Overview</B> — live dashboard: today's check-ins, active classroom counts, teacher on duty</Li><Li><B>Check-In</B> — search and check children in/out with printable security labels</Li><Li><B>Roll Call</B> — take structured attendance by classroom for a service date</Li><Li><B>Children</B> — searchable roster of all registered children with medical and allergy info</Li><Li><B>Progress</B> — track individual child spiritual development notes</Li><Li><B>Classrooms</B> — manage room names, age ranges, capacities, and colors</Li><Li><B>Teachers</B> — assign teachers to classrooms and manage weekly schedules</Li><Li><B>Incidents</B> — log and track behavioral or medical incidents</Li><Li><B>Reports</B> — enrollment and attendance reports by classroom or period</Li><Li><B>🖨 Printer</B> — configure the label size for your label maker</Li></Ul>
           <H3>Checking In a Child</H3>
           <Ol><Li>Go to <B>Education → Check-In</B></Li><Li>Type the child's name in the search box — results appear after 2 characters</Li><Li>Click the child's name to select them — a classroom is auto-suggested based on their age</Li><Li>Confirm or select a different classroom if needed</Li><Li>Click <B>Check In and Print Labels</B></Li><Li>The label preview opens — click <B>Print Both Labels</B> to print</Li><Li>Two labels print: a <B>child name tag</B> and a <B>parent pickup stub</B> with a 4-character security code</Li></Ol>
           <H3>Checking Out a Child</H3>
@@ -10345,6 +10345,10 @@ function ManualPage(){
           <H3>Registering a New Child at the Kiosk</H3>
           <Ol><Li>If the child is not found in search, click <B>+ Add New Child</B></Li><Li>Enter name, date of birth, level/grade, parent name, parent phone, emergency pickup, and any medical/allergy info</Li><Li>Click <B>Register and Continue</B> — the child is added to the roster and ready to check in immediately</Li></Ol>
           <Note>Children listed on a parent member's Family tab appear automatically in Check-In search without separate registration. Parent contact info is pre-filled.</Note>
+          <H3>Children Tab — Searching the Roster</H3>
+          <P>The <B>Children</B> tab contains the full roster of registered children. Use the <B>search bar</B> at the top left to quickly find any child:</P>
+          <Ul><Li>Type any part of the child's <B>first or last name</B> — a dropdown appears immediately from the first character</Li><Li>Each suggestion shows the child's <B>avatar</B> and <B>full name</B></Li><Li>Click a name to select it — the roster filters to show only that child's row</Li><Li>Click the <B>× button</B> inside the search box to clear the search and return to the full list</Li></Ul>
+          <Tip>The autocomplete dropdown closes automatically when you click outside it or press Tab. The grade filter dropdown on the right works independently — you can combine both at the same time.</Tip>
           <H3>Setting Up the Label Printer</H3>
           <Ol><Li>Go to <B>Education → 🖨 Printer</B> and select the preset matching your printer and label stock</Li><Li>Your selection saves automatically — configure it once per installation</Li><Li>See Section 19 for detailed label printer setup instructions</Li></Ol>
         </Sec>
@@ -10436,7 +10440,8 @@ function ManualPage(){
         <Sec><H id="s14">14. Access Control</H>
           <P>The <B>Access Control</B> section manages all staff user accounts, roles, and permissions. Only Super Administrators can access this section.</P>
           <H3>Step 1 — Administrator: Create a User Record</H3>
-          <Ol><Li>Go to <B>Access Control</B> in the sidebar and click <B>+ Add User</B></Li><Li>Select the staff member's name from the member dropdown</Li><Li>Enter their <B>email address</B> (they will use this to sign in)</Li><Li>Assign a <B>Role</B> (see Built-In Roles below) and set status to <B>Active</B></Li><Li>Set a 4-digit <B>PIN</B> for kiosk check-in if needed, then click <B>Save</B></Li></Ol>
+          <Ol><Li>Go to <B>Access Control</B> in the sidebar and click <B>+ Add User</B></Li><Li>In the <B>Select Member</B> field, start typing the staff member's first or last name — an autocomplete dropdown appears with matching members showing their avatar and role. Click the correct name to select them. A green border and <B>✓ Member selected</B> confirmation appear when a member is linked. Click <B>×</B> to clear and search again.</Li><Li>Enter their <B>email address</B> (they will use this to sign in)</Li><Li>Assign a <B>Role</B> (see Built-In Roles below) and set status to <B>Active</B></Li><Li>Set a 4-digit <B>PIN</B> for kiosk check-in if needed, then click <B>Save</B></Li></Ol>
+          <Note>The Select Member autocomplete only shows members who are not already assigned to another user account. If a member does not appear in search, they may already have a linked user record.</Note>
           <H3>Step 2 — Administrator: Share the Church Access Code</H3>
           <P>At the top of the Access Control page, a <B>Staff Access Code</B> banner displays your church's unique code. Click <B>Copy</B> and share it privately with the staff member (e.g. by text or email). This code links their account to your church's data.</P>
           <Warn>Keep the Staff Access Code confidential. Anyone with this code can create a staff account linked to your church. Rotate it by contacting your system administrator if it is ever shared unintentionally.</Warn>
@@ -10494,6 +10499,16 @@ function ManualPage(){
           <H3>Merge Tool Tab</H3>
           <P>The Merge Tool identifies and resolves duplicate member or visitor records in your database.</P>
           <Ol><Li>Go to <B>Settings → Merge Tool</B></Li><Li>The tool lists potential duplicate pairs based on similar names</Li><Li>For each pair, select which record to keep as the <B>primary</B></Li><Li>Click <B>Merge</B> — data from both records is combined into the primary record</Li></Ol>
+          <H3>Breeze ChMS Import Tab</H3>
+          <P>The <B>Breeze Import</B> tab lets you migrate member data directly from a Breeze ChMS CSV export into ChurchOS in a few clicks.</P>
+          <Ol><Li>In Breeze, export your people list as a <B>CSV file</B> (People → Export)</Li><Li>Go to <B>Settings → Breeze Import</B> in ChurchOS and click <B>Choose CSV File</B></Li><Li>ChurchOS auto-maps Breeze columns to ChurchOS fields (first name, last name, phone, email, birthday, address, etc.) — review the mapping on screen</Li><Li>A <B>preview table</B> shows how each row will be imported. Rows that exactly match an existing member (same first name + last name) are flagged as potential duplicates and skipped by default</Li><Li>Click <B>Import Members</B> to confirm — all new records are added to your Members list instantly</Li></Ol>
+          <Tip>Run a Backup first (Settings → Backup & Restore → Download Backup) before importing, so you can restore if anything looks wrong.</Tip>
+          <Note>The import maps these Breeze fields automatically: First Name, Last Name, Phone (mobile/home/work), Email, Birthday, Address (street, city, state, zip), Gender, Status, and Join Date. Any unmapped columns are ignored.</Note>
+          <H3>Clear All Data — Go Live</H3>
+          <P>The <B>Clear All Data &amp; Reload</B> button is a one-time action used when transitioning from a test/demo setup to a live production database. It permanently deletes all church data from both local storage and the cloud.</P>
+          <Warn>This action is irreversible. It deletes every member, visitor, attendance record, giving record, prayer request, group, children record, and all other data. Always download a <B>Backup</B> before using this button. Only Super Administrators should have access to this action.</Warn>
+          <Ol><Li>Download a backup first: <B>Settings → Backup &amp; Restore → Download Backup</B></Li><Li>Scroll to the bottom of <B>Settings → General</B></Li><Li>Click <B>Clear All Data &amp; Reload</B></Li><Li>Confirm the prompt — ChurchOS wipes all local storage and cloud data, then reloads to a blank state</Li></Ol>
+          <Note>If you have multiple browser tabs open, close all other ChurchOS tabs before clicking Clear All Data. The system includes a 5-minute guard that prevents other open tabs from accidentally re-saving old data after the wipe.</Note>
           <H3>Backup & Restore Tab</H3>
           <P>See <B>Section 17</B> for full Backup & Restore instructions.</P>
         </Sec>
@@ -10590,7 +10605,7 @@ function ManualPage(){
         </Sec>
 
         <div style={{textAlign:'center',padding:'24px 0 8px',borderTop:'0.5px solid '+BR,marginTop:4}}>
-          <div style={{fontSize:12,color:MU}}>ChurchOS Staff Manual · New Testament Christian Church · Version 6.0 · April 2026</div>
+          <div style={{fontSize:12,color:MU}}>ChurchOS Staff Manual · New Testament Christian Church · Version 6.1 · May 2026</div>
           <div style={{fontSize:11,color:MU,marginTop:4}}>For technical support or feature requests, contact your system administrator.</div>
         </div>
       </div>
