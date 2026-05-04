@@ -2042,6 +2042,8 @@ function UsersTab({members,users,setUsers,roles,permissions,currentUser,churchId
   const [overrideModal,setOverrideModal] = useState(null);
   const [confirmModal,setConfirmModal] = useState(null);
   const [codeCopied,setCodeCopied] = useState(false);
+  const [mSearch,setMSearch] = useState("");
+  const [mDropOpen,setMDropOpen] = useState(false);
   const nid = useRef(Math.max(299,...users.map(u=>+(u.id)||0))+1);
 
   const isAdmin = currentUser?.superAdmin || (currentUser?.roleId && roles.find(r=>r.id===currentUser.roleId)?.name==="Administrator");
@@ -2060,11 +2062,12 @@ function UsersTab({members,users,setUsers,roles,permissions,currentUser,churchId
 
   const openAdd = () => {
     if(!isAdmin) { alert("Only administrators can add users."); return; }
-    setEditU(null); setForm({memberId:"",roleId:"",email:"",password:"",pin:"",status:"Pending"}); setModal(true);
+    setEditU(null); setForm({memberId:"",roleId:"",email:"",password:"",pin:"",status:"Pending"}); setMSearch(""); setMDropOpen(false); setModal(true);
   };
   const openEdit = u => {
     if(!isAdmin) { alert("Only administrators can edit users."); return; }
-    setEditU(u); setForm({memberId:u.memberId,roleId:u.roleId||"",email:u.email||"",password:u.password,pin:u.pin,status:u.status}); setModal(true);
+    setEditU(u); setForm({memberId:u.memberId,roleId:u.roleId||"",email:u.email||"",password:u.password,pin:u.pin,status:u.status});
+    const m = members.find(x=>String(x.id)===String(u.memberId)); setMSearch(m?m.first+" "+m.last:""); setMDropOpen(false); setModal(true);
   };
   const save = () => {
     if(!form.memberId||!form.roleId||!form.password||form.pin.length<4){alert("All fields required. PIN must be 4 digits.");return;}
@@ -2193,10 +2196,40 @@ function UsersTab({members,users,setUsers,roles,permissions,currentUser,churchId
       {/* Add/Edit User Modal */}
       <Modal open={modal} onClose={()=>setModal(false)} title={editU?"Edit User":"Add System User"}>
         <Fld label="Select Member *">
-          <select value={form.memberId} onChange={e=>setForm(f=>({...f,memberId:+e.target.value}))} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}>
-            <option value="">Select a member</option>
-            {members.map(m=>{const taken=used.includes(m.id)&&(!editU||String(m.id)!==String(editU.memberId));return(<option key={m.id} value={m.id} disabled={taken}>{m.first} {m.last}{m.role?" ("+m.role+")":""}{taken?" — already assigned":""}</option>);})}
-          </select>
+          <div style={{position:"relative"}}>
+            <input
+              value={mSearch}
+              onChange={e=>{setMSearch(e.target.value);setMDropOpen(true);if(!e.target.value)setForm(f=>({...f,memberId:""}));}}
+              onFocus={()=>setMDropOpen(true)}
+              onBlur={()=>setTimeout(()=>setMDropOpen(false),150)}
+              placeholder="Search by first or last name..."
+              style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+(form.memberId?GR:BR),borderRadius:8,fontSize:13,outline:"none",boxSizing:"border-box",background:W}}
+            />
+            {mSearch && <button onClick={()=>{setMSearch("");setForm(f=>({...f,memberId:""}));setMDropOpen(false);}} style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",fontSize:16,color:MU,lineHeight:1}}>×</button>}
+            {mDropOpen && mSearch.trim().length>0 && (
+              <div style={{position:"absolute",top:"calc(100% + 2px)",left:0,right:0,background:W,border:"0.5px solid "+BR,borderRadius:8,boxShadow:"0 4px 16px rgba(0,0,0,.10)",zIndex:200,maxHeight:220,overflowY:"auto"}}>
+                {avail.filter(m=>{
+                  const q=mSearch.toLowerCase();
+                  return m.first?.toLowerCase().includes(q)||m.last?.toLowerCase().includes(q)||(m.first+" "+m.last).toLowerCase().includes(q);
+                }).length===0
+                  ? <div style={{padding:"10px 14px",fontSize:12,color:MU}}>No members found</div>
+                  : avail.filter(m=>{
+                      const q=mSearch.toLowerCase();
+                      return m.first?.toLowerCase().includes(q)||m.last?.toLowerCase().includes(q)||(m.first+" "+m.last).toLowerCase().includes(q);
+                    }).map(m=>(
+                      <div key={m.id} onMouseDown={()=>{setForm(f=>({...f,memberId:m.id}));setMSearch(m.first+" "+m.last);setMDropOpen(false);}}
+                        style={{padding:"9px 14px",cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",gap:10,borderBottom:"0.5px solid "+BR+"55"}}
+                        onMouseEnter={e=>e.currentTarget.style.background="#f5f3ff"}
+                        onMouseLeave={e=>e.currentTarget.style.background=W}>
+                        <Av f={m.first} l={m.last} sz={28}/>
+                        <div><div style={{fontWeight:500,color:N}}>{m.first} {m.last}</div>{m.role&&<div style={{fontSize:11,color:MU}}>{m.role}</div>}</div>
+                      </div>
+                    ))
+                }
+              </div>
+            )}
+          </div>
+          {form.memberId && <div style={{fontSize:11,color:GR,marginTop:3}}>✓ Member selected</div>}
         </Fld>
         <Fld label="Staff Login Email" style={{marginBottom:4}}>
           <Inp type="email" value={form.email} onChange={v=>setForm(f=>({...f,email:v}))} placeholder="staff@email.com"/>
