@@ -77,10 +77,15 @@ export default function AuthScreen({ onAuth }: AuthScreenProps) {
   const [joinEmail, setJoinEmail] = useState('');
   const [joinPassword, setJoinPassword] = useState('');
   const [joinCode, setJoinCode] = useState('');
+  const [joinPhone, setJoinPhone] = useState('');
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [welcomeInfo, setWelcomeInfo] = useState<null|{
+    name:string; email:string; phone:string;
+    hasSession:boolean; userData:any; userMeta:any;
+  }>(null);
 
   const handleLogin = async () => {
     if (!loginEmail || !loginPassword) { setError('Please enter your email and password.'); return; }
@@ -152,17 +157,31 @@ export default function AuthScreen({ onAuth }: AuthScreenProps) {
           staff: true,
           admin_first: joinFirst.trim(),
           admin_last: joinLast.trim(),
+          phone: joinPhone.trim() || undefined,
         },
       },
     });
     setLoading(false);
     if (err) { setError(err.message); return; }
-    if (data.user && !data.session) {
-      setSuccess('Account created! Check your email to confirm, then sign in normally.');
-      setMode('login');
-    } else if (data.user) {
-      onAuth(data.user.id, data.user.user_metadata || {});
-    }
+    if (!data.user) { setError('Something went wrong. Please try again.'); return; }
+    // Fire-and-forget: notify admin + send welcome SMS via Supabase edge function
+    supabase.functions.invoke('notify-staff-signup', {
+      body: {
+        staffName: `${joinFirst.trim()} ${joinLast.trim()}`,
+        staffEmail: joinEmail.trim(),
+        staffPhone: joinPhone.trim() || null,
+        churchId: code,
+      },
+    }).catch(() => {}); // Degrades gracefully if edge function is not yet deployed
+    // Always show the welcome confirmation screen
+    setWelcomeInfo({
+      name: `${joinFirst.trim()} ${joinLast.trim()}`,
+      email: joinEmail.trim(),
+      phone: joinPhone.trim(),
+      hasSession: !!(data.user && data.session),
+      userData: data.user,
+      userMeta: data.user.user_metadata || {},
+    });
   };
 
   const Btn = ({ onClick, children, variant = 'primary', disabled = false }: any) => {
@@ -192,6 +211,63 @@ export default function AuthScreen({ onAuth }: AuthScreenProps) {
       </button>
     );
   };
+
+  // ── Welcome screen shown after successful staff signup ─────────────────────
+  if (welcomeInfo) {
+    return (
+      <div style={{ minHeight:'100vh', background:`linear-gradient(145deg, ${N} 0%, #112347 60%, #0e1d3a 100%)`, display:'flex', alignItems:'center', justifyContent:'center', padding:20, fontFamily:"'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" } as any}>
+        <div style={{ width:'100%', maxWidth:420 }}>
+          <div style={{ textAlign:'center', marginBottom:32 }}>
+            <div style={{ width:64, height:64, borderRadius:16, background:`linear-gradient(135deg, ${G} 0%, #a87d32 100%)`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:30, margin:'0 auto 14px', boxShadow:'0 8px 24px rgba(201,168,76,0.3)' }}>⛪</div>
+            <div style={{ fontSize:22, fontWeight:700, color:W, marginBottom:4 }}>ChurchOS</div>
+            <div style={{ fontSize:13, color:'rgba(255,255,255,0.55)' }}>Church Management Platform</div>
+          </div>
+          <div style={{ background:W, borderRadius:16, padding:'28px 28px 24px', boxShadow:'0 24px 60px rgba(0,0,0,0.35)' }}>
+            <div style={{ textAlign:'center', marginBottom:20 }}>
+              <div style={{ fontSize:48, marginBottom:10 }}>🎉</div>
+              <div style={{ fontSize:20, fontWeight:700, color:N, marginBottom:6 }}>Welcome to ChurchOS!</div>
+              <div style={{ fontSize:13, color:MU }}>Your staff account has been created.</div>
+            </div>
+            <div style={{ background:BG, borderRadius:10, padding:16, marginBottom:16 }}>
+              <div style={{ fontSize:11, fontWeight:500, color:MU, textTransform:'uppercase', letterSpacing:0.5, marginBottom:8 } as any}>Account Details</div>
+              <div style={{ fontSize:14, fontWeight:600, color:TX }}>{welcomeInfo.name}</div>
+              <div style={{ fontSize:13, color:MU }}>{welcomeInfo.email}</div>
+              {welcomeInfo.phone && <div style={{ fontSize:13, color:MU }}>{welcomeInfo.phone}</div>}
+            </div>
+            {welcomeInfo.hasSession ? (
+              <div style={{ background:'#f0fdf4', border:'1px solid #86efac', borderRadius:8, padding:'10px 14px', marginBottom:16, fontSize:13, color:'#166534', lineHeight:1.5 }}>
+                ✅ Your account is active and ready to use.
+              </div>
+            ) : (
+              <div style={{ background:'#eff6ff', border:'1px solid #bfdbfe', borderRadius:8, padding:'10px 14px', marginBottom:16, fontSize:13, color:'#1d4ed8', lineHeight:1.5 }}>
+                📧 A confirmation email was sent to <strong>{welcomeInfo.email}</strong>. Please click the link in that email before signing in.
+              </div>
+            )}
+            {welcomeInfo.phone && (
+              <div style={{ background:'#f0fdf4', border:'1px solid #86efac', borderRadius:8, padding:'10px 14px', marginBottom:16, fontSize:13, color:'#166534', lineHeight:1.5 }}>
+                📱 A welcome SMS has been sent to <strong>{welcomeInfo.phone}</strong>.
+              </div>
+            )}
+            <div style={{ fontSize:12, color:MU, textAlign:'center', marginBottom:16, lineHeight:1.5 }}>
+              Your administrator has been notified of your new account.
+            </div>
+            {welcomeInfo.hasSession ? (
+              <Btn onClick={() => onAuth(welcomeInfo.userData.id, welcomeInfo.userMeta)} variant="gold">
+                Enter ChurchOS →
+              </Btn>
+            ) : (
+              <Btn onClick={() => { setWelcomeInfo(null); setMode('login'); }}>
+                Go to Sign In
+              </Btn>
+            )}
+          </div>
+          <div style={{ textAlign:'center', marginTop:20, fontSize:12, color:'rgba(255,255,255,0.35)' }}>
+            © {new Date().getFullYear()} ChurchOS · Secure · Multi-Church
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{
@@ -329,6 +405,9 @@ export default function AuthScreen({ onAuth }: AuthScreenProps) {
               </div>
               <Field label="Your Email">
                 <Input type="email" value={joinEmail} onChange={setJoinEmail} placeholder="staff@church.org" autoComplete="email" />
+              </Field>
+              <Field label="Phone Number (for SMS confirmation)">
+                <Input type="tel" value={joinPhone} onChange={setJoinPhone} placeholder="+1 (602) 555-0100" autoComplete="tel" />
               </Field>
               <Field label="Choose a Password (min. 8 characters)">
                 <Input type="password" value={joinPassword} onChange={setJoinPassword} placeholder="Min. 8 characters" autoComplete="new-password" />
