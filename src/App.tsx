@@ -10805,9 +10805,9 @@ function ManualPage(){
     {id:'s6',label:'7. Groups Ministry'},{id:'s7',label:'8. Education & Check-In'},{id:'s8',label:'9. Event Calendar'},
     {id:'s9',label:'10. Attendance'},{id:'s10',label:'11. Giving & Pledges'},{id:'s11',label:'12. Prayer Wall'},
     {id:'s12',label:'13. Email Center'},{id:'s13',label:'14. SMS Center'},{id:'s14',label:'15. Access Control'},
-    {id:'s15',label:'16. AI Assistant'},{id:'s22',label:'17. Appearance & Themes'},{id:'s16',label:'18. Settings'},
-    {id:'s17',label:'19. Backup & Restore'},{id:'s18',label:'20. Maintenance'},{id:'s19',label:'21. Printer Setup'},
-    {id:'s20',label:'22. Member Portal'},
+    {id:'s15',label:'16. AI Assistant'},{id:'s23',label:'17. Alerts & Reports'},{id:'s22',label:'18. Appearance & Themes'},{id:'s16',label:'19. Settings'},
+    {id:'s17',label:'20. Backup & Restore'},{id:'s18',label:'21. Maintenance'},{id:'s19',label:'22. Printer Setup'},
+    {id:'s20',label:'23. Member Portal'},
   ];
   const H=({id,children}:any)=><h2 ref={setRef(id)} style={{fontSize:17,fontWeight:600,color:N,margin:'0 0 14px',paddingBottom:10,borderBottom:'2px solid '+G}}>{children}</h2>;
   const H3=({children}:any)=><h3 style={{fontSize:13,fontWeight:600,color:N,margin:'18px 0 8px',textTransform:'uppercase',letterSpacing:0.4}}>{children}</h3>;
@@ -10834,7 +10834,7 @@ function ManualPage(){
         <div style={{background:N,borderRadius:12,padding:'20px 24px',marginBottom:20}}>
           <div style={{color:'#fff',fontSize:21,fontWeight:600,letterSpacing:0.3}}>ChurchOS Staff Manual</div>
           <div style={{color:G,fontSize:13,marginTop:4}}>New Testament Christian Church — Administrator Guide</div>
-          <div style={{color:'#7a9acc',fontSize:12,marginTop:6}}>Version 6.3 · May 2026 · For internal staff use</div>
+          <div style={{color:'#7a9acc',fontSize:12,marginTop:6}}>Version 6.4 · May 2026 · For internal staff use</div>
         </div>
 
         <Sec><H id="s1">1. Getting Started</H>
@@ -10869,10 +10869,10 @@ function ManualPage(){
         <Sec><H id="s3">3. Adding People</H>
           <P>All new people — members and visitors — are entered through the <B>Add Person</B> page. This is the single consistent intake point for the entire database.</P>
           <H3>Adding a Member</H3>
-          <Ol><Li>Click <B>Add Person</B> in the sidebar</Li><Li>The <B>Member</B> tab should be selected; if not, click it</Li><Li>Enter first name, last name, phone, email, and join date</Li><Li>Set <B>Status</B> (Active or Inactive) and optionally a <B>Role</B> (e.g. Deacon, Choir, Elder)</Li><Li>Add any notes, then click <B>Save</B></Li></Ol>
+          <Ol><Li>Click <B>Add Person</B> in the sidebar</Li><Li>The <B>Member</B> tab should be selected; if not, click it</Li><Li>Enter first name, last name, phone, email, and join date</Li><Li>Select <B>Gender</B> using the Male / Female radio buttons (default: Male)</Li><Li>Set <B>Status</B> (Active or Inactive) and optionally a <B>Role</B> (e.g. Deacon, Choir, Elder)</Li><Li>Add any notes, then click <B>Save</B></Li></Ol>
           <Tip>Additional details like address, birthday, family, children, allergies, and medical notes are best added by clicking the member's record in Members Profile after initial save.</Tip>
           <H3>Adding a Visitor</H3>
-          <Ol><Li>Click <B>Add Person</B>, then click the <B>Visitor</B> tab</Li><Li>Enter first name, last name, phone, email, and first visit date</Li><Li>Set the <B>Stage</B>: First Visit, Follow-Up Needed, Returning, or Prospect</Li><Li>Assign a <B>Sponsor</B> — the member responsible for following up with this visitor</Li><Li>Click <B>Save</B></Li></Ol>
+          <Ol><Li>Click <B>Add Person</B>, then click the <B>Visitor</B> tab</Li><Li>Enter first name, last name, phone, email, and first visit date</Li><Li>Select <B>Gender</B> using the Male / Female radio buttons</Li><Li>Set the <B>Stage</B>: First Visit, Follow-Up Needed, Returning, or Prospect</Li><Li>Assign a <B>Sponsor</B> — the member responsible for following up with this visitor</Li><Li>Click <B>Save</B></Li></Ol>
           <Note>Visitors flagged as <B>Follow-Up Needed</B> show as a badge count on the Members Profile sidebar item so they are never overlooked.</Note>
           <H3>Converting a Visitor to a Member</H3>
           <Ol><Li>Go to <B>Members Profile</B> and switch to the <B>Visitors</B> tab</Li><Li>Click the visitor's row to open their profile</Li><Li>Click <B>Convert to Member</B> in the profile header</Li><Li>ChurchOS moves them to the members list, sets today as their join date, and automatically marks their visitation record as Complete</Li></Ol>
@@ -10923,7 +10923,7 @@ function ManualPage(){
           <P>Click any row to open the full profile modal. Tabs inside the profile include:</P>
           <Ul><Li><B>Personal</B> — contact info, address with map link, occupation, important dates (birthday, anniversary, salvation date, baptism date), emergency contact</Li><Li><B>Family</B> — spouse, children, allergies, and medical conditions. Linked profiles show as <B>clickable underlined names</B> — click to navigate directly to that person’s profile.</Li><Li><B>Activity</B> — attendance history, giving history, group memberships, prayer requests</Li><Li><B>Groups</B> — groups this person belongs to or leads</Li><Li><B>Pastoral</B> — visitation notes and follow-up history</Li><Li><B>Notes</B> — free-form internal notes visible only to staff</Li></Ul>
           <H3>Editing a Profile</H3>
-          <Ol><Li>Open the profile and click <B>Edit Profile</B> in the top-right of the modal</Li><Li>Update any fields: full address, birthday (use ▲/▼ year spinner), anniversary, salvation date, baptism date, emergency contact, role, status</Li><Li>Click <B>Save Changes</B></Li></Ol>
+          <Ol><Li>Open the profile and click <B>Edit Profile</B> in the top-right of the modal</Li><Li>Update any fields: full address, birthday (use ▲/▼ year spinner), anniversary, salvation date, baptism date, emergency contact, role, status</Li><Li>Use the <B>Gender</B> radio buttons (Male / Female) to set or correct the gender on file</Li><Li>Click <B>Save Changes</B></Li></Ol>
           <H3>Editing Spouse in a Profile</H3>
           <P>The <B>Family</B> section in Edit mode has separate <B>First Name</B> and <B>Last Name</B> fields for the spouse instead of a single combined box.</P>
           <Ol><Li>Click <B>Edit Profile</B> and scroll to the <B>Family</B> section</Li><Li>Type in either Spouse First or Last Name field. As you type, existing members and visitors auto-suggest below the fields.</Li><Li>Click a suggested name to <B>link</B> the spouse’s profile. A green “✔ Linked to existing member” badge appears.</Li><Li>Click <B>Save Changes</B>. The spouse’s profile is automatically updated to list this member as their spouse too (bidirectional). Both profiles receive the same shared Family ID.</Li></Ol>
@@ -11136,6 +11136,9 @@ function ManualPage(){
           <P>The <B>AI Assistant</B> is a built-in conversational AI with direct access to your live church data. It can answer questions, generate communications, and assist with pastoral tasks.</P>
           <H3>What the AI Can Do</H3>
           <Ul><Li>Answer questions about member counts, attendance trends, and giving totals using your actual data</Li><Li>Generate personalized pastoral follow-up letters, emails, and text messages</Li><Li>Write prayers for specific prayer requests</Li><Li>Summarize visitation status and identify who needs follow-up</Li><Li>Help compose announcements, newsletters, and bulletins</Li><Li>Navigate you to any section of ChurchOS by typing <B>"Take me to..."</B></Li></Ul>
+          <H3>Voice Read-Aloud</H3>
+          <P>The AI Assistant reads its responses aloud using your device's built-in text-to-speech engine. Voice is <B>ON by default</B> and your preference persists across sessions.</P>
+          <Ol><Li>To toggle voice on or off, click the <B>🔊 / 🔇 button</B> inside the AI chat window. The speaker icon turns active (navy) when voice is on and muted (gray) when off.</Li><Li>Your preference is saved in browser local storage and remembered automatically each time you open the AI Assistant.</Li></Ol>
           <H3>Using the AI</H3>
           <Ol><Li>Click <B>AI Assistant</B> in the sidebar, or click the <B>AI</B> button in the top-right header from any page</Li><Li>Type your question or request in the chat input at the bottom</Li><Li>Press <B>Enter</B> or click <B>Send</B></Li><Li>The AI responds using live data from your church database</Li></Ol>
           <H3>Example Prompts</H3>
@@ -11143,7 +11146,20 @@ function ManualPage(){
           <Tip>The AI has context about your specific church data — it is not a generic chatbot. The more specific your prompt, the more useful and personalized the response.</Tip>
         </Sec>
 
-        <Sec><H id="s22">17. Appearance &amp; Themes</H>
+        <Sec><H id="s23">17. Alerts &amp; Reports</H>
+          <P>The <B>Alerts &amp; Reports</B> page is an automated action center that surfaces members and visitors who need attention — absent members, low givers, children not checked in, upcoming birthdays, outstanding visitation, and a full phone directory. A <B>red badge</B> on the Alerts sidebar item shows the total count of actionable items across all tabs.</P>
+          <H3>Navigating the Page</H3>
+          <P>Click <B>Alerts</B> in the sidebar to open the page. Six tabs are available at the top:</P>
+          <Ul><Li><B>Absent Members</B> — members who did not appear in any of the last 4 Sunday Morning check-in sessions</Li><Li><B>Low Giving</B> — members who gave only twice in the previous completed calendar month (flagged for pastoral encouragement)</Li><Li><B>Phone Directory</B> — all active members with a phone number on file, sorted A–Z by last name</Li><Li><B>Absent Children</B> — children who did not appear in any of the last 4 kids check-in sessions</Li><Li><B>Birthdays</B> — members with a birthday in the current calendar month, sorted by day</Li><Li><B>Outstanding Visits</B> — visitation records not yet marked Complete or Converted</Li></Ul>
+          <H3>Exporting a Tab</H3>
+          <Ol><Li>Click the desired tab (e.g. <B>Absent Members</B>)</Li><Li>Click the <B>Export CSV</B> button at the top-right of the list</Li><Li>A spreadsheet file is downloaded with the names, phone numbers, and relevant details for everyone on that tab</Li></Ol>
+          <H3>Contacting People from Alerts</H3>
+          <Ol><Li>Each person's row has an <B>SMS</B> and <B>Email</B> button on the right side</Li><Li>Click <B>SMS</B> to open the SMS Composer pre-filled with that person's phone number</Li><Li>Click <B>Email</B> to open the Email Composer pre-filled with that person's email address</Li><Li>Compose your message and send — the contact log is recorded in Email or SMS Center</Li></Ol>
+          <Tip>Check the Alerts page every Monday morning — absent members from Sunday's service are automatically listed without any manual entry. Use <B>SMS</B> from the Absent Members tab to send a quick pastoral check-in text in seconds.</Tip>
+          <Note>The sidebar badge count totals: absent members + low givers + absent children + outstanding visits. Birthday and Phone Directory counts are not included in the badge since they are not urgent action items.</Note>
+        </Sec>
+
+        <Sec><H id="s22">18. Appearance &amp; Themes</H>
           <P>ChurchOS includes a built-in appearance system with <B>12 color themes</B> and a per-user <B>Dark Mode</B> toggle. Each user’s preferences are saved per device in the browser’s local storage and do not affect other staff members’ views.</P>
           <H3>Changing the Color Theme</H3>
           <Ol><Li>Click the <B>🎨 palette button</B> in the top-right header bar (between the AI button and the ⚙️ Settings button)</Li><Li>A theme picker dropdown appears showing all 12 available themes, each with a 4-color preview strip</Li><Li>Click any theme to apply it instantly across the entire app</Li><Li>Your selection saves automatically and persists on your next visit</Li></Ol>
@@ -11155,12 +11171,12 @@ function ManualPage(){
           <Tip>Use a dark theme for evening services or low-light sanctuary environments. Switch back to Classic or another light theme for daytime office use.</Tip>
         </Sec>
 
-        <Sec><H id="s16">18. Settings</H>
+        <Sec><H id="s16">19. Settings</H>
           <P>The <B>Settings</B> section controls church-wide configuration, the church profile, and advanced data management tools.</P>
           <H3>General Tab — Church Information</H3>
           <Ul><Li><B>Church Name</B> — displayed in the sidebar header, printed output, and email signatures</Li><Li><B>Pastor Name</B> — shown in the sidebar footer</Li><Li><B>Address</B> — appears in the app header subtitle on every page</Li><Li><B>Phone / Email</B> — church contact info stored in the system for communications</Li><Li><B>Logo URL</B> — URL to your church logo image (use <B>/logo.png</B> if the logo file is placed in the app's public folder)</Li></Ul>
           <P>Click <B>Save Settings</B> after making any changes. Settings take effect immediately across the entire app.</P>
-          <Note>For color themes and dark mode, see <B>Section 17 — Appearance &amp; Themes</B>.</Note>
+          <Note>For color themes and dark mode, see <B>Section 18 — Appearance &amp; Themes</B>.</Note>
           <H3>Merge Tool Tab</H3>
           <P>The Merge Tool identifies and resolves duplicate member or visitor records in your database.</P>
           <Ol><Li>Go to <B>Settings → Merge Tool</B></Li><Li>The tool lists potential duplicate pairs based on similar names</Li><Li>For each pair, select which record to keep as the <B>primary</B></Li><Li>Click <B>Merge</B> — data from both records is combined into the primary record</Li></Ol>
@@ -11175,10 +11191,10 @@ function ManualPage(){
           <Ol><Li>Download a backup first: <B>Settings → Backup &amp; Restore → Download Backup</B></Li><Li>Scroll to the bottom of <B>Settings → General</B></Li><Li>Click <B>Clear All Data &amp; Reload</B></Li><Li>Confirm the prompt — ChurchOS wipes all local storage and cloud data, then reloads to a blank state</Li></Ol>
           <Note>If you have multiple browser tabs open, close all other ChurchOS tabs before clicking Clear All Data. The system includes a 5-minute guard that prevents other open tabs from accidentally re-saving old data after the wipe.</Note>
           <H3>Backup & Restore Tab</H3>
-          <P>See <B>Section 17</B> for full Backup & Restore instructions.</P>
+          <P>See <B>Section 20</B> for full Backup &amp; Restore instructions.</P>
         </Sec>
 
-        <Sec><H id="s17">17. Backup & Restore</H>
+        <Sec><H id="s17">20. Backup & Restore</H>
           <P>The <B>Backup & Restore</B> feature exports a complete snapshot of your church database and restores it if needed.</P>
           <H3>Creating a Backup</H3>
           <Ol><Li>Go to <B>Settings → Backup & Restore</B></Li><Li>Review the record counts displayed for all 29 data sections</Li><Li>Click <B>Download Backup</B></Li><Li>A file named <B>churchos-backup-YYYY-MM-DD.json</B> is downloaded to your device</Li><Li>Store this file in a secure off-device location (Google Drive, OneDrive, USB drive)</Li></Ol>
@@ -11190,7 +11206,7 @@ function ManualPage(){
           <Warn>Replace All is permanent and immediate. Always download a fresh backup of your current data before restoring from an older file. You cannot undo a Replace All restore.</Warn>
         </Sec>
 
-        <Sec><H id="s18">18. Maintenance &amp; Equipment</H>
+        <Sec><H id="s18">21. Maintenance &amp; Equipment</H>
           <P>The <B>Maintenance</B> section tracks church property, equipment condition, work orders, scheduled preventive maintenance, loanable equipment checkouts, and cleaning/consumable supplies. It contains seven tabs: <B>Dashboard</B>, <B>Equipment</B>, <B>Work Orders</B>, <B>Scheduled</B>, <B>🔑 Checkouts</B>, <B>🧹 Supplies</B>, and <B>Reports</B>.</P>
           <H3>Equipment Register</H3>
           <Ol><Li>Go to <B>Maintenance</B> in the sidebar and click the <B>Equipment</B> tab, then <B>+ Add Equipment</B></Li><Li>Enter the item name, category, location (Sanctuary, Fellowship Hall, Office, Education), purchase date, warranty expiry date, and current condition</Li><Li>Click <B>Save</B></Li></Ol>
@@ -11230,7 +11246,7 @@ function ManualPage(){
           <Tip>Enter warranty expiry dates for all major equipment (HVAC, audio/video, projection) so ChurchOS alerts you before warranties lapse.</Tip>
         </Sec>
 
-        <Sec><H id="s19">19. Printer / Label Setup</H>
+        <Sec><H id="s19">22. Printer / Label Setup</H>
           <P>ChurchOS prints secure child check-in labels on all major thermal label printers and Avery sheet labels through the browser's native print dialog — no special drivers needed.</P>
           <H3>Supported Printers and Label Sizes</H3>
           <Ul><Li><B>Dymo LabelWriter</B> — 30334 (2¼"×1¼" name badge), 30252 (3½"×1⅛" address), 99014 (4"×6")</Li><Li><B>Brother QL Series</B> — DK-1201 (3.5"×1.1"), DK-1202 (4.07"×2.76"), DK-2205 (62mm continuous roll)</Li><Li><B>Zebra</B> — Z-Perform 2"×1", 4"×6" shipping</Li><Li><B>Avery Sheet Labels</B> — 5160 (2⅝"×1", 30/sheet), 5163 (4"×2", 10/sheet)</Li></Ul>
@@ -11244,7 +11260,7 @@ function ManualPage(){
           <Note>For Avery sheet labels, print to a standard laser or inkjet printer loaded with the matching Avery label sheets. Both labels print on the same sheet page.</Note>
         </Sec>
 
-        <Sec><H id="s20">20. Member Portal</H>
+        <Sec><H id="s20">23. Member Portal</H>
           <P>The <B>Member Portal</B> is a self-service interface that allows individual church members to log in and view their own personal profile, giving history, and prayer requests — without access to the full staff system. It is designed for members who have been given a personal ChurchOS login.</P>
           <H3>How Members Log In</H3>
           <Ol><Li>The member navigates to the ChurchOS URL (same URL as staff)</Li><Li>They click <B>Sign In</B> and enter their email address and password</Li><Li>If ChurchOS finds a <B>member record</B> in the database that matches their email address (or their display name if set in their Supabase account), they are automatically placed into the <B>Member Portal</B> view</Li><Li>The portal sidebar shows only: <B>My Profile</B> and <B>Prayer Wall</B></Li></Ol>
@@ -11270,7 +11286,7 @@ function ManualPage(){
         </Sec>
 
         <div style={{textAlign:'center',padding:'24px 0 8px',borderTop:'0.5px solid '+BR,marginTop:4}}>
-          <div style={{fontSize:12,color:MU}}>ChurchOS Staff Manual · New Testament Christian Church · Version 6.2 · May 2026</div>
+          <div style={{fontSize:12,color:MU}}>ChurchOS Staff Manual · New Testament Christian Church · Version 6.4 · May 2026</div>
           <div style={{fontSize:11,color:MU,marginTop:4}}>For technical support or feature requests, contact your system administrator.</div>
         </div>
       </div>
