@@ -1,4 +1,4 @@
-// @ts-nocheck
+﻿// @ts-nocheck
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from './lib/supabase';
 
@@ -10328,7 +10328,7 @@ function ManualPage(){
         <div style={{background:N,borderRadius:12,padding:'20px 24px',marginBottom:20}}>
           <div style={{color:'#fff',fontSize:21,fontWeight:600,letterSpacing:0.3}}>ChurchOS Staff Manual</div>
           <div style={{color:G,fontSize:13,marginTop:4}}>New Testament Christian Church — Administrator Guide</div>
-          <div style={{color:'#7a9acc',fontSize:12,marginTop:6}}>Version 6.2 · May 2026 · For internal staff use</div>
+          <div style={{color:'#7a9acc',fontSize:12,marginTop:6}}>Version 6.3 · May 2026 · For internal staff use</div>
         </div>
 
         <Sec><H id="s1">1. Getting Started</H>
@@ -10375,6 +10375,7 @@ function ManualPage(){
           <Ol><Li>On the Add Person form, scroll to the <B>Spouse</B> section and enter the spouse's <B>First Name</B> and <B>Last Name</B></Li><Li>As you type, ChurchOS searches existing members and visitors — click a suggested name to link the two profiles. A green “Linked” badge confirms the connection.</Li><Li>Under <B>Children</B>, click <B>+ Add Child</B> for each child. Enter their <B>First Name</B>, <B>Last Name</B>, and <B>Date of Birth</B>. Children already in the database also auto-suggest for linking.</Li><Li>Click <B>Save</B>. All linked family members share a common <B>Family ID</B> — they are grouped as a family throughout the system (Calendar check-in, Education, etc.)</Li></Ol>
           <Tip>If the spouse or child is not already in the database, leave them unlinked. ChurchOS will automatically create their member record at the same time you save — you do not need to add them separately.</Tip>
           <Note>When a prospect you previously added visits and is saved as a Visitor through Add Person, ChurchOS automatically removes them from the Prospects list by matching First and Last name.</Note>
+          <Note>When you type a child's <B>exact first and last name</B> on the Add Person form and that name already exists in the database, ChurchOS automatically sets the profile link — no click needed. A green <B>&#x2713; Linked to existing profile</B> badge appears on that child row. On save, all named children are also synced to the <B>Education roster</B> with the parent's contact info pre-filled. If a child already exists in Education, a confirmation modal appears asking whether to update their parent information.</Note>
         </Sec>
 
         <Sec><H id="s21">4. Prospects</H>
@@ -10397,7 +10398,7 @@ function ManualPage(){
           <H3>What's New at a Glance</H3>
           <Ul><Li>Every row now has a <B>checkbox</B> for multi-select &mdash; a gold <B>bulk action toolbar</B> appears instantly when records are selected</Li><Li>A <B>&#x1F50D; Filter button</B> opens a pop-up with <B>11 search criteria</B> &mdash; filter by gender, age, group, giving, baptism, birthday month, and more</Li><Li>A live <B>results count</B> shows how many records match your active filters</Li></Ul>
           <H3>Searching and Filtering</H3>
-          <Ul><Li>Use the <B>search bar</B> at the top to filter by name in real time</Li><Li>Toggle between <B>Members</B> and <B>Visitors</B> using the tabs</Li><Li>Click the <B>&#x1F50D; Filter</B> button to open the Filter Modal with 11 advanced criteria</Li><Li>A number badge on the Filter button shows how many filters are active &mdash; click <B>&#x2715; Clear</B> next to it to reset all at once</Li></Ul>
+          <Ul><Li>Use the <B>search bar</B> at the top to filter by name in real time &mdash; a dropdown of matching names appears as you type; click any name to jump directly to their profile</Li><Li>Click the <B>&#x2715; button</B> inside the search box to clear the search instantly and return to the full list</Li><Li>The search bar <B>resets automatically</B> when you switch between the Members and Visitors tabs</Li><Li>Toggle between <B>Members</B> and <B>Visitors</B> using the tabs</Li><Li>Click the <B>&#x1F50D; Filter</B> button to open the Filter Modal with 11 advanced criteria</Li><Li>A number badge on the Filter button shows how many filters are active &mdash; click <B>&#x2715; Clear</B> next to it to reset all at once</Li></Ul>
           <H3>Filter Modal &mdash; 11 Criteria</H3>
           <P>Click <B>&#x1F50D; Filter</B> to open the filter pop-up. Any combination of the following can be applied simultaneously:</P>
           <Ul><Li><B>Status</B> &mdash; Active / Inactive (Members tab only)</Li><Li><B>Gender</B> &mdash; Male / Female</Li><Li><B>Age Range</B> &mdash; Under 18 / 18&ndash;35 / 36&ndash;55 / 55+</Li><Li><B>Membership Class</B> &mdash; Completed / Not Completed</Li><Li><B>Baptism</B> &mdash; Baptized / Not Baptized</Li><Li><B>Group / Ministry</B> &mdash; any specific group in your database</Li><Li><B>Giving Status</B> &mdash; Has Given / Never Given (all-time)</Li><Li><B>Joined Within</B> &mdash; Last 30 Days / Last 90 Days / Last Year</Li><Li><B>Has Phone</B> &mdash; on file / not on file</Li><Li><B>Has Email</B> &mdash; on file / not on file</Li><Li><B>&#x1F382; Birthday This Month</B> &mdash; checkbox to show only members with a birthday in the current calendar month</Li></Ul>
@@ -10424,6 +10425,15 @@ function ManualPage(){
           <H3>Adding / Editing Children in a Profile</H3>
           <Ol><Li>In Edit mode, scroll to the <B>Children</B> section and click <B>+ Add Child</B></Li><Li>Enter the child’s <B>First Name</B>, <B>Last Name</B>, and <B>Date of Birth</B> using the year spinner</Li><Li>If the child is already in the database, type their name and click the auto-suggest to link the two profiles</Li><Li>Click the ✕ button on any child row to remove them from this profile</Li><Li>Click <B>Save Changes</B></Li></Ol>
           <Tip>Children added on a member’s profile automatically appear in Education Check-In with the parent’s name and phone pre-filled, and a grade assigned by age.</Tip>
+          <H3>Auto-Link Children to Existing Profiles</H3>
+          <P>When adding or editing children on any profile, ChurchOS detects existing records by name and links them automatically:</P>
+          <Ul>
+            <Li>Type a child’s <B>first and last name</B> exactly as it appears in the database — the link sets automatically without clicking a suggestion</Li>
+            <Li>A green <B>&#x2713; Linked to existing profile</B> badge appears on the child row confirming the link</Li>
+            <Li>On <B>Save</B>, children with a name are synced to the <B>Education roster</B> with the parent’s name, phone, allergies, and medical info pre-filled</Li>
+            <Li>If the child already exists in Education, a confirmation modal appears: click <B>Yes, Update Parent Info</B> to sync, or <B>Keep Existing</B> to leave the Education record unchanged</Li>
+          </Ul>
+          <Note>Auto-linking requires the full first <em>and</em> last name to match exactly (case-insensitive). Nicknames or partial names will not auto-link.</Note>
           <H3>Deleting a Record</H3>
           <Warn>Only <B>Super Administrators</B> can permanently delete a member or visitor record. The red trash button on the row only appears when logged in as Super Admin. Deletion removes the person and all associated giving, attendance, prayer, and group data. There is no undo.</Warn>
           <H3>AI Follow-Up Generator</H3>
