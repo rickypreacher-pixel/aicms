@@ -10614,15 +10614,20 @@ function ManualPage(){
 }
 
 // ── MEMBER PORTAL — self-service profile + giving view for email/password members ──
-function MemberProfilePortal({member,setMembers,giving,onSignOut,staffMode=false}:any) {
+function MemberProfilePortal({member,setMembers,giving,onSignOut,staffMode=false,roles=[],users=[],setUsers}:any) {
   const [tab,setTab] = useState("profile");
   const [editMode,setEditMode] = useState(false);
   const [form,setForm] = useState({...member,address:member.address||{...EMPTY_ADDR},children:member.children||[],allergies:member.allergies||[],medical:member.medical||[]});
+  const linkedUser = users.find((u:any)=>String(u.memberId)===String(member.id));
+  const [permRoleId,setPermRoleId] = useState(()=>(users.find((u:any)=>String(u.memberId)===String(member.id))?.roleId)||"");
   const ef = (k:string) => (v:any) => setForm((f:any)=>({...f,[k]:v}));
   const efa = (k:string) => (v:any) => setForm((f:any)=>({...f,address:{...(f.address||{}),[k]:v}}));
   const save = () => {
     if(!form.first||!form.last){alert("Name required.");return;}
     setMembers((ms:any[])=>ms.map((m:any)=>m.id===member.id?{...m,...form}:m));
+    if(setUsers && permRoleId && linkedUser) {
+      setUsers((us:any[])=>us.map((u:any)=>u.id===linkedUser.id?{...u,roleId:permRoleId}:u));
+    }
     setEditMode(false);
   };
   const addChild = () => setForm((f:any)=>({...f,children:[...(f.children||[]),{name:"",birthday:""}]}));
@@ -10681,6 +10686,27 @@ function MemberProfilePortal({member,setMembers,giving,onSignOut,staffMode=false
                 <Fld label="Baptism Date"><Inp type="date" value={form.baptismDate||""} onChange={ef("baptismDate")}/></Fld>
                 <Fld label="Salvation Date"><Inp type="date" value={form.salvationDate||""} onChange={ef("salvationDate")}/></Fld>
               </div>
+              {/* Role / Title */}
+              <Fld label="Role / Title">
+                <select value={form.role||""} onChange={e=>ef("role")(e.target.value)} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",fontFamily:"inherit",color:TX,background:"#fff",boxSizing:"border-box" as any}}>
+                  <option value="">— Select Role / Title —</option>
+                  {(roles.length>0?roles:SEED_ROLES).map((r:any)=>(
+                    <option key={r.id} value={r.name}>{r.name}</option>
+                  ))}
+                </select>
+              </Fld>
+              {/* Permission Level — only show if member has a linked login account */}
+              {linkedUser && (
+                <Fld label="Permission Level (Access Control)">
+                  <select value={permRoleId} onChange={e=>setPermRoleId(e.target.value)} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",fontFamily:"inherit",color:TX,background:"#fff",boxSizing:"border-box" as any}}>
+                    <option value="">— Select Permission Level —</option>
+                    {(roles.length>0?roles:SEED_ROLES).map((r:any)=>(
+                      <option key={r.id} value={r.id}>{r.name}</option>
+                    ))}
+                  </select>
+                  <div style={{fontSize:11,color:MU,marginTop:4}}>Linked account: {linkedUser.email||"(no email)"}</div>
+                </Fld>
+              )}
               <Fld label="Street Address"><Inp value={form.address?.street||""} onChange={efa("street")}/></Fld>
               <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr",gap:10}}>
                 <Fld label="City"><Inp value={form.address?.city||""} onChange={efa("city")}/></Fld>
@@ -10722,6 +10748,10 @@ function MemberProfilePortal({member,setMembers,giving,onSignOut,staffMode=false
                 <span style={{fontSize:11,color:MU,fontWeight:500}}>Children</span>
                 <div style={{marginTop:4}}>{(member.children||[]).map((c:any,i:number)=><div key={i} style={{fontSize:13,color:TX}}>{c.name}{c.birthday?" · "+fd(c.birthday):""}</div>)}</div>
               </div>}
+              <InfoRow label="Role / Title" value={member.role||"Member"}/>
+              {linkedUser && (
+                <InfoRow label="Permission Level" value={(roles.length>0?roles:SEED_ROLES).find((r:any)=>r.id===linkedUser.roleId)?.name||""}/>
+              )}
               <InfoRow label="Medical Notes" value={member.medicalNotes}/>
             </div>
           )}
@@ -11373,10 +11403,10 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           {!isMemberPortal && view==="giving" && <Giving giving={giving} setGiving={setGiving} pledgeDrives={pledgeDrives} setPledgeDrives={setPledgeDrives} pledges={pledges} setPledges={setPledges} members={members} visitors={visitors} weeklyReports={weeklyReports} setWeeklyReports={setWeeklyReports} emailTemplates={emailTemplates}/>}
           {!isMemberPortal && view==="prayer" && <Prayer prayers={prayers} setPrayers={setPrayers}/>}
           {/* ── Member Portal hard-gate: only myprofile and prayer allowed ── */}
-          {isMemberPortal && view!=="prayer" && <MemberProfilePortal member={portalMember} setMembers={setMembers} giving={giving} onSignOut={onSignOut}/>}
+          {isMemberPortal && view!=="prayer" && <MemberProfilePortal member={portalMember} setMembers={setMembers} giving={giving} onSignOut={onSignOut} roles={roles} users={users} setUsers={setUsers}/>}
           {isMemberPortal && view==="prayer" && <Prayer prayers={prayers} setPrayers={setPrayers} portalMode={true} portalMember={portalMember}/>}
           {/* ── Staff My Profile: staff user whose login matches a member record ── */}
-          {!isMemberPortal && view==="myprofile" && staffMemberRecord && <MemberProfilePortal member={staffMemberRecord} setMembers={setMembers} giving={giving} onSignOut={()=>setView("dashboard")} staffMode={true}/>}
+          {!isMemberPortal && view==="myprofile" && staffMemberRecord && <MemberProfilePortal member={staffMemberRecord} setMembers={setMembers} giving={giving} onSignOut={()=>setView("dashboard")} staffMode={true} roles={roles} users={users} setUsers={setUsers}/>}
           {/* ── Staff / Admin views (never rendered for portal users) ── */}
           {!isMemberPortal && view==="sms" && <SmsCenter smsLog={smsLog} setSmsLog={setSmsLog} smsTemplates={smsTemplates} setSmsTemplates={setSmsTemplates} smsConfig={smsConfig} setSmsConfig={setSmsConfig} members={members} visitors={visitors} cs={churchSettings} onCompose={()=>openSmsComposer({})} onBulkCompose={()=>openBulkSmsComposer({recipients:[...members,...visitors].filter(p=>p.phone).map(p=>({...p,first:p.first,last:p.last,name:p.first+" "+p.last}))})}/>}
           {!isMemberPortal && view==="email" && <EmailCenter emailLog={emailLog} setEmailLog={setEmailLog} emailTemplates={emailTemplates} setEmailTemplates={setEmailTemplates} emailConfig={emailConfig} setEmailConfig={setEmailConfig} members={members} visitors={visitors} cs={churchSettings} onCompose={()=>openEmailComposer({})} onBulkCompose={()=>openBulkEmailComposer({recipients:members.filter(m=>m.email).map(m=>({name:m.first+" "+m.last,first:m.first,last:m.last,email:m.email}))})}/>}
