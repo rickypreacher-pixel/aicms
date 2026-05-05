@@ -5065,7 +5065,7 @@ function FamilyForm({newVis,setNewVis,onSubmit,allPeople}){
   );
 }
 
-function CalendarView({members,visitors,setVisitors,groups,recurring,setRecurring,custom,setCustom,checkIns,setCheckIns,grpMeetings=[],setGrpMeetings=()=>{}}){
+function CalendarView({members,visitors,setVisitors,groups,recurring,setRecurring,custom,setCustom,checkIns,setCheckIns,grpMeetings=[],setGrpMeetings=()=>{},prospects=[],setProspects=()=>{}}){
   const [ctab,setCtab]=useState("calendar");
   const [yr,setYr]=useState(2026);const[mo,setMo]=useState(3);
   const [selDate,setSelDate]=useState("2026-04-20");const[selEvt,setSelEvt]=useState(null);
@@ -5133,6 +5133,8 @@ function CalendarView({members,visitors,setVisitors,groups,recurring,setRecurrin
     if(newVis.spouseFirst&&newVis.spouseLast)entries.push({id:nid.current++,first:newVis.spouseFirst,last:newVis.spouseLast,phone:newVis.phone||"",email:"",dob:newVis.spouseDob||"",age:calcAge(newVis.spouseDob)||"",stage:"First Visit",family:fam,role:"Spouse",broughtBy:bb,allergies:newVis.spouseAllergies||[],medical:newVis.spouseMedical||[],medNotes:newVis.spouseMedNotes||""});
     (newVis.children||[]).filter(c=>c.first).forEach(c=>entries.push({id:nid.current++,first:c.first,last:c.last,phone:"",email:"",dob:c.dob||"",age:calcAge(c.dob)||"",stage:"First Visit",family:fam,role:"Child",broughtBy:bb,allergies:c.allergies||[],medical:c.medical||[],medNotes:c.medNotes||""}));
     setVisitors(vs=>[...vs,...entries]);
+    // Auto-remove any matching prospect (same first+last, case-insensitive)
+    if(setProspects) setProspects((ps:any[])=>ps.filter((p:any)=>!entries.some((e:any)=>p.first.toLowerCase()===e.first.toLowerCase()&&p.last.toLowerCase()===e.last.toLowerCase())));
     const base={iid:selEvt.iid,eid:selEvt.id,ename:selEvt.name,date:selEvt.date,time:selEvt.time,ptype:"visitor",isNew:true,at:new Date().toLocaleTimeString()};
     setCheckIns(cs=>[...cs,...entries.map(e=>({id:nid.current++,...base,pid:e.id,first:e.first,last:e.last,phone:e.phone||"",role:e.role,family:fam,broughtBy:bb,dob:e.dob,age:e.age,allergies:e.allergies,medical:e.medical,medNotes:e.medNotes}))]);
     setNewVis(null);setSearch("");
@@ -11409,6 +11411,8 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
                 setCheckIns={setCheckIns}
                 grpMeetings={grpMeetings}
                 setGrpMeetings={setGrpMeetings}
+                prospects={prospects}
+                setProspects={setProspects}
               />
             </div>
           )}
