@@ -1768,7 +1768,7 @@ const albl=a=>({view:"View",create:"Create",edit:"Edit",delete:"Delete"}[a]||a);
 const actionColor=a=>({view:BL,create:GR,edit:"#d97706",delete:RE}[a]||MU);
 
 // RBAC: Resolve effective permission for a user on a module+action
-// Checks user-level overrides first, then falls back to their role.
+// Checks user-level overrides first, then falls back to their role (+ secondary role if any).
 function checkPermission(user, roles, permissions, moduleKey, action) {
   if(!user) return false;
   if(user.superAdmin) return true;
@@ -1776,11 +1776,17 @@ function checkPermission(user, roles, permissions, moduleKey, action) {
   if(user.overrides && user.overrides[moduleKey] && user.overrides[moduleKey][action] !== undefined && user.overrides[moduleKey][action] !== null) {
     return user.overrides[moduleKey][action];
   }
-  // Fall back to role
+  // Fall back to primary role
   if(!user.roleId) return false;
   const rolePerms = permissions[user.roleId];
-  if(!rolePerms) return false;
-  return !!(rolePerms[moduleKey] && rolePerms[moduleKey][action]);
+  const primaryGrant = !!(rolePerms && rolePerms[moduleKey] && rolePerms[moduleKey][action]);
+  if(primaryGrant) return true;
+  // Union with secondary role (Team Leader + secondary)
+  if(user.secondaryRoleId) {
+    const secPerms = permissions[user.secondaryRoleId];
+    if(secPerms && secPerms[moduleKey] && secPerms[moduleKey][action]) return true;
+  }
+  return false;
 }
 
 function effectivePermissions(user, roles, permissions) {
@@ -1792,12 +1798,13 @@ function effectivePermissions(user, roles, permissions) {
   }
   const result = {};
   const base = permissions[user.roleId] || {};
+  const secondary = user.secondaryRoleId ? (permissions[user.secondaryRoleId] || {}) : {};
   MODULES.forEach(m => {
     result[m.key] = {};
     m.actions.forEach(a => {
       const override = user.overrides && user.overrides[m.key] && user.overrides[m.key][a];
       if(override !== undefined && override !== null) result[m.key][a] = override;
-      else result[m.key][a] = !!(base[m.key] && base[m.key][a]);
+      else result[m.key][a] = !!(base[m.key] && base[m.key][a]) || !!(secondary[m.key] && secondary[m.key][a]);
     });
   });
   return result;
@@ -2037,7 +2044,7 @@ function UsersTab({members,users,setUsers,roles,permissions,currentUser,churchId
   const [filterStatus,setFilterStatus] = useState("all");
   const [modal,setModal] = useState(false);
   const [editU,setEditU] = useState(null);
-  const [form,setForm] = useState({memberId:"",roleId:"",email:"",password:"",pin:"",status:"Pending"});
+  const [form,setForm] = useState({memberId:"",roleId:"",secondaryRoleId:"",email:"",password:"",pin:"",status:"Pending"});
   const [detailU,setDetailU] = useState(null);
   const [overrideModal,setOverrideModal] = useState(null);
   const [confirmModal,setConfirmModal] = useState(null);
@@ -2062,17 +2069,17 @@ function UsersTab({members,users,setUsers,roles,permissions,currentUser,churchId
 
   const openAdd = () => {
     if(!isAdmin) { alert("Only administrators can add users."); return; }
-    setEditU(null); setForm({memberId:"",roleId:"",email:"",password:"",pin:"",status:"Pending"}); setMSearch(""); setMDropOpen(false); setModal(true);
+    setEditU(null); setForm({memberId:"",roleId:"",secondaryRoleId:"",email:"",password:"",pin:"",status:"Pending"}); setMSearch(""); setMDropOpen(false); setModal(true);
   };
   const openEdit = u => {
     if(!isAdmin) { alert("Only administrators can edit users."); return; }
-    setEditU(u); setForm({memberId:u.memberId,roleId:u.roleId||"",email:u.email||"",password:u.password,pin:u.pin,status:u.status});
+    setEditU(u); setForm({memberId:u.memberId,roleId:u.roleId||"",secondaryRoleId:u.secondaryRoleId||"",email:u.email||"",password:u.password,pin:u.pin,status:u.status});
     const m = members.find(x=>String(x.id)===String(u.memberId)); setMSearch(m?m.first+" "+m.last:""); setMDropOpen(false); setModal(true);
   };
   const save = () => {
     if(!form.memberId||!form.roleId||!form.password||form.pin.length<4){alert("All fields required. PIN must be 4 digits.");return;}
-    if(editU) setUsers(us=>us.map(u=>u.id===editU.id?{...u,...form,memberId:+form.memberId}:u));
-    else setUsers(us=>[...us,{...form,memberId:+form.memberId,id:nid.current++,overrides:{}}]);
+    if(editU) setUsers(us=>us.map(u=>u.id===editU.id?{...u,...form,memberId:+form.memberId,secondaryRoleId:form.secondaryRoleId||null}:u));
+    else setUsers(us=>[...us,{...form,memberId:+form.memberId,secondaryRoleId:form.secondaryRoleId||null,id:nid.current++,overrides:{}}]);
     setModal(false);
   };
   const doAction = (id,action) => {
@@ -2171,7 +2178,7 @@ function UsersTab({members,users,setUsers,roles,permissions,currentUser,churchId
                     <td style={{padding:"11px 14px",fontSize:12,color:MU}}>{m.email||"—"}</td>
                     <td style={{padding:"11px 14px"}}>
                       {u.superAdmin ? <span style={{background:"#fef2f2",color:RE,border:"0.5px solid "+RE+"44",borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:500}}>Super Admin</span>
-                      : r ? <span style={{background:r.color+"18",color:r.color,border:"0.5px solid "+r.color+"44",borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:500}}>{r.name}</span>
+                      : r ? <span style={{background:r.color+"18",color:r.color,border:"0.5px solid "+r.color+"44",borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:500}}>{r.name}{(()=>{const sr=u.secondaryRoleId&&roles.find(x=>x.id===u.secondaryRoleId);return sr?<span style={{marginLeft:4,background:sr.color+"18",color:sr.color,border:"0.5px solid "+sr.color+"44",borderRadius:20,padding:"2px 8px",fontSize:10,fontWeight:500}}>+{sr.name}</span>:null;})()}</span>
                       : <span style={{color:MU,fontSize:11}}>No role</span>}
                     </td>
                     <td style={{padding:"11px 14px"}}><span style={{background:s.bg,color:s.c,borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:500}}>{u.status}</span></td>
@@ -2236,11 +2243,20 @@ function UsersTab({members,users,setUsers,roles,permissions,currentUser,churchId
           <div style={{fontSize:10,color:MU,marginTop:3,lineHeight:1.4}}>Required so staff can log in. Must match the email they use to register on the login page.</div>
         </Fld>
         <Fld label="Assign Role *">
-          <select value={form.roleId} onChange={e=>setForm(f=>({...f,roleId:e.target.value}))} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}>
+          <select value={form.roleId} onChange={e=>setForm(f=>({...f,roleId:e.target.value,secondaryRoleId:e.target.value!==roles.find(r=>r.name==="Team Leader")?.id?"":f.secondaryRoleId}))} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}>
             <option value="">Select a role</option>
             {roles.map(r=><option key={r.id} value={r.id}>{r.name}</option>)}
           </select>
         </Fld>
+        {form.roleId===roles.find(r=>r.name==="Team Leader")?.id && (
+          <Fld label="Secondary Role (optional)">
+            <select value={form.secondaryRoleId||""} onChange={e=>setForm(f=>({...f,secondaryRoleId:e.target.value}))} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}>
+              <option value="">— None —</option>
+              {roles.filter(r=>r.id!==form.roleId).map(r=><option key={r.id} value={r.id}>{r.name}</option>)}
+            </select>
+            <div style={{fontSize:10,color:MU,marginTop:3,lineHeight:1.4}}>Team Leaders can hold a second role. Their permissions will combine both roles.</div>
+          </Fld>
+        )}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <Fld label="Password *"><Inp type="password" value={form.password} onChange={v=>setForm(f=>({...f,password:v}))} placeholder="Create a password"/></Fld>
           <Fld label="4-Digit PIN *"><PINInput value={form.pin} onChange={v=>setForm(f=>({...f,pin:v}))}/></Fld>
@@ -2273,7 +2289,7 @@ function UsersTab({members,users,setUsers,roles,permissions,currentUser,churchId
                   <div style={{fontSize:18,fontWeight:500,color:N}}>{m.first} {m.last}</div>
                   <div style={{display:"flex",alignItems:"center",gap:8,marginTop:4,flexWrap:"wrap"}}>
                     {detailU.superAdmin ? <span style={{background:"#fef2f2",color:RE,border:"0.5px solid "+RE+"44",borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:500}}>Super Admin</span>
-                    : r ? <span style={{background:r.color+"18",color:r.color,border:"0.5px solid "+r.color+"44",borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:500}}>{r.name}</span> : null}
+                    : r ? <><span style={{background:r.color+"18",color:r.color,border:"0.5px solid "+r.color+"44",borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:500}}>{r.name}</span>{(()=>{const sr=detailU.secondaryRoleId&&roles.find(x=>x.id===detailU.secondaryRoleId);return sr?<span style={{background:sr.color+"18",color:sr.color,border:"0.5px solid "+sr.color+"44",borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:500}}>+{sr.name}</span>:null;})()}</> : null}
                     <span style={{background:(statusColors[detailU.status]||{bg:BG}).bg,color:(statusColors[detailU.status]||{c:MU}).c,borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:500}}>{detailU.status}</span>
                   </div>
                   <div style={{fontSize:12,color:MU,marginTop:3}}>{m.email||"—"}</div>
