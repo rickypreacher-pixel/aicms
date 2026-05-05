@@ -1,0 +1,1 @@
+$lines = Get-Content "C:\Users\Admin\OneDrive\Desktop\ntcc-church-app-2026\src\App.tsx"; Write-Output "=== Lines 10780-10870 ==="; $lines[10779..10869] | ForEach-Object -Begin {$i=10780} -Process { "Line ${i}: $_"; $i++ }; Write-Output "=== Lines 11000-11120 ==="; $lines[10999..11119] | ForEach-Object -Begin {$i=11000} -Process { "Line ${i}: $_"; $i++ }

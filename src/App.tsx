@@ -11069,7 +11069,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       if(Array.isArray(d.roles)&&d.roles.length) setRoles(d.roles);
       if(d.permissions&&Object.keys(d.permissions).length) setPermissions(d.permissions);
       if(Array.isArray(d.users)&&d.users.length) setUsers(d.users);
-      if(Array.isArray(d.prospects)&&d.prospects.length) setProspects(d.prospects);
+      if(Array.isArray(d.prospects)) setProspects(d.prospects); // trust empty array — removal on another device must propagate
       if(d.churchSettings?.name){setChurchSettings(d.churchSettings);try{localStorage.setItem(LS('church_settings'),JSON.stringify(d.churchSettings));}catch(e){}}
       lastSyncAt.current = Date.now();
       // Suppress the next auto-save triggered by these state changes — we just loaded from cloud,
