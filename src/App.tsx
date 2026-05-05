@@ -8005,7 +8005,7 @@ function GivingHistory({giving,members,visitors}){
   );
 }
 
-function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledges,members,visitors,weeklyReports,setWeeklyReports,emailTemplates}) {
+function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledges,members,visitors,weeklyReports,setWeeklyReports,emailTemplates,currentUser=null,roles=[]}:any) {
   const [tab,setTab] = useState("giving");
   const [modal,setModal] = useState(false);
   const [form,setForm] = useState({date:td(),name:"",category:"Tithe",amount:"",method:"Cash",notes:""});
@@ -8020,6 +8020,7 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
   const [customCats,setCustomCats] = useState(()=>{try{return JSON.parse(localStorage.getItem("ntcc_custom_giving_cats")||"[]");}catch{return [];}});
   const [customMethods,setCustomMethods] = useState(()=>{try{return JSON.parse(localStorage.getItem("ntcc_custom_giving_methods")||"[]");}catch{return [];}});
   const [editingId,setEditingId] = useState(null);
+  const [confirmDelete,setConfirmDelete] = useState(null);
   const [showAddCat,setShowAddCat] = useState(false);
   const [newCat,setNewCat] = useState("");
   const [showAddMethod,setShowAddMethod] = useState(false);
@@ -8059,6 +8060,7 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
     if(form.method===m) sf("method")("Cash");
   };
 
+  const _canDelete = !currentUser || currentUser.superAdmin || (roles.find((r:any)=>r.id===currentUser.roleId)?.name||'')==='Administrator';
   const allPeople = [...(members||[]).map(m=>({name:(m.first||"")+" "+(m.last||""),type:"Member"})),...(visitors||[]).map(v=>({name:(v.first||"")+" "+(v.last||""),type:"Visitor"}))].filter(p=>p.name.trim().length>1).sort((a,b)=>a.name.localeCompare(b.name));
   const handleNameInput = val => {
     sf("name")(val);
@@ -8218,7 +8220,7 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
                       window.__openEmailComposer__ && window.__openEmailComposer__({to:personEmail,toName:g.name,subject,body,category:"Pledge Receipt",relatedType:"giving",relatedId:g.id});
                     }} v="ghost" style={{fontSize:11,padding:"3px 8px"}}>Receipt</Btn>}
                     <Btn onClick={()=>openEditRecord(g)} v="ghost" style={{fontSize:11,padding:"3px 8px"}}>Edit</Btn>
-                    <Btn onClick={()=>setGiving(giving.filter(r=>r.id!==g.id))} v="danger" style={{fontSize:11,padding:"3px 8px"}}>X</Btn>
+                    {_canDelete && <Btn onClick={()=>setConfirmDelete(g)} v="danger" style={{fontSize:11,padding:"3px 8px"}}>Delete</Btn>}
                   </div>
                 </td>
               </tr>
@@ -8295,6 +8297,23 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
           <Btn onClick={()=>{setModal(false);setEditingId(null);setForm({date:td(),name:"",category:"Tithe",amount:"",method:"Cash",notes:""}); }} v="ghost" style={{flex:1,justifyContent:"center"}}>Cancel</Btn>
         </div>
       </Modal>
+      {confirmDelete && (
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <div style={{background:"#fff",borderRadius:14,padding:28,maxWidth:420,width:"90%",boxShadow:"0 10px 40px rgba(0,0,0,0.2)"}}>
+            <div style={{fontSize:16,fontWeight:600,color:N,marginBottom:6}}>Delete Giving Record?</div>
+            <div style={{fontSize:13,color:MU,marginBottom:14,lineHeight:1.6}}>This action cannot be undone. The following record will be permanently removed:</div>
+            <div style={{background:"#fef2f2",border:"0.5px solid #fca5a5",borderRadius:10,padding:"12px 14px",marginBottom:22}}>
+              <div style={{fontSize:14,fontWeight:600,color:"#b91c1c"}}>{confirmDelete.name}</div>
+              <div style={{fontSize:12,color:"#7f1d1d",marginTop:4}}>{fd(confirmDelete.date)} &nbsp;·&nbsp; {confirmDelete.category} &nbsp;·&nbsp; {f$(confirmDelete.amount)} &nbsp;·&nbsp; {confirmDelete.method}</div>
+              {confirmDelete.notes&&<div style={{fontSize:12,color:"#7f1d1d",marginTop:2,fontStyle:"italic"}}>{confirmDelete.notes}</div>}
+            </div>
+            <div style={{display:"flex",gap:10}}>
+              <button onClick={()=>{setGiving(giving.filter((r:any)=>r.id!==confirmDelete.id));setConfirmDelete(null);}} style={{flex:1,padding:"10px 0",background:"#dc2626",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer"}}>Yes, Delete</button>
+              <button onClick={()=>setConfirmDelete(null)} style={{flex:1,padding:"10px 0",background:"none",border:"1px solid "+BR,borderRadius:8,fontSize:13,fontWeight:500,color:TX,cursor:"pointer"}}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
       </div>
       )}
     </div>
@@ -11448,7 +11467,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           {!isMemberPortal && view==="prospects" && <ProspectsPage prospects={prospects} setProspects={setProspects} members={members}/>}
           {!isMemberPortal && view==="visitation" && <Visitation visitors={visitors} setVisitors={setVisitors} members={members} setMembers={setMembers} users={users} currentUser={currentUser} roles={roles} visitRecords={visitRecords} setVisitRecords={setVisitRecords} setView={setView} canAddVisitor={canAddVisitor}/>}
           {!isMemberPortal && view==="attendance" && <Attendance attendance={attendance} setAttendance={setAttendance} setView={setView}/>}
-          {!isMemberPortal && view==="giving" && <Giving giving={giving} setGiving={setGiving} pledgeDrives={pledgeDrives} setPledgeDrives={setPledgeDrives} pledges={pledges} setPledges={setPledges} members={members} visitors={visitors} weeklyReports={weeklyReports} setWeeklyReports={setWeeklyReports} emailTemplates={emailTemplates}/>}
+          {!isMemberPortal && view==="giving" && <Giving giving={giving} setGiving={setGiving} pledgeDrives={pledgeDrives} setPledgeDrives={setPledgeDrives} pledges={pledges} setPledges={setPledges} members={members} visitors={visitors} weeklyReports={weeklyReports} setWeeklyReports={setWeeklyReports} emailTemplates={emailTemplates} currentUser={currentUser} roles={roles}/>}
           {!isMemberPortal && view==="prayer" && <Prayer prayers={prayers} setPrayers={setPrayers}/>}
           {/* ── Member Portal hard-gate: only myprofile and prayer allowed ── */}
           {isMemberPortal && view!=="prayer" && <MemberProfilePortal member={portalMember} setMembers={setMembers} giving={giving} onSignOut={onSignOut} roles={roles} users={users} setUsers={setUsers}/>}
