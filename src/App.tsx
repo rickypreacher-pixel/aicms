@@ -10329,6 +10329,373 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
   );
 }
 
+// ── ALERTS PAGE ──
+function AlertPage({members,visitors,giving,checkIns,kidsCheckIns,children,visitRecords}:any){
+  const [tab,setTab] = useState(0);
+  const TABS = ["Absent Members","Low Giving","Phone Directory","Absent Children","Birthdays","Outstanding Visits"];
+
+  // ── helpers ──
+  const today = new Date();
+  const todayStr = today.toISOString().split("T")[0];
+
+  // CSV export helper
+  const exportCSV = (rows:string[][], filename:string) => {
+    const csv = rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], {type:"text/csv"});
+    const a = document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=filename; a.click();
+  };
+
+  // Open SMS / Email via global helpers
+  const sms  = (p:any) => { if(p.phone)(window as any).__openSmsComposer__?.({to:p.phone, toName:p.first+" "+p.last}); else alert("No phone on file."); };
+  const email= (p:any) => { if(p.email)(window as any).__openEmailComposer__?.({to:p.email, toName:p.first+" "+p.last}); else alert("No email on file."); };
+
+  // ── TAB 1: Members missing 4 consecutive Sunday Morning services ──
+  const absentMembers = (() => {
+    const sunCIs = (checkIns||[]).filter((c:any)=>c.ename&&c.ename.toLowerCase().includes("sunday morning")&&c.ptype==="member");
+    const sunDates = [...new Set(sunCIs.map((c:any)=>c.date))].sort().reverse();
+    const last4 = sunDates.slice(0,4);
+    if(last4.length<1) return [];
+    const presentPerDate:Record<string,Set<any>> = {};
+    last4.forEach(d=>{ presentPerDate[d]=new Set(sunCIs.filter((c:any)=>c.date===d).map((c:any)=>c.pid)); });
+    return (members||[]).filter((m:any)=>m.status==="Active"&&last4.length>0&&last4.every(d=>!presentPerDate[d]?.has(m.id)));
+  })();
+
+  // ── TAB 2: Members who gave exactly 2 times in the previous month ──
+  const lowGivers = (() => {
+    const now = new Date();
+    const prevMonth = now.getMonth()===0?11:now.getMonth()-1;
+    const prevYear  = now.getMonth()===0?now.getFullYear()-1:now.getFullYear();
+    const pmStart = new Date(prevYear,prevMonth,1).toISOString().split("T")[0];
+    const pmEnd   = new Date(prevYear,prevMonth+1,0).toISOString().split("T")[0];
+    const monthName = new Date(prevYear,prevMonth,1).toLocaleString("en-US",{month:"long",year:"numeric"});
+    const pmGiving = (giving||[]).filter((g:any)=>g.date>=pmStart&&g.date<=pmEnd);
+    const byName:Record<string,{count:number,total:number,dates:string[]}> = {};
+    pmGiving.forEach((g:any)=>{
+      const k=String(g.name||"").trim().toLowerCase();
+      if(!k)return;
+      if(!byName[k])byName[k]={count:0,total:0,dates:[]};
+      byName[k].count++; byName[k].total+=g.amount||0; byName[k].dates.push(g.date);
+    });
+    const result:(any)[] = [];
+    (members||[]).filter((m:any)=>m.status==="Active").forEach((m:any)=>{
+      const key=(m.first+" "+m.last).trim().toLowerCase();
+      const rec=byName[key];
+      if(rec&&rec.count===2) result.push({...m, giftCount:rec.count, giftTotal:rec.total, giftDates:rec.dates, monthName});
+    });
+    return result;
+  })();
+
+  // ── TAB 3: All active members with phone numbers ──
+  const phoneList = (members||[]).filter((m:any)=>m.status==="Active"&&m.phone).sort((a:any,b:any)=>(a.last||"").localeCompare(b.last||""));
+
+  // ── TAB 4: Children missing 4 consecutive Sunday sessions (kids check-in) ──
+  const absentChildren = (() => {
+    const allKCI = (kidsCheckIns||[]);
+    const kidDates = [...new Set(allKCI.map((c:any)=>c.date))].sort().reverse();
+    const last4 = kidDates.slice(0,4);
+    if(last4.length<1) return [];
+    const presentPerDate:Record<string,Set<any>> = {};
+    last4.forEach(d=>{ presentPerDate[d]=new Set(allKCI.filter((c:any)=>c.date===d).map((c:any)=>c.childId)); });
+    return (children||[]).filter((ch:any)=>ch.status==="Active"&&last4.every(d=>!presentPerDate[d]?.has(ch.id)));
+  })();
+
+  // ── TAB 5: Birthdays in the current month ──
+  const thisMonth = today.getMonth()+1;
+  const birthdayList = (members||[]).filter((m:any)=>{
+    if(!m.birthday)return false;
+    const parts=String(m.birthday).split("-");
+    return parts.length>=2&&parseInt(parts[1],10)===thisMonth;
+  }).sort((a:any,b:any)=>{
+    const da=parseInt((a.birthday||"").split("-")[2]||"0",10);
+    const db=parseInt((b.birthday||"").split("-")[2]||"0",10);
+    return da-db;
+  });
+
+  // ── TAB 6: Outstanding (incomplete) visit follow-ups ──
+  const outstandingVisits = (() => {
+    const incomplete = (visitRecords||[]).filter((r:any)=>r.stage!=="Complete"&&r.stage!=="Converted");
+    return incomplete.map((r:any)=>{
+      const v=(visitors||[]).find((x:any)=>x.id===r.visitorId);
+      const daysPending = r.createdDate ? Math.floor((today.getTime()-new Date(r.createdDate).getTime())/(1000*60*60*24)) : null;
+      return {...r, visitor:v, daysPending};
+    }).filter((r:any)=>r.visitor);
+  })();
+
+  const badgeCount = absentMembers.length + lowGivers.length + absentChildren.length + outstandingVisits.length;
+
+  // ── Shared row style ──
+  const TR:any = {borderBottom:"0.5px solid "+BR};
+  const TH = (h:string,w?:string) => <th style={{padding:"9px 12px",textAlign:"left",fontSize:11,fontWeight:600,color:MU,textTransform:"uppercase",letterSpacing:0.5,background:"#f8f9fc",whiteSpace:"nowrap",width:w||"auto"}}>{h}</th>;
+  const TD = ({children:ch2,...rest}:any) => <td style={{padding:"9px 12px",fontSize:13,...rest?.style}}>{ch2}</td>;
+  const ActBtns = ({p,phone,email:em}:{p:any,phone?:string,email?:string}) => (
+    <div style={{display:"flex",gap:6}}>
+      <Btn onClick={()=>sms({...p,phone:phone||p.phone})} v="outline" style={{fontSize:11,padding:"3px 8px"}} title={phone||p.phone||"No phone"}>SMS</Btn>
+      <Btn onClick={()=>email({...p,email:em||p.email})} v="outline" style={{fontSize:11,padding:"3px 8px"}} title={em||p.email||"No email"}>Email</Btn>
+    </div>
+  );
+
+  const EmptyState = ({msg}:{msg:string}) => (
+    <div style={{padding:40,textAlign:"center",color:MU,fontSize:13}}>{msg}</div>
+  );
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20}}>
+        <div style={{fontSize:22}}>🔔</div>
+        <div>
+          <div style={{fontSize:17,fontWeight:600,color:N}}>Alerts & Reports</div>
+          <div style={{fontSize:12,color:MU}}>Pastoral care summaries — updated in real time from your church data</div>
+        </div>
+        {badgeCount>0&&<span style={{marginLeft:"auto",background:RE,color:"#fff",borderRadius:12,padding:"3px 10px",fontSize:12,fontWeight:600}}>{badgeCount} alerts</span>}
+      </div>
+
+      {/* Tabs */}
+      <div style={{display:"flex",gap:4,marginBottom:20,flexWrap:"wrap"}}>
+        {TABS.map((t,i)=>{
+          const count = [absentMembers.length,lowGivers.length,phoneList.length,absentChildren.length,birthdayList.length,outstandingVisits.length][i];
+          const hasAlert = [true,true,false,true,false,true][i] && count>0;
+          return (
+            <button key={i} onClick={()=>setTab(i)} style={{padding:"8px 14px",borderRadius:8,border:"0.5px solid "+(tab===i?N:BR),background:tab===i?N:"#fff",color:tab===i?"#fff":TX,fontSize:12,fontWeight:tab===i?600:400,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
+              {t}
+              <span style={{background:hasAlert?RE:(tab===i?"#ffffff44":BG),color:hasAlert?"#fff":(tab===i?"#fff":MU),borderRadius:10,padding:"1px 6px",fontSize:11,fontWeight:600}}>{count}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,overflow:"hidden"}}>
+
+        {/* ── TAB 1: Absent Members ── */}
+        {tab===0&&(
+          <>
+            <div style={{padding:"12px 16px",borderBottom:"0.5px solid "+BR,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div>
+                <div style={{fontSize:14,fontWeight:600,color:N}}>Absent Members — 4 Consecutive Sundays</div>
+                <div style={{fontSize:12,color:MU,marginTop:2}}>Active members not checked in to any of the last 4 Sunday Morning services</div>
+              </div>
+              <Btn onClick={()=>exportCSV([["Name","Phone","Email","Role"],
+                ...absentMembers.map((m:any)=>[m.first+" "+m.last,m.phone||"",m.email||"",m.role||"Member"])],
+                "absent-members.csv")} v="outline" style={{fontSize:12}}>Export CSV</Btn>
+            </div>
+            {absentMembers.length===0
+              ? <EmptyState msg="No absent members found — either no Sunday Morning check-in data yet, or all members attended within the last 4 Sundays."/>
+              : <table style={{width:"100%",borderCollapse:"collapse"}}>
+                  <thead><tr>{TH("Name")}{TH("Phone")}{TH("Email")}{TH("Role")}{TH("Actions","120px")}</tr></thead>
+                  <tbody>
+                    {absentMembers.map((m:any)=>(
+                      <tr key={m.id} style={TR}>
+                        <TD><div style={{fontWeight:500}}>{m.first} {m.last}</div></TD>
+                        <TD>{m.phone||<span style={{color:MU}}>—</span>}</TD>
+                        <TD>{m.email||<span style={{color:MU}}>—</span>}</TD>
+                        <TD>{m.role||"Member"}</TD>
+                        <TD><ActBtns p={m}/></TD>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+            }
+          </>
+        )}
+
+        {/* ── TAB 2: Low Giving ── */}
+        {tab===1&&(
+          <>
+            <div style={{padding:"12px 16px",borderBottom:"0.5px solid "+BR,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div>
+                <div style={{fontSize:14,fontWeight:600,color:N}}>Low Giving — Exactly 2 Gifts Last Month</div>
+                <div style={{fontSize:12,color:MU,marginTop:2}}>
+                  {lowGivers.length>0 ? `Reporting for ${lowGivers[0]?.monthName}` : "Active members with exactly 2 recorded gifts in the previous calendar month"}
+                </div>
+              </div>
+              <Btn onClick={()=>exportCSV([["Name","Phone","Email","Gift Count","Total Given","Gift Dates"],
+                ...lowGivers.map((m:any)=>[m.first+" "+m.last,m.phone||"",m.email||"",m.giftCount,f$(m.giftTotal),(m.giftDates||[]).join("; ")])],
+                "low-giving.csv")} v="outline" style={{fontSize:12}}>Export CSV</Btn>
+            </div>
+            {lowGivers.length===0
+              ? <EmptyState msg="No members found with exactly 2 gifts last month."/>
+              : <table style={{width:"100%",borderCollapse:"collapse"}}>
+                  <thead><tr>{TH("Name")}{TH("Gifts")}{TH("Total Given")}{TH("Gift Dates")}{TH("Actions","120px")}</tr></thead>
+                  <tbody>
+                    {lowGivers.map((m:any)=>(
+                      <tr key={m.id} style={TR}>
+                        <TD><div style={{fontWeight:500}}>{m.first} {m.last}</div>{m.phone&&<div style={{fontSize:11,color:MU}}>{m.phone}</div>}</TD>
+                        <TD><span style={{fontWeight:600,color:AM}}>{m.giftCount}</span></TD>
+                        <TD style={{fontWeight:500,color:N}}>{f$(m.giftTotal)}</TD>
+                        <TD style={{color:MU,fontSize:12}}>{(m.giftDates||[]).map((d:string)=>fd(d)).join(", ")}</TD>
+                        <TD><ActBtns p={m}/></TD>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+            }
+          </>
+        )}
+
+        {/* ── TAB 3: Phone Directory ── */}
+        {tab===2&&(
+          <>
+            <div style={{padding:"12px 16px",borderBottom:"0.5px solid "+BR,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div>
+                <div style={{fontSize:14,fontWeight:600,color:N}}>Phone Directory</div>
+                <div style={{fontSize:12,color:MU,marginTop:2}}>All active members with a phone number on file ({phoneList.length})</div>
+              </div>
+              <Btn onClick={()=>exportCSV([["Name","Phone","Email","Role"],
+                ...phoneList.map((m:any)=>[m.first+" "+m.last,m.phone||"",m.email||"",m.role||"Member"])],
+                "phone-directory.csv")} v="outline" style={{fontSize:12}}>Export CSV</Btn>
+            </div>
+            {phoneList.length===0
+              ? <EmptyState msg="No active members have phone numbers on file."/>
+              : <table style={{width:"100%",borderCollapse:"collapse"}}>
+                  <thead><tr>{TH("Name")}{TH("Phone")}{TH("Email")}{TH("Role")}{TH("Actions","120px")}</tr></thead>
+                  <tbody>
+                    {phoneList.map((m:any)=>(
+                      <tr key={m.id} style={TR}>
+                        <TD><div style={{fontWeight:500}}>{m.first} {m.last}</div></TD>
+                        <TD style={{fontWeight:500,color:N}}>{m.phone}</TD>
+                        <TD>{m.email||<span style={{color:MU}}>—</span>}</TD>
+                        <TD>{m.role||"Member"}</TD>
+                        <TD><ActBtns p={m}/></TD>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+            }
+          </>
+        )}
+
+        {/* ── TAB 4: Absent Children ── */}
+        {tab===3&&(
+          <>
+            <div style={{padding:"12px 16px",borderBottom:"0.5px solid "+BR,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div>
+                <div style={{fontSize:14,fontWeight:600,color:N}}>Absent Children — 4 Consecutive Sessions</div>
+                <div style={{fontSize:12,color:MU,marginTop:2}}>Active children not checked in to any of the last 4 kids' ministry sessions</div>
+              </div>
+              <Btn onClick={()=>exportCSV([["Name","Grade","Parent","Parent Phone"],
+                ...absentChildren.map((c:any)=>[c.first+" "+c.last,c.grade||"",c.parentName||"",c.parentPhone||""])],
+                "absent-children.csv")} v="outline" style={{fontSize:12}}>Export CSV</Btn>
+            </div>
+            {absentChildren.length===0
+              ? <EmptyState msg="No absent children found — either no kids check-in data yet, or all children attended within the last 4 sessions."/>
+              : <table style={{width:"100%",borderCollapse:"collapse"}}>
+                  <thead><tr>{TH("Child Name")}{TH("Grade")}{TH("Parent / Guardian")}{TH("Parent Phone")}{TH("Actions","120px")}</tr></thead>
+                  <tbody>
+                    {absentChildren.map((c:any)=>(
+                      <tr key={c.id} style={TR}>
+                        <TD><div style={{fontWeight:500}}>{c.first} {c.last}</div></TD>
+                        <TD>{c.grade||<span style={{color:MU}}>—</span>}</TD>
+                        <TD>{c.parentName||<span style={{color:MU}}>—</span>}</TD>
+                        <TD>{c.parentPhone||<span style={{color:MU}}>—</span>}</TD>
+                        <TD><ActBtns p={{first:c.parentName||c.first,last:"",phone:c.parentPhone||"",email:""}}/></TD>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+            }
+          </>
+        )}
+
+        {/* ── TAB 5: Birthdays This Month ── */}
+        {tab===4&&(
+          <>
+            <div style={{padding:"12px 16px",borderBottom:"0.5px solid "+BR,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div>
+                <div style={{fontSize:14,fontWeight:600,color:N}}>Birthdays — {today.toLocaleString("en-US",{month:"long",year:"numeric"})}</div>
+                <div style={{fontSize:12,color:MU,marginTop:2}}>{birthdayList.length} member{birthdayList.length!==1?"s":""} celebrating a birthday this month</div>
+              </div>
+              <Btn onClick={()=>exportCSV([["Name","Birthday","Phone","Email"],
+                ...birthdayList.map((m:any)=>[m.first+" "+m.last,m.birthday||"",m.phone||"",m.email||""])],
+                "birthdays.csv")} v="outline" style={{fontSize:12}}>Export CSV</Btn>
+            </div>
+            {birthdayList.length===0
+              ? <EmptyState msg="No member birthdays recorded for this month."/>
+              : <table style={{width:"100%",borderCollapse:"collapse"}}>
+                  <thead><tr>{TH("Name")}{TH("Birthday")}{TH("Phone")}{TH("Email")}{TH("Actions","120px")}</tr></thead>
+                  <tbody>
+                    {birthdayList.map((m:any)=>{
+                      const parts=(m.birthday||"").split("-");
+                      const day=parts[2]?parseInt(parts[2],10):"?";
+                      const isToday=(m.birthday||"").endsWith("-"+todayStr.slice(5));
+                      return (
+                        <tr key={m.id} style={TR}>
+                          <TD>
+                            <div style={{display:"flex",alignItems:"center",gap:8}}>
+                              <span style={{fontWeight:500}}>{m.first} {m.last}</span>
+                              {isToday&&<span style={{background:AM,color:"#fff",borderRadius:10,fontSize:10,padding:"1px 7px",fontWeight:600}}>Today! 🎂</span>}
+                            </div>
+                          </TD>
+                          <TD style={{fontWeight:500,color:PU}}>
+                            {today.toLocaleString("en-US",{month:"long"})} {day}
+                          </TD>
+                          <TD>{m.phone||<span style={{color:MU}}>—</span>}</TD>
+                          <TD>{m.email||<span style={{color:MU}}>—</span>}</TD>
+                          <TD><ActBtns p={m}/></TD>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+            }
+          </>
+        )}
+
+        {/* ── TAB 6: Outstanding Visits ── */}
+        {tab===5&&(
+          <>
+            <div style={{padding:"12px 16px",borderBottom:"0.5px solid "+BR,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div>
+                <div style={{fontSize:14,fontWeight:600,color:N}}>Outstanding Visits</div>
+                <div style={{fontSize:12,color:MU,marginTop:2}}>Visitor follow-up records that have not been marked Complete or Converted</div>
+              </div>
+              <Btn onClick={()=>exportCSV([["Visitor Name","Phone","Email","Stage","Days Pending","Contacts Made"],
+                ...outstandingVisits.map((r:any)=>[
+                  (r.visitor?.first||"")+" "+(r.visitor?.last||""),
+                  r.visitor?.phone||"",r.visitor?.email||"",
+                  r.stage||"",r.daysPending!=null?String(r.daysPending):"",
+                  String((r.contacts||[]).length)])],
+                "outstanding-visits.csv")} v="outline" style={{fontSize:12}}>Export CSV</Btn>
+            </div>
+            {outstandingVisits.length===0
+              ? <EmptyState msg="No outstanding visits — all follow-up records are complete."/>
+              : <table style={{width:"100%",borderCollapse:"collapse"}}>
+                  <thead><tr>{TH("Visitor")}{TH("Stage")}{TH("Days Pending")}{TH("Contacts Made")}{TH("First Visit")}{TH("Actions","120px")}</tr></thead>
+                  <tbody>
+                    {outstandingVisits.map((r:any)=>{
+                      const v=r.visitor;
+                      const overdue = r.daysPending!=null && r.daysPending>21;
+                      return (
+                        <tr key={r.id} style={TR}>
+                          <TD>
+                            <div style={{fontWeight:500}}>{v.first} {v.last}</div>
+                            {v.phone&&<div style={{fontSize:11,color:MU}}>{v.phone}</div>}
+                          </TD>
+                          <TD>
+                            <span style={{background:r.stage==="Pastor"?"#e0e7ff":r.stage==="OngoingCare"?"#fef3c7":"#f3f4f6",color:r.stage==="Pastor"?PU:r.stage==="OngoingCare"?AM:TX,borderRadius:8,padding:"2px 8px",fontSize:12,fontWeight:500}}>
+                              {r.stage||"Pending"}
+                            </span>
+                          </TD>
+                          <TD style={{color:overdue?RE:TX,fontWeight:overdue?600:400}}>
+                            {r.daysPending!=null?r.daysPending+" days":"-"}
+                            {overdue&&<span style={{marginLeft:6,fontSize:10,background:RE+"18",color:RE,borderRadius:6,padding:"1px 5px"}}>Overdue</span>}
+                          </TD>
+                          <TD>{(r.contacts||[]).length}</TD>
+                          <TD style={{color:MU}}>{v.firstVisit?fd(v.firstVisit):"—"}</TD>
+                          <TD><ActBtns p={v}/></TD>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+            }
+          </>
+        )}
+
+      </div>
+    </div>
+  );
+}
+
 // ── MANUAL PAGE ──
 function ManualPage(){
   const contentRef=useRef<any>({});
@@ -11376,6 +11743,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     {id:"access",label:"Access Control",icon:"Ac"},
     {id:"ai",label:"AI Assistant",icon:"AI"},
     {id:"settings",label:"Settings",icon:"⚙"},
+    {id:"alerts",label:"Alerts",icon:"🔔"},
     {id:"manual",label:"Manual",icon:"📖"},
   ];
   // Map nav IDs to MODULES keys for permission checking (null = always visible)
@@ -11385,7 +11753,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     visitation:"visitation", groups:"groups", education:"education",
     maintenance:"maintenance", calendar:"events", attendance:"attendance",
     giving:"giving", prayer:"prayer", email:null, sms:null,
-    access:"settings", ai:null, settings:"settings", manual:null,
+    access:"settings", ai:null, settings:"settings", alerts:null, manual:null,
   };
   // For staff, hide nav items they don't have "view" permission for
   // Additionally, restricted staff (non-Admin/non-SuperAdmin) always have maintenance/ai/email/sms hidden
@@ -11408,13 +11776,31 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
         });
         return staffMemberRecord ? [...filtered, {id:"myprofile",label:"My Profile",icon:"👤"}] : filtered;
       })();
-  const TITLES:any = {dashboard:"Dashboard",addperson:"Add Person to Database",people:"Members Profile",prospects:"Prospects",visitation:"Visitation & Follow-Up",education:"Education Department",maintenance:"Maintenance & Equipment",attendance:"Attendance",giving:"Giving Records",prayer:"Prayer Wall",email:"Email Center",sms:"SMS Center",access:"Access Control",ai:"AI Assistant",settings:"Church Settings",manual:"Staff Manual",myprofile:"My Profile"};
+  const TITLES:any = {dashboard:"Dashboard",addperson:"Add Person to Database",people:"Members Profile",prospects:"Prospects",visitation:"Visitation & Follow-Up",education:"Education Department",maintenance:"Maintenance & Equipment",attendance:"Attendance",giving:"Giving Records",prayer:"Prayer Wall",email:"Email Center",sms:"SMS Center",access:"Access Control",ai:"AI Assistant",settings:"Church Settings",alerts:"Alerts & Reports",manual:"Staff Manual",myprofile:"My Profile"};
   const pending = users.filter(u=>u.status==="Pending").length;
   const fu = visitors.filter(v=>v.stage==="Follow-Up Needed").length;
   const inVis = visitRecords.filter(r=>r.stage!=="Complete").length;
   const maintAlerts = computeMaintAlerts(equipment, schedMaint);
   const todayStr=new Date().toISOString().split('T')[0];
   const maintAlertCount = maintAlerts.overdue.length + maintAlerts.urgent.length + maintAlerts.warrantyExpired.length + maintAlerts.warrantyExpiringSoon.length + (supplies||[]).filter((s:any)=>s.maxQty>0&&s.quantity<=Math.round(s.maxQty*0.25)).length + (checkouts||[]).filter((c:any)=>c.status==='Out'&&c.expectedReturnDate&&c.expectedReturnDate<todayStr).length;
+  // Alerts page badge counts
+  const _sunCIs=(checkIns||[]).filter((c:any)=>c.ename&&c.ename.toLowerCase().includes("sunday morning")&&c.ptype==="member");
+  const _sunDates=[...new Set(_sunCIs.map((c:any)=>c.date))].sort().reverse();
+  const _last4sun=_sunDates.slice(0,4);
+  const _sunPresent:Record<string,Set<any>>={};
+  _last4sun.forEach((d:string)=>{_sunPresent[d]=new Set(_sunCIs.filter((c:any)=>c.date===d).map((c:any)=>c.pid));});
+  const absentMembers=(members||[]).filter((m:any)=>m.status==="Active"&&_last4sun.length>0&&_last4sun.every((d:string)=>!_sunPresent[d]?.has(m.id)));
+  const _pmNow=new Date(); const _prevMo=_pmNow.getMonth()===0?11:_pmNow.getMonth()-1; const _prevYr=_pmNow.getMonth()===0?_pmNow.getFullYear()-1:_pmNow.getFullYear();
+  const _pmStart=new Date(_prevYr,_prevMo,1).toISOString().split("T")[0]; const _pmEnd=new Date(_prevYr,_prevMo+1,0).toISOString().split("T")[0];
+  const _pmG=(giving||[]).filter((g:any)=>g.date>=_pmStart&&g.date<=_pmEnd);
+  const _pmByName:Record<string,number>={};_pmG.forEach((g:any)=>{const k=String(g.name||"").trim().toLowerCase();if(k)_pmByName[k]=(_pmByName[k]||0)+1;});
+  const lowGivers=(members||[]).filter((m:any)=>{const k=(m.first+" "+m.last).trim().toLowerCase();return m.status==="Active"&&_pmByName[k]===2;});
+  const _kidDates=[...new Set((kidsCheckIns||[]).map((c:any)=>c.date))].sort().reverse();
+  const _last4kid=_kidDates.slice(0,4);
+  const _kidPresent:Record<string,Set<any>>={};
+  _last4kid.forEach((d:string)=>{_kidPresent[d]=new Set((kidsCheckIns||[]).filter((c:any)=>c.date===d).map((c:any)=>c.childId));});
+  const absentChildren=(children||[]).filter((ch:any)=>ch.status==="Active"&&_last4kid.length>0&&_last4kid.every((d:string)=>!_kidPresent[d]?.has(ch.id)));
+  const outstandingVisits=(visitRecords||[]).filter((r:any)=>r.stage!=="Complete"&&r.stage!=="Converted"&&(visitors||[]).some((v:any)=>v.id===r.visitorId));
   const LogoEl=()=>churchSettings.logoUrl
     ?<img src={churchSettings.logoUrl} style={{width:36,height:36,borderRadius:8,objectFit:"cover",flexShrink:0,border:"1px solid #ffffff33"}} alt="logo" onError={e=>e.target.style.display="none"}/>
     :<div style={{width:36,height:36,borderRadius:8,background:G,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:"#fff",flexShrink:0}}>{logoInitials}</div>;
@@ -11440,6 +11826,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
             {item.id==="access"&&pending>0&&<span style={{marginLeft:"auto",background:AM,color:"#fff",borderRadius:10,fontSize:10,fontWeight:600,padding:"1px 6px"}}>{pending}</span>}
             {item.id==="visitation"&&inVis>0&&<span style={{marginLeft:"auto",background:PU,color:"#fff",borderRadius:10,fontSize:10,fontWeight:600,padding:"1px 6px"}}>{inVis}</span>}
             {item.id==="maintenance"&&maintAlertCount>0&&<span style={{marginLeft:"auto",background:RE,color:"#fff",borderRadius:10,fontSize:10,fontWeight:600,padding:"1px 6px"}}>{maintAlertCount}</span>}
+            {item.id==="alerts"&&(absentMembers.length+lowGivers.length+absentChildren.length+outstandingVisits.length)>0&&<span style={{marginLeft:"auto",background:RE,color:"#fff",borderRadius:10,fontSize:10,fontWeight:600,padding:"1px 6px"}}>{absentMembers.length+lowGivers.length+absentChildren.length+outstandingVisits.length}</span>}
           </button>
         ))}
       </div>
@@ -11616,6 +12003,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           {!isMemberPortal && view==="email" && <EmailCenter emailLog={emailLog} setEmailLog={setEmailLog} emailTemplates={emailTemplates} setEmailTemplates={setEmailTemplates} emailConfig={emailConfig} setEmailConfig={setEmailConfig} members={members} visitors={visitors} cs={churchSettings} onCompose={()=>openEmailComposer({})} onBulkCompose={()=>openBulkEmailComposer({recipients:members.filter(m=>m.email).map(m=>({name:m.first+" "+m.last,first:m.first,last:m.last,email:m.email}))})}/>}
           {!isMemberPortal && view==="access" && <Access members={members} users={users} setUsers={setUsers} roles={roles} setRoles={setRoles} permissions={permissions} setPermissions={setPermissions} portalMembers={portalMembers} setPortalMembers={setPortalMembers} currentUser={currentUser} churchId={churchId}/>}
           {!isMemberPortal && view==="ai" && <AIAssist aiChat={aiChat} setAiChat={setAiChat} members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} setAttendance={setAttendance} giving={giving} setGiving={setGiving} prayers={prayers} setView={setView} isMobile={isMobile}/>}
+          {!isMemberPortal && view==="alerts" && <AlertPage members={members} visitors={visitors} giving={giving} checkIns={checkIns} kidsCheckIns={kidsCheckIns} children={children} visitRecords={visitRecords}/>}
           {!isMemberPortal && view==="manual" && <ManualPage/>}
         </div>
       </div>
