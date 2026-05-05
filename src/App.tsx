@@ -8533,7 +8533,7 @@ function Prayer({prayers,setPrayers,portalMode=false,portalMember=null}:any) {
 function AIAssist({aiChat,setAiChat,members,setMembers,visitors,setVisitors,attendance,setAttendance,giving,setGiving,prayers,setView,isMobile}) {
   const [input,setInput] = useState("");
   const [load,setLoad] = useState(false);
-  const [ttsOn,setTtsOn] = useState(false);
+  const [ttsOn,setTtsOn] = useState(()=>localStorage.getItem("ntcc_voice_on")!=="false");
   const [elVoice,setElVoice] = useState(EL_VOICES[0].id);
   const [showSettings,setShowSettings] = useState(false);
   const [mem,setMem] = useState({preferences:"",commands:"",style:""});
@@ -8687,6 +8687,7 @@ function AIAssist({aiChat,setAiChat,members,setMembers,visitors,setVisitors,atte
             } else {
               _elAudio.pause();
             }
+            localStorage.setItem("ntcc_voice_on", String(willBeOn));
             setTtsOn(willBeOn);
           }} style={{display:"flex",alignItems:"center",gap:5,padding:"5px 13px",borderRadius:20,border:"1.5px solid "+(ttsOn?"#4ade80":"#ffffff44"),cursor:"pointer",background:ttsOn?"#16a34a44":"transparent",color:ttsOn?"#4ade80":"#ffffff99",fontSize:12,fontWeight:ttsOn?600:400,transition:"all 0.2s"}}>
             {ttsOn?"🔊 Voice On":"🔇 Voice Off"}
@@ -8813,6 +8814,7 @@ function AIAssist({aiChat,setAiChat,members,setMembers,visitors,setVisitors,atte
             const willBeOn = !ttsOn;
             if(willBeOn){_elAudio.src=SILENT_WAV;_elAudio.play().catch(()=>{});}
             else _elAudio.pause();
+            localStorage.setItem("ntcc_voice_on", String(willBeOn));
             setTtsOn(willBeOn);
           }} style={{display:"flex",alignItems:"center",gap:12,padding:"14px 16px",borderRadius:10,border:"0.5px solid "+BR,cursor:"pointer",background:ttsOn?"#f0fdf4":BG,marginBottom:12}}>
             <div style={{width:44,height:24,borderRadius:12,background:ttsOn?GR:BR,position:"relative",transition:"background 0.2s",flexShrink:0}}>
