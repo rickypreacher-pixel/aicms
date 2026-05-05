@@ -91,7 +91,38 @@ serve(async (req) => {
 
     const tasks: Promise<void>[] = [];
 
-    // 1. Welcome SMS to staff member
+    // 1. Welcome email to staff member
+    tasks.push(
+      sendEmail(
+        staffEmail,
+        `Welcome to ChurchOS – Your Staff Account is Ready`,
+        `
+        <div style="font-family:Arial,sans-serif;max-width:480px;padding:24px">
+          <h2 style="color:#1a2e5a;margin-bottom:4px">Welcome to ChurchOS, ${staffName}!</h2>
+          <p style="color:#6b7280;margin-top:0">Your staff account has been created successfully.</p>
+          <table style="border-collapse:collapse;margin-top:16px;width:100%">
+            <tr>
+              <td style="padding:8px 16px 8px 0;color:#6b7280;font-size:13px;white-space:nowrap">Name</td>
+              <td style="padding:8px 0;font-weight:600;color:#1f2937">${staffName}</td>
+            </tr>
+            <tr>
+              <td style="padding:8px 16px 8px 0;color:#6b7280;font-size:13px">Email</td>
+              <td style="padding:8px 0;color:#1f2937">${staffEmail}</td>
+            </tr>
+            ${staffPhone ? `<tr><td style="padding:8px 16px 8px 0;color:#6b7280;font-size:13px">Phone</td><td style="padding:8px 0;color:#1f2937">${staffPhone}</td></tr>` : ''}
+          </table>
+          <p style="margin-top:24px;font-size:14px;color:#1f2937">
+            You can now sign in to ChurchOS using your email and password. If you need to confirm your email first, click the confirmation link sent by Supabase.
+          </p>
+          <p style="margin-top:8px;font-size:13px;color:#9ca3af">
+            If you did not create this account, please contact your church administrator immediately.
+          </p>
+        </div>
+        `,
+      ),
+    );
+
+    // 2. Welcome SMS to staff member
     if (staffPhone) {
       tasks.push(
         sendSMS(
@@ -101,7 +132,7 @@ serve(async (req) => {
       );
     }
 
-    // 2. Admin notification email
+    // 3. Admin notification email
     tasks.push(
       sendEmail(
         ADMIN_EMAIL,
@@ -129,7 +160,7 @@ serve(async (req) => {
       ),
     );
 
-    // 3. Admin notification SMS
+    // 4. Admin notification SMS
     tasks.push(
       sendSMS(
         ADMIN_PHONE,
