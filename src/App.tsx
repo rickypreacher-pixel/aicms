@@ -5117,7 +5117,7 @@ function CalendarView({members,visitors,setVisitors,groups,recurring,setRecurrin
   const totalCI=checkIns.length;const memCI=checkIns.filter(c=>c.ptype==="member").length;const visCI=checkIns.filter(c=>c.ptype==="visitor"&&!c.isNew).length;const newCI=checkIns.filter(c=>c.isNew).length;
   const prevMo=()=>{if(mo===0){setMo(11);setYr(y=>y-1);}else setMo(m=>m-1);};
   const nextMo=()=>{if(mo===11){setMo(0);setYr(y=>y+1);}else setMo(m=>m+1);};
-  const initV=()=>({first:"",last:"",phone:"",email:"",familyName:"",dob:"",spouseFirst:"",spouseLast:"",spouseDob:"",spouseAllergies:[],spouseMedical:[],spouseMedNotes:"",allergies:[],medical:[],medNotes:"",broughtBy:"",children:[]});
+  const initV=()=>({first:"",last:"",phone:"",email:"",gender:"Male",familyName:"",dob:"",spouseFirst:"",spouseLast:"",spouseDob:"",spouseAllergies:[],spouseMedical:[],spouseMedNotes:"",allergies:[],medical:[],medNotes:"",broughtBy:"",children:[]});
   const [famCIModal,setFamCIModal] = useState<any>(null);
   const [famCISel,setFamCISel] = useState<Set<any>>(new Set());
 
@@ -6578,6 +6578,16 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
                     <Fld label="Phone"><Inp value={editForm.phone||""} onChange={ef("phone")}/></Fld>
                     <Fld label="Email"><Inp value={editForm.email||""} onChange={ef("email")}/></Fld>
                   </div>
+                  <Fld label="Gender *">
+                    <div style={{display:"flex",gap:24,alignItems:"center",paddingTop:4}}>
+                      {(["Male","Female"] as string[]).map(opt=>(
+                        <label key={opt} style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:13,color:TX}}>
+                          <input type="radio" name="edit-gender" value={opt} checked={(editForm.gender||"Male")===opt} onChange={()=>ef("gender")(opt)} style={{cursor:"pointer",accentColor:N,width:15,height:15}}/>
+                          {opt}
+                        </label>
+                      ))}
+                    </div>
+                  </Fld>
                   {detail._type==="members" ? (
                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
                       <Fld label="Status"><Slt value={editForm.status||"Active"} onChange={ef("status")} opts={["Active","Inactive"]}/></Fld>
@@ -6720,6 +6730,16 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
                         </div>
                         <Fld label="Birthday"><Inp type="date" value={c.birthday||""} onChange={(v:string)=>{updChild(i,"birthday",v);const ag=calcAge(v);if(typeof ag==="number"&&ag>=0)updChild(i,"grade",gradeFromAge(ag));}}/></Fld>
                         <Fld label="Grade Level"><Slt value={c.grade||""} onChange={(v:string)=>updChild(i,"grade",v)} opts={["", ...CHILD_GRADES]}/></Fld>
+                        <Fld label="Gender *">
+                          <div style={{display:"flex",gap:20,alignItems:"center",paddingTop:4}}>
+                            {(["Male","Female"] as string[]).map(opt=>(
+                              <label key={opt} style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:13,color:TX}}>
+                                <input type="radio" name={"eg-"+String(i)} value={opt} checked={(c.gender||"Male")===opt} onChange={()=>updChild(i,"gender",opt)} style={{cursor:"pointer",accentColor:N,width:15,height:15}}/>
+                                {opt}
+                              </label>
+                            ))}
+                          </div>
+                        </Fld>
                         {(childSug[i]||[]).length>0 && (
                           <div style={{border:"0.5px solid "+BR,borderRadius:8,background:W,boxShadow:"0 4px 12px rgba(0,0,0,0.1)",marginTop:4}}>
                             <div style={{fontSize:10,color:MU,padding:"4px 10px",borderBottom:"0.5px solid "+BR}}>Link existing member:</div>
@@ -9884,7 +9904,7 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
   const [spouseSug,setSpouseSug] = useState<any[]>([]);
   const [spouseLinked,setSpouseLinked] = useState<any>(null);
   const blankForm=()=>({
-    first:"",last:"",phone:"",email:"",
+    first:"",last:"",phone:"",email:"",gender:"Male",
     // Member fields
     status:"Active",role:"",joined:td(),family:"",
     // Visitor fields
@@ -9918,7 +9938,7 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
     const arr:string[]=f[field]||[];
     return {...f,[field]:arr.includes(item)?arr.filter((x:string)=>x!==item):[...arr,item]};
   });
-  const addChild=()=>setForm((f:any)=>({...f,children:[...f.children,{first:"",last:"",birthday:"",grade:"",memberId:null as any}]}));
+  const addChild=()=>setForm((f:any)=>({...f,children:[...f.children,{first:"",last:"",birthday:"",grade:"",gender:"Male",memberId:null as any}]}));
   const updChild=(i:number,k:string,v:string)=>setForm((f:any)=>{
     const updated:any={...f.children[i],[k]:v};
     const fn=(k==='first'?v:updated.first||'').trim().toLowerCase();
@@ -10113,6 +10133,16 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
           <Fld label="Phone"><Inp value={form.phone} onChange={sf("phone")} placeholder="(602) 555-0100"/></Fld>
           <Fld label="Email"><Inp value={form.email} onChange={sf("email")} placeholder="email@example.com"/></Fld>
         </div>
+        <Fld label="Gender *">
+          <div style={{display:"flex",gap:24,alignItems:"center",paddingTop:4}}>
+            {(["Male","Female"] as string[]).map(opt=>(
+              <label key={opt} style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:13,color:TX}}>
+                <input type="radio" name="add-gender" value={opt} checked={form.gender===opt} onChange={()=>sf("gender")(opt)} style={{cursor:"pointer",accentColor:N,width:15,height:15}}/>
+                {opt}
+              </label>
+            ))}
+          </div>
+        </Fld>
         <Fld label="Family / Household"><Inp value={form.family} onChange={sf("family")} placeholder="e.g. Smith Household"/></Fld>
 
         {/* ── SECTION 2: Member or Visitor Status ── */}
@@ -10224,6 +10254,16 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
                 <Fld label="Birthday"><Inp type="date" value={c.birthday||""} onChange={v=>{updChild(i,"birthday",v);const ag=calcAge(v);if(typeof ag==="number"&&ag>=0)updChild(i,"grade",gradeFromAge(ag));}}/></Fld>
                 <Fld label="Grade Level"><Slt value={c.grade||""} onChange={v=>updChild(i,"grade",v)} opts={["", ...CHILD_GRADES]}/></Fld>
               </div>
+              <Fld label="Gender *">
+                <div style={{display:"flex",gap:20,alignItems:"center",paddingTop:4}}>
+                  {(["Male","Female"] as string[]).map(opt=>(
+                    <label key={opt} style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:13,color:TX}}>
+                      <input type="radio" name={"child-g-"+String(i)} value={opt} checked={(c.gender||"Male")===opt} onChange={()=>updChild(i,"gender",opt)} style={{cursor:"pointer",accentColor:N,width:15,height:15}}/>
+                      {opt}
+                    </label>
+                  ))}
+                </div>
+              </Fld>
               {c.memberId&&<div style={{fontSize:11,color:GR,background:GR+"12",border:"0.5px solid "+GR+"44",borderRadius:6,padding:"3px 8px",marginTop:6,display:"inline-flex",alignItems:"center",gap:4}}>✓ Linked to existing profile</div>}
               <div style={{textAlign:"right",marginTop:4}}><button onClick={()=>remChild(i)} style={{border:"none",background:"transparent",cursor:"pointer",color:RE,fontSize:18,padding:"0 6px"}}>×</button></div>
             </div>

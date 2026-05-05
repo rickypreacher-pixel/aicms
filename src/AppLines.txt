@@ -1,0 +1,301 @@
+﻿Line 6551:                       <Btn onClick={genFollow} v="ai" style={{width:"100%",justifyContent:"center",marginBottom:10}}>{aiLoad?"Generating message...":"Generate AI Follow-Up"}</Btn>
+Line 6552:                       <div style={{minHeight:90,fontSize:13,lineHeight:1.7,color:aiMsg?TX:MU,fontStyle:aiMsg?"normal":"italic",background:BG,borderRadius:8,padding:12,border:"0.5px solid "+BR,whiteSpace:"pre-wrap"}}>{aiMsg||"Your personalized pastoral message will appear here."}</div>
+Line 6553:                       {aiMsg && (
+Line 6554:                         <div style={{display:"flex",gap:6,marginTop:8,flexWrap:"wrap"}}>
+Line 6555:                           <Btn onClick={()=>navigator.clipboard.writeText(aiMsg)} v="gold" style={{flex:1,minWidth:80,justifyContent:"center",fontSize:12}}>Copy</Btn>
+Line 6556:                           {detail.phone && <a href={"sms:"+detail.phone+"&body="+encodeURIComponent(aiMsg)} style={{flex:1,minWidth:80,textDecoration:"none"}}><Btn v="primary" style={{width:"100%",justifyContent:"center",fontSize:12}}>Text</Btn></a>}
+Line 6557:                           {detail.email && <Btn onClick={()=>window.__openEmailComposer__&&window.__openEmailComposer__({to:detail.email,toName:detail.first+" "+detail.last,subject:"A Note from Pastor",body:aiMsg,category:"Pastoral Message",relatedType:detail._type,relatedId:detail.id})} v="outline" style={{flex:1,minWidth:80,justifyContent:"center",fontSize:12}}>Email</Btn>}
+Line 6558:                         </div>
+Line 6559:                       )}
+Line 6560:                     </SectionCard>
+Line 6561:                   </div>
+Line 6562:                 )}
+Line 6563:               </div>
+Line 6564:             )}
+Line 6565: 
+Line 6566:             {/* EDIT MODE */}
+Line 6567:             {editMode && (
+Line 6568:               <div>
+Line 6569:                 <div style={{background:GL,border:"0.5px solid "+G,borderRadius:8,padding:"10px 14px",marginBottom:14,fontSize:12,color:"#7a5c10"}}>
+Line 6570:                   <span style={{fontWeight:600}}>Edit Mode</span> — All fields below are editable. Click Save when done.
+Line 6571:                 </div>
+Line 6572:                 <SectionCard title="Basic Information">
+Line 6573:                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+Line 6574:                     <Fld label="First Name *"><Inp value={editForm.first||""} onChange={ef("first")}/></Fld>
+Line 6575:                     <Fld label="Last Name *"><Inp value={editForm.last||""} onChange={ef("last")}/></Fld>
+Line 6576:                   </div>
+Line 6577:                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+Line 6578:                     <Fld label="Phone"><Inp value={editForm.phone||""} onChange={ef("phone")}/></Fld>
+Line 6579:                     <Fld label="Email"><Inp value={editForm.email||""} onChange={ef("email")}/></Fld>
+Line 6580:                   </div>
+Line 6581:                   {detail._type==="members" ? (
+Line 6582:                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+Line 6583:                       <Fld label="Status"><Slt value={editForm.status||"Active"} onChange={ef("status")} opts={["Active","Inactive"]}/></Fld>
+Line 6584:                       <Fld label="Role">
+Line 6585:                         <select value={editForm.role||""} onChange={e=>ef("role")(e.target.value)} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",fontFamily:"inherit",color:editForm.role?TX:MU,background:"#fff",boxSizing:"border-box" as any}}>
+Line 6586:                           <option value="">— Select Role —</option>
+Line 6587:                           {(roles.length>0?roles:SEED_ROLES).map((r:any)=>(<option key={r.id} value={r.name}>{r.name}</option>))}
+Line 6588:                         </select>
+Line 6589:                       </Fld>
+Line 6590:                       <Fld label="Member Since"><Inp type="date" value={editForm.joined||""} onChange={ef("joined")}/></Fld>
+Line 6591:                     </div>
+Line 6592:                   ) : (
+Line 6593:                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+Line 6594:                       <Fld label="Stage"><Slt value={editForm.stage||"First Visit"} onChange={ef("stage")} opts={["First Visit","Follow-Up Needed","Returning","Prospect","Member"]}/></Fld>
+Line 6595:                       <Fld label="Sponsor"><Inp value={editForm.sponsor||""} onChange={ef("sponsor")}/></Fld>
+Line 6596:                       <Fld label="First Visit"><Inp type="date" value={editForm.firstVisit||""} onChange={ef("firstVisit")}/></Fld>
+Line 6597:                     </div>
+Line 6598:                   )}
+Line 6599:                   <Fld label="Family Name"><Inp value={editForm.family||""} onChange={ef("family")} placeholder="Lee Household"/></Fld>
+Line 6600:                 </SectionCard>
+Line 6601: 
+Line 6602:                 <SectionCard title="Address">
+Line 6603:                   <Fld label="Street"><Inp value={(editForm.address||{}).street||""} onChange={efa("street")} placeholder="1234 W Example Ave"/></Fld>
+Line 6604:                   <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr",gap:10}}>
+Line 6605:                     <Fld label="City"><Inp value={(editForm.address||{}).city||""} onChange={efa("city")}/></Fld>
+Line 6606:                     <Fld label="State"><Inp value={(editForm.address||{}).state||""} onChange={efa("state")}/></Fld>
+Line 6607:                     <Fld label="Zip"><Inp value={(editForm.address||{}).zip||""} onChange={efa("zip")}/></Fld>
+Line 6608:                   </div>
+Line 6609:                 </SectionCard>
+Line 6610: 
+Line 6611:                 <SectionCard title="Important Dates">
+Line 6612:                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+Line 6613:                     <Fld label="Birthday"><BirthdaySpinner value={editForm.birthday||""} onChange={ef("birthday")}/></Fld>
+Line 6614:                     <Fld label="Anniversary"><Inp type="date" value={editForm.anniversary||""} onChange={ef("anniversary")}/></Fld>
+Line 6615:                   </div>
+Line 6616:                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+Line 6617:                     <Fld label="Salvation Date"><Inp type="date" value={editForm.salvationDate||""} onChange={ef("salvationDate")}/></Fld>
+Line 6618:                     <Fld label="Baptism Date"><Inp type="date" value={editForm.baptismDate||""} onChange={ef("baptismDate")}/></Fld>
+Line 6619:                   </div>
+Line 6620:                 </SectionCard>
+Line 6621: 
+Line 6622:                 <SectionCard title="Occupation">
+Line 6623:                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+Line 6624:                     <Fld label="Occupation"><Inp value={editForm.occupation||""} onChange={ef("occupation")} placeholder="Teacher, Carpenter..."/></Fld>
+Line 6625:                     <Fld label="Employer"><Inp value={editForm.employer||""} onChange={ef("employer")} placeholder="Company name"/></Fld>
+Line 6626:                   </div>
+Line 6627:                 </SectionCard>
+Line 6628: 
+Line 6629:                 <SectionCard title="Emergency Contact">
+Line 6630:                   <Fld label="Name"><Inp value={editForm.emergencyName||""} onChange={ef("emergencyName")}/></Fld>
+Line 6631:                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+Line 6632:                     <Fld label="Phone"><Inp value={editForm.emergencyPhone||""} onChange={ef("emergencyPhone")}/></Fld>
+Line 6633:                     <Fld label="Relationship"><Inp value={editForm.emergencyRelation||""} onChange={ef("emergencyRelation")} placeholder="Wife, Son..."/></Fld>
+Line 6634:                   </div>
+Line 6635:                 </SectionCard>
+Line 6636: 
+Line 6637:                 <SectionCard title="Family">
+Line 6638:                   {/* ── Spouse ── */}
+Line 6639:                   <div style={{marginBottom:12}}>
+Line 6640:                     <div style={{fontSize:11,color:MU,fontWeight:600,marginBottom:6,textTransform:"uppercase",letterSpacing:0.4}}>Spouse</div>
+Line 6641:                     {editForm.spouseId && (
+Line 6642:                       <div style={{fontSize:11,color:GR,background:GR+"11",border:"0.5px solid "+GR+"44",borderRadius:6,padding:"4px 10px",marginBottom:6,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+Line 6643:                         <span>✔ Linked to existing member</span>
+Line 6644:                         <button onClick={()=>setEditForm((f:any)=>({...f,spouseId:null}))} style={{background:"none",border:"none",cursor:"pointer",fontSize:11,color:RE,fontWeight:600,padding:0}}>✕ Unlink</button>
+Line 6645:                       </div>
+Line 6646:                     )}
+Line 6647:                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,position:"relative"}}>
+Line 6648:                       <Fld label="First Name">
+Line 6649:                         <Inp value={editForm.spouseFirst||""} onChange={v=>{
+Line 6650:                           setEditForm((f:any)=>({...f,spouseFirst:v,spouseId:null}));
+Line 6651:                           const q=(v+" "+(editForm.spouseLast||"")).trim().toLowerCase();
+Line 6652:                           if(q.length<1){setSpouseSug([]);return;}
+Line 6653:                           const all=[...members,...visitors].filter((m:any)=>m.id!==detail?.id);
+Line 6654:                           setSpouseSug(all.filter((m:any)=>(m.first+" "+m.last).toLowerCase().includes(q)).slice(0,5));
+Line 6655:                         }} placeholder="First name"/>
+Line 6656:                       </Fld>
+Line 6657:                       <Fld label="Last Name">
+Line 6658:                         <Inp value={editForm.spouseLast||""} onChange={v=>{
+Line 6659:                           setEditForm((f:any)=>({...f,spouseLast:v,spouseId:null}));
+Line 6660:                           const q=((editForm.spouseFirst||"")+" "+v).trim().toLowerCase();
+Line 6661:                           if(q.length<1){setSpouseSug([]);return;}
+Line 6662:                           const all=[...members,...visitors].filter((m:any)=>m.id!==detail?.id);
+Line 6663:                           setSpouseSug(all.filter((m:any)=>(m.first+" "+m.last).toLowerCase().includes(q)).slice(0,5));
+Line 6664:                         }} placeholder="Last name"/>
+Line 6665:                       </Fld>
+Line 6666:                     </div>
+Line 6667:                     {spouseSug.length>0 && (
+Line 6668:                       <div style={{border:"0.5px solid "+BR,borderRadius:8,background:W,boxShadow:"0 4px 12px rgba(0,0,0,0.1)",zIndex:50,marginTop:2}}>
+Line 6669:                         <div style={{fontSize:10,color:MU,padding:"4px 10px",borderBottom:"0.5px solid "+BR}}>Select existing member to link:</div>
+Line 6670:                         {spouseSug.map((m:any)=>(
+Line 6671:                           <div key={m.id} onClick={()=>{
+Line 6672:                             setEditForm((f:any)=>({...f,spouseFirst:m.first,spouseLast:m.last,spouseId:m.id}));
+Line 6673:                             setSpouseSug([]);
+Line 6674:                           }} style={{padding:"7px 12px",cursor:"pointer",fontSize:13,borderBottom:"0.5px solid "+BR+"88",display:"flex",alignItems:"center",gap:8}}
+Line 6675:                           onMouseEnter={e=>(e.currentTarget.style.background=BG)}
+Line 6676:                           onMouseLeave={e=>(e.currentTarget.style.background=W)}>
+Line 6677:                             <Av f={m.first} l={m.last} sz={22}/>
+Line 6678:                             <span style={{flex:1}}>{m.first} {m.last}</span>
+Line 6679:                             <span style={{fontSize:11,color:MU}}>{m.role||m.stage||""}</span>
+Line 6680:                           </div>
+Line 6681:                         ))}
+Line 6682:                         <div onClick={()=>setSpouseSug([])} style={{padding:"5px 12px",cursor:"pointer",fontSize:11,color:MU,textAlign:"center"}}>✕ Dismiss</div>
+Line 6683:                       </div>
+Line 6684:                     )}
+Line 6685:                   </div>
+Line 6686: 
+Line 6687:                   {/* ── Children ── */}
+Line 6688:                   <div>
+Line 6689:                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+Line 6690:                       <div style={{fontSize:11,color:MU,fontWeight:600,textTransform:"uppercase",letterSpacing:0.4}}>Children</div>
+Line 6691:                       <button onClick={addChild} style={{background:GR+"18",border:"0.5px solid "+GR+"55",borderRadius:5,padding:"3px 9px",cursor:"pointer",fontSize:11,color:GR,fontWeight:500}}>+ Add Child</button>
+Line 6692:                     </div>
+Line 6693:                     {(editForm.children||[]).length===0 && <div style={{fontSize:11,color:MU,fontStyle:"italic"}}>No children added yet.</div>}
+Line 6694:                     {(editForm.children||[]).map((c:any,i:number)=>(
+Line 6695:                       <div key={i} style={{background:BG,border:"0.5px solid "+BR,borderRadius:8,padding:"10px 10px 8px",marginBottom:8}}>
+Line 6696:                         {c.memberId && (
+Line 6697:                           <div style={{fontSize:11,color:GR,marginBottom:5,display:"flex",justifyContent:"space-between"}}>
+Line 6698:                             <span>✔ Linked to existing member</span>
+Line 6699:                             <button onClick={()=>updChild(i,"memberId",null)} style={{background:"none",border:"none",cursor:"pointer",fontSize:11,color:RE,fontWeight:600,padding:0}}>✕ Unlink</button>
+Line 6700:                           </div>
+Line 6701:                         )}
+Line 6702:                         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr auto",gap:8,alignItems:"end",marginBottom:6}}>
+Line 6703:                           <Fld label="First Name">
+Line 6704:                             <Inp value={c.first||""} onChange={v=>{
+Line 6705:                               updChild(i,"first",v); updChild(i,"memberId",null);
+Line 6706:                               const q=(v+" "+(c.last||"")).trim().toLowerCase();
+Line 6707:                               const all=[...members,...visitors].filter((m:any)=>m.id!==detail?.id);
+Line 6708:                               setChildSug((cs:any)=>({...cs,[i]:q.length<1?[]:all.filter((m:any)=>(m.first+" "+m.last).toLowerCase().includes(q)).slice(0,4)}));
+Line 6709:                             }} placeholder="First"/>
+Line 6710:                           </Fld>
+Line 6711:                           <Fld label="Last Name">
+Line 6712:                             <Inp value={c.last||""} onChange={v=>{
+Line 6713:                               updChild(i,"last",v); updChild(i,"memberId",null);
+Line 6714:                               const q=((c.first||"")+" "+v).trim().toLowerCase();
+Line 6715:                               const all=[...members,...visitors].filter((m:any)=>m.id!==detail?.id);
+Line 6716:                               setChildSug((cs:any)=>({...cs,[i]:q.length<1?[]:all.filter((m:any)=>(m.first+" "+m.last).toLowerCase().includes(q)).slice(0,4)}));
+Line 6717:                             }} placeholder="Last"/>
+Line 6718:                           </Fld>
+Line 6719:                           <button onClick={()=>{remChild(i);setChildSug((cs:any)=>{const n={...cs};delete n[i];return n;});}} style={{background:"#fee2e2",border:"0.5px solid #fca5a5",borderRadius:6,padding:"6px 10px",cursor:"pointer",color:RE,fontSize:11,fontWeight:500,marginBottom:4}}>✕</button>
+Line 6720:                         </div>
+Line 6721:                         <Fld label="Birthday"><Inp type="date" value={c.birthday||""} onChange={(v:string)=>{updChild(i,"birthday",v);const ag=calcAge(v);if(typeof ag==="number"&&ag>=0)updChild(i,"grade",gradeFromAge(ag));}}/></Fld>
+Line 6722:                         <Fld label="Grade Level"><Slt value={c.grade||""} onChange={(v:string)=>updChild(i,"grade",v)} opts={["", ...CHILD_GRADES]}/></Fld>
+Line 6723:                         {(childSug[i]||[]).length>0 && (
+Line 6724:                           <div style={{border:"0.5px solid "+BR,borderRadius:8,background:W,boxShadow:"0 4px 12px rgba(0,0,0,0.1)",marginTop:4}}>
+Line 6725:                             <div style={{fontSize:10,color:MU,padding:"4px 10px",borderBottom:"0.5px solid "+BR}}>Link existing member:</div>
+Line 6726:                             {(childSug[i]||[]).map((m:any)=>(
+Line 6727:                               <div key={m.id} onClick={()=>{
+Line 6728:                                 updChild(i,"first",m.first); updChild(i,"last",m.last); updChild(i,"memberId",m.id);
+Line 6729:                                 setChildSug((cs:any)=>({...cs,[i]:[]}));
+Line 6730:                               }} style={{padding:"6px 12px",cursor:"pointer",fontSize:13,borderBottom:"0.5px solid "+BR+"88",display:"flex",alignItems:"center",gap:8}}
+Line 6731:                               onMouseEnter={e=>(e.currentTarget.style.background=BG)}
+Line 6732:                               onMouseLeave={e=>(e.currentTarget.style.background=W)}>
+Line 6733:                                 <Av f={m.first} l={m.last} sz={20}/>
+Line 6734:                                 <span style={{flex:1}}>{m.first} {m.last}</span>
+Line 6735:                                 <span style={{fontSize:11,color:MU}}>{m.role||m.stage||""}</span>
+Line 6736:                               </div>
+Line 6737:                             ))}
+Line 6738:                             <div onClick={()=>setChildSug((cs:any)=>({...cs,[i]:[]}))} style={{padding:"5px 12px",cursor:"pointer",fontSize:11,color:MU,textAlign:"center"}}>✕ Dismiss</div>
+Line 6739:                           </div>
+Line 6740:                         )}
+Line 6741:                       </div>
+Line 6742:                     ))}
+Line 6743:                   </div>
+Line 6744: 
+Line 6745:                   {/* ── Father ── */}
+Line 6746:                   <div style={{marginTop:12,marginBottom:12}}>
+Line 6747:                     <div style={{fontSize:11,color:MU,fontWeight:600,marginBottom:6,textTransform:"uppercase",letterSpacing:0.4}}>Father</div>
+Line 6748:                     {editForm.fatherId && (
+Line 6749:                       <div style={{fontSize:11,color:GR,background:GR+"11",border:"0.5px solid "+GR+"44",borderRadius:6,padding:"4px 10px",marginBottom:6,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+Line 6750:                         <span>✔ Linked to existing member</span>
+Line 6751:                         <button onClick={()=>setEditForm((f:any)=>({...f,fatherId:null}))} style={{background:"none",border:"none",cursor:"pointer",fontSize:11,color:RE,fontWeight:600,padding:0}}>✕ Unlink</button>
+Line 6752:                       </div>
+Line 6753:                     )}
+Line 6754:                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,position:"relative"}}>
+Line 6755:                       <Fld label="First Name">
+Line 6756:                         <Inp value={editForm.fatherFirst||""} onChange={v=>{
+Line 6757:                           setEditForm((f:any)=>({...f,fatherFirst:v,fatherId:null}));
+Line 6758:                           const q=(v+" "+(editForm.fatherLast||"")).trim().toLowerCase();
+Line 6759:                           if(q.length<1){setFatherSug([]);return;}
+Line 6760:                           const all=[...members,...visitors].filter((m:any)=>m.id!==detail?.id);
+Line 6761:                           setFatherSug(all.filter((m:any)=>(m.first+" "+m.last).toLowerCase().includes(q)).slice(0,5));
+Line 6762:                         }} placeholder="First name"/>
+Line 6763:                       </Fld>
+Line 6764:                       <Fld label="Last Name">
+Line 6765:                         <Inp value={editForm.fatherLast||""} onChange={v=>{
+Line 6766:                           setEditForm((f:any)=>({...f,fatherLast:v,fatherId:null}));
+Line 6767:                           const q=((editForm.fatherFirst||"")+" "+v).trim().toLowerCase();
+Line 6768:                           if(q.length<1){setFatherSug([]);return;}
+Line 6769:                           const all=[...members,...visitors].filter((m:any)=>m.id!==detail?.id);
+Line 6770:                           setFatherSug(all.filter((m:any)=>(m.first+" "+m.last).toLowerCase().includes(q)).slice(0,5));
+Line 6771:                         }} placeholder="Last name"/>
+Line 6772:                       </Fld>
+Line 6773:                     </div>
+Line 6774:                     {fatherSug.length>0 && (
+Line 6775:                       <div style={{border:"0.5px solid "+BR,borderRadius:8,background:W,boxShadow:"0 4px 12px rgba(0,0,0,0.1)",zIndex:50,marginTop:2}}>
+Line 6776:                         <div style={{fontSize:10,color:MU,padding:"4px 10px",borderBottom:"0.5px solid "+BR}}>Select existing member to link:</div>
+Line 6777:                         {fatherSug.map((m:any)=>(
+Line 6778:                           <div key={m.id} onClick={()=>{setEditForm((f:any)=>({...f,fatherFirst:m.first,fatherLast:m.last,fatherId:m.id}));setFatherSug([]);}}
+Line 6779:                             style={{padding:"7px 12px",cursor:"pointer",fontSize:13,borderBottom:"0.5px solid "+BR+"88",display:"flex",alignItems:"center",gap:8}}
+Line 6780:                             onMouseEnter={e=>(e.currentTarget.style.background=BG)} onMouseLeave={e=>(e.currentTarget.style.background=W)}>
+Line 6781:                             <Av f={m.first} l={m.last} sz={22}/>
+Line 6782:                             <span style={{flex:1}}>{m.first} {m.last}</span>
+Line 6783:                             <span style={{fontSize:11,color:MU}}>{m.role||m.stage||""}</span>
+Line 6784:                           </div>
+Line 6785:                         ))}
+Line 6786:                         <div onClick={()=>setFatherSug([])} style={{padding:"5px 12px",cursor:"pointer",fontSize:11,color:MU,textAlign:"center"}}>✕ Dismiss</div>
+Line 6787:                       </div>
+Line 6788:                     )}
+Line 6789:                   </div>
+Line 6790: 
+Line 6791:                   {/* ── Mother ── */}
+Line 6792:                   <div style={{marginBottom:12}}>
+Line 6793:                     <div style={{fontSize:11,color:MU,fontWeight:600,marginBottom:6,textTransform:"uppercase",letterSpacing:0.4}}>Mother</div>
+Line 6794:                     {editForm.motherId && (
+Line 6795:                       <div style={{fontSize:11,color:GR,background:GR+"11",border:"0.5px solid "+GR+"44",borderRadius:6,padding:"4px 10px",marginBottom:6,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+Line 6796:                         <span>✔ Linked to existing member</span>
+Line 6797:                         <button onClick={()=>setEditForm((f:any)=>({...f,motherId:null}))} style={{background:"none",border:"none",cursor:"pointer",fontSize:11,color:RE,fontWeight:600,padding:0}}>✕ Unlink</button>
+Line 6798:                       </div>
+Line 6799:                     )}
+Line 6800:                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,position:"relative"}}>
+Line 6801:                       <Fld label="First Name">
+Line 6802:                         <Inp value={editForm.motherFirst||""} onChange={v=>{
+Line 6803:                           setEditForm((f:any)=>({...f,motherFirst:v,motherId:null}));
+Line 6804:                           const q=(v+" "+(editForm.motherLast||"")).trim().toLowerCase();
+Line 6805:                           if(q.length<1){setMotherSug([]);return;}
+Line 6806:                           const all=[...members,...visitors].filter((m:any)=>m.id!==detail?.id);
+Line 6807:                           setMotherSug(all.filter((m:any)=>(m.first+" "+m.last).toLowerCase().includes(q)).slice(0,5));
+Line 6808:                         }} placeholder="First name"/>
+Line 6809:                       </Fld>
+Line 6810:                       <Fld label="Last Name">
+Line 6811:                         <Inp value={editForm.motherLast||""} onChange={v=>{
+Line 6812:                           setEditForm((f:any)=>({...f,motherLast:v,motherId:null}));
+Line 6813:                           const q=((editForm.motherFirst||"")+" "+v).trim().toLowerCase();
+Line 6814:                           if(q.length<1){setMotherSug([]);return;}
+Line 6815:                           const all=[...members,...visitors].filter((m:any)=>m.id!==detail?.id);
+Line 6816:                           setMotherSug(all.filter((m:any)=>(m.first+" "+m.last).toLowerCase().includes(q)).slice(0,5));
+Line 6817:                         }} placeholder="Last name"/>
+Line 6818:                       </Fld>
+Line 6819:                     </div>
+Line 6820:                     {motherSug.length>0 && (
+Line 6821:                       <div style={{border:"0.5px solid "+BR,borderRadius:8,background:W,boxShadow:"0 4px 12px rgba(0,0,0,0.1)",zIndex:50,marginTop:2}}>
+Line 6822:                         <div style={{fontSize:10,color:MU,padding:"4px 10px",borderBottom:"0.5px solid "+BR}}>Select existing member to link:</div>
+Line 6823:                         {motherSug.map((m:any)=>(
+Line 6824:                           <div key={m.id} onClick={()=>{setEditForm((f:any)=>({...f,motherFirst:m.first,motherLast:m.last,motherId:m.id}));setMotherSug([]);}}
+Line 6825:                             style={{padding:"7px 12px",cursor:"pointer",fontSize:13,borderBottom:"0.5px solid "+BR+"88",display:"flex",alignItems:"center",gap:8}}
+Line 6826:                             onMouseEnter={e=>(e.currentTarget.style.background=BG)} onMouseLeave={e=>(e.currentTarget.style.background=W)}>
+Line 6827:                             <Av f={m.first} l={m.last} sz={22}/>
+Line 6828:                             <span style={{flex:1}}>{m.first} {m.last}</span>
+Line 6829:                             <span style={{fontSize:11,color:MU}}>{m.role||m.stage||""}</span>
+Line 6830:                           </div>
+Line 6831:                         ))}
+Line 6832:                         <div onClick={()=>setMotherSug([])} style={{padding:"5px 12px",cursor:"pointer",fontSize:11,color:MU,textAlign:"center"}}>✕ Dismiss</div>
+Line 6833:                       </div>
+Line 6834:                     )}
+Line 6835:                   </div>
+Line 6836:                 </SectionCard>
+Line 6837: 
+Line 6838:                 <SectionCard title="Medical and Allergies">
+Line 6839:                   <div style={{marginBottom:10}}>
+Line 6840:                     <div style={{fontSize:11,color:MU,marginBottom:5,fontWeight:500}}>Allergies</div>
+Line 6841:                     <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+Line 6842:                       {CALLERGIES.map(a=>{const on=(editForm.allergies||[]).includes(a);return <div key={a} onClick={()=>toggleArr("allergies",a)} style={{fontSize:11,padding:"3px 9px",borderRadius:20,cursor:"pointer",userSelect:"none",background:on?"#fee2e2":BG,color:on?RE:MU,border:"0.5px solid "+(on?"#fca5a5":BR),fontWeight:on?500:400}}>{a}</div>;})}
+Line 6843:                     </div>
+Line 6844:                   </div>
+Line 6845:                   <div style={{marginBottom:10}}>
+Line 6846:                     <div style={{fontSize:11,color:MU,marginBottom:5,fontWeight:500}}>Conditions</div>
+Line 6847:                     <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+Line 6848:                       {CMEDICAL.map(m=>{const on=(editForm.medical||[]).includes(m);return <div key={m} onClick={()=>toggleArr("medical",m)} style={{fontSize:11,padding:"3px 9px",borderRadius:20,cursor:"pointer",userSelect:"none",background:on?"#eff6ff":BG,color:on?BL:MU,border:"0.5px solid "+(on?BL+"55":BR),fontWeight:on?500:400}}>{m}</div>;})}
+Line 6849:                     </div>
+Line 6850:                   </div>
+Line 6851:                   <Fld label="Medical Notes"><Inp value={editForm.medicalNotes||""} onChange={ef("medicalNotes")} placeholder="Medications, emergency notes..."/></Fld>
