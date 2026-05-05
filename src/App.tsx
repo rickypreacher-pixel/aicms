@@ -5692,7 +5692,7 @@ const MiniStat = ({label,value,color=N,sub}:any) => (
     {sub && <div style={{fontSize:10,color:MU,marginTop:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{sub}</div>}
   </div>
 );
-function People({members,setMembers,visitors,setVisitors,attendance,giving,setGiving,prayers,setPrayers,groups,setGroups,grpMeetings,setGrpMeetings,visitRecords,setVisitRecords,checkIns,setCheckIns,setView,canViewGiving,currentUser}:any) {
+function People({members,setMembers,visitors,setVisitors,attendance,giving,setGiving,prayers,setPrayers,groups,setGroups,grpMeetings,setGrpMeetings,visitRecords,setVisitRecords,checkIns,setCheckIns,setView,canViewGiving,currentUser,roles=[]}:any) {
   const [tab,setTab] = useState("members");
   const [search,setSearch] = useState("");
   const [showSug,setShowSug] = useState(false);
@@ -6160,7 +6160,12 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
           <div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
               <Fld label="Status"><Slt value={form.status} onChange={sf("status")} opts={["Active","Inactive"]}/></Fld>
-              <Fld label="Role"><Inp value={form.role} onChange={sf("role")} placeholder="Deacon, Choir..."/></Fld>
+              <Fld label="Role">
+                <select value={form.role||""} onChange={e=>sf("role")(e.target.value)} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",fontFamily:"inherit",color:form.role?TX:MU,background:"#fff",boxSizing:"border-box" as any}}>
+                  <option value="">— Select Role —</option>
+                  {(roles.length>0?roles:SEED_ROLES).map((r:any)=>(<option key={r.id} value={r.name}>{r.name}</option>))}
+                </select>
+              </Fld>
             </div>
             <Fld label="Join Date"><Inp type="date" value={form.joined} onChange={sf("joined")}/></Fld>
           </div>
@@ -6520,7 +6525,12 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
                   {detail._type==="members" ? (
                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
                       <Fld label="Status"><Slt value={editForm.status||"Active"} onChange={ef("status")} opts={["Active","Inactive"]}/></Fld>
-                      <Fld label="Role"><Inp value={editForm.role||""} onChange={ef("role")}/></Fld>
+                      <Fld label="Role">
+                        <select value={editForm.role||""} onChange={e=>ef("role")(e.target.value)} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",fontFamily:"inherit",color:editForm.role?TX:MU,background:"#fff",boxSizing:"border-box" as any}}>
+                          <option value="">— Select Role —</option>
+                          {(roles.length>0?roles:SEED_ROLES).map((r:any)=>(<option key={r.id} value={r.name}>{r.name}</option>))}
+                        </select>
+                      </Fld>
                       <Fld label="Member Since"><Inp type="date" value={editForm.joined||""} onChange={ef("joined")}/></Fld>
                     </div>
                   ) : (
@@ -11375,7 +11385,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           />}
           {!isMemberPortal && view==="dashboard" && <Dashboard members={members} visitors={visitors} attendance={attendance} giving={giving} prayers={prayers} setView={setView} canViewGiving={canViewGiving} isRestrictedUser={isRestrictedUser} canAddPerson={canAddPerson}/>}
           {!isMemberPortal && view==="addperson" && <AddMemberPage members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} currentUser={currentUser} roles={roles} permissions={permissions} setView={setView} prospects={prospects} setProspects={setProspects}/>}
-          {!isMemberPortal && view==="people" && <People members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} setGiving={setGiving} prayers={prayers} setPrayers={setPrayers} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings} visitRecords={visitRecords} setVisitRecords={setVisitRecords} checkIns={checkIns} setCheckIns={setCheckIns} setView={setView} canViewGiving={canViewGiving} currentUser={currentUser}/>}
+          {!isMemberPortal && view==="people" && <People members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} setGiving={setGiving} prayers={prayers} setPrayers={setPrayers} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings} visitRecords={visitRecords} setVisitRecords={setVisitRecords} checkIns={checkIns} setCheckIns={setCheckIns} setView={setView} canViewGiving={canViewGiving} currentUser={currentUser} roles={roles}/>}
           {!isMemberPortal && view==="groups" && <Groups members={members} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings}/>}
           {!isMemberPortal && view==="education" && <Education members={members} setMembers={setMembers} visitors={visitors} users={users} roles={roles} children={children} setChildren={setChildren} classrooms={classrooms} setClassrooms={setClassrooms} teacherSchedule={teacherSchedule} setTeacherSchedule={setTeacherSchedule} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckIns} checkIns={checkIns} incidents={incidents} setIncidents={setIncidents} rollCalls={rollCalls} setRollCalls={setRollCalls} progressNotes={progressNotes} setProgressNotes={setProgressNotes} cs={churchSettings} printerConfig={printerConfig} setPrinterConfig={setPrinterConfig}/>}
           {!isMemberPortal && view==="maintenance" && <Maintenance users={users} members={members} currentUser={currentUser} roles={roles} permissions={permissions} equipment={equipment} setEquipment={setEquipment} workOrders={workOrders} setWorkOrders={setWorkOrders} schedMaint={schedMaint} setSchedMaint={setSchedMaint} supplies={supplies} setSupplies={setSupplies} checkoutItems={checkoutItems} setCheckoutItems={setCheckoutItems} checkouts={checkouts} setCheckouts={setCheckouts}/>}
