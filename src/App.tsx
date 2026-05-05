@@ -4603,7 +4603,7 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
     </div>
   );
 }
-function Groups({members,groups,setGroups,grpMeetings,setGrpMeetings}) {
+function Groups({members,groups,setGroups,grpMeetings,setGrpMeetings,currentUser=null,roles=[]}) {
   const [tab,setTab]=useState("groups");
   const [modal,setModal]=useState(false);
   const [editG,setEditG]=useState(null);
@@ -4667,6 +4667,14 @@ function Groups({members,groups,setGroups,grpMeetings,setGrpMeetings}) {
   const attRate=m=>enrolled.length?Math.round(m.presentIds.length/enrolled.length*100):0;
   const pColor=r=>r>=75?GR:r>=50?AM:RE;
   const avail=group?members.filter(m=>!group.memberIds.includes(m.id)):[];
+  // Filter groups to only those the current user is assigned to (unless admin/superAdmin)
+  const _isGroupAdmin = !currentUser || currentUser.superAdmin ||
+    (roles.find((r:any)=>r.id===currentUser.roleId)?.name||'') === 'Administrator';
+  const visibleGroups = _isGroupAdmin ? groups :
+    groups.filter((g:any)=>
+      (currentUser?.memberId && g.memberIds && g.memberIds.includes(currentUser.memberId)) ||
+      (currentUser?.memberId && g.leaderId === currentUser.memberId)
+    );
   const TABS=[["groups","Groups"],["roster","Roster"],["attendance","Attendance"],["messaging","Messaging"]];
 
   return(
@@ -4675,7 +4683,7 @@ function Groups({members,groups,setGroups,grpMeetings,setGrpMeetings}) {
         {TABS.map(([id,label])=>(
           <button key={id} onClick={()=>setTab(id)} style={{flex:1,padding:"10px 8px",border:"none",borderBottom:"2px solid "+(tab===id?G:"transparent"),background:tab===id?"#f8f9fc":W,fontSize:13,fontWeight:tab===id?500:400,color:tab===id?N:MU,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
             {label}
-            {id==="groups"&&<span style={{background:N+"22",color:N,borderRadius:10,fontSize:10,padding:"1px 6px"}}>{groups.length}</span>}
+            {id==="groups"&&<span style={{background:N+"22",color:N,borderRadius:10,fontSize:10,padding:"1px 6px"}}>{visibleGroups.length}</span>}
           </button>
         ))}
       </div>
@@ -4684,15 +4692,16 @@ function Groups({members,groups,setGroups,grpMeetings,setGrpMeetings}) {
       {tab==="groups"&&(
         <div>
           <div style={{display:"flex",gap:12,marginBottom:20}}>
-            <Stat label="Total Groups" value={groups.length}/>
-            <Stat label="Members Enrolled" value={[...new Set(groups.flatMap(g=>g.memberIds))].length} color={BL}/>
-            <Stat label="Meetings This Month" value={grpMeetings.filter(m=>m.date.startsWith("2026-04")).length} color={GR}/>
-            <Stat label="Active Leaders" value={groups.filter(g=>g.leaderId).length} color={G}/>
+            <Stat label="Total Groups" value={visibleGroups.length}/>
+            <Stat label="Members Enrolled" value={[...new Set(visibleGroups.flatMap((g:any)=>g.memberIds))].length} color={BL}/>
+            <Stat label="Meetings This Month" value={grpMeetings.filter((m:any)=>visibleGroups.some((g:any)=>g.id===m.groupId)&&m.date.startsWith(new Date().toISOString().slice(0,7))).length} color={GR}/>
+            <Stat label="Active Leaders" value={visibleGroups.filter((g:any)=>g.leaderId).length} color={G}/>
           </div>
-          <div style={{display:"flex",justifyContent:"flex-end",marginBottom:16}}><Btn onClick={openAdd}>+ Create Group</Btn></div>
-          {groups.length===0&&<div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:48,textAlign:"center",color:MU}}>No groups yet. Click "+ Create Group" to get started.</div>}
+          {_isGroupAdmin&&<div style={{display:"flex",justifyContent:"flex-end",marginBottom:16}}><Btn onClick={openAdd}>+ Create Group</Btn></div>}
+          {!_isGroupAdmin&&<div style={{display:"flex",justifyContent:"flex-end",marginBottom:16}}></div>}
+          {visibleGroups.length===0&&<div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:48,textAlign:"center",color:MU}}>{_isGroupAdmin?"No groups yet. Click \"+ Create Group\" to get started.":"You are not assigned to any groups yet."}</div>}
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:16}}>
-            {groups.map(g=>{
+            {visibleGroups.map((g:any)=>{
               const ldr=members.find(m=>m.id===g.leaderId);
               const gm=grpMeetings.filter(m=>m.groupId===g.id);
               const avg=gm.length?Math.round(gm.reduce((a,m)=>a+m.presentIds.length,0)/gm.length):0;
@@ -4730,7 +4739,7 @@ function Groups({members,groups,setGroups,grpMeetings,setGrpMeetings}) {
       {/* ROSTER */}
       {tab==="roster"&&(
         <div>
-          <div style={{marginBottom:16}}><div style={{fontSize:12,color:MU,marginBottom:8}}>Select a group to manage its roster:</div><div style={{display:"flex",flexWrap:"wrap",gap:8}}>{groups.map(g=><button key={g.id} onClick={()=>setSelId(g.id)} style={{padding:"8px 16px",borderRadius:8,cursor:"pointer",fontSize:13,fontWeight:selId===g.id?500:400,border:"1.5px solid "+(selId===g.id?g.color:BR),background:selId===g.id?g.color+"14":W,color:selId===g.id?g.color:TX,display:"flex",alignItems:"center",gap:7}}><div style={{width:9,height:9,borderRadius:"50%",background:g.color}}></div>{g.name}<span style={{fontSize:10,background:g.color+"22",color:g.color,borderRadius:10,padding:"1px 6px"}}>{g.memberIds.length}</span></button>)}</div></div>
+          <div style={{marginBottom:16}}><div style={{fontSize:12,color:MU,marginBottom:8}}>Select a group to manage its roster:</div><div style={{display:"flex",flexWrap:"wrap",gap:8}}>{visibleGroups.map((g:any)=><button key={g.id} onClick={()=>setSelId(g.id)} style={{padding:"8px 16px",borderRadius:8,cursor:"pointer",fontSize:13,fontWeight:selId===g.id?500:400,border:"1.5px solid "+(selId===g.id?g.color:BR),background:selId===g.id?g.color+"14":W,color:selId===g.id?g.color:TX,display:"flex",alignItems:"center",gap:7}}><div style={{width:9,height:9,borderRadius:"50%",background:g.color}}></div>{g.name}<span style={{fontSize:10,background:g.color+"22",color:g.color,borderRadius:10,padding:"1px 6px"}}>{g.memberIds.length}</span></button>)}</div></div>
           {!group&&<div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:40,textAlign:"center",color:MU}}>Select a group above to manage its roster.</div>}
           {group&&(
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
@@ -4764,7 +4773,7 @@ function Groups({members,groups,setGroups,grpMeetings,setGrpMeetings}) {
       {/* ATTENDANCE */}
       {tab==="attendance"&&(
         <div>
-          <div style={{marginBottom:16}}><div style={{fontSize:12,color:MU,marginBottom:8}}>Select a group:</div><div style={{display:"flex",flexWrap:"wrap",gap:8}}>{groups.map(g=><button key={g.id} onClick={()=>{setSelId(g.id);setAiSum("");}} style={{padding:"8px 16px",borderRadius:8,cursor:"pointer",fontSize:13,fontWeight:selId===g.id?500:400,border:"1.5px solid "+(selId===g.id?g.color:BR),background:selId===g.id?g.color+"14":W,color:selId===g.id?g.color:TX,display:"flex",alignItems:"center",gap:7}}><div style={{width:9,height:9,borderRadius:"50%",background:g.color}}></div>{g.name}</button>)}</div></div>
+          <div style={{marginBottom:16}}><div style={{fontSize:12,color:MU,marginBottom:8}}>Select a group:</div><div style={{display:"flex",flexWrap:"wrap",gap:8}}>{visibleGroups.map((g:any)=><button key={g.id} onClick={()=>{setSelId(g.id);setAiSum("")}} style={{padding:"8px 16px",borderRadius:8,cursor:"pointer",fontSize:13,fontWeight:selId===g.id?500:400,border:"1.5px solid "+(selId===g.id?g.color:BR),background:selId===g.id?g.color+"14":W,color:selId===g.id?g.color:TX,display:"flex",alignItems:"center",gap:7}}><div style={{width:9,height:9,borderRadius:"50%",background:g.color}}></div>{g.name}</button>)}</div></div>
           {!group&&<div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:40,textAlign:"center",color:MU}}>Select a group above.</div>}
           {group&&(
             <div>
@@ -4818,7 +4827,7 @@ function Groups({members,groups,setGroups,grpMeetings,setGrpMeetings}) {
       {/* MESSAGING */}
       {tab==="messaging"&&(
         <div>
-          <div style={{marginBottom:16}}><div style={{fontSize:12,color:MU,marginBottom:8}}>Select a group:</div><div style={{display:"flex",flexWrap:"wrap",gap:8}}>{groups.map(g=><button key={g.id} onClick={()=>{setSelId(g.id);setBulkMsg("");setIndivMsgs({});}} style={{padding:"8px 16px",borderRadius:8,cursor:"pointer",fontSize:13,fontWeight:selId===g.id?500:400,border:"1.5px solid "+(selId===g.id?g.color:BR),background:selId===g.id?g.color+"14":W,color:selId===g.id?g.color:TX,display:"flex",alignItems:"center",gap:7}}><div style={{width:9,height:9,borderRadius:"50%",background:g.color}}></div>{g.name}</button>)}</div></div>
+          <div style={{marginBottom:16}}><div style={{fontSize:12,color:MU,marginBottom:8}}>Select a group:</div><div style={{display:"flex",flexWrap:"wrap",gap:8}}>{visibleGroups.map((g:any)=><button key={g.id} onClick={()=>{setSelId(g.id);setBulkMsg("");setIndivMsgs({});}} style={{padding:"8px 16px",borderRadius:8,cursor:"pointer",fontSize:13,fontWeight:selId===g.id?500:400,border:"1.5px solid "+(selId===g.id?g.color:BR),background:selId===g.id?g.color+"14":W,color:selId===g.id?g.color:TX,display:"flex",alignItems:"center",gap:7}}><div style={{width:9,height:9,borderRadius:"50%",background:g.color}}></div>{g.name}</button>)}</div></div>
           {!group&&<div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:40,textAlign:"center",color:MU}}>Select a group above to send messages.</div>}
           {group&&(
             <div>
@@ -11409,7 +11418,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           {!isMemberPortal && view==="dashboard" && <Dashboard members={members} visitors={visitors} attendance={attendance} giving={giving} prayers={prayers} setView={setView} canViewGiving={canViewGiving} isRestrictedUser={isRestrictedUser} canAddPerson={canAddPerson}/>}
           {!isMemberPortal && view==="addperson" && <AddMemberPage members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} currentUser={currentUser} roles={roles} permissions={permissions} setView={setView} prospects={prospects} setProspects={setProspects}/>}
           {!isMemberPortal && view==="people" && <People members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} setGiving={setGiving} prayers={prayers} setPrayers={setPrayers} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings} visitRecords={visitRecords} setVisitRecords={setVisitRecords} checkIns={checkIns} setCheckIns={setCheckIns} setView={setView} canViewGiving={canViewGiving} currentUser={currentUser} roles={roles}/>}
-          {!isMemberPortal && view==="groups" && <Groups members={members} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings}/>}
+          {!isMemberPortal && view==="groups" && <Groups members={members} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings} currentUser={currentUser} roles={roles}/>}
           {!isMemberPortal && view==="education" && <Education members={members} setMembers={setMembers} visitors={visitors} users={users} roles={roles} children={children} setChildren={setChildren} classrooms={classrooms} setClassrooms={setClassrooms} teacherSchedule={teacherSchedule} setTeacherSchedule={setTeacherSchedule} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckIns} checkIns={checkIns} incidents={incidents} setIncidents={setIncidents} rollCalls={rollCalls} setRollCalls={setRollCalls} progressNotes={progressNotes} setProgressNotes={setProgressNotes} cs={churchSettings} printerConfig={printerConfig} setPrinterConfig={setPrinterConfig}/>}
           {!isMemberPortal && view==="maintenance" && <Maintenance users={users} members={members} currentUser={currentUser} roles={roles} permissions={permissions} equipment={equipment} setEquipment={setEquipment} workOrders={workOrders} setWorkOrders={setWorkOrders} schedMaint={schedMaint} setSchedMaint={setSchedMaint} supplies={supplies} setSupplies={setSupplies} checkoutItems={checkoutItems} setCheckoutItems={setCheckoutItems} checkouts={checkouts} setCheckouts={setCheckouts}/>}
           {!isMemberPortal && view==="calendar" && (
