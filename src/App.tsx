@@ -4667,14 +4667,18 @@ function Groups({members,groups,setGroups,grpMeetings,setGrpMeetings,currentUser
   const attRate=m=>enrolled.length?Math.round(m.presentIds.length/enrolled.length*100):0;
   const pColor=r=>r>=75?GR:r>=50?AM:RE;
   const avail=group?members.filter(m=>!group.memberIds.includes(m.id)):[];
-  // Filter groups to only those the current user is assigned to (unless admin/superAdmin)
+  // Filter groups based on role:
+  // - Admin / Super Admin → all groups
+  // - Team Leader → only groups they are the leader of
+  // - All other non-admin roles → groups they are a member of
   const _isGroupAdmin = !currentUser || currentUser.superAdmin ||
     (roles.find((r:any)=>r.id===currentUser.roleId)?.name||'') === 'Administrator';
+  const _isTeamLeader = !_isGroupAdmin &&
+    (roles.find((r:any)=>r.id===currentUser?.roleId)?.name||'') === 'Team Leader';
   const visibleGroups = _isGroupAdmin ? groups :
-    groups.filter((g:any)=>
-      (currentUser?.memberId && g.memberIds && g.memberIds.includes(currentUser.memberId)) ||
-      (currentUser?.memberId && g.leaderId === currentUser.memberId)
-    );
+    _isTeamLeader
+      ? groups.filter((g:any)=>currentUser?.memberId && g.leaderId === currentUser.memberId)
+      : groups.filter((g:any)=>currentUser?.memberId && g.memberIds && g.memberIds.includes(currentUser.memberId));
   const TABS=[["groups","Groups"],["roster","Roster"],["attendance","Attendance"],["messaging","Messaging"]];
 
   return(
