@@ -10269,7 +10269,7 @@ function ManualPage(){
         <div style={{background:N,borderRadius:12,padding:'20px 24px',marginBottom:20}}>
           <div style={{color:'#fff',fontSize:21,fontWeight:600,letterSpacing:0.3}}>ChurchOS Staff Manual</div>
           <div style={{color:G,fontSize:13,marginTop:4}}>New Testament Christian Church — Administrator Guide</div>
-          <div style={{color:'#7a9acc',fontSize:12,marginTop:6}}>Version 6.1 · May 2026 · For internal staff use</div>
+          <div style={{color:'#7a9acc',fontSize:12,marginTop:6}}>Version 6.2 · May 2026 · For internal staff use</div>
         </div>
 
         <Sec><H id="s1">1. Getting Started</H>
@@ -10396,6 +10396,14 @@ function ManualPage(){
           <H3>Recording a Group Meeting</H3>
           <Ol><Li>Open the group and click <B>+ Record Meeting</B></Li><Li>Enter the date, attendance count, and meeting notes</Li><Li>Click <B>Save</B></Li></Ol>
           <Note>Groups with <B>Show on Calendar</B> enabled display automatically on the Event Calendar on their scheduled meeting day. Multiple groups can appear per day.</Note>
+          <H3>Who Can See Which Groups</H3>
+          <P>What you see in Groups Ministry depends on your role:</P>
+          <Ul>
+            <Li><B>Administrator / Super Admin</B> — see all groups in the database</Li>
+            <Li><B>Team Leader</B> — see only the groups where you are set as the <B>Leader</B>. Groups you are added to as a plain member are not shown.</Li>
+            <Li><B>All other non-admin roles</B> (Sponsor, Office, Staff, etc.) — see only the groups you have been assigned to as a member</Li>
+          </Ul>
+          <Tip>If a Team Leader reports that a group is missing from their list, verify that their member record is set as the <B>Leader</B> of that group — not just a member. Open the group, click Edit, and confirm the Leader field is assigned to them.</Tip>
         </Sec>
 
         <Sec><H id="s7">7. Education Department & Check-In</H>
@@ -10456,7 +10464,14 @@ function ManualPage(){
           <P>Each weekly report automatically calculates the <B>Pastor's Draw</B> — the pastor's portion of combined tithes and Sunday Morning Offering. The draw percentage can be set globally in Giving settings (default 60%) and overridden per individual report using the dropdown on the report card.</P>
           <Ul><Li><B>0% — No Draw</B> — the pastor receives nothing from that week's tithes ($0.00). Useful for special services, missions weeks, or weeks where the pastor waives their draw.</Li><Li><B>10%–60%</B> — standard percentage options. The current global default is marked <B>(default)</B> in the dropdown.</Li></Ul>
           <Tip>When a per-report override is set, the report card shows an <B>overridden</B> badge in amber so it is easy to identify reports that differ from the global default.</Tip>
-          <Warn>Giving records may be required for IRS charitable donation receipts. Never delete historical giving records. Always keep accurate donor information linked to each gift.</Warn>
+          <H3>Deleting a Giving Record</H3>
+          <Ol>
+            <Li>Locate the record in the <B>Giving Records</B> table on the Giving tab</Li>
+            <Li>Click the red <B>Delete</B> button on the record's row — this button is visible only to <B>Administrators</B> and <B>Super Admins</B></Li>
+            <Li>A confirmation modal appears showing the donor's name, date, category, amount, and method</Li>
+            <Li>Click <B>Yes, Delete</B> to permanently remove the record, or <B>Cancel</B> to keep it</Li>
+          </Ol>
+          <Warn>Deleted giving records cannot be recovered. Only use Delete to correct a data-entry error. For IRS and donor-receipt purposes, never delete legitimate historical giving records. Staff with roles below Administrator do not see the Delete button and cannot delete giving records.</Warn>
         </Sec>
 
         <Sec><H id="s11">11. Prayer Wall</H>
@@ -10524,6 +10539,17 @@ function ManualPage(){
           <P>Inside each role, permissions are set per module with four granular actions: <B>Create</B>, <B>View</B>, <B>Edit</B>, and <B>Delete</B>. Two modules use a single <B>Create</B> action only:</P>
           <Ul><Li><B>Add Person</B> — controls whether the staff member can add new members via the Add Person page. Restricted staff without this permission will not see the Add Person button.</Li><Li><B>Add Visitor</B> — controls whether the staff member can add new visitors via the Add Person page. Restricted staff without this permission will not see the Add Visitor button in the Visitation pipeline.</Li></Ul>
           <Tip>Use <B>Add Visitor</B> permission to give certain roles (e.g., Greeters or Ushers) the ability to register new visitors on Sunday morning without granting full member-creation rights.</Tip>
+          <H3>Team Leader Secondary Role</H3>
+          <P>A <B>Team Leader</B> user can be assigned a <B>Secondary Role</B> in addition to their primary role. This grants them the <B>combined permissions of both roles</B> — they can do everything their primary role allows plus everything the secondary role allows.</P>
+          <Ol>
+            <Li>Go to <B>Access Control → Users</B> and open the Team Leader's user record (click their row or click <B>Edit</B>)</Li>
+            <Li>When the <B>Role</B> is set to <B>Team Leader</B>, a <B>Secondary Role</B> dropdown appears below it</Li>
+            <Li>Select the additional role to grant (e.g. <B>Office</B> to give the Team Leader access to Giving)</Li>
+            <Li>Click <B>Save</B></Li>
+          </Ol>
+          <P>After saving, the Users table displays both roles as <B>color-coded badges</B> on the user's row (e.g. a navy Team Leader badge + a gold Office badge). The same dual-role badges appear in the user detail panel.</P>
+          <Note>Secondary role assignment is only available when a user's primary role is <B>Team Leader</B>. For all other roles, only the primary role is used.</Note>
+          <Tip>Use this to give a Team Leader who also manages church finances access to the Giving section without promoting them to a full Administrator role.</Tip>
           <H3>Creating Custom Roles</H3>
           <Ol><Li>Click the <B>Roles</B> tab within Access Control and click <B>+ New Role</B></Li><Li>Name the role and toggle individual permissions per module: view, create, edit, delete</Li><Li>Click <B>Save Role</B></Li><Li>Assign the new role to users from the Users tab</Li></Ol>
           <H3>Pending Accounts</H3>
@@ -10669,7 +10695,7 @@ function ManualPage(){
         </Sec>
 
         <div style={{textAlign:'center',padding:'24px 0 8px',borderTop:'0.5px solid '+BR,marginTop:4}}>
-          <div style={{fontSize:12,color:MU}}>ChurchOS Staff Manual · New Testament Christian Church · Version 6.1 · May 2026</div>
+          <div style={{fontSize:12,color:MU}}>ChurchOS Staff Manual · New Testament Christian Church · Version 6.2 · May 2026</div>
           <div style={{fontSize:11,color:MU,marginTop:4}}>For technical support or feature requests, contact your system administrator.</div>
         </div>
       </div>
