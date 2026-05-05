@@ -1,0 +1,266 @@
+﻿=== AddMemberPage function ===
+Line 9846: function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,roles,permissions,setView,prospects,setProspects}:any){
+Line 9847:   const canAdd = checkPermission(currentUser,roles,permissions,"directory","create");
+Line 9848:   const addedByName = (()=>{
+Line 9849:     if(!currentUser) return "Unknown";
+Line 9850:     if(currentUser.memberId){
+Line 9851:       const m=[...members,...(visitors||[])].find((p:any)=>p.id===currentUser.memberId);
+Line 9852:       if(m) return m.first+" "+m.last;
+Line 9853:     }
+Line 9854:     return currentUser.email||"Staff";
+Line 9855:   })();
+Line 9856: 
+Line 9857:   // Build unique city/zip lists from all existing records
+Line 9858:   const allPeople = [...(members||[]),...(visitors||[])];
+Line 9859:   const knownCities = Array.from(new Set(allPeople.map((p:any)=>p.address?.city).filter(Boolean))).sort() as string[];
+Line 9860:   const knownZips   = Array.from(new Set(allPeople.map((p:any)=>p.address?.zip).filter(Boolean))).sort() as string[];
+Line 9861: 
+Line 9862:   const [pType,setPType] = useState<"member"|"visitor">("member");
+Line 9863:   const [spouseSug,setSpouseSug] = useState<any[]>([]);
+Line 9864:   const [spouseLinked,setSpouseLinked] = useState<any>(null);
+Line 9865:   const blankForm=()=>({
+Line 9866:     first:"",last:"",phone:"",email:"",
+Line 9867:     // Member fields
+Line 9868:     status:"Active",role:"",joined:td(),family:"",
+Line 9869:     // Visitor fields
+Line 9870:     stage:"First Visit",sponsor:"",firstVisit:td(),
+Line 9871:     // Address
+Line 9872:     address:{street:"",city:"",state:"AZ",zip:""},
+Line 9873:     // Personal
+Line 9874:     birthday:"",anniversary:"",spouseName:"",
+Line 9875:     spouseFirst:"",spouseLast:"",spouseId:null as any,
+Line 9876:     children:[] as any[],
+Line 9877:     // Emergency
+Line 9878:     emergencyName:"",emergencyPhone:"",emergencyRelation:"",
+Line 9879:     // Faith
+Line 9880:     salvationDate:"",baptismDate:"",
+Line 9881:     // Medical
+Line 9882:     allergies:[] as string[],medical:[] as string[],medicalNotes:"",
+Line 9883:     // Work
+Line 9884:     occupation:"",employer:"",
+Line 9885:     // Notes
+Line 9886:     notes:""
+Line 9887:   });
+Line 9888:   const [form,setForm] = useState(blankForm());
+Line 9889:   const [saved,setSaved] = useState<any>(null);
+Line 9890:   const [dupWarning,setDupWarning] = useState<any>(null);
+Line 9891:   const nid = useRef(Date.now());
+Line 9892: 
+Line 9893:   const sf=(k:string)=>(v:any)=>setForm((f:any)=>({...f,[k]:v}));
+Line 9894:   const sfa=(k:string)=>(v:any)=>setForm((f:any)=>({...f,address:{...f.address,[k]:v}}));
+Line 9895:   const toggleArr=(field:string,item:string)=>setForm((f:any)=>{
+Line 9896:     const arr:string[]=f[field]||[];
+Line 9897:     return {...f,[field]:arr.includes(item)?arr.filter((x:string)=>x!==item):[...arr,item]};
+Line 9898:   });
+Line 9899:   const addChild=()=>setForm((f:any)=>({...f,children:[...f.children,{first:"",last:"",birthday:"",grade:"",memberId:null as any}]}));
+Line 9900:   const updChild=(i:number,k:string,v:string)=>setForm((f:any)=>({...f,children:f.children.map((c:any,idx:number)=>idx===i?{...c,[k]:v}:c)}));
+Line 9901:   const remChild=(i:number)=>setForm((f:any)=>({...f,children:f.children.filter((_:any,idx:number)=>idx!==i)}));
+Line 9902: 
+Line 9903:   const checkDups=()=>{
+Line 9904:     const fn=(form.first||"").trim().toLowerCase();
+Line 9905:     const ln=(form.last||"").trim().toLowerCase();
+Line 9906:     const ph=(form.phone||"").replace(/\D/g,"");
+Line 9907:     const all=[...members,...visitors];
+Line 9908:     return all.filter((p:any)=>{
+Line 9909:       const nameMatch=(p.first||"").trim().toLowerCase()===fn&&(p.last||"").trim().toLowerCase()===ln&&fn&&ln;
+Line 9910:       const phoneMatch=ph&&(p.phone||"").replace(/\D/g,"")===ph;
+Line 9911:       return nameMatch||phoneMatch;
+Line 9912:     });
+Line 9913:   };
+Line 9914: 
+Line 9915:   const doSave=()=>{
+Line 9916:     const id=nid.current++;
+Line 9917:     const famId="fam_"+id;
+Line 9918:     const spN=form.spouseFirst&&form.spouseLast?(form.spouseFirst+" "+form.spouseLast):(form.spouseName||"");
+Line 9919:     const hasFamily=!!(form.spouseFirst||form.children.some((c:any)=>c.first));
+Line 9920:     const familyId=hasFamily?famId:null;
+Line 9921:     const familyName=form.family||((form.last||"")+" Family");
+Line 9922:     const record:any={...form,id,addedBy:addedByName,addedDate:td(),familyId:familyId||null,
+Line 9923:       family:hasFamily?familyName:form.family,spouseName:spN};
+Line 9924:     if(pType==="member"){
+Line 9925:       setMembers((ms:any[])=>{
+Line 9926:         let newMs=[{...record,type:"Member"},...ms];
+Line 9927:         if(hasFamily){
+Line 9928:           if(form.spouseFirst&&form.spouseLast){
+Line 9929:             if(form.spouseId){
+Line 9930:               newMs=newMs.map((m:any)=>m.id===form.spouseId?{...m,familyId,spouseName:form.first+" "+form.last,family:familyName}:m);
+Line 9931:             } else {
+Line 9932:               const sid=nid.current++;
+Line 9933:               const spouseRec:any={id:sid,first:form.spouseFirst,last:form.spouseLast,type:"Member",status:"Active",role:"",joined:td(),family:familyName,familyId,addedBy:addedByName,addedDate:td(),spouseName:form.first+" "+form.last,...EMPTY_PERSON_FIELDS,address:{...form.address}};
+Line 9934:               newMs=[...newMs,spouseRec];
+Line 9935:             }
+Line 9936:           }
+Line 9937:           form.children.forEach((c:any)=>{
+Line 9938:             if(c.first&&c.last){
+Line 9939:               if(c.memberId){
+Line 9940:                 newMs=newMs.map((m:any)=>m.id===c.memberId?{...m,familyId,family:familyName}:m);
+Line 9941:               } else {
+Line 9942:                 const cid=nid.current++;
+Line 9943:                 newMs=[...newMs,{id:cid,first:c.first,last:c.last,type:"Member",status:"Active",role:"",joined:td(),family:familyName,familyId,addedBy:addedByName,addedDate:td(),birthday:c.birthday||"",...EMPTY_PERSON_FIELDS,address:{...EMPTY_ADDR}}];
+Line 9944:               }
+Line 9945:             }
+Line 9946:           });
+Line 9947:         }
+Line 9948:         return newMs;
+Line 9949:       });
+Line 9950:     } else {
+Line 9951:       setVisitors((vs:any[])=>[{...record,type:"Visitor"},...vs]);
+Line 9952:       // Auto-remove any matching prospect (same first+last, case-insensitive)
+Line 9953:       if(setProspects) setProspects((ps:any[])=>ps.filter((p:any)=>!(p.first.toLowerCase()===form.first.toLowerCase()&&p.last.toLowerCase()===form.last.toLowerCase())));
+Line 9954:     }
+Line 9955:     setSaved({name:form.first+" "+form.last,type:pType,familyName:hasFamily?familyName:null});
+Line 9956:     setSpouseLinked(null); setSpouseSug([]);
+Line 9957:     setForm(blankForm());
+Line 9958:     setDupWarning(null);
+Line 9959:   };
+Line 9960: 
+Line 9961:   const handleSave=()=>{
+Line 9962:     if(!form.first||!form.last){alert("First and last name are required.");return;}
+Line 9963:     const dups=checkDups();
+Line 9964:     if(dups.length>0){
+Line 9965:       setDupWarning(dups);
+Line 9966:     } else {
+Line 9967:       doSave();
+Line 9968:     }
+Line 9969:   };
+Line 9970: 
+Line 9971:   // Section heading helper
+Line 9972:   const SH=({label,icon}:{label:string,icon:string})=>(
+Line 9973:     <div style={{display:"flex",alignItems:"center",gap:8,margin:"22px 0 12px",paddingBottom:6,borderBottom:"1.5px solid "+G+"44"}}>
+Line 9974:       <span style={{fontSize:16}}>{icon}</span>
+Line 9975:       <span style={{fontSize:13,fontWeight:600,color:N,textTransform:"uppercase",letterSpacing:0.6}}>{label}</span>
+Line 9976:     </div>
+Line 9977:   );
+Line 9978:   const ToggleChip=({label,active,onClick}:{label:string,active:boolean,onClick:()=>void})=>(
+Line 9979:     <button onClick={onClick} style={{padding:"4px 10px",borderRadius:20,border:"1px solid "+(active?N:BR),background:active?N:"transparent",color:active?"#fff":TX,fontSize:12,cursor:"pointer",fontWeight:active?500:400}}>{label}</button>
+Line 9980:   );
+Line 9981: 
+Line 9982:   if(!canAdd){
+Line 9983:     return(
+Line 9984:       <div style={{maxWidth:600,margin:"60px auto",textAlign:"center",padding:32}}>
+=== CHILDREN STATE ===
+Line 11006:   const [grpMeetings,setGrpMeetings] = useState(lsGet('grpMeetings') ?? _I.grpMeetings ?? []);
+Line 11007:   const [recurring,setRecurring] = useState(lsGet('recurring') ?? INIT_RECURRING);
+Line 11008:   const [custom,setCustom] = useState(lsGet('custom') ?? []);
+Line 11009:   const [checkIns,setCheckIns] = useState(lsGet('checkIns') ?? []);
+Line 11010:   const _storedCL=lsGet('classrooms')||_I.classrooms;const _hasOldCL=_storedCL&&(_storedCL.length>7||_storedCL.some((c:any)=>["","1st","2nd","3rd","4th","5th","6th","7th"].includes(c.grade)));
+Line 11011:   const [classrooms,setClassrooms] = useState(_hasOldCL?ICLASSROOMS:(_storedCL||ICLASSROOMS));
+Line 11012:   const _storedKids=lsGet('children')||_I.children;const _migratedKids=_storedKids?_storedKids.map((c:any)=>({...c,grade:CHURCH_LEVELS.find((l:any)=>l.name===c.grade)?c.grade:levelFromAge(typeof calcAge(c.dob)==="number"?calcAge(c.dob) as number:6)})):[];
+Line 11013:   const [children,setChildren] = useState(_migratedKids);
+Line 11014:   const [teacherSchedule,setTeacherSchedule] = useState(lsGet('teacherSchedule') ?? []);
+Line 11015:   const [kidsCheckIns,setKidsCheckIns] = useState(lsGet('kidsCheckIns') ?? []);
+Line 11016:   const [printerConfig,setPrinterConfig] = useState(lsGet('printerConfig') ?? DEFAULT_PRINTER_CFG);
+Line 11017:   const [incidents,setIncidents] = useState(lsGet('incidents') ?? _I.incidents ?? []);
+Line 11018:   const [rollCalls,setRollCalls] = useState(lsGet('rollCalls') ?? _I.rollCalls ?? []);
+Line 11019:   const [progressNotes,setProgressNotes] = useState(lsGet('progressNotes') ?? _I.progressNotes ?? []);
+Line 11020:   const [equipment,setEquipment] = useState(lsGet('equipment') ?? window.__NTCC_INIT__?.equipment ?? []);
+Line 11021:   const [workOrders,setWorkOrders] = useState(lsGet('workOrders') ?? window.__NTCC_INIT__?.workOrders ?? []);
+=== Education call site ===
+Line 11469:           {!isMemberPortal && view==="people" && <People members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} setGiving={setGiving} prayers={prayers} setPrayers={setPrayers} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings} visitRecords={visitRecords} setVisitRecords={setVisitRecords} checkIns={checkIns} setCheckIns={setCheckIns} setView={setView} canViewGiving={canViewGiving} currentUser={currentUser} roles={roles}/>}
+Line 11470:           {!isMemberPortal && view==="groups" && <Groups members={members} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings} currentUser={currentUser} roles={roles}/>}
+Line 11471:           {!isMemberPortal && view==="education" && <Education members={members} setMembers={setMembers} visitors={visitors} users={users} roles={roles} children={children} setChildren={setChildren} classrooms={classrooms} setClassrooms={setClassrooms} teacherSchedule={teacherSchedule} setTeacherSchedule={setTeacherSchedule} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckIns} checkIns={checkIns} incidents={incidents} setIncidents={setIncidents} rollCalls={rollCalls} setRollCalls={setRollCalls} progressNotes={progressNotes} setProgressNotes={setProgressNotes} cs={churchSettings} printerConfig={printerConfig} setPrinterConfig={setPrinterConfig}/>}
+Line 11472:           {!isMemberPortal && view==="maintenance" && <Maintenance users={users} members={members} currentUser={currentUser} roles={roles} permissions={permissions} equipment={equipment} setEquipment={setEquipment} workOrders={workOrders} setWorkOrders={setWorkOrders} schedMaint={schedMaint} setSchedMaint={setSchedMaint} supplies={supplies} setSupplies={setSupplies} checkoutItems={checkoutItems} setCheckoutItems={setCheckoutItems} checkouts={checkouts} setCheckouts={setCheckouts}/>}
+Line 11473:           {!isMemberPortal && view==="calendar" && (
+Line 11474:             <div style={{height:"calc(100vh - 110px)",display:"flex",flexDirection:"column",margin:-24,overflow:"hidden"}}>
+Line 11475:               <CalendarView
+Line 11476:                 members={members}
+=== Child shape ===
+Line 8546:   const speak = async text => {
+Line 8547:     if (!ttsOn) return;
+Line 8548:     const {ok,err} = await speakEL(text, elVoice, elApiKey||undefined);
+Line 8549:     if (!ok) {
+Line 8550:       setTtsError(err || "ElevenLabs voice failed — check your API key in Voice Settings.");
+Line 8551:     } else {
+Line 8552:       setTtsError(null);
+Line 8553:     }
+Line 8554:   };
+Line 8555: 
+Line 8556:   const updateMem = actionType => {
+Line 8557:     const nc = {...cmdCount};
+Line 8558:     if(actionType) { nc[actionType]=(nc[actionType]||0)+1; setCmdCount(nc); }
+Line 8559:     const top = Object.entries(nc).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([k,v])=>k.replace(/_/g," ")+"("+v+"x)").join(", ");
+Line 8560:     const nm = {
+Line 8561:       preferences:"Prefers direct commands and decisive action. Faith-first perspective. Southern pastoral communication.",
+Line 8562:       commands:top||mem.commands,
+Line 8563:       style:"Pastor Hall communicates with authority and expects immediate execution on commands."
+Line 8564:     };
+Line 8565:     setMem(nm);
+Line 8566:     saveMem(nm, nc);
+Line 8567:   };
+Line 8568: 
+Line 8569:   const execAction = action => {
+Line 8570:     if(!action) return;
+Line 8571:     const {type,data,confirm:conf} = action;
+Line 8572:     const id = nid.current++;
+Line 8573:     if(type==="ADD_MEMBER") setMembers(m=>[...m,{id,first:data.first||"",last:data.last||"",status:data.status||"Active",role:data.role||"",phone:data.phone||"",email:data.email||"",joined:data.joined||td(),notes:"",family:""}]);
+Line 8574:     else if(type==="ADD_VISITOR") setVisitors(v=>[...v,{id,first:data.first||"",last:data.last||"",stage:data.stage||"First Visit",phone:data.phone||"",email:data.email||"",firstVisit:data.firstVisit||td(),notes:data.notes||"",sponsor:""}]);
+Line 8575:     else if(type==="LOG_ATTENDANCE") setAttendance(a=>[{id,date:data.date||td(),service:data.service||"Sunday Morning Worship",count:+data.count||0,members:+data.members||0,visitors:+data.visitors||0,notes:data.notes||""},...a]);
+Line 8576:     else if(type==="RECORD_GIVING") setGiving(g=>[{id,date:data.date||td(),name:data.name||"",category:data.category||"Tithe",amount:+data.amount||0,method:data.method||"Cash",notes:data.notes||""},...g]);
+Line 8577:     else if(type==="UPDATE_MEMBER") setMembers(m=>m.map(x=>x.id===+data.id?{...x,...data}:x));
+Line 8578:     else if(type==="DELETE_MEMBER") { if(confirm("Delete this member?")) setMembers(m=>m.filter(x=>x.id!==+data.id)); }
+Line 8579:     else if(type==="DELETE_VISITOR") { if(confirm("Delete this visitor?")) setVisitors(v=>v.filter(x=>x.id!==+data.id)); }
+Line 8580:     else if(type==="NAVIGATE") setView(data.section);
+Line 8581:     setBanner(conf||"Action completed.");
+Line 8582:     setTimeout(()=>setBanner(null), 5000);
+Line 8583:     updateMem(type);
+Line 8584:   };
+Line 8585: 
+Line 8586:   const send = async override => {
+Line 8587:     const msg = (override||input).trim();
+Line 8588:     if(!msg||load) return;
+Line 8589:     setInput("");
+Line 8590:     const nc = [...aiChat,{role:"user",content:msg}];
+Line 8591:     setAiChat(nc);
+Line 8592:     setLoad(true);
+Line 8593:     try {
+Line 8594:       const raw = await callAI(nc, mRef.current, vRef.current, aRef.current, gRef.current, prayers, mem);
+Line 8595:       const {clean,action} = parseAction(raw);
+Line 8596:       setAiChat([...nc,{role:"assistant",content:clean}]);
+Line 8597:       if(action) execAction(action); else updateMem(null);
+Line 8598:       speak(clean);
+Line 8599:     } catch(e) {
+Line 8600:       const msg = (e as any)?.message||String(e);
+Line 8601:       let friendly = "Error: " + msg + " — Please open Voice Settings and check your Anthropic API key.";
+Line 8602:       if(msg.includes("No API key")) friendly = "No Anthropic API key found. Open Voice Settings and paste your key under \"Anthropic API Key\", then click Save Key.";
+Line 8603:       else if(msg.includes("401")) friendly = "API key rejected (401). Please check your Anthropic key in Voice Settings — it may be invalid or revoked.";
+Line 8604:       else if(msg.includes("429")) friendly = "Rate limit reached (429). Please wait a moment and try again, Sir.";
+Line 8605:       else if(msg.includes("500")||msg.includes("529")) friendly = "Anthropic servers are temporarily unavailable. Please try again in a moment, Sir.";
+Line 8606:       else if(msg.includes("Failed to fetch")||msg.includes("NetworkError")) friendly = "Network error — please check your internet connection, Sir.";
+Line 8607:       console.error("AI error:", msg);
+Line 8608:       setAiChat([...nc,{role:"assistant",content:friendly}]);
+Line 8609:     }
+Line 8610:     setLoad(false);
+Line 8611:   };
+Line 8612: 
+Line 8613:   const startListening = () => {
+Line 8614:     const SR = window.SpeechRecognition||window.webkitSpeechRecognition;
+Line 8615:     if(!SR){alert("Voice input not available in this browser.");return;}
+Line 8616:     const rec = new SR();
+Line 8617:     rec.lang="en-US";
+Line 8618:     rec.onresult = e => { setInput(e.results[0][0].transcript); setListening(false); };
+Line 8619:     rec.onend = () => setListening(false);
+Line 8620:     rec.onerror = () => setListening(false);
+Line 8621:     rec.start(); setListening(true);
+=== MemberProfilePortal save function ===
+Found save at line 143
+Line 143:   const save=()=>{if(!form.name){alert("Name required.");return;}const data={...form,cost:+form.cost||0};if(editing) setEquipment(es=>es.map(e=>e.id===editing.id?{...e,...data}:e));else setEquipment(es=>[...es,{...data,id:nid.current++}]);setModal(false);};
+Line 144:   const del=id=>{if(!canEdit){alert("Permission required.");return;}if(confirm("Delete this equipment?")) setEquipment(es=>es.filter(e=>e.id!==id));};
+Line 145:   return (<div>
+Line 146:     <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}>
+Line 147:       <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search by name, serial, manufacturer..." style={{flex:1,minWidth:200,padding:"8px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}/>
+Line 148:       <select value={filterCat} onChange={e=>setFilterCat(e.target.value)} style={{padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:12,outline:"none",background:W}}><option value="all">All Categories</option>{MAINT_CATS.map(c=><option key={c} value={c}>{c}</option>)}</select>
+Line 149:       <select value={filterLoc} onChange={e=>setFilterLoc(e.target.value)} style={{padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:12,outline:"none",background:W}}><option value="all">All Locations</option>{MAINT_LOCS.map(l=><option key={l} value={l}>{l}</option>)}</select>
+Line 150:       <Btn onClick={openAdd} v="primary" disabled={!canEdit}>+ Add Equipment</Btn>
+Line 151:     </div>
+Line 152:     <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,overflow:"hidden"}}>
+Line 153:       {filtered.length===0 ? <div style={{padding:40,textAlign:"center",color:MU}}>No equipment found.</div> : (<table style={{width:"100%",borderCollapse:"collapse"}}>
+Line 154:         <thead><tr style={{background:"#f8f9fc"}}>{["Equipment","Category","Location","Serial","Warranty","Status",""].map(h=><th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:11,fontWeight:500,color:MU,textTransform:"uppercase",letterSpacing:0.5,borderBottom:"0.5px solid "+BR}}>{h}</th>)}</tr></thead>
+Line 155:         <tbody>{filtered.map(e=>{const ws=warrantyStatus(e);const activeWOs=workOrders.filter(w=>w.equipmentId===e.id&&w.status!=="Completed").length;return (<tr key={e.id} onClick={()=>setDetail(e)} style={{borderBottom:"0.5px solid "+BR,cursor:"pointer"}} onMouseEnter={evt=>evt.currentTarget.style.background="#f8f9fc"} onMouseLeave={evt=>evt.currentTarget.style.background=W}>
+Line 156:           <td style={{padding:"10px 14px"}}><div style={{fontSize:13,fontWeight:500,color:N}}>{e.name}</div><div style={{fontSize:11,color:MU}}>{e.manufacturer||""}{e.cost?" · $"+Number(e.cost).toLocaleString():""}{activeWOs>0?" · "+activeWOs+" open WO":""}</div></td>
+Line 157:           <td style={{padding:"10px 14px"}}><span style={{fontSize:11,background:MCAT_COLORS[e.category]+"18",color:MCAT_COLORS[e.category],borderRadius:20,padding:"2px 9px",fontWeight:500}}>{e.category}</span></td>
+Line 158:           <td style={{padding:"10px 14px",fontSize:12}}>{e.location}</td>
+Line 159:           <td style={{padding:"10px 14px",fontSize:11,color:MU,fontFamily:"monospace"}}>{e.serial||"—"}</td>
+Line 160:           <td style={{padding:"10px 14px"}}><span style={{fontSize:11,background:ws.bg,color:ws.color,borderRadius:20,padding:"2px 9px",fontWeight:500}}>{ws.label}</span></td>
+Line 161:           <td style={{padding:"10px 14px"}}><span style={{fontSize:11,color:e.status==="Active"?GR:MU,background:e.status==="Active"?"#dcfce7":"#f5f5f5",borderRadius:20,padding:"2px 9px",fontWeight:500}}>{e.status}</span></td>
+Line 162:           <td style={{padding:"10px 14px"}} onClick={evt=>evt.stopPropagation()}><div style={{display:"flex",gap:5}}><Btn onClick={()=>openEdit(e)} v="ghost" style={{fontSize:11,padding:"3px 8px"}} disabled={!canEdit}>Edit</Btn><Btn onClick={()=>del(e.id)} v="danger" style={{fontSize:11,padding:"3px 8px"}} disabled={!canEdit}>X</Btn></div></td>
+Line 163:         </tr>);})}</tbody>

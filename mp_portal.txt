@@ -1,0 +1,221 @@
+﻿Line 10707: function MemberProfilePortal({member,setMembers,giving,onSignOut,staffMode=false,roles=[],users=[],setUsers}:any) {
+Line 10708:   const [tab,setTab] = useState("profile");
+Line 10709:   const [editMode,setEditMode] = useState(false);
+Line 10710:   const [form,setForm] = useState({...member,address:member.address||{...EMPTY_ADDR},children:member.children||[],allergies:member.allergies||[],medical:member.medical||[]});
+Line 10711:   const linkedUser = users.find((u:any)=>String(u.memberId)===String(member.id));
+Line 10712:   const [permRoleId,setPermRoleId] = useState(()=>(users.find((u:any)=>String(u.memberId)===String(member.id))?.roleId)||"");
+Line 10713:   const ef = (k:string) => (v:any) => setForm((f:any)=>({...f,[k]:v}));
+Line 10714:   const efa = (k:string) => (v:any) => setForm((f:any)=>({...f,address:{...(f.address||{}),[k]:v}}));
+Line 10715:   const save = () => {
+Line 10716:     if(!form.first||!form.last){alert("Name required.");return;}
+Line 10717:     setMembers((ms:any[])=>ms.map((m:any)=>m.id===member.id?{...m,...form}:m));
+Line 10718:     if(setUsers && permRoleId && linkedUser) {
+Line 10719:       setUsers((us:any[])=>us.map((u:any)=>u.id===linkedUser.id?{...u,roleId:permRoleId}:u));
+Line 10720:     }
+Line 10721:     setEditMode(false);
+Line 10722:   };
+Line 10723:   const addChild = () => setForm((f:any)=>({...f,children:[...(f.children||[]),{name:"",birthday:""}]}));
+Line 10724:   const updChild = (i:number,k:string,v:any) => setForm((f:any)=>({...f,children:f.children.map((c:any,idx:number)=>idx===i?{...c,[k]:v}:c)}));
+Line 10725:   const remChild = (i:number) => setForm((f:any)=>({...f,children:f.children.filter((_:any,idx:number)=>idx!==i)}));
+Line 10726: 
+Line 10727:   const fullName = member.first+" "+member.last;
+Line 10728:   const myGiving = giving.filter((g:any)=>g.name===fullName);
+Line 10729:   const totalGiven = myGiving.reduce((a:number,g:any)=>a+Number(g.amount||0),0);
+Line 10730:   const sorted = [...myGiving].sort((a:any,b:any)=>b.date.localeCompare(a.date));
+Line 10731: 
+Line 10732:   const TABS = staffMode ? [{id:"profile",label:"Personal Info"}] : [{id:"profile",label:"Personal Info"},{id:"giving",label:"My Giving"}];
+Line 10733: 
+Line 10734:   return (
+Line 10735:     <div style={{maxWidth:700,margin:"0 auto",padding:"0 4px"}}>
+Line 10736:       {/* Header card */}
+Line 10737:       <div style={{background:"#fff",border:"0.5px solid "+BR,borderRadius:12,padding:20,marginBottom:16,display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}>
+Line 10738:         <Av f={member.first} l={member.last} sz={56}/>
+Line 10739:         <div style={{flex:1,minWidth:160}}>
+Line 10740:           <div style={{fontSize:20,fontWeight:600,color:N}}>{member.first} {member.last}</div>
+Line 10741:           <div style={{fontSize:13,color:MU,marginTop:2}}>{member.role||"Member"} · {member.status||"Active"}</div>
+Line 10742:           {member.email&&<div style={{fontSize:12,color:MU,marginTop:2}}>{member.email}</div>}
+Line 10743:         </div>
+Line 10744:         <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+Line 10745:           {editMode
+Line 10746:             ?<><Btn onClick={save}>Save Changes</Btn><Btn v="ghost" onClick={()=>setEditMode(false)}>Cancel</Btn></>
+Line 10747:             :<Btn v="gold" onClick={()=>setEditMode(true)}>Edit Profile</Btn>}
+Line 10748:           <button onClick={onSignOut} style={{padding:"7px 14px",background:staffMode?"#f0f4ff":"#fee2e2",border:"0.5px solid "+(staffMode?"#bfcbff":"#fca5a5"),borderRadius:8,fontSize:12,fontWeight:600,color:staffMode?"#2563eb":"#dc2626",cursor:"pointer"}}>{staffMode?"← Back":"Sign Out"}</button>
+Line 10749:         </div>
+Line 10750:       </div>
+Line 10751: 
+Line 10752:       {/* Tabs */}
+Line 10753:       <div style={{display:"flex",gap:6,marginBottom:14}}>
+Line 10754:         {TABS.map(t=>(
+Line 10755:           <button key={t.id} onClick={()=>setTab(t.id)} style={{padding:"7px 16px",borderRadius:8,border:"0.5px solid "+BR,background:tab===t.id?N:"#fff",color:tab===t.id?"#fff":TX,fontWeight:500,fontSize:13,cursor:"pointer"}}>
+Line 10756:             {t.label}{t.id==="giving"&&myGiving.length?<span style={{marginLeft:6,background:G,color:N,borderRadius:10,fontSize:10,padding:"1px 7px",fontWeight:700}}>{myGiving.length}</span>:null}
+Line 10757:           </button>
+Line 10758:         ))}
+Line 10759:       </div>
+Line 10760: 
+Line 10761:       {/* Personal Info Tab */}
+Line 10762:       {tab==="profile"&&(
+Line 10763:         <div style={{background:"#fff",border:"0.5px solid "+BR,borderRadius:12,padding:18}}>
+Line 10764:           {editMode?(
+Line 10765:             <div style={{display:"flex",flexDirection:"column",gap:10}}>
+Line 10766:               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+Line 10767:                 <Fld label="First Name"><Inp value={form.first} onChange={ef("first")}/></Fld>
+Line 10768:                 <Fld label="Last Name"><Inp value={form.last} onChange={ef("last")}/></Fld>
+Line 10769:                 <Fld label="Phone"><Inp value={form.phone||""} onChange={ef("phone")}/></Fld>
+Line 10770:                 <Fld label="Email"><Inp value={form.email||""} onChange={ef("email")}/></Fld>
+Line 10771:                 <Fld label="Birthday"><BirthdaySpinner value={form.birthday||""} onChange={ef("birthday")}/></Fld>
+Line 10772:                 <Fld label="Anniversary"><Inp type="date" value={form.anniversary||""} onChange={ef("anniversary")}/></Fld>
+Line 10773:                 <Fld label="Spouse Name"><Inp value={form.spouseName||""} onChange={ef("spouseName")}/></Fld>
+Line 10774:                 <Fld label="Occupation"><Inp value={form.occupation||""} onChange={ef("occupation")}/></Fld>
+Line 10775:                 <Fld label="Employer"><Inp value={form.employer||""} onChange={ef("employer")}/></Fld>
+Line 10776:                 <Fld label="Baptism Date"><Inp type="date" value={form.baptismDate||""} onChange={ef("baptismDate")}/></Fld>
+Line 10777:                 <Fld label="Salvation Date"><Inp type="date" value={form.salvationDate||""} onChange={ef("salvationDate")}/></Fld>
+Line 10778:               </div>
+Line 10779:               {/* Role / Title */}
+Line 10780:               <Fld label="Role / Title">
+Line 10781:                 <select value={form.role||""} onChange={e=>ef("role")(e.target.value)} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",fontFamily:"inherit",color:TX,background:"#fff",boxSizing:"border-box" as any}}>
+Line 10782:                   <option value="">— Select Role / Title —</option>
+Line 10783:                   {(roles.length>0?roles:SEED_ROLES).map((r:any)=>(
+Line 10784:                     <option key={r.id} value={r.name}>{r.name}</option>
+Line 10785:                   ))}
+Line 10786:                 </select>
+Line 10787:               </Fld>
+Line 10788:               {/* Permission Level — only show if member has a linked login account */}
+Line 10789:               {linkedUser && (
+Line 10790:                 <Fld label="Permission Level (Access Control)">
+Line 10791:                   <select value={permRoleId} onChange={e=>setPermRoleId(e.target.value)} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",fontFamily:"inherit",color:TX,background:"#fff",boxSizing:"border-box" as any}}>
+Line 10792:                     <option value="">— Select Permission Level —</option>
+Line 10793:                     {(roles.length>0?roles:SEED_ROLES).map((r:any)=>(
+Line 10794:                       <option key={r.id} value={r.id}>{r.name}</option>
+Line 10795:                     ))}
+Line 10796:                   </select>
+Line 10797:                   <div style={{fontSize:11,color:MU,marginTop:4}}>Linked account: {linkedUser.email||"(no email)"}</div>
+Line 10798:                 </Fld>
+Line 10799:               )}
+Line 10800:               <Fld label="Street Address"><Inp value={form.address?.street||""} onChange={efa("street")}/></Fld>
+Line 10801:               <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr",gap:10}}>
+Line 10802:                 <Fld label="City"><Inp value={form.address?.city||""} onChange={efa("city")}/></Fld>
+Line 10803:                 <Fld label="State"><Inp value={form.address?.state||""} onChange={efa("state")}/></Fld>
+Line 10804:                 <Fld label="ZIP"><Inp value={form.address?.zip||""} onChange={efa("zip")}/></Fld>
+Line 10805:               </div>
+Line 10806:               <Fld label="Emergency Contact Name"><Inp value={form.emergencyName||""} onChange={ef("emergencyName")}/></Fld>
+Line 10807:               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+Line 10808:                 <Fld label="Emergency Phone"><Inp value={form.emergencyPhone||""} onChange={ef("emergencyPhone")}/></Fld>
+Line 10809:                 <Fld label="Relation"><Inp value={form.emergencyRelation||""} onChange={ef("emergencyRelation")}/></Fld>
+Line 10810:               </div>
+Line 10811:               <div>
+Line 10812:                 <div style={{fontSize:11,color:MU,fontWeight:500,marginBottom:6}}>Children</div>
+Line 10813:                 {(form.children||[]).map((c:any,i:number)=>(
+Line 10814:                   <div key={i} style={{display:"flex",gap:8,marginBottom:6,alignItems:"center"}}>
+Line 10815:                     <Inp style={{flex:2}} value={c.name} onChange={(v:string)=>updChild(i,"name",v)} placeholder="Name"/>
+Line 10816:                     <div style={{flex:1}}><BirthdaySpinner value={c.birthday||""} onChange={(v:string)=>updChild(i,"birthday",v)}/></div>
+Line 10817:                     <button onClick={()=>remChild(i)} style={{background:"#fee2e2",border:"none",borderRadius:6,padding:"6px 10px",cursor:"pointer",color:"#dc2626",fontWeight:700,fontSize:13}}>×</button>
+Line 10818:                   </div>
+Line 10819:                 ))}
+Line 10820:                 <Btn v="ghost" onClick={addChild} style={{fontSize:12,marginTop:2}}>+ Add Child</Btn>
+Line 10821:               </div>
+Line 10822:               <Fld label="Medical Notes"><textarea value={form.medicalNotes||""} onChange={e=>ef("medicalNotes")(e.target.value)} rows={2} placeholder="Any medical info or notes..." style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",fontFamily:"inherit",resize:"vertical",boxSizing:"border-box"}}/></Fld>
+Line 10823:             </div>
+Line 10824:           ):(
+Line 10825:             <div>
+Line 10826:               <InfoRow label="Phone" value={member.phone}/>
+Line 10827:               <InfoRow label="Email" value={member.email}/>
+Line 10828:               <InfoRow label="Address" value={[member.address?.street,member.address?.city,member.address?.state,member.address?.zip].filter(Boolean).join(", ")}/>
+Line 10829:               <InfoRow label="Birthday" value={member.birthday?fd(member.birthday):null}/>
+Line 10830:               <InfoRow label="Anniversary" value={member.anniversary?fd(member.anniversary):null}/>
+Line 10831:               <InfoRow label="Spouse" value={member.spouseName}/>
+Line 10832:               <InfoRow label="Occupation" value={member.occupation}/>
+Line 10833:               <InfoRow label="Employer" value={member.employer}/>
+Line 10834:               <InfoRow label="Baptism Date" value={member.baptismDate?fd(member.baptismDate):null}/>
+Line 10835:               <InfoRow label="Salvation Date" value={member.salvationDate?fd(member.salvationDate):null}/>
+Line 10836:               <InfoRow label="Emergency Contact" value={member.emergencyName?`${member.emergencyName}${member.emergencyRelation?" ("+member.emergencyRelation+")":""} — ${member.emergencyPhone||""}`:null}/>
+Line 10837:               {(member.children||[]).length>0&&<div style={{padding:"7px 0",borderBottom:"0.5px solid "+BR}}>
+Line 10838:                 <span style={{fontSize:11,color:MU,fontWeight:500}}>Children</span>
+Line 10839:                 <div style={{marginTop:4}}>{(member.children||[]).map((c:any,i:number)=><div key={i} style={{fontSize:13,color:TX}}>{c.name}{c.birthday?" · "+fd(c.birthday):""}</div>)}</div>
+Line 10840:               </div>}
+Line 10841:               <InfoRow label="Role / Title" value={member.role||"Member"}/>
+Line 10842:               {linkedUser && (
+Line 10843:                 <InfoRow label="Permission Level" value={(roles.length>0?roles:SEED_ROLES).find((r:any)=>r.id===linkedUser.roleId)?.name||""}/>
+Line 10844:               )}
+Line 10845:               <InfoRow label="Medical Notes" value={member.medicalNotes}/>
+Line 10846:             </div>
+Line 10847:           )}
+Line 10848:         </div>
+Line 10849:       )}
+Line 10850: 
+Line 10851:       {/* Giving Tab */}
+Line 10852:       {tab==="giving"&&(
+Line 10853:         <div>
+Line 10854:           <div style={{display:"flex",gap:10,marginBottom:14,flexWrap:"wrap"}}>
+Line 10855:             <Stat label="Total Given" value={"$"+totalGiven.toLocaleString()} color={GR}/>
+Line 10856:             <Stat label="Gifts" value={myGiving.length}/>
+Line 10857:             <Stat label="Avg Gift" value={myGiving.length?"$"+Math.round(totalGiven/myGiving.length).toLocaleString():"—"}/>
+Line 10858:           </div>
+Line 10859:           {sorted.length===0
+Line 10860:             ?<div style={{background:"#fff",border:"0.5px solid "+BR,borderRadius:12,padding:40,textAlign:"center",color:MU}}>No giving records on file.</div>
+Line 10861:             :<div style={{display:"flex",flexDirection:"column",gap:8}}>
+Line 10862:               {sorted.map((g:any,i:number)=>(
+Line 10863:                 <div key={i} style={{background:"#fff",border:"0.5px solid "+BR,borderRadius:10,padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+Line 10864:                   <div>
+Line 10865:                     <div style={{fontSize:13,fontWeight:500,color:TX}}>{g.category||"General"}</div>
+Line 10866:                     <div style={{fontSize:11,color:MU}}>{fd(g.date)}{g.method?" · "+g.method:""}</div>
+Line 10867:                   </div>
+Line 10868:                   <div style={{fontSize:15,fontWeight:600,color:GR}}>${Number(g.amount||0).toLocaleString()}</div>
+Line 10869:                 </div>
+Line 10870:               ))}
+Line 10871:             </div>
+Line 10872:           }
+Line 10873:         </div>
+Line 10874:       )}
+Line 10875:     </div>
+Line 10876:   );
+Line 10877: }
+Line 10878: 
+Line 10879: // ── MAIN APP ──
+Line 10880: export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,loggedInEmail,isStaff,displayName=''}:any={}) {
+Line 10881:   const _I = window.__NTCC_INIT__ || {};
+Line 10882:   // Namespace localStorage by churchId so each church's data is isolated
+Line 10883:   const LS = (key:string) => churchId ? `ntcc_${churchId}_${key}` : `ntcc_${key}`;
+Line 10884:   const lsGet = (key:string) => { try { const r=localStorage.getItem(LS(key)); return r?JSON.parse(r):null; } catch(e){ return null; } };
+Line 10885:   const lsSave = (key:string, val:any) => { try { localStorage.setItem(LS(key),JSON.stringify(val)); } catch(e){} };
+Line 10886: 
+Line 10887:   // ── Cloud sync state ──
+Line 10888:   const [cloudSync,setCloudSync] = useState<'idle'|'loading'|'saving'|'saved'|'error'>('idle');
+Line 10889:   const sbSyncTimer = useRef<any>(null);
+Line 10890:   const [syncTrigger,setSyncTrigger] = useState(0);
+Line 10891:   const lastSyncAt = useRef(0);
+Line 10892:   const suppressSave = useRef(false);
+Line 10893:   const suppressSaveTimer = useRef<any>(null);
+Line 10894:   const [isMobile,setIsMobile] = useState(window.innerWidth<768);
+Line 10895:   const [navOpen,setNavOpen] = useState(false);
+Line 10896:   const [theme,setTheme] = useState(()=>localStorage.getItem('ntcc_theme')||'classic');
+Line 10897:   const [showThemePicker,setShowThemePicker] = useState(false);
+Line 10898:   // Apply theme colors on every render (must stay before JSX)
+Line 10899:   {const _t=THEMES.find(t=>t.id===theme)||THEMES[0];N=_t.colors.N;G=_t.colors.G;GL=_t.colors.GL;BG=_t.colors.BG;W=_t.colors.W;BR=_t.colors.BR;MU=_t.colors.MU;TX=_t.colors.TX;BL=_t.colors.BL;}
+Line 10900: 
+Line 10901:   useEffect(()=>{
+Line 10902:     const fn=()=>setIsMobile(window.innerWidth<768);
+Line 10903:     window.addEventListener("resize",fn);
+Line 10904:     return()=>window.removeEventListener("resize",fn);
+Line 10905:   },[]);
+Line 10906:   useEffect(()=>{localStorage.setItem('ntcc_theme',theme);},[theme]);
+Line 10907:   const [churchSettings,setChurchSettings] = useState(_I.churchSettings || DEFAULT_CS);
+Line 10908:   const [showSetup,setShowSetup] = useState(false);
+Line 10909:   const [view,setView] = useState("dashboard");
+Line 10910:   const [members,setMembers] = useState(lsGet('members') ?? _I.members ?? []);
+Line 10911:   const [visitors,setVisitors] = useState(lsGet('visitors') ?? _I.visitors ?? []);
+Line 10912:   const [prospects,setProspects] = useState(lsGet('prospects') ?? []);
+Line 10913:   const [attendance,setAttendance] = useState(lsGet('attendance') ?? _I.attendance ?? []);
+Line 10914:   const [giving,setGiving] = useState(lsGet('giving') ?? _I.giving ?? []);
+Line 10915:   const [prayers,setPrayers] = useState(lsGet('prayers') ?? _I.prayers ?? []);
+Line 10916:   const [aiChat,setAiChat] = useState([]);
+Line 10917:   const [users,setUsers] = useState(()=>{ const saved=lsGet('users'); return (saved&&saved.length)?saved:[{id:1,memberId:5,roleId:"role_admin",password:"pastor2026",pin:"1234",status:"Active",superAdmin:true,overrides:{}}]; });
+Line 10918:   const [roles,setRoles] = useState(()=>{
+Line 10919:     const saved = lsGet('roles');
+Line 10920:     if(!saved || saved.length===0) return SEED_ROLES;
+Line 10921:     // Merge any new SEED_ROLES not already in saved list
+Line 10922:     const savedIds = new Set(saved.map((r:any)=>r.id));
+Line 10923:     const newOnes = SEED_ROLES.filter(r=>!savedIds.has(r.id));
+Line 10924:     return [...saved, ...newOnes];
+Line 10925:   });
+Line 10926:   const [permissions,setPermissions] = useState(()=>{
+Line 10927:     const saved = lsGet('permissions');

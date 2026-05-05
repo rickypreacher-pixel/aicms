@@ -1,0 +1,202 @@
+﻿Line 9811: function Education({members,setMembers,visitors,users,roles,children,setChildren,classrooms,setClassrooms,teacherSchedule,setTeacherSchedule,kidsCheckIns,setKidsCheckIns,checkIns,incidents,setIncidents,rollCalls,setRollCalls,progressNotes,setProgressNotes,cs,printerConfig,setPrinterConfig}:any){
+Line 9812:   const [tab,setTab]=useState("dashboard");
+Line 9813:   const today=td();
+Line 9814:   const todayCI=(kidsCheckIns as any[]).filter((c:any)=>c.date===today);
+Line 9815:   const openIncidents=(incidents as any[]).filter((i:any)=>i.status!=="Resolved").length;
+Line 9816:   const TABS=[{id:"dashboard",label:"Overview"},{id:"checkin",label:"Check-In"},{id:"rollcall",label:"Roll Call"},{id:"children",label:"Children"},{id:"progress",label:"Progress"},{id:"classrooms",label:"Classrooms"},{id:"teachers",label:"Teachers"},{id:"incidents",label:"Incidents"},{id:"reports",label:"Reports"},{id:"printer",label:"🖨 Printer"}];
+Line 9817:   return(
+Line 9818:     <div>
+Line 9819:       <div style={{display:"flex",marginBottom:20,background:W,borderRadius:10,border:"0.5px solid "+BR,overflow:"hidden",flexWrap:"wrap"}}>
+Line 9820:         {TABS.map((t:any)=><button key={t.id} onClick={()=>setTab(t.id)} style={{flex:1,minWidth:72,padding:"10px 4px",border:"none",borderBottom:"2px solid "+(tab===t.id?G:"transparent"),background:tab===t.id?"#f8f9fc":W,fontSize:11,fontWeight:tab===t.id?500:400,color:tab===t.id?N:MU,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:3}}>
+Line 9821:           {t.label}
+Line 9822:           {t.id==="checkin"&&todayCI.length>0&&<span style={{background:GR,color:"#fff",borderRadius:10,fontSize:10,padding:"1px 6px"}}>{todayCI.length}</span>}
+Line 9823:           {t.id==="incidents"&&openIncidents>0&&<span style={{background:RE,color:"#fff",borderRadius:10,fontSize:10,padding:"1px 6px"}}>{openIncidents}</span>}
+Line 9824:         </button>)}
+Line 9825:       </div>
+Line 9826:       {tab==="dashboard"&&<EdDashboard classrooms={classrooms} children={children} kidsCheckIns={kidsCheckIns} teacherSchedule={teacherSchedule} users={users} members={members} checkIns={checkIns} setTab={setTab}/>}
+Line 9827:       {tab==="checkin"&&<CheckInPortal classrooms={classrooms} children={children} setChildren={setChildren} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckIns} members={members} printerConfig={printerConfig}/>}
+Line 9828:       {tab==="rollcall"&&<ClassRollCall classrooms={classrooms} children={children} rollCalls={rollCalls} setRollCalls={setRollCalls} teacherSchedule={teacherSchedule} users={users} members={members} cs={cs}/>}
+Line 9829:       {tab==="children"&&<ChildrenRoster children={children} setChildren={setChildren} classrooms={classrooms} members={members} setMembers={setMembers} kidsCheckIns={kidsCheckIns} incidents={incidents}/>}
+Line 9830:       {tab==="progress"&&<ChildProgress children={children} classrooms={classrooms} rollCalls={rollCalls} progressNotes={progressNotes} setProgressNotes={setProgressNotes} cs={cs}/>}
+Line 9831:       {tab==="classrooms"&&<ClassroomsManager classrooms={classrooms} setClassrooms={setClassrooms} teacherSchedule={teacherSchedule} users={users} members={members} kidsCheckIns={kidsCheckIns}/>}
+Line 9832:       {tab==="teachers"&&<TeacherScheduleMgr classrooms={classrooms} teacherSchedule={teacherSchedule} setTeacherSchedule={setTeacherSchedule} users={users} members={members} roles={roles}/>}
+Line 9833:       {tab==="incidents"&&<IncidentReports incidents={incidents} setIncidents={setIncidents} children={children} classrooms={classrooms} members={members} cs={cs}/>}
+Line 9834:       {tab==="reports"&&<EdReports classrooms={classrooms} children={children} kidsCheckIns={kidsCheckIns} teacherSchedule={teacherSchedule} users={users} members={members} rollCalls={rollCalls}/>}
+Line 9835:       {tab==="printer"&&<PrinterSettings printerConfig={printerConfig} setPrinterConfig={setPrinterConfig}/>}
+Line 9836:     </div>
+Line 9837:   );
+Line 9838: }
+Line 9839: 
+Line 9840: // ── ADD PERSON PAGE ──
+Line 9841: // Central intake form — the one place everyone enters the database.
+Line 9842: // Gated by Access Control: requires directory → create permission.
+Line 9843: const ALLERGY_OPTIONS=["Peanuts","Tree Nuts","Milk/Dairy","Eggs","Wheat/Gluten","Soy","Fish","Shellfish","Latex","Bee Stings","Penicillin","Aspirin","Ibuprofen","Sulfa Drugs"];
+Line 9844: const MEDICAL_OPTIONS=["Diabetes","High Blood Pressure","Heart Condition","Asthma","Epilepsy/Seizures","Mobility Impairment","Vision Impairment","Hearing Impairment","Cancer","Kidney Disease","Thyroid Disorder","Depression/Anxiety","PTSD","Autism Spectrum"];
+Line 9845: 
+Line 9846: function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,roles,permissions,setView,prospects,setProspects}:any){
+Line 9847:   const canAdd = checkPermission(currentUser,roles,permissions,"directory","create");
+Line 9848:   const addedByName = (()=>{
+Line 9849:     if(!currentUser) return "Unknown";
+Line 9850:     if(currentUser.memberId){
+Line 9851:       const m=[...members,...(visitors||[])].find((p:any)=>p.id===currentUser.memberId);
+Line 9852:       if(m) return m.first+" "+m.last;
+Line 9853:     }
+Line 9854:     return currentUser.email||"Staff";
+Line 9855:   })();
+Line 9856: 
+Line 9857:   // Build unique city/zip lists from all existing records
+Line 9858:   const allPeople = [...(members||[]),...(visitors||[])];
+Line 9859:   const knownCities = Array.from(new Set(allPeople.map((p:any)=>p.address?.city).filter(Boolean))).sort() as string[];
+Line 9860:   const knownZips   = Array.from(new Set(allPeople.map((p:any)=>p.address?.zip).filter(Boolean))).sort() as string[];
+Line 9861: 
+Line 9862:   const [pType,setPType] = useState<"member"|"visitor">("member");
+Line 9863:   const [spouseSug,setSpouseSug] = useState<any[]>([]);
+Line 9864:   const [spouseLinked,setSpouseLinked] = useState<any>(null);
+Line 9865:   const blankForm=()=>({
+Line 9866:     first:"",last:"",phone:"",email:"",
+Line 9867:     // Member fields
+Line 9868:     status:"Active",role:"",joined:td(),family:"",
+Line 9869:     // Visitor fields
+Line 9870:     stage:"First Visit",sponsor:"",firstVisit:td(),
+Line 9871:     // Address
+Line 9872:     address:{street:"",city:"",state:"AZ",zip:""},
+Line 9873:     // Personal
+Line 9874:     birthday:"",anniversary:"",spouseName:"",
+Line 9875:     spouseFirst:"",spouseLast:"",spouseId:null as any,
+Line 9876:     children:[] as any[],
+Line 9877:     // Emergency
+Line 9878:     emergencyName:"",emergencyPhone:"",emergencyRelation:"",
+Line 9879:     // Faith
+Line 9880:     salvationDate:"",baptismDate:"",
+Line 9881:     // Medical
+Line 9882:     allergies:[] as string[],medical:[] as string[],medicalNotes:"",
+Line 9883:     // Work
+Line 9884:     occupation:"",employer:"",
+Line 9885:     // Notes
+Line 9886:     notes:""
+Line 9887:   });
+Line 9888:   const [form,setForm] = useState(blankForm());
+Line 9889:   const [saved,setSaved] = useState<any>(null);
+Line 9890:   const [dupWarning,setDupWarning] = useState<any>(null);
+Line 9891:   const nid = useRef(Date.now());
+Line 9892: 
+Line 9893:   const sf=(k:string)=>(v:any)=>setForm((f:any)=>({...f,[k]:v}));
+Line 9894:   const sfa=(k:string)=>(v:any)=>setForm((f:any)=>({...f,address:{...f.address,[k]:v}}));
+Line 9895:   const toggleArr=(field:string,item:string)=>setForm((f:any)=>{
+Line 9896:     const arr:string[]=f[field]||[];
+Line 9897:     return {...f,[field]:arr.includes(item)?arr.filter((x:string)=>x!==item):[...arr,item]};
+Line 9898:   });
+Line 9899:   const addChild=()=>setForm((f:any)=>({...f,children:[...f.children,{first:"",last:"",birthday:"",grade:"",memberId:null as any}]}));
+Line 9900:   const updChild=(i:number,k:string,v:string)=>setForm((f:any)=>({...f,children:f.children.map((c:any,idx:number)=>idx===i?{...c,[k]:v}:c)}));
+Line 9901:   const remChild=(i:number)=>setForm((f:any)=>({...f,children:f.children.filter((_:any,idx:number)=>idx!==i)}));
+Line 9902: 
+Line 9903:   const checkDups=()=>{
+Line 9904:     const fn=(form.first||"").trim().toLowerCase();
+Line 9905:     const ln=(form.last||"").trim().toLowerCase();
+Line 9906:     const ph=(form.phone||"").replace(/\D/g,"");
+Line 9907:     const all=[...members,...visitors];
+Line 9908:     return all.filter((p:any)=>{
+Line 9909:       const nameMatch=(p.first||"").trim().toLowerCase()===fn&&(p.last||"").trim().toLowerCase()===ln&&fn&&ln;
+Line 9910:       const phoneMatch=ph&&(p.phone||"").replace(/\D/g,"")===ph;
+Line 9911:       return nameMatch||phoneMatch;
+Line 9912:     });
+Line 9913:   };
+Line 9914: 
+Line 9915:   const doSave=()=>{
+Line 9916:     const id=nid.current++;
+Line 9917:     const famId="fam_"+id;
+Line 9918:     const spN=form.spouseFirst&&form.spouseLast?(form.spouseFirst+" "+form.spouseLast):(form.spouseName||"");
+Line 9919:     const hasFamily=!!(form.spouseFirst||form.children.some((c:any)=>c.first));
+Line 9920:     const familyId=hasFamily?famId:null;
+Line 9921:     const familyName=form.family||((form.last||"")+" Family");
+Line 9922:     const record:any={...form,id,addedBy:addedByName,addedDate:td(),familyId:familyId||null,
+Line 9923:       family:hasFamily?familyName:form.family,spouseName:spN};
+Line 9924:     if(pType==="member"){
+Line 9925:       setMembers((ms:any[])=>{
+Line 9926:         let newMs=[{...record,type:"Member"},...ms];
+Line 9927:         if(hasFamily){
+Line 9928:           if(form.spouseFirst&&form.spouseLast){
+Line 9929:             if(form.spouseId){
+Line 9930:               newMs=newMs.map((m:any)=>m.id===form.spouseId?{...m,familyId,spouseName:form.first+" "+form.last,family:familyName}:m);
+Line 9931:             } else {
+Line 9932:               const sid=nid.current++;
+Line 9933:               const spouseRec:any={id:sid,first:form.spouseFirst,last:form.spouseLast,type:"Member",status:"Active",role:"",joined:td(),family:familyName,familyId,addedBy:addedByName,addedDate:td(),spouseName:form.first+" "+form.last,...EMPTY_PERSON_FIELDS,address:{...form.address}};
+Line 9934:               newMs=[...newMs,spouseRec];
+Line 9935:             }
+Line 9936:           }
+Line 9937:           form.children.forEach((c:any)=>{
+Line 9938:             if(c.first&&c.last){
+Line 9939:               if(c.memberId){
+Line 9940:                 newMs=newMs.map((m:any)=>m.id===c.memberId?{...m,familyId,family:familyName}:m);
+Line 9941:               } else {
+Line 9942:                 const cid=nid.current++;
+Line 9943:                 newMs=[...newMs,{id:cid,first:c.first,last:c.last,type:"Member",status:"Active",role:"",joined:td(),family:familyName,familyId,addedBy:addedByName,addedDate:td(),birthday:c.birthday||"",...EMPTY_PERSON_FIELDS,address:{...EMPTY_ADDR}}];
+Line 9944:               }
+Line 9945:             }
+Line 9946:           });
+Line 9947:         }
+Line 9948:         return newMs;
+Line 9949:       });
+Line 9950:     } else {
+Line 9951:       setVisitors((vs:any[])=>[{...record,type:"Visitor"},...vs]);
+Line 9952:       // Auto-remove any matching prospect (same first+last, case-insensitive)
+Line 9953:       if(setProspects) setProspects((ps:any[])=>ps.filter((p:any)=>!(p.first.toLowerCase()===form.first.toLowerCase()&&p.last.toLowerCase()===form.last.toLowerCase())));
+Line 9954:     }
+Line 9955:     setSaved({name:form.first+" "+form.last,type:pType,familyName:hasFamily?familyName:null});
+Line 9956:     setSpouseLinked(null); setSpouseSug([]);
+Line 9957:     setForm(blankForm());
+Line 9958:     setDupWarning(null);
+Line 9959:   };
+Line 9960: 
+Line 9961:   const handleSave=()=>{
+Line 9962:     if(!form.first||!form.last){alert("First and last name are required.");return;}
+Line 9963:     const dups=checkDups();
+Line 9964:     if(dups.length>0){
+Line 9965:       setDupWarning(dups);
+Line 9966:     } else {
+Line 9967:       doSave();
+Line 9968:     }
+Line 9969:   };
+Line 9970: 
+Line 9971:   // Section heading helper
+Line 9972:   const SH=({label,icon}:{label:string,icon:string})=>(
+Line 9973:     <div style={{display:"flex",alignItems:"center",gap:8,margin:"22px 0 12px",paddingBottom:6,borderBottom:"1.5px solid "+G+"44"}}>
+Line 9974:       <span style={{fontSize:16}}>{icon}</span>
+Line 9975:       <span style={{fontSize:13,fontWeight:600,color:N,textTransform:"uppercase",letterSpacing:0.6}}>{label}</span>
+Line 9976:     </div>
+Line 9977:   );
+Line 9978:   const ToggleChip=({label,active,onClick}:{label:string,active:boolean,onClick:()=>void})=>(
+Line 9979:     <button onClick={onClick} style={{padding:"4px 10px",borderRadius:20,border:"1px solid "+(active?N:BR),background:active?N:"transparent",color:active?"#fff":TX,fontSize:12,cursor:"pointer",fontWeight:active?500:400}}>{label}</button>
+Line 9980:   );
+Line 9981: 
+Line 9982:   if(!canAdd){
+Line 9983:     return(
+Line 9984:       <div style={{maxWidth:600,margin:"60px auto",textAlign:"center",padding:32}}>
+Line 9985:         <div style={{fontSize:48,marginBottom:16}}>🔒</div>
+Line 9986:         <h2 style={{fontSize:20,fontWeight:500,color:N,marginBottom:8}}>Access Restricted</h2>
+Line 9987:         <p style={{fontSize:13,color:MU,marginBottom:24}}>Your current role does not have permission to add people to the database. Contact your administrator to request access.</p>
+Line 9988:         <Btn onClick={()=>setView("people")} v="outline">← Go to Members</Btn>
+Line 9989:       </div>
+Line 9990:     );
+Line 9991:   }
+Line 9992: 
+Line 9993:   if(saved){
+Line 9994:     return(
+Line 9995:       <div style={{maxWidth:520,margin:"60px auto",textAlign:"center",padding:32}}>
+Line 9996:         <div style={{width:64,height:64,borderRadius:"50%",background:"#e8f5e9",display:"flex",alignItems:"center",justifyContent:"center",fontSize:28,margin:"0 auto 16px"}}>✓</div>
+Line 9997:         <h2 style={{fontSize:20,fontWeight:500,color:GR,marginBottom:6}}>{saved.name} added!</h2>
+Line 9998:         <p style={{fontSize:13,color:MU,marginBottom:saved.familyName?8:24}}>{saved.name} has been added to the database as a {saved.type}.</p>
+Line 9999:         {saved.familyName&&<p style={{fontSize:13,color:N,fontWeight:500,marginBottom:24,background:N+"0d",borderRadius:8,padding:"8px 14px"}}>🏠 Family unit created: <strong>{saved.familyName}</strong> — all linked members saved.</p>}
+Line 10000:         <div style={{display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"}}>
+Line 10001:           <Btn onClick={()=>setSaved(null)} v="gold">+ Add Another Person</Btn>
+Line 10002:           <Btn onClick={()=>setView("people")} v="outline">Go to {saved.type==="member"?"Members":"Visitation"} →</Btn>
+Line 10003:           {saved.type==="visitor"&&<Btn onClick={()=>setView("visitation")} v="outline">Go to Visitation →</Btn>}
+Line 10004:         </div>
+Line 10005:       </div>
+Line 10006:     );
+Line 10007:   }
+Line 10008: 
+Line 10009:   return(
+Line 10010:     <div style={{maxWidth:800,margin:"0 auto"}}>
+Line 10011:       {/* Page Header */}
+Line 10012:       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20,flexWrap:"wrap",gap:10}}>

@@ -5727,7 +5727,7 @@ const MiniStat = ({label,value,color=N,sub}:any) => (
     {sub && <div style={{fontSize:10,color:MU,marginTop:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{sub}</div>}
   </div>
 );
-function People({members,setMembers,visitors,setVisitors,attendance,giving,setGiving,prayers,setPrayers,groups,setGroups,grpMeetings,setGrpMeetings,visitRecords,setVisitRecords,checkIns,setCheckIns,setView,canViewGiving,currentUser,roles=[]}:any) {
+function People({members,setMembers,visitors,setVisitors,attendance,giving,setGiving,prayers,setPrayers,groups,setGroups,grpMeetings,setGrpMeetings,visitRecords,setVisitRecords,checkIns,setCheckIns,setView,canViewGiving,currentUser,roles=[],children=[],setChildren=null}:any) {
   const [tab,setTab] = useState("members");
   const [search,setSearch] = useState("");
   const [showSug,setShowSug] = useState(false);
@@ -5941,6 +5941,18 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
       return m;
     }));
     else setVisitors((vs:any[])=>vs.map((v:any)=>v.id===detail.id?{...v,...updatedForm}:v));
+    if(setChildren&&updatedForm.children&&updatedForm.children.length>0){
+      const _pName=(updatedForm.first+" "+updatedForm.last).trim();
+      const _pPhone=updatedForm.phone||"";
+      updatedForm.children.forEach((c:any)=>{
+        if(!c.first||!c.last)return;
+        setChildren((cs:any[])=>{
+          const exists=cs.some((ec:any)=>(ec.first||'').toLowerCase()===(c.first||'').toLowerCase()&&(ec.last||'').toLowerCase()===(c.last||'').toLowerCase());
+          if(exists)return cs;
+          return [...cs,{id:Date.now()+Math.random(),first:c.first,last:c.last,dob:c.birthday||"",grade:c.grade||"",classroomId:null,parentName:_pName,parentPhone:_pPhone,parentMemberId:detail.id,allergies:updatedForm.allergies||[],medical:updatedForm.medical||[],medicalNotes:updatedForm.medicalNotes||"",emergencyPickup:updatedForm.emergencyName||"",status:"Active"}];
+        });
+      });
+    }
     setDetail({...detail,...updatedForm}); setEditMode(false);
   };
   const hardDelete = (person:any, pType:string) => {
@@ -5981,7 +5993,16 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
     setDetail({...detail,status:newStatus});
   };
   const addChild = () => setEditForm(f=>({...f,children:[...(f.children||[]),{first:"",last:"",birthday:"",grade:"",memberId:null}]}));
-  const updChild = (i,k,v) => setEditForm(f=>({...f,children:f.children.map((c,idx)=>idx===i?{...c,[k]:v}:c)}));
+  const updChild = (i:number,k:string,v:string) => setEditForm((f:any)=>{
+    const updated:any={...f.children[i],[k]:v};
+    const fn=(k==='first'?v:updated.first||'').trim().toLowerCase();
+    const ln=(k==='last'?v:updated.last||'').trim().toLowerCase();
+    if(fn&&ln&&!updated.memberId){
+      const match=[...members,...(visitors||[])].find((p:any)=>(p.first||'').trim().toLowerCase()===fn&&(p.last||'').trim().toLowerCase()===ln);
+      if(match) updated.memberId=match.id;
+    }
+    return {...f,children:f.children.map((c:any,idx:number)=>idx===i?updated:c)};
+  });
   const remChild = i => setEditForm(f=>({...f,children:f.children.filter((_,idx)=>idx!==i)}));
   const toggleArr = (field,item) => setEditForm(f=>{const arr=f[field]||[];return {...f,[field]:arr.includes(item)?arr.filter(x=>x!==item):[...arr,item]};});
 
@@ -9843,7 +9864,7 @@ function Education({members,setMembers,visitors,users,roles,children,setChildren
 const ALLERGY_OPTIONS=["Peanuts","Tree Nuts","Milk/Dairy","Eggs","Wheat/Gluten","Soy","Fish","Shellfish","Latex","Bee Stings","Penicillin","Aspirin","Ibuprofen","Sulfa Drugs"];
 const MEDICAL_OPTIONS=["Diabetes","High Blood Pressure","Heart Condition","Asthma","Epilepsy/Seizures","Mobility Impairment","Vision Impairment","Hearing Impairment","Cancer","Kidney Disease","Thyroid Disorder","Depression/Anxiety","PTSD","Autism Spectrum"];
 
-function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,roles,permissions,setView,prospects,setProspects}:any){
+function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,roles,permissions,setView,prospects,setProspects,children=[],setChildren=null}:any){
   const canAdd = checkPermission(currentUser,roles,permissions,"directory","create");
   const addedByName = (()=>{
     if(!currentUser) return "Unknown";
@@ -9888,6 +9909,7 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
   const [form,setForm] = useState(blankForm());
   const [saved,setSaved] = useState<any>(null);
   const [dupWarning,setDupWarning] = useState<any>(null);
+  const [pendingEduSync,setPendingEduSync] = useState<any>(null);
   const nid = useRef(Date.now());
 
   const sf=(k:string)=>(v:any)=>setForm((f:any)=>({...f,[k]:v}));
@@ -9897,7 +9919,16 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
     return {...f,[field]:arr.includes(item)?arr.filter((x:string)=>x!==item):[...arr,item]};
   });
   const addChild=()=>setForm((f:any)=>({...f,children:[...f.children,{first:"",last:"",birthday:"",grade:"",memberId:null as any}]}));
-  const updChild=(i:number,k:string,v:string)=>setForm((f:any)=>({...f,children:f.children.map((c:any,idx:number)=>idx===i?{...c,[k]:v}:c)}));
+  const updChild=(i:number,k:string,v:string)=>setForm((f:any)=>{
+    const updated:any={...f.children[i],[k]:v};
+    const fn=(k==='first'?v:updated.first||'').trim().toLowerCase();
+    const ln=(k==='last'?v:updated.last||'').trim().toLowerCase();
+    if(fn&&ln&&!updated.memberId){
+      const match=[...members,...(visitors||[])].find((p:any)=>(p.first||'').trim().toLowerCase()===fn&&(p.last||'').trim().toLowerCase()===ln);
+      if(match) updated.memberId=match.id;
+    }
+    return {...f,children:f.children.map((c:any,idx:number)=>idx===i?updated:c)};
+  });
   const remChild=(i:number)=>setForm((f:any)=>({...f,children:f.children.filter((_:any,idx:number)=>idx!==i)}));
 
   const checkDups=()=>{
@@ -9951,6 +9982,14 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
       setVisitors((vs:any[])=>[{...record,type:"Visitor"},...vs]);
       // Auto-remove any matching prospect (same first+last, case-insensitive)
       if(setProspects) setProspects((ps:any[])=>ps.filter((p:any)=>!(p.first.toLowerCase()===form.first.toLowerCase()&&p.last.toLowerCase()===form.last.toLowerCase())));
+    }
+    if(setChildren){
+      const _pName=form.first+" "+form.last;
+      const _pPhone=form.phone||"";
+      const _kidsToSync=form.children.filter((c:any)=>c.first&&c.last);
+      const _edDups=_kidsToSync.filter((c:any)=>(children as any[]).some((ec:any)=>(ec.first||'').toLowerCase()===(c.first||'').toLowerCase()&&(ec.last||'').toLowerCase()===(c.last||'').toLowerCase()));
+      const _newKids=_kidsToSync.filter((c:any)=>!(children as any[]).some((ec:any)=>(ec.first||'').toLowerCase()===(c.first||'').toLowerCase()&&(ec.last||'').toLowerCase()===(c.last||'').toLowerCase()));
+      if(_newKids.length>0){setChildren((cs:any[])=>[...cs,..._newKids.map((c:any,_i:number)=>({id:Date.now()+_i+1,first:c.first,last:c.last,dob:c.birthday||"",grade:c.grade||"",classroomId:null,parentName:_pName,parentPhone:_pPhone,parentMemberId:id,allergies:form.allergies||[],medical:form.medical||[],medicalNotes:form.medicalNotes||"",emergencyPickup:form.emergencyName||"",status:"Active"}))]);}      if(_edDups.length>0) setPendingEduSync({dups:_edDups,parentName:_pName,parentPhone:_pPhone,parentMemberId:id});
     }
     setSaved({name:form.first+" "+form.last,type:pType,familyName:hasFamily?familyName:null});
     setSpouseLinked(null); setSpouseSug([]);
@@ -10036,6 +10075,25 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
           <div style={{display:"flex",gap:8,marginTop:12}}>
             <Btn onClick={doSave} v="gold" style={{fontSize:12}}>Save Anyway (New Record)</Btn>
             <Btn onClick={()=>setDupWarning(null)} v="ghost" style={{fontSize:12}}>Cancel — Go Back to Edit</Btn>
+          </div>
+        </div>
+      )}
+
+      {pendingEduSync&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <div style={{background:"#fff",borderRadius:14,padding:28,maxWidth:440,width:"90%",boxShadow:"0 10px 40px rgba(0,0,0,0.2)"}}>
+            <div style={{fontSize:15,fontWeight:600,color:N,marginBottom:6}}>Child Already in Education</div>
+            <div style={{fontSize:13,color:MU,marginBottom:14,lineHeight:1.6}}>The following {pendingEduSync.dups.length===1?"child":"children"} already exist in the Education roster. Update their parent info to match this new record?</div>
+            {pendingEduSync.dups.map((c:any,i:number)=>(
+              <div key={i} style={{background:BG,border:"0.5px solid "+BR,borderRadius:8,padding:"8px 12px",marginBottom:6,display:"flex",alignItems:"center",gap:8}}>
+                <div style={{width:26,height:26,borderRadius:"50%",background:G,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:"#fff",fontWeight:600}}>{c.first[0]}</div>
+                <strong style={{fontSize:13,color:N}}>{c.first} {c.last}</strong>
+              </div>
+            ))}
+            <div style={{display:"flex",gap:10,marginTop:18}}>
+              <button onClick={()=>{setChildren((cs:any[])=>cs.map((ec:any)=>{const m=pendingEduSync.dups.find((c:any)=>(ec.first||'').toLowerCase()===(c.first||'').toLowerCase()&&(ec.last||'').toLowerCase()===(c.last||'').toLowerCase());return m?{...ec,parentName:pendingEduSync.parentName,parentPhone:pendingEduSync.parentPhone,parentMemberId:pendingEduSync.parentMemberId}:ec;}));setPendingEduSync(null);}} style={{flex:1,padding:"10px 0",background:N,color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer"}}>Yes, Update Parent Info</button>
+              <button onClick={()=>setPendingEduSync(null)} style={{flex:1,padding:"10px 0",background:"none",border:"1px solid "+BR,borderRadius:8,fontSize:13,fontWeight:500,color:TX,cursor:"pointer"}}>Keep Existing</button>
+            </div>
           </div>
         </div>
       )}
@@ -10166,6 +10224,7 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
                 <Fld label="Birthday"><Inp type="date" value={c.birthday||""} onChange={v=>{updChild(i,"birthday",v);const ag=calcAge(v);if(typeof ag==="number"&&ag>=0)updChild(i,"grade",gradeFromAge(ag));}}/></Fld>
                 <Fld label="Grade Level"><Slt value={c.grade||""} onChange={v=>updChild(i,"grade",v)} opts={["", ...CHILD_GRADES]}/></Fld>
               </div>
+              {c.memberId&&<div style={{fontSize:11,color:GR,background:GR+"12",border:"0.5px solid "+GR+"44",borderRadius:6,padding:"3px 8px",marginTop:6,display:"inline-flex",alignItems:"center",gap:4}}>✓ Linked to existing profile</div>}
               <div style={{textAlign:"right",marginTop:4}}><button onClick={()=>remChild(i)} style={{border:"none",background:"transparent",cursor:"pointer",color:RE,fontSize:18,padding:"0 6px"}}>×</button></div>
             </div>
           ))}
@@ -11465,8 +11524,8 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
             }}
           />}
           {!isMemberPortal && view==="dashboard" && <Dashboard members={members} visitors={visitors} attendance={attendance} giving={giving} prayers={prayers} setView={setView} canViewGiving={canViewGiving} isRestrictedUser={isRestrictedUser} canAddPerson={canAddPerson}/>}
-          {!isMemberPortal && view==="addperson" && <AddMemberPage members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} currentUser={currentUser} roles={roles} permissions={permissions} setView={setView} prospects={prospects} setProspects={setProspects}/>}
-          {!isMemberPortal && view==="people" && <People members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} setGiving={setGiving} prayers={prayers} setPrayers={setPrayers} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings} visitRecords={visitRecords} setVisitRecords={setVisitRecords} checkIns={checkIns} setCheckIns={setCheckIns} setView={setView} canViewGiving={canViewGiving} currentUser={currentUser} roles={roles}/>}
+          {!isMemberPortal && view==="addperson" && <AddMemberPage members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} currentUser={currentUser} roles={roles} permissions={permissions} setView={setView} prospects={prospects} setProspects={setProspects} children={children} setChildren={setChildren}/>}
+          {!isMemberPortal && view==="people" && <People members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} setGiving={setGiving} prayers={prayers} setPrayers={setPrayers} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings} visitRecords={visitRecords} setVisitRecords={setVisitRecords} checkIns={checkIns} setCheckIns={setCheckIns} setView={setView} canViewGiving={canViewGiving} currentUser={currentUser} roles={roles} children={children} setChildren={setChildren}/>}
           {!isMemberPortal && view==="groups" && <Groups members={members} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings} currentUser={currentUser} roles={roles}/>}
           {!isMemberPortal && view==="education" && <Education members={members} setMembers={setMembers} visitors={visitors} users={users} roles={roles} children={children} setChildren={setChildren} classrooms={classrooms} setClassrooms={setClassrooms} teacherSchedule={teacherSchedule} setTeacherSchedule={setTeacherSchedule} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckIns} checkIns={checkIns} incidents={incidents} setIncidents={setIncidents} rollCalls={rollCalls} setRollCalls={setRollCalls} progressNotes={progressNotes} setProgressNotes={setProgressNotes} cs={churchSettings} printerConfig={printerConfig} setPrinterConfig={setPrinterConfig}/>}
           {!isMemberPortal && view==="maintenance" && <Maintenance users={users} members={members} currentUser={currentUser} roles={roles} permissions={permissions} equipment={equipment} setEquipment={setEquipment} workOrders={workOrders} setWorkOrders={setWorkOrders} schedMaint={schedMaint} setSchedMaint={setSchedMaint} supplies={supplies} setSupplies={setSupplies} checkoutItems={checkoutItems} setCheckoutItems={setCheckoutItems} checkouts={checkouts} setCheckouts={setCheckouts}/>}

@@ -1,0 +1,4 @@
+﻿Line 739: function Maintenance({users,members,currentUser,roles,permissions,equipment,setEquipment,workOrders,setWorkOrders,schedMaint,setSchedMaint,supplies,setSupplies,checkoutItems,setCheckoutItems,checkouts,setCheckouts}){
+Line 4606: function Groups({members,groups,setGroups,grpMeetings,setGrpMeetings,currentUser=null,roles=[]}) {
+Line 5730: function People({members,setMembers,visitors,setVisitors,attendance,giving,setGiving,prayers,setPrayers,groups,setGroups,grpMeetings,setGrpMeetings,visitRecords,setVisitRecords,checkIns,setCheckIns,setView,canViewGiving,currentUser,roles=[]}:any) {
+Line 9811: function Education({members,setMembers,visitors,users,roles,children,setChildren,classrooms,setClassrooms,teacherSchedule,setTeacherSchedule,kidsCheckIns,setKidsCheckIns,checkIns,incidents,setIncidents,rollCalls,setRollCalls,progressNotes,setProgressNotes,cs,printerConfig,setPrinterConfig}:any){
