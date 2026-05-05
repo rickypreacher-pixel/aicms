@@ -4526,9 +4526,13 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
               <Fld label={"Select "+(isTL?"Team Leader":"Sponsor")+" *"}>
                 <select value={assignUid} onChange={e=>setAssignUid(e.target.value)} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}>
                   <option value="">Select a user</option>
-                  {activeUsers.map(u=>{
+                  {activeUsers.filter(u=>{
+                    const r=roles.find((x:any)=>x.id===u.roleId);
+                    if(isTL) return r?.name==="Team Leader";
+                    return r?.name==="Sponsor";
+                  }).map(u=>{
                     const m = members.find(x=>x.id===u.memberId);
-                    return m ? <option key={u.id} value={u.id}>{m.first} {m.last}{m.role?" ("+m.role+")":""}</option> : null;
+                    return m ? <option key={u.id} value={u.id}>{m.first} {m.last}</option> : null;
                   })}
                 </select>
               </Fld>
@@ -11104,6 +11108,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
         {church_id:churchId,data:blob,updated_at:new Date().toISOString()},
         {onConflict:'church_id'}
       );
+      if(!error) lastSyncAt.current = Date.now();
       setCloudSync(error?'error':'saved');
       setTimeout(()=>setCloudSync('idle'),2500);
     },3000);
