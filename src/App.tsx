@@ -5222,13 +5222,13 @@ function CalendarView({members,visitors,setVisitors,groups,recurring,setRecurrin
                 return(<div key={i} onClick={()=>{setSelDate(cell.date);setSelEvt(null);setSelGrpEvt(null);setSearch("");setNewVis(null);setGrpCISearch("");}}
                   style={{background:isSel?N+"0c":W,border:"0.5px solid "+(isSel?N:BR),borderRadius:6,padding:"4px",cursor:"pointer",overflow:"hidden",display:"flex",flexDirection:"column",opacity:cell.cur?1:0.35}}>
                   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:2}}>
-                    <div style={{width:19,height:19,borderRadius:"50%",background:isToday?N:"transparent",color:isToday?"#fff":TX,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:isToday?600:400}}>{new Date(cell.date+"T00:00:00").getDate()}</div>
+                    <div style={{width:24,height:24,borderRadius:"50%",background:isToday?N:"transparent",color:isToday?"#fff":TX,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,fontWeight:isToday?600:400}}>{new Date(cell.date+"T00:00:00").getDate()}</div>
                     {ciCnt>0&&<span style={{fontSize:8,background:GR,color:"#fff",borderRadius:6,padding:"0 3px",fontWeight:600}}>{ciCnt}</span>}
                   </div>
                   <div style={{display:"flex",flexDirection:"column",gap:1,overflow:"hidden"}}>
-                    {evts.slice(0,1).map((e,j)=><div key={j} style={{background:e.color,color:"#fff",borderRadius:2,padding:"1px 3px",fontSize:8,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",lineHeight:1.5}}>{tS(e.time)} {e.name}</div>)}
-                    {grpEvts.slice(0,2).map((g,j)=><div key={"g"+j} style={{background:g.color+"cc",color:"#fff",borderRadius:2,padding:"1px 3px",fontSize:8,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",lineHeight:1.5,borderLeft:"2px solid #fff5"}}>G: {g.name}</div>)}
-                    {allEvts.length>3&&<div style={{fontSize:8,color:MU}}>+{allEvts.length-3}</div>}
+                    {evts.slice(0,1).map((e,j)=><div key={j} style={{background:e.color,color:"#fff",borderRadius:2,padding:"1px 3px",fontSize:12,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",lineHeight:1.5}}>{tS(e.time)} {e.name}</div>)}
+                    {grpEvts.slice(0,2).map((g,j)=><div key={"g"+j} style={{background:g.color+"cc",color:"#fff",borderRadius:2,padding:"1px 3px",fontSize:12,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",lineHeight:1.5,borderLeft:"2px solid #fff5"}}>G: {g.name}</div>)}
+                    {allEvts.length>3&&<div style={{fontSize:12,color:MU}}>+{allEvts.length-3}</div>}
                   </div>
                 </div>);
               })}
