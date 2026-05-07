@@ -3939,7 +3939,7 @@ function Visitation({visitors,setVisitors,members,setMembers,users,currentUser,r
   const [tyModal,setTyModal] = useState<any>(null); // {visitor, letterBody, generating}
   const [tyBody,setTyBody] = useState("");
   const [tyGenerating,setTyGenerating] = useState(false);
-  const nid = useRef(700);
+  const nid = useRef(Math.max(699,...(visitRecords||[]).map((r:any)=>+(r.id)||0))+1);
   const pastorDisplayName = (()=>{ const pm = members.find((m:any)=>(m.role||'').toLowerCase().includes('pastor')); return pm ? pm.first+' '+pm.last : (window.__CS__?.pastorName||'Pastor'); })();
 
   const openThankYouLetter = async (v:any) => {
@@ -4006,8 +4006,11 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
   };
 
   useEffect(()=>{
-    const missing = visitors.filter(v=>!visitRecords.find(r=>r.visitorId===v.id));
-    if(missing.length>0) setVisitRecords(rs=>[...rs,...missing.map(v=>({id:nid.current++,visitorId:v.id,stage:"Pastor",createdDate:v.firstVisit||td(),contacts:[],teamLeaderUserId:null,sponsorUserId:null}))]);
+    setVisitRecords(rs=>{
+      const missing = visitors.filter(v=>!rs.find(r=>r.visitorId===v.id));
+      if(missing.length===0) return rs;
+      return [...rs,...missing.map(v=>({id:nid.current++,visitorId:v.id,stage:"Pastor",createdDate:v.firstVisit||td(),contacts:[],teamLeaderUserId:null,sponsorUserId:null}))];
+    });
   },[visitors.length]);
 
   const getRec = vid => visibleRecords.find(r=>r.visitorId===vid);
