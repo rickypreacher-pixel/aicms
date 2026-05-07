@@ -1,4 +1,4 @@
-﻿// @ts-nocheck
+// @ts-nocheck
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from './lib/supabase';
 
@@ -1086,8 +1086,7 @@ function ChurchSettingsPage({cs,setCs,churchId,members,setMembers,visitors,setVi
   return (<div>
     {/* Tab bar */}
     <div style={{display:'flex',gap:4,marginBottom:20,borderBottom:'1.5px solid '+BR,paddingBottom:0}}>
-      {[{id:'general',label:'⚙ General'},{id:'merge',label:'🔀 Merge Tool'},{id:'breeze',label:'🌐 Breeze Import'},{id:'backup',label:'💾 Backup & Restore'}].map(t=>(
-        <button key={t.id} onClick={()=>setStab(t.id)} style={{padding:'8px 18px',fontSize:13,fontWeight:stab===t.id?600:400,color:stab===t.id?N:MU,background:'none',border:'none',borderBottom:stab===t.id?'2.5px solid '+N:'2.5px solid transparent',cursor:'pointer',marginBottom:-1.5}}>{t.label}</button>
+      {[{id:'general',label:'⚙ General'},{id:'merge',label:'🔀 Merge Tool'},{id:'breeze',label:'🌐 Breeze Import'},{id:'backup',label:'💾 Backup & Restore'}].map(t=>(        <button key={t.id} onClick={()=>setStab(t.id)} style={{padding:'8px 18px',fontSize:13,fontWeight:stab===t.id?600:400,color:stab===t.id?N:MU,background:'none',border:'none',borderBottom:stab===t.id?'2.5px solid '+N:'2.5px solid transparent',cursor:'pointer',marginBottom:-1.5}}>{t.label}</button>
       ))}
     </div>
     {stab==='merge'&&<MergeTool members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors}/>}
@@ -6157,7 +6156,7 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
           <Btn v="gold" style={{fontSize:11,padding:"5px 10px"}} onClick={()=>exportCSV(selectedPeople)}>📤 Export CSV</Btn>
           <Btn v="ghost" style={{fontSize:11,padding:"5px 10px"}} onClick={()=>setGroupAssignOpen(true)}>👥 Assign Group</Btn>
           <Btn v="ghost" style={{fontSize:11,padding:"5px 10px"}} onClick={()=>{setRoleAssignVal("");setRoleAssignOpen(true);}}>🏷️ Set Role</Btn>
-          <Btn v="ghost" style={{fontSize:11,padding:"5px 10px"}} onClick={()=>printDirectory(selectedPeople)}>🖨️ Print</Btn>
+          <Btn v="ghost" style={{fontSize:11,padding:"5px 10px"}} onClick={()=>printDirectory(selectedPeople)}>🖸️ Print</Btn>
           <Btn v="ghost" style={{fontSize:11,padding:"5px 10px"}} onClick={()=>{
             const lines = selectedPeople.map(p=>p.first+" "+p.last+(p.phone?" | "+p.phone:"")+(p.email?" | "+p.email:"")).join("\n");
             navigator.clipboard.writeText(lines).then(()=>alert("Copied "+selected.size+" contacts to clipboard."));
@@ -10246,7 +10245,6 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
           </div>
         </Fld>
         <Fld label="Family / Household"><Inp value={form.family} onChange={sf("family")} placeholder="e.g. Smith Household"/></Fld>
-
         {/* ── SECTION 2: Member or Visitor Status ── */}
         {pType==="member"?(
           <>
@@ -12040,7 +12038,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
             {cloudSync==='error' && <div style={{fontSize:11,color:RE,display:"flex",alignItems:"center",gap:4}}>⚠ Sync error</div>}
             {!isStaff && <button onClick={()=>{setView("ai");setNavOpen(false);}} style={{background:GL,border:"1px solid "+G,borderRadius:8,padding:isMobile?"7px 10px":"7px 12px",cursor:"pointer",fontSize:12,fontWeight:500,color:"#7a5c10",whiteSpace:"nowrap"}}>AI</button>}
 
-            {/* 🎨 Theme Picker */}
+            {/* �🎨 Theme Picker */}
             <div style={{position:"relative"}}>
               <button onClick={()=>setShowThemePicker(p=>!p)} title="Change Theme" style={{background:W,border:"0.5px solid "+BR,borderRadius:8,padding:isMobile?"7px 10px":"7px 12px",cursor:"pointer",fontSize:14,lineHeight:1,flexShrink:0}}>🎨</button>
               {showThemePicker && <>
