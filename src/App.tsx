@@ -9222,7 +9222,39 @@ function CheckInPortal({classrooms,children,setChildren,kidsCheckIns,setKidsChec
   );
 }
 
-function ChildrenRoster({children,setChildren,classrooms,members,setMembers,kidsCheckIns,incidents}){
+function GraduatedRoster({children,setChildren}:any){
+  const graduated=(children as any[]).filter((c:any)=>c.status==="Graduated"||(c.dob&&(calcAge(c.dob) as any)>=18));
+  return(
+    <div>
+      <div style={{marginBottom:16,fontSize:13,color:MU}}>Students who have graduated (age 18+ or manually marked). Showing {graduated.length} student{graduated.length!==1?"s":""}.</div>
+      {graduated.length===0?(
+        <div style={{textAlign:"center",padding:60,color:MU,fontSize:14}}>No graduated students yet.</div>
+      ):(
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:14}}>
+          {graduated.map((ch:any)=>{
+            const age=ch.dob?(calcAge(ch.dob) as any):null;
+            const autoGrad=age>=18;
+            return(
+              <div key={ch.id} style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:16}}>
+                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+                  <Av f={ch.first} l={ch.last} sz={36}/>
+                  <div>
+                    <div style={{fontWeight:600,fontSize:14,color:N}}>{ch.first} {ch.last}</div>
+                    <div style={{fontSize:12,color:MU}}>{age?"Age "+age:"Age unknown"}</div>
+                  </div>
+                  <span style={{marginLeft:"auto",fontSize:10,background:autoGrad?"#f3e8ff":"#d1fae5",color:autoGrad?"#7c3aed":"#065f46",borderRadius:10,padding:"2px 7px",fontWeight:600}}>{autoGrad?"Auto":"Manual"}</span>
+                </div>
+                {(ch.parentName||ch.parentPhone)&&<div style={{fontSize:12,paddingTop:8,borderTop:"0.5px solid "+BR,marginBottom:8}}><div style={{fontWeight:500,color:TX}}>{ch.parentName||"—"}</div>{ch.parentPhone&&<div style={{color:MU}}>{ch.parentPhone}</div>}</div>}
+                {ch.status==="Graduated"&&!autoGrad&&<Btn v="outline" onClick={()=>setChildren((cs:any[])=>cs.map(c=>c.id===ch.id?{...c,status:"Active"}:c))} style={{fontSize:11,padding:"4px 9px",marginTop:4}}>↩ Move Back</Btn>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+function ChildrenRoster({children,setChildren,classrooms,members,setMembers,kidsCheckIns,incidents}:any){
   const [search,setSearch]=useState("");
   const [cDrop,setCDrop]=useState(false);
   const [filterGrade,setFilterGrade]=useState("all");
@@ -9233,7 +9265,8 @@ function ChildrenRoster({children,setChildren,classrooms,members,setMembers,kids
   const [parentQuery,setParentQuery]=useState("");
   const [parentSugs,setParentSugs]=useState<any[]>([]);
   const nid=useRef(700);
-  const filtered=children.filter(c=>{if(search&&!(c.first+" "+c.last).toLowerCase().includes(search.toLowerCase()))return false;if(filterGrade!=="all"&&c.grade!==filterGrade)return false;return true;});
+  const isGrad=(c:any)=>c.status==="Graduated"||(c.dob&&(calcAge(c.dob) as any)>=18);
+  const filtered=children.filter((c:any)=>{if(isGrad(c))return false;if(search&&!(c.first+" "+c.last).toLowerCase().includes(search.toLowerCase()))return false;if(filterGrade!=="all"&&c.grade!==filterGrade)return false;return true;});
   useEffect(()=>{
     if(form.parentMemberId){setParentSugs([]);return;}
     if(parentQuery.length<2){setParentSugs([]);return;}
@@ -9297,7 +9330,7 @@ function ChildrenRoster({children,setChildren,classrooms,members,setMembers,kids
         <table style={{width:"100%",borderCollapse:"collapse"}}>
           <thead><tr style={{background:"#f8f9fc"}}>{["Child","Age","Level","Parent","Medical","Last Visit","Actions"].map(h=><th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:11,fontWeight:500,color:MU,textTransform:"uppercase",letterSpacing:0.5,borderBottom:"0.5px solid "+BR}}>{h}</th>)}</tr></thead>
           <tbody>
-            {filtered.map(ch=>{const last=[...kidsCheckIns].filter(ci=>ci.childId===ch.id).sort((a,b)=>b.date.localeCompare(a.date))[0];const hasMed=(ch.allergies?.length>0||ch.medical?.length>0);const hasOpenInc=(incidents||[]).some(i=>i.childId===ch.id&&i.status!=="Resolved");const hasParent=!!(ch.parentName||ch.parentMemberId);return (<tr key={ch.id} style={{borderBottom:"0.5px solid "+BR}} onMouseEnter={e=>e.currentTarget.style.background="#f8f9fc"} onMouseLeave={e=>e.currentTarget.style.background=W}><td style={{padding:"10px 14px"}}><div style={{display:"flex",alignItems:"center",gap:10}}><Av f={ch.first} l={ch.last} sz={30}/><div><div style={{fontSize:13,fontWeight:500}}>{ch.first} {ch.last}</div><div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:2}}>{hasOpenInc&&<span style={{fontSize:10,background:"#fee2e2",color:RE,borderRadius:10,padding:"1px 6px",fontWeight:600}}>Incident</span>}{!hasParent&&<span style={{fontSize:10,background:"#fef3c7",color:"#b45309",borderRadius:10,padding:"1px 6px",fontWeight:600}}>No parent</span>}</div></div></div></td><td style={{padding:"10px 14px",fontSize:13}}>{ch.dob?calcAge(ch.dob):<span style={{color:MU,fontStyle:"italic"}}>—</span>}</td><td style={{padding:"10px 14px",fontSize:13}}>{ch.grade||<span style={{color:MU,fontStyle:"italic"}}>—</span>}</td><td style={{padding:"10px 14px",fontSize:13}}><div style={{fontWeight:ch.parentMemberId?500:400,color:ch.parentName?TX:MU,fontStyle:ch.parentName?"normal":"italic"}}>{ch.parentName||"Not linked"}</div><div style={{fontSize:11,color:MU}}>{ch.parentPhone||""}</div>{ch.parentMemberId&&<span style={{fontSize:10,background:"#d1fae5",color:"#065f46",borderRadius:10,padding:"1px 6px",fontWeight:600,display:"inline-block",marginTop:2}}>✓ linked</span>}</td><td style={{padding:"10px 14px"}}>{hasMed?(<span style={{fontSize:11,background:"#fee2e2",color:RE,borderRadius:4,padding:"2px 7px",fontWeight:500}}>Alert</span>):(<span style={{fontSize:11,color:MU}}>None</span>)}</td><td style={{padding:"10px 14px",fontSize:12,color:MU}}>{last?fd(last.date):"Never"}</td><td style={{padding:"10px 14px"}}><div style={{display:"flex",gap:6}}><Btn onClick={()=>openEdit(ch)} v="outline" style={{fontSize:11,padding:"4px 9px"}}>✎ Edit</Btn><Btn onClick={e=>{e.stopPropagation();if(confirm("Remove "+ch.first+" "+ch.last+"?"))setChildren((cs:any[])=>cs.filter(c=>c.id!==ch.id));}} v="danger" style={{fontSize:11,padding:"4px 8px"}}>✕</Btn></div></td></tr>);})}
+            {filtered.map(ch=>{const last=[...kidsCheckIns].filter(ci=>ci.childId===ch.id).sort((a,b)=>b.date.localeCompare(a.date))[0];const hasMed=(ch.allergies?.length>0||ch.medical?.length>0);const hasOpenInc=(incidents||[]).some(i=>i.childId===ch.id&&i.status!=="Resolved");const hasParent=!!(ch.parentName||ch.parentMemberId);return (<tr key={ch.id} style={{borderBottom:"0.5px solid "+BR}} onMouseEnter={e=>e.currentTarget.style.background="#f8f9fc"} onMouseLeave={e=>e.currentTarget.style.background=W}><td style={{padding:"10px 14px"}}><div style={{display:"flex",alignItems:"center",gap:10}}><Av f={ch.first} l={ch.last} sz={30}/><div><div style={{fontSize:13,fontWeight:500}}>{ch.first} {ch.last}</div><div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:2}}>{hasOpenInc&&<span style={{fontSize:10,background:"#fee2e2",color:RE,borderRadius:10,padding:"1px 6px",fontWeight:600}}>Incident</span>}{!hasParent&&<span style={{fontSize:10,background:"#fef3c7",color:"#b45309",borderRadius:10,padding:"1px 6px",fontWeight:600}}>No parent</span>}</div></div></div></td><td style={{padding:"10px 14px",fontSize:13}}>{ch.dob?calcAge(ch.dob):<span style={{color:MU,fontStyle:"italic"}}>—</span>}</td><td style={{padding:"10px 14px",fontSize:13}}>{ch.grade||<span style={{color:MU,fontStyle:"italic"}}>—</span>}</td><td style={{padding:"10px 14px",fontSize:13}}><div style={{fontWeight:ch.parentMemberId?500:400,color:ch.parentName?TX:MU,fontStyle:ch.parentName?"normal":"italic"}}>{ch.parentName||"Not linked"}</div><div style={{fontSize:11,color:MU}}>{ch.parentPhone||""}</div>{ch.parentMemberId&&<span style={{fontSize:10,background:"#d1fae5",color:"#065f46",borderRadius:10,padding:"1px 6px",fontWeight:600,display:"inline-block",marginTop:2}}>✓ linked</span>}</td><td style={{padding:"10px 14px"}}>{hasMed?(<span style={{fontSize:11,background:"#fee2e2",color:RE,borderRadius:4,padding:"2px 7px",fontWeight:500}}>Alert</span>):(<span style={{fontSize:11,color:MU}}>None</span>)}</td><td style={{padding:"10px 14px",fontSize:12,color:MU}}>{last?fd(last.date):"Never"}</td><td style={{padding:"10px 14px"}}><div style={{display:"flex",gap:6}}><Btn onClick={()=>openEdit(ch)} v="outline" style={{fontSize:11,padding:"4px 9px"}}>✎ Edit</Btn><Btn onClick={()=>{if(confirm("Mark "+ch.first+" "+ch.last+" as Graduated?"))setChildren((cs:any[])=>cs.map(c=>c.id===ch.id?{...c,status:"Graduated"}:c));}} v="outline" style={{fontSize:11,padding:"4px 9px",color:"#7c3aed",borderColor:"#7c3aed"}}>🎓 Graduate</Btn><Btn onClick={e=>{e.stopPropagation();if(confirm("Remove "+ch.first+" "+ch.last+"?"))setChildren((cs:any[])=>cs.filter(c=>c.id!==ch.id));}} v="danger" style={{fontSize:11,padding:"4px 8px"}}>✕</Btn></div></td></tr>);})}
             {filtered.length===0&&<tr><td colSpan={7} style={{padding:40,textAlign:"center",color:MU}}>No children registered.</td></tr>}
           </tbody>
         </table>
@@ -9958,7 +9991,7 @@ function Education({members,setMembers,visitors,users,roles,children,setChildren
   const today=td();
   const todayCI=(kidsCheckIns as any[]).filter((c:any)=>c.date===today);
   const openIncidents=(incidents as any[]).filter((i:any)=>i.status!=="Resolved").length;
-  const TABS=[{id:"dashboard",label:"Overview"},{id:"checkin",label:"Check-In"},{id:"rollcall",label:"Roll Call"},{id:"children",label:"Children"},{id:"progress",label:"Progress"},{id:"classrooms",label:"Classrooms"},{id:"teachers",label:"Teachers"},{id:"incidents",label:"Incidents"},{id:"reports",label:"Reports"},{id:"printer",label:"🖨 Printer"}];
+  const TABS=[{id:"dashboard",label:"Overview"},{id:"checkin",label:"Check-In"},{id:"rollcall",label:"Roll Call"},{id:"children",label:"Children"},{id:"graduated",label:"Graduated"},{id:"progress",label:"Progress"},{id:"classrooms",label:"Classrooms"},{id:"teachers",label:"Teachers"},{id:"incidents",label:"Incidents"},{id:"reports",label:"Reports"},{id:"printer",label:"🖨 Printer"}];
   return(
     <div>
       <div style={{display:"flex",marginBottom:20,background:W,borderRadius:10,border:"0.5px solid "+BR,overflow:"hidden",flexWrap:"wrap"}}>
@@ -9972,6 +10005,7 @@ function Education({members,setMembers,visitors,users,roles,children,setChildren
       {tab==="checkin"&&<CheckInPortal classrooms={classrooms} children={children} setChildren={setChildren} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckIns} members={members} printerConfig={printerConfig}/>}
       {tab==="rollcall"&&<ClassRollCall classrooms={classrooms} children={children} rollCalls={rollCalls} setRollCalls={setRollCalls} teacherSchedule={teacherSchedule} users={users} members={members} cs={cs}/>}
       {tab==="children"&&<ChildrenRoster children={children} setChildren={setChildren} classrooms={classrooms} members={members} setMembers={setMembers} kidsCheckIns={kidsCheckIns} incidents={incidents}/>}
+      {tab==="graduated"&&<GraduatedRoster children={children} setChildren={setChildren}/>}
       {tab==="progress"&&<ChildProgress children={children} classrooms={classrooms} rollCalls={rollCalls} progressNotes={progressNotes} setProgressNotes={setProgressNotes} cs={cs}/>}
       {tab==="classrooms"&&<ClassroomsManager classrooms={classrooms} setClassrooms={setClassrooms} teacherSchedule={teacherSchedule} users={users} members={members} kidsCheckIns={kidsCheckIns}/>}
       {tab==="teachers"&&<TeacherScheduleMgr classrooms={classrooms} teacherSchedule={teacherSchedule} setTeacherSchedule={setTeacherSchedule} users={users} members={members} roles={roles}/>}
