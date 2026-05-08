@@ -1746,6 +1746,7 @@ const MODULES=[
   {key:"reports",label:"Reports",icon:"Rpt",desc:"All reports and analytics",actions:["view","create","edit","delete"]},
   {key:"media",label:"Media Library",icon:"Med",desc:"Sermons and files",actions:["view","create","edit","delete"]},
   {key:"settings",label:"System Settings",icon:"Set",desc:"Users, roles, and config",actions:["view","create","edit","delete"]},
+  {key:"ai",label:"AI Assistant",icon:"AI",desc:"AI chat and automation — View: open page, Create: send messages, Edit: execute data actions, Delete: manage API keys",actions:["view","create","edit","delete"]},
 ];
 const PORTAL_PERMS=[
   {key:"viewAttendance",label:"View own attendance"},
@@ -8639,7 +8640,7 @@ function Prayer({prayers,setPrayers,portalMode=false,portalMember=null}:any) {
 }
 
 // ── AI ASSISTANT with ElevenLabs ──
-function AIAssist({aiChat,setAiChat,members,setMembers,visitors,setVisitors,attendance,setAttendance,giving,setGiving,prayers,setView,isMobile,visitRecords=[],setVisitRecords,users=[]}) {
+function AIAssist({aiChat,setAiChat,members,setMembers,visitors,setVisitors,attendance,setAttendance,giving,setGiving,prayers,setView,isMobile,visitRecords=[],setVisitRecords,users=[],canChat=true,canExecute=true,canManageSettings=true}) {
   const [input,setInput] = useState("");
   const [load,setLoad] = useState(false);
   const [ttsOn,setTtsOn] = useState(()=>localStorage.getItem("ntcc_voice_on")!=="false");
@@ -8748,6 +8749,7 @@ function AIAssist({aiChat,setAiChat,members,setMembers,visitors,setVisitors,atte
   };
 
   const send = async override => {
+    if(!canChat) return;
     const msg = (override||input).trim();
     if(!msg||load) return;
     setInput("");
@@ -8758,7 +8760,7 @@ function AIAssist({aiChat,setAiChat,members,setMembers,visitors,setVisitors,atte
       const raw = await callAI(nc, mRef.current, vRef.current, aRef.current, gRef.current, prayers, mem, usersRef.current, vrRef.current);
       const {clean,action} = parseAction(raw);
       setAiChat([...nc,{role:"assistant",content:clean}]);
-      if(action) execAction(action); else updateMem(null);
+      if(action) { if(canExecute) execAction(action); else setBanner({type:"warn",msg:"You don't have permission to execute AI actions."}); } else updateMem(null);
       speak(clean);
     } catch(e) {
       const msg = (e as any)?.message||String(e);
@@ -8816,7 +8818,7 @@ function AIAssist({aiChat,setAiChat,members,setMembers,visitors,setVisitors,atte
             {ttsOn?"🔊 Voice On":"🔇 Voice Off"}
           </div>
           <button onClick={()=>setShowMem(v=>!v)} style={{background:showMem?"#ffffff22":"#ffffff12",border:"0.5px solid #ffffff44",borderRadius:8,padding:"5px 11px",cursor:"pointer",color:"#fff",fontSize:12}}>Memory</button>
-          <button onClick={()=>setShowSettings(true)} style={{background:"#ffffff12",border:"0.5px solid #ffffff44",borderRadius:8,padding:"5px 11px",cursor:"pointer",color:"#fff",fontSize:12}}>Voice Settings</button>
+          {canManageSettings && <button onClick={()=>setShowSettings(true)} style={{background:"#ffffff12",border:"0.5px solid #ffffff44",borderRadius:8,padding:"5px 11px",cursor:"pointer",color:"#fff",fontSize:12}}>Voice Settings</button>}
         </div>
       </div>
       {banner && (
@@ -8918,12 +8920,12 @@ function AIAssist({aiChat,setAiChat,members,setMembers,visitors,setVisitors,atte
             <div ref={endRef}/>
           </div>
           <div style={{marginTop:12,background:W,borderRadius:12,padding:"10px 14px",border:"1.5px solid "+BR,display:"flex",gap:10,alignItems:"flex-end"}}>
-            <textarea ref={inputRef} value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}} placeholder="Talk to me, Pastor Hall — give a command or ask anything..." rows={2} style={{flex:1,resize:"none",border:"none",outline:"none",fontSize:13,fontFamily:"inherit",lineHeight:1.6,background:"transparent"}}/>
+            <textarea ref={inputRef} value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}} placeholder={canChat?"Talk to me, Pastor Hall — give a command or ask anything...":"You don't have permission to use AI chat."} rows={2} disabled={!canChat} style={{flex:1,resize:"none",border:"none",outline:"none",fontSize:13,fontFamily:"inherit",lineHeight:1.6,background:"transparent",opacity:canChat?1:0.5,cursor:canChat?"text":"not-allowed"}}/>
             <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
-              <button onClick={startListening} style={{width:38,height:38,borderRadius:"50%",border:"none",background:listening?"#fee2e2":N+"18",cursor:"pointer",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",color:listening?RE:N}}>
+              <button onClick={startListening} disabled={!canChat} style={{width:38,height:38,borderRadius:"50%",border:"none",background:listening?"#fee2e2":N+"18",cursor:canChat?"pointer":"not-allowed",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",color:listening?RE:N,opacity:canChat?1:0.5}}>
                 {listening?"Stop":"Mic"}
               </button>
-              <Btn onClick={()=>{_elAudio.src=SILENT_WAV;_elAudio.play().catch(()=>{});send();}} disabled={load||!input.trim()} style={{padding:"9px 18px"}}>{load?"...":"Send"}</Btn>
+              <Btn onClick={()=>{_elAudio.src=SILENT_WAV;_elAudio.play().catch(()=>{});send();}} disabled={load||!input.trim()||!canChat} style={{padding:"9px 18px"}}>{load?"...":"Send"}</Btn>
             </div>
           </div>
           <div style={{fontSize:11,color:MU,marginTop:6,textAlign:"center"}}>Enter to send - Shift+Enter for new line - Mic for voice input - commands execute live</div>
@@ -11608,6 +11610,9 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     : currentUser?.superAdmin
       ? true
       : checkPermission(currentUser, roles, permissions, 'addvisitor', 'create');
+  const canChatAI = !isStaff || currentUser?.superAdmin || checkPermission(currentUser, roles, permissions, 'ai', 'create');
+  const canExecuteAI = !isStaff || currentUser?.superAdmin || checkPermission(currentUser, roles, permissions, 'ai', 'edit');
+  const canManageAI = !isStaff || currentUser?.superAdmin || checkPermission(currentUser, roles, permissions, 'ai', 'delete');
 
   // Member Portal: email/password login whose email matches a member record but is not in the staff users list
   const _matchMemberByName = (list:any[]) => displayName
@@ -11927,11 +11932,11 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     visitation:"visitation", groups:"groups", education:"education",
     maintenance:"maintenance", calendar:"events", attendance:"attendance",
     giving:"giving", prayer:"prayer", email:null, sms:null,
-    access:"settings", ai:null, settings:"settings", alerts:null, manual:null,
+    access:"settings", ai:"ai", settings:"settings", alerts:null, manual:null,
   };
   // For staff, hide nav items they don't have "view" permission for
   // Additionally, restricted staff (non-Admin/non-SuperAdmin) always have maintenance/ai/email/sms hidden
-  const RESTRICTED_NAV_HIDDEN = ['ai','email','sms'];
+  const RESTRICTED_NAV_HIDDEN = ['email','sms'];
   const PORTAL_NAV = [
     {id:"myprofile",label:"My Profile",icon:"👤"},
     {id:"prayer",label:"Prayer Wall",icon:"Pr"},
@@ -12178,7 +12183,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           {!isMemberPortal && view==="sms" && <SmsCenter smsLog={smsLog} setSmsLog={setSmsLog} smsTemplates={smsTemplates} setSmsTemplates={setSmsTemplates} smsConfig={smsConfig} setSmsConfig={setSmsConfig} members={members} visitors={visitors} cs={churchSettings} onCompose={()=>openSmsComposer({})} onBulkCompose={()=>openBulkSmsComposer({recipients:[...members,...visitors].filter(p=>p.phone).map(p=>({...p,first:p.first,last:p.last,name:p.first+" "+p.last}))})}/>}
           {!isMemberPortal && view==="email" && <EmailCenter emailLog={emailLog} setEmailLog={setEmailLog} emailTemplates={emailTemplates} setEmailTemplates={setEmailTemplates} emailConfig={emailConfig} setEmailConfig={setEmailConfig} members={members} visitors={visitors} cs={churchSettings} onCompose={()=>openEmailComposer({})} onBulkCompose={()=>openBulkEmailComposer({recipients:members.filter(m=>m.email).map(m=>({name:m.first+" "+m.last,first:m.first,last:m.last,email:m.email}))})}/>}
           {!isMemberPortal && view==="access" && <Access members={members} users={users} setUsers={setUsers} roles={roles} setRoles={setRoles} permissions={permissions} setPermissions={setPermissions} portalMembers={portalMembers} setPortalMembers={setPortalMembers} currentUser={currentUser} churchId={churchId}/>}
-          {!isMemberPortal && view==="ai" && <AIAssist aiChat={aiChat} setAiChat={setAiChat} members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} setAttendance={setAttendance} giving={giving} setGiving={setGiving} prayers={prayers} setView={setView} isMobile={isMobile} visitRecords={visitRecords} setVisitRecords={setVisitRecords} users={users}/>}
+          {!isMemberPortal && view==="ai" && <AIAssist aiChat={aiChat} setAiChat={setAiChat} members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} setAttendance={setAttendance} giving={giving} setGiving={setGiving} prayers={prayers} setView={setView} isMobile={isMobile} visitRecords={visitRecords} setVisitRecords={setVisitRecords} users={users} canChat={canChatAI} canExecute={canExecuteAI} canManageSettings={canManageAI}/>}
           {!isMemberPortal && view==="alerts" && <AlertPage members={members} visitors={visitors} giving={giving} checkIns={checkIns} kidsCheckIns={kidsCheckIns} children={children} visitRecords={visitRecords}/>}
           {!isMemberPortal && view==="manual" && <ManualPage/>}
         </div>
