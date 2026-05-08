@@ -2458,7 +2458,8 @@ function RolesTab({roles,setRoles,permissions,setPermissions,users,currentUser})
   const [modal,setModal] = useState(false);
   const [editR,setEditR] = useState(null);
   const [form,setForm] = useState({name:"",description:"",color:ROLE_COLORS[0]});
-  const nid = useRef(400);
+  // Initialize counter above the highest existing numeric role ID to prevent duplicate IDs across remounts
+  const nid = useRef(Math.max(400, ...roles.map(r=>{const m=String(r.id).match(/^role_(\d+)$/);return m?parseInt(m[1])+1:400;})));
   const isAdmin = currentUser?.superAdmin || (currentUser?.roleId && roles.find(r=>r.id===currentUser.roleId)?.name==="Administrator");
 
   const userCountForRole = roleId => users.filter(u=>u.roleId===roleId).length;
@@ -11569,11 +11570,14 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   const [users,setUsers] = useState(()=>{ const saved=lsGet('users'); return (saved&&saved.length)?saved:[{id:1,memberId:5,roleId:"role_admin",password:"pastor2026",pin:"1234",status:"Active",superAdmin:true,overrides:{}}]; });
   const [roles,setRoles] = useState(()=>{
     const saved = lsGet('roles');
-    if(!saved || saved.length===0) return SEED_ROLES;
-    // Merge any new SEED_ROLES not already in saved list
-    const savedIds = new Set(saved.map((r:any)=>r.id));
-    const newOnes = SEED_ROLES.filter(r=>!savedIds.has(r.id));
-    return [...saved, ...newOnes];
+    const base = (!saved || saved.length===0) ? SEED_ROLES : (()=>{
+      const savedIds = new Set(saved.map((r:any)=>r.id));
+      const newOnes = SEED_ROLES.filter(r=>!savedIds.has(r.id));
+      return [...saved, ...newOnes];
+    })();
+    // Repair duplicate IDs
+    const seen=new Set(); let next=500;
+    return base.map((r:any)=>{ if(seen.has(r.id)){const newId="role_"+(next++);return {...r,id:newId};} seen.add(r.id); return r; });
   });
   const [permissions,setPermissions] = useState(()=>{
     const saved = lsGet('permissions');
@@ -11781,7 +11785,15 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       if(Array.isArray(d.progressNotes)&&d.progressNotes.length) setProgressNotes(d.progressNotes);
       if(Array.isArray(d.teacherSchedule)&&d.teacherSchedule.length) setTeacherSchedule(d.teacherSchedule);
       if(Array.isArray(d.kidsCheckIns)&&d.kidsCheckIns.length) setKidsCheckIns(d.kidsCheckIns);
-      if(Array.isArray(d.roles)&&d.roles.length) setRoles(d.roles);
+      if(Array.isArray(d.roles)&&d.roles.length){
+        // Repair duplicate role IDs caused by useRef(400) resetting across remounts
+        const seen=new Set(); let next=500;
+        const fixed=d.roles.map((r:any)=>{
+          if(seen.has(r.id)){const newId="role_"+(next++);return {...r,id:newId};}  
+          seen.add(r.id); return r;
+        });
+        setRoles(fixed);
+      }
       if(d.permissions&&Object.keys(d.permissions).length) setPermissions(d.permissions);
       if(Array.isArray(d.users)&&d.users.length) setUsers(d.users);
       if(Array.isArray(d.prospects)) setProspects(d.prospects); // trust empty array — removal on another device must propagate
