@@ -10009,7 +10009,7 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
   const [spouseSug,setSpouseSug] = useState<any[]>([]);
   const [spouseLinked,setSpouseLinked] = useState<any>(null);
   const blankForm=()=>({
-    first:"",last:"",phone:"",email:"",gender:"Male",
+    first:"",last:"",phone:"",email:"",gender:"",
     // Member fields
     status:"Active",role:"",joined:td(),family:"",
     // Visitor fields
@@ -10019,6 +10019,7 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
     // Personal
     birthday:"",anniversary:"",spouseName:"",
     spouseFirst:"",spouseLast:"",spouseId:null as any,
+    spousePhone:"",spouseEmail:"",spouseGender:"",spouseBirthday:"",
     children:[] as any[],
     // Emergency
     emergencyName:"",emergencyPhone:"",emergencyRelation:"",
@@ -10086,7 +10087,7 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
               newMs=newMs.map((m:any)=>m.id===form.spouseId?{...m,familyId,spouseName:form.first+" "+form.last,family:familyName}:m);
             } else {
               const sid=nid.current++;
-              const spouseRec:any={id:sid,first:form.spouseFirst,last:form.spouseLast,type:"Member",status:"Active",role:"",joined:td(),family:familyName,familyId,addedBy:addedByName,addedDate:td(),spouseName:form.first+" "+form.last,...EMPTY_PERSON_FIELDS,address:{...form.address}};
+              const spouseRec:any={id:sid,first:form.spouseFirst,last:form.spouseLast,type:"Member",status:"Active",role:"",joined:td(),family:familyName,familyId,addedBy:addedByName,addedDate:td(),spouseName:form.first+" "+form.last,...EMPTY_PERSON_FIELDS,address:{...form.address},phone:form.spousePhone||"",email:form.spouseEmail||"",gender:form.spouseGender||"",birthday:form.spouseBirthday||""};
               newMs=[...newMs,spouseRec];
             }
           }
@@ -10096,7 +10097,7 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
                 newMs=newMs.map((m:any)=>m.id===c.memberId?{...m,familyId,family:familyName}:m);
               } else {
                 const cid=nid.current++;
-                newMs=[...newMs,{id:cid,first:c.first,last:c.last,type:"Member",status:"Active",role:"",joined:td(),family:familyName,familyId,addedBy:addedByName,addedDate:td(),birthday:c.birthday||"",...EMPTY_PERSON_FIELDS,address:{...EMPTY_ADDR}}];
+                newMs=[...newMs,{id:cid,first:c.first,last:c.last,type:"Member",status:"Active",role:"",joined:td(),family:familyName,familyId,addedBy:addedByName,addedDate:td(),...EMPTY_PERSON_FIELDS,birthday:c.birthday||"",gender:c.gender||"",grade:c.grade||"",address:{...EMPTY_ADDR}}];
               }
             }
           });
@@ -10342,6 +10343,27 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
             </div>
           )}
           {spouseLinked&&<div style={{background:GR+"12",border:"0.5px solid "+GR+"44",borderRadius:8,padding:"6px 12px",marginTop:4,fontSize:12,color:GR,fontWeight:500}}>✓ Linked to {spouseLinked.first} {spouseLinked.last} (existing member)</div>}
+          {form.spouseFirst&&!spouseLinked&&(
+            <>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginTop:8}}>
+                <Fld label="Spouse Phone"><Inp value={form.spousePhone||""} onChange={v=>sf("spousePhone")(fmtPhone(v))} placeholder="(602) 555-0100"/></Fld>
+                <Fld label="Spouse Email"><Inp value={form.spouseEmail||""} onChange={sf("spouseEmail")} placeholder="email@example.com"/></Fld>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginTop:4}}>
+                <Fld label="Spouse Birthday"><Inp type="date" value={form.spouseBirthday||""} onChange={sf("spouseBirthday")}/></Fld>
+                <Fld label="Spouse Gender">
+                  <div style={{display:"flex",gap:20,alignItems:"center",paddingTop:4}}>
+                    {(["Male","Female"] as string[]).map(opt=>(
+                      <label key={opt} style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",fontSize:13,color:TX}}>
+                        <input type="radio" name="spouse-gender" value={opt} checked={form.spouseGender===opt} onChange={()=>sf("spouseGender")(opt)} style={{cursor:"pointer",accentColor:N,width:15,height:15}}/>
+                        {opt}
+                      </label>
+                    ))}
+                  </div>
+                </Fld>
+              </div>
+            </>
+          )}
         </div>
         {/* Children */}
         <div style={{marginTop:12}}>
