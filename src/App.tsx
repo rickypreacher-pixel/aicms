@@ -5646,7 +5646,7 @@ function ProspectsPage({prospects,setProspects,members}:any) {
     setInvSug([]); setModal(true);
   };
   const save = () => {
-    if(!form.first||!form.last){alert("First and last name required.");return;}
+    if(!form.first||!form.phone){alert("First name and phone number required.");return;}
     const rec = {first:form.first,last:form.last,phone:form.phone,address:{street:form.street,city:form.city,state:form.state,zip:form.zip},invitedBy:form.invitedBy,invitedById:form.invitedById,status:form.status,notes:form.notes,addedDate:editing?.addedDate||td()};
     if(editing){
       setProspects((ps:any[])=>ps.map((p:any)=>p.id===editing.id?{...p,...rec}:p));
@@ -5754,9 +5754,9 @@ function ProspectsPage({prospects,setProspects,members}:any) {
       <Modal open={modal} onClose={()=>setModal(false)} title={editing?"Edit Prospect":"Add Prospect"} width={500}>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
           <Fld label="First Name *"><Inp value={form.first} onChange={sf("first")} placeholder="First"/></Fld>
-          <Fld label="Last Name *"><Inp value={form.last} onChange={sf("last")} placeholder="Last"/></Fld>
+          <Fld label="Last Name"><Inp value={form.last} onChange={sf("last")} placeholder="Last"/></Fld>
         </div>
-        <Fld label="Phone"><Inp value={form.phone} onChange={sf("phone")} placeholder="(555) 000-0000"/></Fld>
+        <Fld label="Phone *"><Inp value={form.phone} onChange={sf("phone")} placeholder="(555) 000-0000"/></Fld>
 
         <div style={{fontSize:11,color:MU,fontWeight:600,marginBottom:6,marginTop:4,textTransform:"uppercase",letterSpacing:0.4}}>Address</div>
         <Fld label="Street"><Inp value={form.street} onChange={sf("street")} placeholder="123 Main St"/></Fld>
