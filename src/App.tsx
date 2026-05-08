@@ -10112,6 +10112,7 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
 
   const sf=(k:string)=>(v:any)=>setForm((f:any)=>({...f,[k]:v}));
   const sfa=(k:string)=>(v:any)=>setForm((f:any)=>({...f,address:{...f.address,[k]:v}}));
+  const fmtPhone=(v:string)=>{const d=v.replace(/\D/g,'').slice(0,10);if(d.length<=3)return d;if(d.length<=6)return`(${d.slice(0,3)}) ${d.slice(3)}`;return`(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}`;};
   const toggleArr=(field:string,item:string)=>setForm((f:any)=>{
     const arr:string[]=f[field]||[];
     return {...f,[field]:arr.includes(item)?arr.filter((x:string)=>x!==item):[...arr,item]};
@@ -10309,7 +10310,7 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:4}}>
           <Fld label="First Name *"><Inp value={form.first} onChange={sf("first")} placeholder="First name"/></Fld>
           <Fld label="Last Name *"><Inp value={form.last} onChange={sf("last")} placeholder="Last name"/></Fld>
-          <Fld label="Phone"><Inp value={form.phone} onChange={sf("phone")} placeholder="(602) 555-0100"/></Fld>
+          <Fld label="Phone"><Inp value={form.phone} onChange={v=>sf("phone")(fmtPhone(v))} placeholder="(602) 555-0100"/></Fld>
           <Fld label="Email"><Inp value={form.email} onChange={sf("email")} placeholder="email@example.com"/></Fld>
         </div>
         <Fld label="Gender *">
@@ -10453,7 +10454,7 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
         <SH label="Emergency Contact" icon="🚨"/>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
           <Fld label="Contact Name"><Inp value={form.emergencyName} onChange={sf("emergencyName")} placeholder="Full name"/></Fld>
-          <Fld label="Contact Phone"><Inp value={form.emergencyPhone} onChange={sf("emergencyPhone")} placeholder="(602) 555-…"/></Fld>
+          <Fld label="Contact Phone"><Inp value={form.emergencyPhone} onChange={v=>sf("emergencyPhone")(fmtPhone(v))} placeholder="(602) 555-…"/></Fld>
           <Fld label="Relationship"><Inp value={form.emergencyRelation} onChange={sf("emergencyRelation")} placeholder="Spouse, Parent…"/></Fld>
         </div>
 
