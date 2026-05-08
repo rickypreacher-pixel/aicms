@@ -10082,7 +10082,7 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
   const [spouseSug,setSpouseSug] = useState<any[]>([]);
   const [spouseLinked,setSpouseLinked] = useState<any>(null);
   const blankForm=()=>({
-    first:"",last:"",phone:"",email:"",gender:"Male",
+    first:"",last:"",phone:"",email:"",gender:"",
     // Member fields
     status:"Active",role:"",joined:td(),family:"",
     // Visitor fields
@@ -10197,6 +10197,7 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
 
   const handleSave=()=>{
     if(!form.first||!form.last){alert("First and last name are required.");return;}
+    if(!form.gender){alert("Please select a gender.");return;}
     const dups=checkDups();
     if(dups.length>0){
       setDupWarning(dups);
