@@ -5638,6 +5638,7 @@ function ProspectsPage({prospects,setProspects,members}:any) {
   const [invSug,setInvSug] = useState<any[]>([]);
   const nid = useRef(7000);
   const sf = (k:string) => (v:any) => setForm((f:any)=>({...f,[k]:v}));
+  const fmtPhone=(v:string)=>{const d=v.replace(/\D/g,'').slice(0,10);if(d.length<=3)return d;if(d.length<=6)return`(${d.slice(0,3)}) ${d.slice(3)}`;return`(${d.slice(0,3)}) ${d.slice(3,6)}-${d.slice(6)}`;};
 
   const openAdd = () => { setEditing(null); setForm(blank()); setInvSug([]); setModal(true); };
   const openEdit = (p:any) => {
