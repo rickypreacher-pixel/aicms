@@ -1757,8 +1757,8 @@ const PORTAL_PERMS=[
 ];
 const ROLE_COLORS=["#1a2e5a","#c9a84c","#16a34a","#2563eb","#7c3aed","#dc2626","#d97706","#0891b2","#be185d","#065f46"];
 const blankPerms=()=>Object.fromEntries(MODULES.map(m=>[m.key,Object.fromEntries(m.actions.map(a=>[a,false]))]));
-const VS={Pastor:"Pastor Visit",TeamLeader:"Team Leader",Sponsor:"Sponsor",OngoingCare:"Ongoing Care",Complete:"Complete"};
-const VC={Pastor:N,TeamLeader:PU,Sponsor:GR,OngoingCare:G,Complete:TE};
+const VS={Pastor:"Pastor Visit",TeamSupervisor:"Team Supervisor",TeamLeader:"Team Leader",Sponsor:"Sponsor",OngoingCare:"Ongoing Care",Complete:"Complete"};
+const VC={Pastor:N,TeamSupervisor:"#f97316",TeamLeader:PU,Sponsor:GR,OngoingCare:G,Complete:TE};
 const METH_IC={Text:"💬",Call:"📞",Visit:"🚪"};
 const METH_CLR={Text:{bg:"#f3e8ff",c:PU},Call:{bg:"#eff6ff",c:BL},Visit:{bg:"#dcfce7",c:GR}};
 const AVC=["#1a2e5a","#c9a84c","#2e7d32","#1565c0","#6a1b9a","#00695c","#c62828","#e65100"];
@@ -1859,8 +1859,9 @@ function buildSys(members, visitors, attend, giving, prayers, mem, users=[], vis
   const recentGiving = giving.slice(0,20).map(g=>({date:g.date,name:g.name,category:g.category,amount:g.amount,method:g.method}));
   const recentPrayers = prayers.slice(0,15).map(p=>({name:p.name||"",request:p.request||"",status:p.status||""}));
   const teamLeaders = members.filter(m=>m.role==="Team Leader").map(m=>{const u=users.find((u:any)=>u.memberId===m.id);return u?{userId:u.id,name:m.first+" "+m.last,gender:m.gender||"Unknown"}:null;}).filter(Boolean);
+  const teamSupervisors = members.filter(m=>m.role==="Team Supervisor").map(m=>{const u=users.find((u:any)=>u.memberId===m.id);return u?{userId:u.id,name:m.first+" "+m.last}:null;}).filter(Boolean);
   const sponsors = members.filter(m=>m.role==="Sponsor").map(m=>{const u=users.find((u:any)=>u.memberId===m.id);return u?{userId:u.id,name:m.first+" "+m.last,gender:m.gender||"Unknown"}:null;}).filter(Boolean);
-  const activePipeline = (visitRecords as any[]).filter(r=>r.stage!=="Complete").map(r=>{const v=visitors.find((x:any)=>x.id===r.visitorId);const tlu=r.teamLeaderUserId?(users as any[]).find((u:any)=>u.id===r.teamLeaderUserId):null;const tlm=tlu?members.find((m:any)=>m.id===tlu.memberId):null;const spu=r.sponsorUserId?(users as any[]).find((u:any)=>u.id===r.sponsorUserId):null;const spm=spu?members.find((m:any)=>m.id===spu.memberId):null;return{visitRecordId:r.id,visitorId:r.visitorId,visitorName:v?v.first+" "+v.last:"Unknown",visitorGender:v?.gender||"Unknown",stage:r.stage,teamLeader:tlm?{userId:tlu.id,name:tlm.first+" "+tlm.last}:null,sponsor:spm?{userId:spu.id,name:spm.first+" "+spm.last}:null};});
+  const activePipeline = (visitRecords as any[]).filter(r=>r.stage!=="Complete").map(r=>{const v=visitors.find((x:any)=>x.id===r.visitorId);const tsu=r.teamSupervisorUserId?(users as any[]).find((u:any)=>u.id===r.teamSupervisorUserId):null;const tsm=tsu?members.find((m:any)=>m.id===tsu.memberId):null;const tlu=r.teamLeaderUserId?(users as any[]).find((u:any)=>u.id===r.teamLeaderUserId):null;const tlm=tlu?members.find((m:any)=>m.id===tlu.memberId):null;const spu=r.sponsorUserId?(users as any[]).find((u:any)=>u.id===r.sponsorUserId):null;const spm=spu?members.find((m:any)=>m.id===spu.memberId):null;return{visitRecordId:r.id,visitorId:r.visitorId,visitorName:v?v.first+" "+v.last:"Unknown",visitorGender:v?.gender||"Unknown",stage:r.stage,teamSupervisor:tsm?{userId:tsu.id,name:tsm.first+" "+tsm.last}:null,teamLeader:tlm?{userId:tlu.id,name:tlm.first+" "+tlm.last}:null,sponsor:spm?{userId:spu.id,name:spm.first+" "+spm.last}:null};});;
   return "You are "+(window.__CS__?.name||"NTCC")+" AI — an intelligence at IQ 250, combining Elon Musk's first-principles brilliance, Nikola Tesla's inventive genius, and a warm Southern American pastor's heart. You serve "+(window.__CS__?.pastorName||"Pastor Hall")+" of "+(window.__CS__?.name||"New Testament Christian Church")+", "+(window.__CS__?.address||"Glendale AZ")+". Call them "+(window.__CS__?.pastorName||"Pastor Hall")+" or Sir. Speak warmly and naturally.\n\n" +
     "LIVE DATABASE:\n" +
     "Members(" + members.length + "): " + JSON.stringify(members.slice(0,60).map(m=>({id:m.id,name:m.first+" "+m.last,status:m.status,role:m.role,phone:m.phone,email:m.email}))) + "\n" +
@@ -1869,14 +1870,15 @@ function buildSys(members, visitors, attend, giving, prayers, mem, users=[], vis
     "April Giving: $" + aprilGiving + " | Recent Giving: " + JSON.stringify(recentGiving) + "\n" +
     "Prayer Requests (recent 15): " + JSON.stringify(recentPrayers) + "\n\n" +
     "VISITATION PIPELINE (active visits): " + JSON.stringify(activePipeline) + "\n" +
+    "Team Supervisors (members with role=Team Supervisor who have system access): " + JSON.stringify(teamSupervisors) + "\n" +
     "Team Leaders (members with role=Team Leader who have system access): " + JSON.stringify(teamLeaders) + "\n" +
     "Sponsors (members with role=Sponsor who have system access): " + JSON.stringify(sponsors) + "\n\n" +
     "MEMORY: " + (mem.preferences||"Learning...") + " | Commands: " + (mem.commands||"Building...") + "\n\n" +
     "COMMAND EXECUTION: When Pastor Hall gives an executable command, respond naturally first, then on its own line append:\n" +
     "[ACTION:{\"type\":\"TYPE\",\"data\":{},\"confirm\":\"Plain English confirmation\"}]\n\n" +
-    "Types: ADD_MEMBER(first,last,phone,email,role,status,joined) | ADD_VISITOR(first,last,phone,email,stage,firstVisit,notes) | LOG_ATTENDANCE(date,service,count,members,visitors,notes) | RECORD_GIVING(name,date,category,amount,method,notes) | UPDATE_MEMBER(id,status,role) | DELETE_MEMBER(id) | DELETE_VISITOR(id) | NAVIGATE(section) | ASSIGN_TL(visitRecordId,userId) | ASSIGN_SPONSOR(visitRecordId,userId)\n\n" +
+    "Types: ADD_MEMBER(first,last,phone,email,role,status,joined) | ADD_VISITOR(first,last,phone,email,stage,firstVisit,notes) | LOG_ATTENDANCE(date,service,count,members,visitors,notes) | RECORD_GIVING(name,date,category,amount,method,notes) | UPDATE_MEMBER(id,status,role) | DELETE_MEMBER(id) | DELETE_VISITOR(id) | NAVIGATE(section) | ASSIGN_TS(visitRecordId,userId) | ASSIGN_TL(visitRecordId,userId) | ASSIGN_SPONSOR(visitRecordId,userId)\n\n" +
     "Sections: people, visitation, attendance, giving, prayer, access\n\n" +
-    "ASSIGNMENT RULES: For ASSIGN_TL — set stage to TeamLeader and assign teamLeaderUserId. For ASSIGN_SPONSOR — set stage to Sponsor and assign sponsorUserId. ALWAYS match gender: assign male Team Leaders/Sponsors to male visitors, female to female. If already assigned, mention it in your response but still execute. Use visitRecordId and userId from VISITATION PIPELINE and Team Leaders/Sponsors data above. Only one ACTION tag per response.\n\n" +
+    "ASSIGNMENT RULES: Pipeline order: Pastor Visit → Team Supervisor → Team Leader → Sponsor → Ongoing Care → Complete. For ASSIGN_TS — set stage to TeamSupervisor and assign teamSupervisorUserId (no gender matching required). For ASSIGN_TL — set stage to TeamLeader and assign teamLeaderUserId. For ASSIGN_SPONSOR — set stage to Sponsor and assign sponsorUserId. ALWAYS match gender for TL and Sponsor: assign male Team Leaders/Sponsors to male visitors, female to female. If already assigned, mention it in your response but still execute. Use visitRecordId and userId from VISITATION PIPELINE and Team Supervisors/Team Leaders/Sponsors data above. Only one ACTION tag per response.\n\n" +
     "Only append [ACTION:...] for clear executable commands. For analysis or conversation respond naturally only.";
 }
 
@@ -2017,6 +2019,7 @@ const SEED_ROLES=[
   {id:"role_checkin",name:"Check-in",description:"Kids and event check-in station",color:"#ea580c",isSystem:false},
   {id:"role_kitchen",name:"Kitchen",description:"Kitchen and hospitality ministry",color:"#854d0e",isSystem:false},
   {id:"role_nursery",name:"Nursery",description:"Nursery care team",color:"#4f46e5",isSystem:false},
+  {id:"role_team_supervisor",name:"Team Supervisor",description:"Supervises Team Leaders and routes new visitors",color:"#f97316",isSystem:false},
 ];
 const makeFullPerms=()=>{const p={};MODULES.forEach(m=>{p[m.key]={};m.actions.forEach(a=>p[m.key][a]=true);});return p;};
 const makeEmptyPerms=()=>{const p={};MODULES.forEach(m=>{p[m.key]={};m.actions.forEach(a=>p[m.key][a]=false);});return p;};
@@ -4018,7 +4021,7 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
     setVisitRecords(rs=>{
       const missing = visitors.filter(v=>!rs.find(r=>r.visitorId===v.id));
       if(missing.length===0) return rs;
-      return [...rs,...missing.map(v=>({id:nid.current++,visitorId:v.id,stage:"Pastor",createdDate:v.firstVisit||td(),contacts:[],teamLeaderUserId:null,sponsorUserId:null}))];
+      return [...rs,...missing.map(v=>({id:nid.current++,visitorId:v.id,stage:"Pastor",createdDate:v.firstVisit||td(),contacts:[],teamSupervisorUserId:null,teamLeaderUserId:null,sponsorUserId:null}))]; 
     });
   },[visitors.length]);
 
@@ -4034,6 +4037,7 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
   const getAssigned = rec => {
     if(!rec) return "—";
     if(rec.stage==="Pastor") return pastorDisplayName;
+    if(rec.stage==="TeamSupervisor") return rec.teamSupervisorUserId ? getUName(rec.teamSupervisorUserId) : "Needs Assignment";
     if(rec.stage==="TeamLeader") return rec.teamLeaderUserId ? getUName(rec.teamLeaderUserId) : "Needs Assignment";
     if(rec.stage==="Sponsor" || rec.stage==="OngoingCare") return rec.sponsorUserId ? getUName(rec.sponsorUserId) : "Needs Assignment";
     return "Complete";
@@ -4043,7 +4047,7 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
 
   // Role-based visibility: Super Admin and Administrator see all visits; others only see visits assigned to them
   const isAdmin = currentUser?.superAdmin || !!(currentUser?.roleId && roles?.find((r:any)=>r.id===currentUser.roleId)?.name==="Administrator");
-  const visibleRecords = isAdmin ? visitRecords : visitRecords.filter((r:any) => r.teamLeaderUserId===currentUser?.id || r.sponsorUserId===currentUser?.id);
+  const visibleRecords = isAdmin ? visitRecords : visitRecords.filter((r:any) => r.teamSupervisorUserId===currentUser?.id || r.teamLeaderUserId===currentUser?.id || r.sponsorUserId===currentUser?.id);
 
   // OngoingCare stats
   const ongoingRecords = visibleRecords.filter(r=>r.stage==="OngoingCare");
@@ -4057,6 +4061,10 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
     const newContacts = [...rec.contacts,contact];
     if(logForm.completed) {
       if(rec.stage==="Pastor") {
+        const upd = {...rec,contacts:newContacts,stage:"TeamSupervisor"};
+        setVisitRecords(rs=>rs.map(r=>r.id===rec.id?upd:r));
+        setLogModal(null); setAssignModal({rec:upd,type:"TeamSupervisor"}); setAssignUid("");
+      } else if(rec.stage==="TeamSupervisor") {
         const upd = {...rec,contacts:newContacts,stage:"TeamLeader"};
         setVisitRecords(rs=>rs.map(r=>r.id===rec.id?upd:r));
         setLogModal(null); setAssignModal({rec:upd,type:"TeamLeader"}); setAssignUid("");
@@ -4086,7 +4094,7 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
     const type = assignModal.type;
     setVisitRecords(rs=>rs.map(r=>{
       if(r.id!==id) return r;
-      return type==="TeamLeader" ? {...r,teamLeaderUserId:+assignUid} : {...r,sponsorUserId:+assignUid};
+      return type==="TeamLeader" ? {...r,teamLeaderUserId:+assignUid} : type==="TeamSupervisor" ? {...r,teamSupervisorUserId:+assignUid} : {...r,sponsorUserId:+assignUid};
     }));
     setAssignModal(null); setAssignUid("");
   };
@@ -4135,7 +4143,7 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
   };
 
   // Pipeline columns now include OngoingCare
-  const stageList = ["Pastor","TeamLeader","Sponsor","OngoingCare","Complete"];
+  const stageList = ["Pastor","TeamSupervisor","TeamLeader","Sponsor","OngoingCare","Complete"];
 
   return (
     <div>
@@ -4177,7 +4185,7 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
 
       {/* PIPELINE TAB */}
       {tab==="pipeline" && (
-        <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:10}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:10}}>
           {stageList.map(stage=>{
             const recs = visibleRecords.filter(r=>r.stage===stage);
             const overdueInCol = stage==="OngoingCare" ? recs.filter(r=>{const s=careStatus(r);return s&&s.label==="Overdue";}).length : 0;
@@ -4195,7 +4203,7 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
                     const v = getV(rec.visitorId);
                     if(!v) return null;
                     const last = getLast(rec);
-                    const needsAssign = (stage==="TeamLeader"&&!rec.teamLeaderUserId)||(stage==="Sponsor"&&!rec.sponsorUserId);
+                    const needsAssign = (stage==="TeamSupervisor"&&!rec.teamSupervisorUserId)||(stage==="TeamLeader"&&!rec.teamLeaderUserId)||(stage==="Sponsor"&&!rec.sponsorUserId);
                     const cs = stage==="OngoingCare" ? careStatus(rec) : null;
                     const due = stage==="OngoingCare" ? getNextDue(rec) : null;
                     return (
@@ -4429,6 +4437,7 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
           <div style={{display:"flex",gap:12,marginBottom:20,flexWrap:"wrap"}}>
             <Stat label="Total Tracked" value={visibleRecords.length}/>
             <Stat label="Pastor Visit" value={visibleRecords.filter(r=>r.stage==="Pastor").length} color={N}/>
+            <Stat label="Team Supervisor" value={visibleRecords.filter(r=>r.stage==="TeamSupervisor").length} color={"#f97316"}/>
             <Stat label="Team Leader" value={visibleRecords.filter(r=>r.stage==="TeamLeader").length} color={PU}/>
             <Stat label="Sponsor" value={visibleRecords.filter(r=>r.stage==="Sponsor").length} color={GR}/>
             <Stat label="Ongoing Care" value={ongoingRecords.length} color={G}/>
@@ -4527,7 +4536,7 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
                 <div>
                   <div style={{fontSize:13,fontWeight:500,color:logForm.completed?GR:TX}}>Mark this contact as completed</div>
                   <div style={{fontSize:11,color:MU}}>
-                    {logModal.stage==="Pastor" ? "Will advance to Team Leader" :
+                    {logModal.stage==="Pastor" ? "Will advance to Team Supervisor" : logModal.stage==="TeamSupervisor" ? "Will advance to Team Leader" :
                      logModal.stage==="TeamLeader" ? "Will advance to Sponsor" :
                      logModal.stage==="Sponsor" ? "Will start 14-day Ongoing Care cycle" :
                      isOngoing ? "Will reset the 14-day check-in timer" : ""}
@@ -4543,22 +4552,24 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
         })()}
       </Modal>
 
-      <Modal open={!!assignModal} onClose={()=>setAssignModal(null)} title={assignModal?"Assign "+(assignModal.type==="TeamLeader"?"Team Leader":"Sponsor"):""} width={420}>
+      <Modal open={!!assignModal} onClose={()=>setAssignModal(null)} title={assignModal?"Assign "+(assignModal.type==="TeamLeader"?"Team Leader":assignModal.type==="TeamSupervisor"?"Team Supervisor":"Sponsor"):""} width={420}>
         {assignModal && (()=>{
           const v = getV(assignModal.rec.visitorId);
           const isTL = assignModal.type==="TeamLeader";
+          const isTS = assignModal.type==="TeamSupervisor";
           return (
             <div>
               <div style={{background:GL,border:"0.5px solid "+G,borderRadius:8,padding:"10px 14px",marginBottom:16,fontSize:13,color:"#7a5c10",lineHeight:1.6}}>
-                {isTL?pastorDisplayName+" completed the first visit for ":"The Team Leader completed follow-up for "}
-                <strong>{v?.first} {v?.last}</strong>. Assign a {isTL?"Team Leader":"Sponsor"} to continue.
+                {isTS?pastorDisplayName+" completed the first visit for ":isTL?"The Team Supervisor handed off ":"The Team Leader completed follow-up for "}
+                <strong>{v?.first} {v?.last}</strong>. Assign a {isTS?"Team Supervisor":isTL?"Team Leader":"Sponsor"} to continue.
               </div>
-              <Fld label={"Select "+(isTL?"Team Leader":"Sponsor")+" *"}>
+              <Fld label={"Select "+(isTS?"Team Supervisor":isTL?"Team Leader":"Sponsor")+" *"}>
                 <select value={assignUid} onChange={e=>setAssignUid(e.target.value)} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}>
                   <option value="">Select a user</option>
                   {activeUsers.filter(u=>{
                     const r=roles.find((x:any)=>x.id===u.roleId);
                     if(isTL) return r?.name==="Team Leader";
+                    if(isTS) return r?.name==="Team Supervisor";
                     return r?.name==="Sponsor";
                   }).map(u=>{
                     const m = members.find(x=>x.id===u.memberId);
@@ -8733,6 +8744,11 @@ function AIAssist({aiChat,setAiChat,members,setMembers,visitors,setVisitors,atte
     else if(type==="UPDATE_MEMBER") setMembers(m=>m.map(x=>x.id===+data.id?{...x,...data}:x));
     else if(type==="DELETE_MEMBER") { if(confirm("Delete this member?")) setMembers(m=>m.filter(x=>x.id!==+data.id)); }
     else if(type==="DELETE_VISITOR") { if(confirm("Delete this visitor?")) setVisitors(v=>v.filter(x=>x.id!==+data.id)); }
+    else if(type==="ASSIGN_TS") {
+      const existing = vrRef.current.find((r:any)=>r.id===+data.visitRecordId);
+      if(existing?.teamSupervisorUserId) setBanner("⚠️ Visitor already had a Team Supervisor — reassigning now. "+conf);
+      if(setVisitRecords) setVisitRecords((rs:any[])=>rs.map(r=>r.id===+data.visitRecordId?{...r,teamSupervisorUserId:+data.userId,stage:"TeamSupervisor"}:r));
+    }
     else if(type==="ASSIGN_TL") {
       const existing = vrRef.current.find((r:any)=>r.id===+data.visitRecordId);
       if(existing?.teamLeaderUserId) setBanner("⚠️ Visitor already had a Team Leader — reassigning now. "+conf);
@@ -8789,7 +8805,7 @@ function AIAssist({aiChat,setAiChat,members,setMembers,visitors,setVisitors,atte
   };
 
   const topCmds = Object.entries(cmdCount).sort((a,b)=>b[1]-a[1]).slice(0,4);
-  const QUICK = ["Give me a full church summary","Who needs follow-up?","Add a new member","Log today attendance","Record a tithe","Show inactive members","Generate a giving report","Draft a Sunday announcement","Auto-suggest Team Leader assignments for all Pastor-stage visitors","Auto-suggest Sponsor assignments for all Team Leader-stage visitors"];
+  const QUICK = ["Give me a full church summary","Who needs follow-up?","Add a new member","Log today attendance","Record a tithe","Show inactive members","Generate a giving report","Draft a Sunday announcement","Auto-suggest Team Supervisor assignments for all Pastor-stage visitors","Auto-suggest Team Leader assignments for all Team-Supervisor-stage visitors","Auto-suggest Sponsor assignments for all Team Leader-stage visitors"];
 
   return (
     <div style={{display:"flex",flexDirection:"column",height:"calc(100vh - 110px)"}}>
