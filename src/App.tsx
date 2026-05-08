@@ -11660,9 +11660,9 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
         setChurchSettings(parsed);
       } else {
         if(churchName){setChurchSettings((s:any)=>({...s,name:churchName}));}
-        if(!window.__NTCC_INIT__?.churchSettings){setShowSetup(true);}
+        if(!isStaff&&!window.__NTCC_INIT__?.churchSettings){setShowSetup(true);}
       }
-    }catch(e){if(!window.__NTCC_INIT__?.churchSettings){setShowSetup(true);}}
+    }catch(e){if(!isStaff&&!window.__NTCC_INIT__?.churchSettings){setShowSetup(true);}}
   },[]);
   useEffect(()=>{
     if(!churchSettings.name) return;
@@ -12050,7 +12050,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
             <div style={{color:G,fontSize:11}}>{cr?cr.name:"Staff Member"}</div>
           </>);
         })() : (<>
-          <div style={{color:"#fff",fontSize:12,fontWeight:500}}>{churchSettings.pastorName}</div>
+          <div style={{color:"#fff",fontSize:12,fontWeight:500}}>{(adminFirst||adminLast)?[adminFirst,adminLast].filter(Boolean).join(' '):churchSettings.pastorName}</div>
           <div style={{color:G,fontSize:11}}>Super Administrator</div>
         </>)}
         <div style={{display:"flex",alignItems:"center",gap:5,marginTop:6}}>
