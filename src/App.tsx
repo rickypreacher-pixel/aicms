@@ -1757,8 +1757,8 @@ const PORTAL_PERMS=[
 ];
 const ROLE_COLORS=["#1a2e5a","#c9a84c","#16a34a","#2563eb","#7c3aed","#dc2626","#d97706","#0891b2","#be185d","#065f46"];
 const blankPerms=()=>Object.fromEntries(MODULES.map(m=>[m.key,Object.fromEntries(m.actions.map(a=>[a,false]))]));
-const VS={Pastor:"Pastor Visit",TeamLeader:"Team Leader",Sponsor:"Sponsor",OngoingCare:"Ongoing Care",Complete:"Complete"};
-const VC={Pastor:N,TeamLeader:PU,Sponsor:GR,OngoingCare:G,Complete:TE};
+const VS={Pastor:"Pastor Visit",TeamSupervisor:"Team Supervisor",TeamLeader:"Team Leader",Sponsor:"Sponsor",OngoingCare:"Ongoing Care",Complete:"Complete"};
+const VC={Pastor:N,TeamSupervisor:"#f97316",TeamLeader:PU,Sponsor:GR,OngoingCare:G,Complete:TE};
 const METH_IC={Text:"💬",Call:"📞",Visit:"🚪"};
 const METH_CLR={Text:{bg:"#f3e8ff",c:PU},Call:{bg:"#eff6ff",c:BL},Visit:{bg:"#dcfce7",c:GR}};
 const AVC=["#1a2e5a","#c9a84c","#2e7d32","#1565c0","#6a1b9a","#00695c","#c62828","#e65100"];
@@ -2002,6 +2002,7 @@ const SEED_ROLES=[
   {id:"role_pastor",name:"Pastor",description:"Pastoral oversight and reports",color:"#1a2e5a",isSystem:false},
   {id:"role_staff",name:"Staff",description:"Day-to-day operations",color:"#2563eb",isSystem:false},
   {id:"role_volunteer",name:"Volunteer",description:"Limited task-specific access",color:"#16a34a",isSystem:false},
+  {id:"role_team_supervisor",name:"Team Supervisor",description:"Supervises Team Leaders and routes new visitors",color:"#f97316",isSystem:false},
   {id:"role_team_leader",name:"Team Leader",description:"Leads a ministry team or small group",color:"#7c3aed",isSystem:false},
   {id:"role_sponsor",name:"Sponsor",description:"Mentors and sponsors new visitors",color:"#0891b2",isSystem:false},
   {id:"role_helper",name:"Helper",description:"General ministry helper",color:"#d97706",isSystem:false},
@@ -2018,6 +2019,7 @@ const SEED_PERMS={
   role_pastor: (()=>{const p=makeFullPerms();p.settings={view:true,create:false,edit:false,delete:false};return p;})(),
   role_staff: (()=>{const p=makeEmptyPerms();["directory","visitation","groups","education","events","attendance","giving","prayer","reports","media"].forEach(k=>{p[k]={view:true,create:true,edit:true,delete:false};});return p;})(),
   role_volunteer: (()=>{const p=makeEmptyPerms();["directory","events","attendance","prayer"].forEach(k=>{p[k]={view:true,create:false,edit:false,delete:false};});p.education={view:true,create:true,edit:false,delete:false};return p;})(),
+  role_team_supervisor: makeEmptyPerms(),
   role_team_leader: makeEmptyPerms(),
   role_sponsor: makeEmptyPerms(),
   role_helper: makeEmptyPerms(),
@@ -4010,7 +4012,7 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
 
   useEffect(()=>{
     const missing = visitors.filter(v=>!visitRecords.find(r=>r.visitorId===v.id));
-    if(missing.length>0) setVisitRecords(rs=>[...rs,...missing.map(v=>({id:nid.current++,visitorId:v.id,stage:"Pastor",createdDate:v.firstVisit||td(),contacts:[],teamLeaderUserId:null,sponsorUserId:null}))]);
+    if(missing.length>0) setVisitRecords(rs=>[...rs,...missing.map(v=>({id:nid.current++,visitorId:v.id,stage:"Pastor",createdDate:v.firstVisit||td(),contacts:[],teamSupervisorUserId:null,teamLeaderUserId:null,sponsorUserId:null}))]);  
   },[visitors.length]);
 
   const getRec = vid => visibleRecords.find(r=>r.visitorId===vid);
@@ -4025,6 +4027,7 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
   const getAssigned = rec => {
     if(!rec) return "—";
     if(rec.stage==="Pastor") return pastorDisplayName;
+    if(rec.stage==="TeamSupervisor") return rec.teamSupervisorUserId ? getUName(rec.teamSupervisorUserId) : "Needs Assignment";
     if(rec.stage==="TeamLeader") return rec.teamLeaderUserId ? getUName(rec.teamLeaderUserId) : "Needs Assignment";
     if(rec.stage==="Sponsor" || rec.stage==="OngoingCare") return rec.sponsorUserId ? getUName(rec.sponsorUserId) : "Needs Assignment";
     return "Complete";
@@ -4034,7 +4037,7 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
 
   // Role-based visibility: Super Admin and Administrator see all visits; others only see visits assigned to them
   const isAdmin = currentUser?.superAdmin || !!(currentUser?.roleId && roles?.find((r:any)=>r.id===currentUser.roleId)?.name==="Administrator");
-  const visibleRecords = isAdmin ? visitRecords : visitRecords.filter((r:any) => r.teamLeaderUserId===currentUser?.id || r.sponsorUserId===currentUser?.id);
+  const visibleRecords = isAdmin ? visitRecords : visitRecords.filter((r:any) => r.teamSupervisorUserId===currentUser?.id || r.teamLeaderUserId===currentUser?.id || r.sponsorUserId===currentUser?.id);
 
   // OngoingCare stats
   const ongoingRecords = visibleRecords.filter(r=>r.stage==="OngoingCare");
@@ -4048,6 +4051,10 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
     const newContacts = [...rec.contacts,contact];
     if(logForm.completed) {
       if(rec.stage==="Pastor") {
+        const upd = {...rec,contacts:newContacts,stage:"TeamSupervisor"};
+        setVisitRecords(rs=>rs.map(r=>r.id===rec.id?upd:r));
+        setLogModal(null); setAssignModal({rec:upd,type:"TeamSupervisor"}); setAssignUid("");
+      } else if(rec.stage==="TeamSupervisor") {
         const upd = {...rec,contacts:newContacts,stage:"TeamLeader"};
         setVisitRecords(rs=>rs.map(r=>r.id===rec.id?upd:r));
         setLogModal(null); setAssignModal({rec:upd,type:"TeamLeader"}); setAssignUid("");
@@ -4077,7 +4084,7 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
     const type = assignModal.type;
     setVisitRecords(rs=>rs.map(r=>{
       if(r.id!==id) return r;
-      return type==="TeamLeader" ? {...r,teamLeaderUserId:+assignUid} : {...r,sponsorUserId:+assignUid};
+      return type==="TeamLeader" ? {...r,teamLeaderUserId:+assignUid} : type==="TeamSupervisor" ? {...r,teamSupervisorUserId:+assignUid} : {...r,sponsorUserId:+assignUid};
     }));
     setAssignModal(null); setAssignUid("");
   };
@@ -4125,8 +4132,8 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
     setAiRep(txt); setAiLoad(false);
   };
 
-  // Pipeline columns now include OngoingCare
-  const stageList = ["Pastor","TeamLeader","Sponsor","OngoingCare","Complete"];
+  // Pipeline columns now include TeamSupervisor and OngoingCare
+  const stageList = ["Pastor","TeamSupervisor","TeamLeader","Sponsor","OngoingCare","Complete"];
 
   return (
     <div>
@@ -4168,7 +4175,7 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
 
       {/* PIPELINE TAB */}
       {tab==="pipeline" && (
-        <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:10}}>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:10}}>
           {stageList.map(stage=>{
             const recs = visibleRecords.filter(r=>r.stage===stage);
             const overdueInCol = stage==="OngoingCare" ? recs.filter(r=>{const s=careStatus(r);return s&&s.label==="Overdue";}).length : 0;
@@ -4186,7 +4193,7 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
                     const v = getV(rec.visitorId);
                     if(!v) return null;
                     const last = getLast(rec);
-                    const needsAssign = (stage==="TeamLeader"&&!rec.teamLeaderUserId)||(stage==="Sponsor"&&!rec.sponsorUserId);
+                    const needsAssign = (stage==="TeamSupervisor"&&!rec.teamSupervisorUserId)||(stage==="TeamLeader"&&!rec.teamLeaderUserId)||(stage==="Sponsor"&&!rec.sponsorUserId);
                     const cs = stage==="OngoingCare" ? careStatus(rec) : null;
                     const due = stage==="OngoingCare" ? getNextDue(rec) : null;
                     return (
@@ -4420,6 +4427,7 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
           <div style={{display:"flex",gap:12,marginBottom:20,flexWrap:"wrap"}}>
             <Stat label="Total Tracked" value={visibleRecords.length}/>
             <Stat label="Pastor Visit" value={visibleRecords.filter(r=>r.stage==="Pastor").length} color={N}/>
+            <Stat label="Team Supervisor" value={visibleRecords.filter(r=>r.stage==="TeamSupervisor").length} color={"#f97316"}/>
             <Stat label="Team Leader" value={visibleRecords.filter(r=>r.stage==="TeamLeader").length} color={PU}/>
             <Stat label="Sponsor" value={visibleRecords.filter(r=>r.stage==="Sponsor").length} color={GR}/>
             <Stat label="Ongoing Care" value={ongoingRecords.length} color={G}/>
@@ -4518,7 +4526,8 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
                 <div>
                   <div style={{fontSize:13,fontWeight:500,color:logForm.completed?GR:TX}}>Mark this contact as completed</div>
                   <div style={{fontSize:11,color:MU}}>
-                    {logModal.stage==="Pastor" ? "Will advance to Team Leader" :
+                    {logModal.stage==="Pastor" ? "Will advance to Team Supervisor" :
+                     logModal.stage==="TeamSupervisor" ? "Will advance to Team Leader" :
                      logModal.stage==="TeamLeader" ? "Will advance to Sponsor" :
                      logModal.stage==="Sponsor" ? "Will start 14-day Ongoing Care cycle" :
                      isOngoing ? "Will reset the 14-day check-in timer" : ""}
@@ -4534,21 +4543,23 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
         })()}
       </Modal>
 
-      <Modal open={!!assignModal} onClose={()=>setAssignModal(null)} title={assignModal?"Assign "+(assignModal.type==="TeamLeader"?"Team Leader":"Sponsor"):""} width={420}>
+      <Modal open={!!assignModal} onClose={()=>setAssignModal(null)} title={assignModal?"Assign "+(assignModal.type==="TeamLeader"?"Team Leader":assignModal.type==="TeamSupervisor"?"Team Supervisor":"Sponsor"):""} width={420}>
         {assignModal && (()=>{
           const v = getV(assignModal.rec.visitorId);
+          const isTS = assignModal.type==="TeamSupervisor";
           const isTL = assignModal.type==="TeamLeader";
           return (
             <div>
               <div style={{background:GL,border:"0.5px solid "+G,borderRadius:8,padding:"10px 14px",marginBottom:16,fontSize:13,color:"#7a5c10",lineHeight:1.6}}>
-                {isTL?pastorDisplayName+" completed the first visit for ":"The Team Leader completed follow-up for "}
-                <strong>{v?.first} {v?.last}</strong>. Assign a {isTL?"Team Leader":"Sponsor"} to continue.
+                {isTS?pastorDisplayName+" completed the first visit for ":isTL?"The Team Supervisor handed off ":"The Team Leader completed follow-up for "}
+                <strong>{v?.first} {v?.last}</strong>. Assign a {isTS?"Team Supervisor":isTL?"Team Leader":"Sponsor"} to continue.
               </div>
-              <Fld label={"Select "+(isTL?"Team Leader":"Sponsor")+" *"}>
+              <Fld label={"Select "+(isTS?"Team Supervisor":isTL?"Team Leader":"Sponsor")+" *"}>
                 <select value={assignUid} onChange={e=>setAssignUid(e.target.value)} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}>
                   <option value="">Select a user</option>
                   {activeUsers.filter(u=>{
                     const r=roles.find((x:any)=>x.id===u.roleId);
+                    if(isTS) return r?.name==="Team Supervisor";
                     if(isTL) return r?.name==="Team Leader";
                     return r?.name==="Sponsor";
                   }).map(u=>{
@@ -10974,10 +10985,10 @@ function ManualPage(){
           <P>Inside any profile, click <B>Generate Follow-Up</B> to have the AI write a warm, personalized pastoral message. Copy it and send via Email Center or SMS Center.</P>
         </Sec>
 
-        <Sec><H id="s5">5. Visitation & Follow-Up</H>
+        <Sec><H id="s5">6. Visitation & Follow-Up</H>
           <P>The <B>Visitation</B> section tracks active pastoral outreach for visitors and members requiring personal contact.</P>
           <H3>Understanding Stages</H3>
-          <Ul><Li><B>First Visit</B> — new visitor, no contact made yet</Li><Li><B>Follow-Up Needed</B> — contact required soon</Li><Li><B>Returning</B> — attending multiple times, being actively nurtured</Li><Li><B>Prospect</B> — actively considering membership</Li><Li><B>Complete</B> — follow-up cycle finished (converted or closed)</Li></Ul>
+          <Ul><Li><B>Pastor Visit</B> — Pastor Hall makes the initial contact; hands off to Team Supervisor when complete</Li><Li><B>Team Supervisor</B> — oversees and routes the visitor to the right Team Leader</Li><Li><B>Team Leader</B> — leads follow-up; hands off to Sponsor when complete</Li><Li><B>Sponsor</B> — mentors the visitor through the 14-day Ongoing Care cycle</Li><Li><B>Ongoing Care</B> — recurring 14-day sponsor check-in cycle until membership</Li><Li><B>Complete</B> — follow-up cycle finished (converted to member or closed)</Li></Ul>
           <H3>Creating a Visitation Record</H3>
           <Ol><Li>Go to <B>Visitation</B> in the sidebar and click <B>+ New Record</B></Li><Li>Select the visitor, assign a sponsor, set the stage, and add initial notes</Li><Li>Click <B>Save</B></Li></Ol>
           <H3>Logging a Contact Attempt</H3>
