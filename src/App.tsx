@@ -4010,13 +4010,29 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
     URL.revokeObjectURL(url);
   };
 
+  // On mount: deduplicate visitRecords (keeps the most-advanced record per visitor)
+  useEffect(()=>{
+    const stageOrder=["Pastor","TeamSupervisor","TeamLeader","Sponsor","OngoingCare","Complete","Converted"];
+    setVisitRecords(rs=>{
+      const map=new Map();
+      rs.forEach(r=>{
+        const ex=map.get(r.visitorId);
+        if(!ex){map.set(r.visitorId,r);return;}
+        const ei=stageOrder.indexOf(ex.stage),ti=stageOrder.indexOf(r.stage);
+        if(ti>ei||(ti===ei&&(r.contacts||[]).length>(ex.contacts||[]).length)) map.set(r.visitorId,r);
+      });
+      const deduped=[...map.values()];
+      return deduped.length===rs.length?rs:deduped;
+    });
+  },[]);
+  // Sync: create visitRecords for any visitors that don't have one yet
   useEffect(()=>{
     setVisitRecords(rs=>{
       const missing = visitors.filter(v=>!rs.find(r=>r.visitorId===v.id));
       if(missing.length===0) return rs;
       return [...rs,...missing.map(v=>({id:nid.current++,visitorId:v.id,stage:"Pastor",createdDate:v.firstVisit||td(),contacts:[],teamSupervisorUserId:null,teamLeaderUserId:null,sponsorUserId:null}))];
     });
-  },[visitors.length]);
+  },[visitors.map((v:any)=>v.id).join(',')]);
 
   const getRec = vid => visibleRecords.find(r=>r.visitorId===vid);
   const getV = vid => visitors.find(v=>v.id===vid);
