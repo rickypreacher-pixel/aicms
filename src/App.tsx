@@ -10116,7 +10116,31 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
         return newMs;
       });
     } else {
-      setVisitors((vs:any[])=>[{...record,type:"Visitor"},...vs]);
+      setVisitors((vs:any[])=>{
+        let newVs=[{...record,type:"Visitor"},...vs];
+        if(hasFamily){
+          if(form.spouseFirst&&form.spouseLast){
+            if(form.spouseId){
+              newVs=newVs.map((v:any)=>v.id===form.spouseId?{...v,familyId,spouseName:form.first+" "+form.last,family:familyName}:v);
+            } else {
+              const sid=nid.current++;
+              const spouseRec:any={id:sid,first:form.spouseFirst,last:form.spouseLast,type:"Visitor",stage:form.stage||"First Visit",firstVisit:td(),sponsor:form.sponsor||"",...EMPTY_PERSON_FIELDS,family:familyName,familyId,addedBy:addedByName,addedDate:td(),spouseName:form.first+" "+form.last,address:{...form.address},phone:form.spousePhone||"" ,email:form.spouseEmail||"" ,gender:form.spouseGender||"" ,birthday:form.spouseBirthday||""};
+              newVs=[...newVs,spouseRec];
+            }
+          }
+          form.children.forEach((c:any)=>{
+            if(c.first&&c.last){
+              if(c.memberId){
+                newVs=newVs.map((v:any)=>v.id===c.memberId?{...v,familyId,family:familyName}:v);
+              } else {
+                const cid=nid.current++;
+                newVs=[...newVs,{id:cid,first:c.first,last:c.last,type:"Visitor",stage:form.stage||"First Visit",firstVisit:td(),sponsor:"",...EMPTY_PERSON_FIELDS,family:familyName,familyId,addedBy:addedByName,addedDate:td(),birthday:c.birthday||"",gender:c.gender||"",grade:c.grade||"",address:{...EMPTY_ADDR}}];
+              }
+            }
+          });
+        }
+        return newVs;
+      });
       // Auto-remove any matching prospect (same first+last, case-insensitive)
       if(setProspects) setProspects((ps:any[])=>ps.filter((p:any)=>!(p.first.toLowerCase()===form.first.toLowerCase()&&p.last.toLowerCase()===form.last.toLowerCase())));
     }
