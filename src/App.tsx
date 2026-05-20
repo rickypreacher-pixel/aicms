@@ -1,6 +1,10 @@
 // @ts-nocheck
+// v20260516d
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from './lib/supabase';
+import { SEED_MEMBERS } from './seedMembers';
+import { SEED_CHILDREN, SEED_CHILDREN_AS_MEMBERS } from './seedChildren';
+import { ResponsiveContainer, LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 
 // ── MAINTENANCE & EQUIPMENT ──
 const MAINT_CATS=["Audio","Video","HVAC","Vehicles","Electrical","Plumbing","Kitchen","Office","Musical Instruments","Grounds/Landscaping","Other"];
@@ -61,7 +65,7 @@ function AssigneePicker({value,onChange,users,members}){
     </select>}
     {mode==="member" && <select value={value?.memberId||""} onChange={e=>{const id=+e.target.value||null;const m=members.find(x=>x.id===id);onChange({type:"member",userId:null,memberId:id,name:m?m.first+" "+m.last:""});}} style={slStyle}>
       <option value="">Select a member</option>
-      {members.map(m=><option key={m.id} value={m.id}>{m.first} {m.last}{m.role?" ("+m.role+")":""}</option>)}
+      {members.map(m=><option key={m.id} value={m.id}>{m.first} {m.last}</option>)}
     </select>}
     {mode==="free" && <Inp value={value?.name||""} onChange={v=>onChange({type:"free",userId:null,memberId:null,name:v})} placeholder="e.g. Cooper Climate Control, outside vendor..."/>}
   </div>);
@@ -400,7 +404,7 @@ function CheckoutsTab({checkoutItems,setCheckoutItems,checkouts,setCheckouts,equ
   const [detail,setDetail]=useState(null);
   const [form,setForm]=useState({});
   const [search,setSearch]=useState('');
-  const today=()=>new Date().toISOString().split('T')[0];
+  const today=()=>new Date().toLocaleDateString('en-CA',{timeZone:'America/Phoenix'});
   const fds=d=>d?new Date(d+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';
   const isOverdue=c=>c.status==='Out'&&c.expectedReturnDate&&c.expectedReturnDate<today();
   const overdueCount=(checkouts||[]).filter(isOverdue).length;
@@ -607,7 +611,9 @@ function SuppliesTab({supplies,setSupplies,canEdit}){
   const closeM=()=>{setModal(null);setForm({});setDetail(null);};
   const addItem=()=>{
     if(!form.name?.trim()){alert('Product name required.');return;}
-    setSupplies(p=>[...p,{id:Date.now(),name:form.name.trim(),unit:(form.unit||'units').trim(),quantity:0,maxQty:0,notes:form.notes||'',purchaseLog:[],usageLog:[]}]);
+    const initQty=Math.max(0,Number(form.initQty)||0);
+    const initMax=Math.max(initQty,Number(form.initMax)||0);
+    setSupplies(p=>[...p,{id:Date.now(),name:form.name.trim(),unit:(form.unit||'units').trim(),quantity:initQty,maxQty:initMax,notes:form.notes||'',purchaseLog:[],usageLog:[]}]);
     closeM();
   };
   const editItem=()=>{
@@ -618,13 +624,13 @@ function SuppliesTab({supplies,setSupplies,canEdit}){
   const logPurchase=()=>{
     const qty=Number(form.qty);
     if(!qty||qty<=0){alert('Enter quantity received.');return;}
-    setSupplies(p=>p.map(s=>{if(s.id!==detail.id)return s;const nq=s.quantity+qty;const entry={id:Date.now(),date:form.date||new Date().toISOString().split('T')[0],vendor:form.vendor||'',addedQty:qty};return{...s,quantity:nq,maxQty:Math.max(s.maxQty,nq),purchaseLog:[entry,...(s.purchaseLog||[])]};}));
+    setSupplies(p=>p.map(s=>{if(s.id!==detail.id)return s;const nq=s.quantity+qty;const entry={id:Date.now(),date:form.date||new Date().toLocaleDateString('en-CA',{timeZone:'America/Phoenix'}),vendor:form.vendor||'',addedQty:qty};return{...s,quantity:nq,maxQty:Math.max(s.maxQty,nq),purchaseLog:[entry,...(s.purchaseLog||[])]};}));
     closeM();
   };
   const logUsage=()=>{
     const qty=Number(form.qty);
     if(!qty||qty<=0){alert('Enter quantity used.');return;}
-    setSupplies(p=>p.map(s=>{if(s.id!==detail.id)return s;const nq=Math.max(0,s.quantity-qty);const entry={id:Date.now(),date:form.date||new Date().toISOString().split('T')[0],usedQty:qty,usedBy:form.usedBy||'',notes:form.usedNotes||''};return{...s,quantity:nq,usageLog:[entry,...(s.usageLog||[])]};}));
+    setSupplies(p=>p.map(s=>{if(s.id!==detail.id)return s;const nq=Math.max(0,s.quantity-qty);const entry={id:Date.now(),date:form.date||new Date().toLocaleDateString('en-CA',{timeZone:'America/Phoenix'}),usedQty:qty,usedBy:form.usedBy||'',notes:form.usedNotes||''};return{...s,quantity:nq,usageLog:[entry,...(s.usageLog||[])]};}));
     closeM();
   };
   const editQty=()=>{
@@ -678,8 +684,8 @@ function SuppliesTab({supplies,setSupplies,canEdit}){
               {low&&item.maxQty>0&&<div style={{fontSize:11,color:RE,marginTop:4}}>Reorder threshold: {Math.round(item.maxQty*LOW_PCT)} {item.unit}</div>}
             </div>
             {canEdit&&<div style={{display:'flex',gap:6,marginBottom:10}}>
-              <button onClick={()=>openM('purchase',item,{date:new Date().toISOString().split('T')[0]})} style={{flex:1,background:GR+'15',border:'0.5px solid '+GR+'44',borderRadius:7,padding:'6px 0',fontSize:12,fontWeight:500,color:GR,cursor:'pointer'}}>📦 Log Purchase</button>
-              <button onClick={()=>openM('usage',item,{date:new Date().toISOString().split('T')[0]})} style={{flex:1,background:RE+'0d',border:'0.5px solid '+RE+'33',borderRadius:7,padding:'6px 0',fontSize:12,fontWeight:500,color:RE,cursor:'pointer'}}>🧹 Log Usage</button>
+              <button onClick={()=>openM('purchase',item,{date:new Date().toLocaleDateString('en-CA',{timeZone:'America/Phoenix'})})} style={{flex:1,background:GR+'15',border:'0.5px solid '+GR+'44',borderRadius:7,padding:'6px 0',fontSize:12,fontWeight:500,color:GR,cursor:'pointer'}}>📦 Log Purchase</button>
+              <button onClick={()=>openM('usage',item,{date:new Date().toLocaleDateString('en-CA',{timeZone:'America/Phoenix'})})} style={{flex:1,background:RE+'0d',border:'0.5px solid '+RE+'33',borderRadius:7,padding:'6px 0',fontSize:12,fontWeight:500,color:RE,cursor:'pointer'}}>🧹 Log Usage</button>
               <button onClick={()=>openM('editqty',item,{qty:String(item.quantity)})} title="Adjust quantity" style={{background:'none',border:'0.5px solid '+BR,borderRadius:7,padding:'6px 8px',fontSize:12,color:MU,cursor:'pointer'}}>✎</button>
             </div>}
             <button onClick={()=>setExpandedId(expanded?null:item.id)} style={{background:'none',border:'none',cursor:'pointer',fontSize:11,color:MU,padding:0,display:'flex',alignItems:'center',gap:4}}>{expanded?'▲':'▼'} {logAll.length} log entr{logAll.length===1?'y':'ies'}</button>
@@ -700,6 +706,10 @@ function SuppliesTab({supplies,setSupplies,canEdit}){
       <div style={{fontSize:16,fontWeight:600,color:N,marginBottom:20}}>Add Cleaning Supply</div>
       <Fld label="Product Name *"><input value={form.name||''} onChange={e=>setForm((f:any)=>({...f,name:e.target.value}))} placeholder="e.g. Bleach, Paper Towels, Mop Heads" style={inp}/></Fld>
       <Fld label="Unit Type"><input value={form.unit||''} onChange={e=>setForm((f:any)=>({...f,unit:e.target.value}))} placeholder="e.g. bottles, rolls, gallons, cases" style={inp}/></Fld>
+      <div style={{display:'flex',gap:10}}>
+        <Fld label="Qty on Hand"><input type="number" min="0" value={form.initQty||''} onChange={e=>setForm((f:any)=>({...f,initQty:e.target.value}))} placeholder="0" style={inp}/></Fld>
+        <Fld label="Max Qty (baseline)"><input type="number" min="0" value={form.initMax||''} onChange={e=>setForm((f:any)=>({...f,initMax:e.target.value}))} placeholder="0" style={inp}/></Fld>
+      </div>
       <Fld label="Notes (optional)"><textarea value={form.notes||''} onChange={e=>setForm((f:any)=>({...f,notes:e.target.value}))} rows={2} style={{...inp,resize:'vertical'}}/></Fld>
       <div style={{display:'flex',gap:10,justifyContent:'flex-end',marginTop:8}}><button onClick={closeM} style={btnC}>Cancel</button><button onClick={addItem} style={btnR}>Add Item</button></div>
     </div></div>}
@@ -720,7 +730,8 @@ function SuppliesTab({supplies,setSupplies,canEdit}){
     </div></div>}
     {modal==='usage'&&detail&&<div style={MB} onClick={closeM}><div style={MC} onClick={(e:any)=>e.stopPropagation()}>
       <div style={{fontSize:16,fontWeight:600,color:N,marginBottom:4}}>Log Usage</div>
-      <div style={{fontSize:13,color:MU,marginBottom:20}}>{detail.name} · {detail.quantity} {detail.unit} on hand</div>
+      <div style={{fontSize:13,color:MU,marginBottom:detail&&detail.quantity===0?6:20}}>{detail.name} · {detail.quantity} {detail.unit} on hand</div>
+      {detail&&detail.quantity===0&&<div style={{background:'#fff7ed',border:'0.5px solid #fed7aa',borderRadius:8,padding:'8px 12px',fontSize:12,color:'#92400e',marginBottom:14}}>⚠ Quantity on hand is 0. Use the <strong>✎ Adjust Quantity</strong> button on the card to set your current stock first, then log usage.</div>}
       <Fld label={'Quantity Used ('+detail.unit+') *'}><input type="number" min="1" value={form.qty||''} onChange={e=>setForm((f:any)=>({...f,qty:e.target.value}))} style={inp}/></Fld>
       <Fld label="Date Used"><input type="date" value={form.date||''} onChange={e=>setForm((f:any)=>({...f,date:e.target.value}))} style={inp}/></Fld>
       <Fld label="Used By (staff name)"><input value={form.usedBy||''} onChange={e=>setForm((f:any)=>({...f,usedBy:e.target.value}))} placeholder="Who used or distributed this?" style={inp}/></Fld>
@@ -741,7 +752,7 @@ function Maintenance({users,members,currentUser,roles,permissions,equipment,setE
   const alerts=computeMaintAlerts(equipment,schedMaint);
   const totalAlerts=alerts.overdue.length+alerts.urgent.length+alerts.warrantyExpired.length+alerts.warrantyExpiringSoon.length;
   const lowSupplies=(supplies||[]).filter((s:any)=>s.maxQty>0&&s.quantity<=Math.round(s.maxQty*0.25)).length;
-  const today=new Date().toISOString().split('T')[0];
+  const today=new Date().toLocaleDateString('en-CA',{timeZone:'America/Phoenix'});
   const overdueCheckouts=(checkouts||[]).filter((c:any)=>c.status==='Out'&&c.expectedReturnDate&&c.expectedReturnDate<today).length;
   const isAdmin=currentUser?.superAdmin||(currentUser?.roleId&&roles?.find(r=>r.id===currentUser.roleId)?.name==="Administrator");
   const canEdit=isAdmin||checkPermission(currentUser,roles,permissions,"maintenance","edit");
@@ -834,10 +845,9 @@ async function downloadApp(cs, d) {
 </div>
 
 ${section("Member Directory","#1a2e5a", table(
-  ["Name","Role","Status","Phone","Email","Member Since","Family"],
+  ["Name","Status","Phone","Email","Member Since","Family"],
   (d.members||[]).map(m=>row(
     (m.first||"")+" "+(m.last||""),
-    m.role||"Member",
     m.status||"",
     m.phone||"",
     m.email||"",
@@ -908,7 +918,7 @@ ${section("Prayer Requests","#7c3aed", table(
 <div class="footer">${esc(cs.name)} — Exported on ${today} — NTCC AI Church Database v5</div>
 </div></body></html>`;
 
-  const fname = (cs.name||"Church").replace(/[^a-z0-9]/gi,"_")+"_Export_"+new Date().toISOString().slice(0,10)+".html";
+  const fname = (cs.name||"Church").replace(/[^a-z0-9]/gi,"_")+"_Export_"+new Date().toLocaleDateString('en-CA',{timeZone:'America/Phoenix'})+".html";
   const blob = new Blob([html],{type:"text/html;charset=utf-8"});
   const url = URL.createObjectURL(blob);
   const a = Object.assign(document.createElement("a"),{href:url,download:fname});
@@ -990,13 +1000,15 @@ function BackupRestore({backupData,onRestore}:any){
     ['members','Members'],['visitors','Visitors / Guests'],['attendance','Attendance'],
     ['giving','Giving Records'],['prayers','Prayer Requests'],['groups','Groups'],
     ['grpMeetings','Group Meetings'],['checkIns','Event Check-Ins'],['kidsCheckIns','Kids Check-Ins'],
-    ['children','Children'],['visitRecords','Visitation Records'],['pledgeDrives','Pledge Drives'],
+    ['children','Children'],['classrooms','Classrooms'],['visitRecords','Visitation Records'],['pledgeDrives','Pledge Drives'],
     ['pledges','Pledges'],['weeklyReports','Weekly Reports'],['equipment','Equipment'],
     ['workOrders','Work Orders'],['schedMaint','Scheduled Maintenance'],['users','Access Control Users'],
     ['roles','Roles'],['permissions','Permissions'],['recurring','Recurring Events'],
     ['custom','One-Time Events'],['emailLog','Email Log'],['emailTemplates','Email Templates'],
     ['incidents','Incidents'],['rollCalls','Roll Calls'],['progressNotes','Progress Notes'],
-    ['teacherSchedule','Teacher Schedule'],['churchSettings','Church Settings'],
+    ['teacherSchedule','Teacher Schedule'],['classEnrollments','Class Enrollments'],['classSessions','Class Sessions'],
+    ['sickVisits','Hospital & Visits'],['benevolence','Benevolence Fund'],['hospitality','Hospitality Account'],
+    ['counselingLogs','Counseling Log'],['prospects','Prospects'],['churchSettings','Church Settings'],
   ];
 
   return(
@@ -1060,7 +1072,7 @@ function BackupRestore({backupData,onRestore}:any){
   );
 }
 
-function ChurchSettingsPage({cs,setCs,churchId,members,setMembers,visitors,setVisitors,attendance,giving,prayers,groups,grpMeetings,visitRecords,checkIns,kidsCheckIns,children,pledgeDrives,pledges,weeklyReports,equipment,workOrders,schedMaint,backupData,onRestore}:any){
+function ChurchSettingsPage({cs,setCs,churchId,members,setMembers,visitors,setVisitors,attendance,giving,prayers,groups,grpMeetings,visitRecords,checkIns,kidsCheckIns,children,setChildren,pledgeDrives,pledges,weeklyReports,equipment,workOrders,schedMaint,backupData,onRestore}:any){
   const [form,setForm]=useState({...cs});
   const [saved,setSaved]=useState(false);
   const [stab,setStab]=useState('general');
@@ -1091,7 +1103,7 @@ function ChurchSettingsPage({cs,setCs,churchId,members,setMembers,visitors,setVi
       ))}
     </div>
     {stab==='merge'&&<MergeTool members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors}/>}
-    {stab==='breeze'&&<BreezeMergeTool members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors}/>}
+    {stab==='breeze'&&<BreezeMergeTool members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} children={children} setChildren={setChildren}/>}
     {stab==='backup'&&<BackupRestore backupData={backupData} onRestore={onRestore}/>}
     {stab==='general'&&<div>
     {saved&&<div style={{background:"#dcfce7",border:"0.5px solid #86efac",borderRadius:9,padding:"10px 16px",marginBottom:14,fontSize:13,color:"#14532d",fontWeight:500}}>Settings saved successfully.</div>}
@@ -1413,7 +1425,7 @@ function MergeTool({members,setMembers,visitors,setVisitors}:any){
 }
 
 // ── BREEZE CHMS IMPORT TOOL ──
-function BreezeMergeTool({members,setMembers,visitors,setVisitors}:any){
+function BreezeMergeTool({members,setMembers,visitors,setVisitors,children,setChildren}:any){
   const [step,setStep]=useState<'upload'|'preview'|'done'>('upload');
   const [importTarget,setImportTarget]=useState('members');
   const [newOnes,setNewOnes]=useState<any[]>([]);
@@ -1431,7 +1443,7 @@ function BreezeMergeTool({members,setMembers,visitors,setVisitors}:any){
     {key:'email',label:'Email'},{key:'birthday',label:'Birthday'},
     {key:'anniversary',label:'Anniversary'},{key:'gender',label:'Gender'},
     {key:'address',label:'Address',fmt:(v:any)=>v?[v.street,v.city,v.state,v.zip].filter(Boolean).join(', '):''},
-    {key:'joined',label:'Join Date'},{key:'notes',label:'Notes'},{key:'grade',label:'Grade'},
+    {key:'joined',label:'Join Date'},{key:'firstVisit',label:'First Visit'},{key:'notes',label:'Notes'},{key:'grade',label:'Grade'},
   ];
   const breezeDate=(d:string)=>{if(!d)return'';const m=d.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);if(m)return`${m[3]}-${m[1].padStart(2,'0')}-${m[2].padStart(2,'0')}`;return d;};
   function breezeMap(raw:any):any{
@@ -1448,6 +1460,10 @@ function BreezeMergeTool({members,setMembers,visitors,setVisitors}:any){
     else if(rawStatus.includes('member'))status='Active';
     else if(rawStatus)status=rawStatus.split(' ').map((w:string)=>w[0]?.toUpperCase()+w.slice(1)).join(' ');
     const street=col('address')||col('street')||col('streetaddress')||col('address1');
+    const childrenRaw=col('children');
+    const childrenArr=childrenRaw?childrenRaw.split(';').filter(Boolean).map((c:string)=>{const[cf,cl,cb,cg]=c.split('|');return{id:`child_brz_${Date.now()}_${Math.random()}`,first:cf||'',last:cl||'',dob:breezeDate(cb||''),birthday:breezeDate(cb||''),grade:cg||'',status:'Active',memberId:null};}):[];
+    const famId=col('familyid')||col('family');
+    const rawGrade=col('grade')||col('schoolgrade');
     return{id:`brz_${Date.now()}_${Math.random()}`,first,last,phone,email,status,
       birthday:breezeDate(col('birthday')||col('birthdate')||col('dateofbirth')||col('dob')),
       anniversary:breezeDate(col('anniversary')||col('anniversarydate')||col('weddingdate')),
@@ -1455,8 +1471,12 @@ function BreezeMergeTool({members,setMembers,visitors,setVisitors}:any){
       gender:col('gender')||col('sex'),
       address:{street,city:col('city'),state:col('state'),zip:col('zip')||col('zipcode')||col('postalcode')},
       notes:col('notes')||col('note')||col('comments'),
-      grade:col('grade')||col('schoolgrade'),
+      grade:(rawGrade&&rawGrade.toLowerCase()!=='false')?rawGrade:'',
       role:col('familyrole')||col('role')||col('position'),
+      firstVisit:breezeDate(col('firstvisit')||col('firstvisitdate')||col('visitdate')||col('firstvisited')||col('visit')),
+      spouseName:col('spousename'),
+      familyId:famId?`fam_${famId}`:null,
+      children:childrenArr,
     };
   }
   function parseCSV(text:string):any[]{
@@ -1497,16 +1517,31 @@ function BreezeMergeTool({members,setMembers,visitors,setVisitors}:any){
   function doMerge(){
     let added=0,upd=0;
     const applyFields=(base:any,inc:any,ci:number)=>{const u={...base};BF.forEach((f:any)=>{if(choices[ci]?.[f.key]==='incoming')u[f.key]=inc[f.key];});return u;};
+    const importedRecs:any[]=[];
     if(importTarget==='visitors'){
       let list=[...visitors];
-      newOnes.forEach((rec:any,i:number)=>{if(acceptNew.has(i)){list.push({...rec,id:Date.now()+Math.random(),type:'Visitor',stage:'First Visit',firstVisit:rec.joined||td()});added++;}});
-      conflicts.forEach((c:any,ci:number)=>{if(acceptConflict.has(ci)){const idx=list.findIndex((v:any)=>v.id===c.existing.id);if(idx>=0){list[idx]=applyFields(list[idx],c.incoming,ci);upd++;}}});
+      newOnes.forEach((rec:any,i:number)=>{if(acceptNew.has(i)){const r={...rec,id:Date.now()+Math.random(),type:'Visitor',stage:'First Visit',firstVisit:rec.firstVisit||rec.joined||''};list.push(r);importedRecs.push(r);added++;}});
+      conflicts.forEach((c:any,ci:number)=>{if(acceptConflict.has(ci)){const idx=list.findIndex((v:any)=>v.id===c.existing.id);if(idx>=0){list[idx]=applyFields(list[idx],c.incoming,ci);importedRecs.push(list[idx]);upd++;}}});
       setVisitors(list);
     }else{
       let list=[...members];
-      newOnes.forEach((rec:any,i:number)=>{if(acceptNew.has(i)){list.push({...rec,id:Date.now()+Math.random(),type:'Member'});added++;}});
-      conflicts.forEach((c:any,ci:number)=>{if(acceptConflict.has(ci)){const idx=list.findIndex((m:any)=>m.id===c.existing.id);if(idx>=0){list[idx]=applyFields(list[idx],c.incoming,ci);upd++;}}});
+      newOnes.forEach((rec:any,i:number)=>{if(acceptNew.has(i)){const r={...rec,id:Date.now()+Math.random(),type:'Member'};list.push(r);importedRecs.push(r);added++;}});
+      conflicts.forEach((c:any,ci:number)=>{if(acceptConflict.has(ci)){const idx=list.findIndex((m:any)=>m.id===c.existing.id);if(idx>=0){list[idx]=applyFields(list[idx],c.incoming,ci);importedRecs.push(list[idx]);upd++;}}});
       setMembers(list);
+    }
+    if(setChildren){
+      const newKids:any[]=[];
+      importedRecs.forEach((rec:any)=>{
+        if(Array.isArray(rec.children)&&rec.children.length>0){
+          rec.children.forEach((child:any)=>{
+            if(child.first||child.last){
+              const exists=(children||[]).some((k:any)=>k.first?.toLowerCase()===child.first?.toLowerCase()&&k.last?.toLowerCase()===child.last?.toLowerCase());
+              if(!exists)newKids.push({...child,id:child.id||`child_brz_${Date.now()}_${Math.random()}`,parentId:rec.id,status:'Active'});
+            }
+          });
+        }
+      });
+      if(newKids.length>0)setChildren((prev:any[])=>[...prev,...newKids]);
     }
     setResult({added,merged:upd,target:importTarget,total:totalRows});setStep('done');
   }
@@ -1702,12 +1737,12 @@ const CL_COLORS=["#1a2e5a","#c9a84c","#16a34a","#2563eb","#7c3aed","#dc2626","#d
 function levelFromAge(age){if(age<=2)return"Nursery";if(age<=4)return"Pre-K";if(age===5)return"Kindergarten";if(age<=10)return"Elementary";if(age<=13)return"Middle School";if(age<=17)return"High School";return"Young Adult";}
 const CHILD_GRADES=["Nursery","Toddler","Pre-K","Kindergarten","1st Grade","2nd Grade","3rd Grade","4th Grade","5th Grade","Elementary","6th Grade","7th Grade","8th Grade","Middle School","9th Grade","10th Grade","11th Grade","12th Grade","High School"];
 function gradeFromAge(age){if(typeof age!=="number"||age<0)return"";if(age<=1)return"Nursery";if(age<=3)return"Toddler";if(age===4)return"Pre-K";if(age===5)return"Kindergarten";if(age===6)return"1st Grade";if(age===7)return"2nd Grade";if(age===8)return"3rd Grade";if(age===9)return"4th Grade";if(age===10)return"5th Grade";if(age===11)return"6th Grade";if(age===12)return"7th Grade";if(age===13)return"8th Grade";if(age===14)return"9th Grade";if(age===15)return"10th Grade";if(age===16)return"11th Grade";return"12th Grade";}
-function gradeToClassroom(grade){if(!grade)return"";if(["Nursery","Toddler"].includes(grade))return"Nursery";if(grade==="Pre-K")return"Pre-K";if(grade==="Kindergarten")return"Kindergarten";if(["Elementary","1st Grade","2nd Grade","3rd Grade","4th Grade","5th Grade"].includes(grade))return"Elementary";if(["Middle School","6th Grade","7th Grade","8th Grade"].includes(grade))return"Middle School";if(["High School","9th Grade","10th Grade","11th Grade","12th Grade"].includes(grade))return"High School";return"";}
+function gradeToClassroom(grade){if(!grade)return"";if(["Nursery","Toddler"].includes(grade))return"Nursery";if(grade==="Pre-K")return"Pre-K";if(grade==="Kindergarten")return"Kindergarten";if(["Middle School","6th Grade","7th Grade","8th Grade"].includes(grade))return"Middle School";if(["High School","9th Grade","10th Grade","11th Grade","12th Grade"].includes(grade))return"High School";return"";}
 const CHURCH_LEVELS=[
   {id:1,name:"Nursery",grade:"Nursery",ageMin:0,ageMax:2,label:"Nursery (ages 0-2)",location:"Room 101",capacity:10,color:"#1a2e5a",checkin:true},
   {id:2,name:"Pre-K",grade:"Pre-K",ageMin:3,ageMax:4,label:"Pre-K (ages 3-4)",location:"Room 102",capacity:12,color:"#c9a84c",checkin:true},
   {id:3,name:"Kindergarten",grade:"Kindergarten",ageMin:5,ageMax:5,label:"Kindergarten (age 5)",location:"Room 103",capacity:15,color:"#16a34a",checkin:true},
-  {id:4,name:"Elementary",grade:"Elementary",ageMin:6,ageMax:10,label:"Elementary (grades 1-5, ages 6-10)",location:"Room 104",capacity:20,color:"#2563eb",checkin:true},
+  {id:4,name:"3rd-5th Grade",grade:"3rd-5th Grade",ageMin:8,ageMax:11,label:"3rd-5th Grade (ages 8-11)",location:"Room 104",capacity:20,color:"#0ea5e9",checkin:true},
   {id:5,name:"Middle School",grade:"Middle School",ageMin:11,ageMax:13,label:"Middle School (grades 6-8, ages 11-13)",location:"Room 105",capacity:20,color:"#7c3aed",checkin:true},
   {id:6,name:"High School",grade:"High School",ageMin:14,ageMax:17,label:"High School (grades 9-12, ages 14-18)",location:"Room 106",capacity:20,color:"#dc2626",checkin:true},
   {id:7,name:"Young Adult",grade:"Young Adult",ageMin:18,ageMax:99,label:"Young Adult (ages 18+)",location:"Room 107",capacity:25,color:"#d97706",checkin:false},
@@ -1746,6 +1781,9 @@ const MODULES=[
   {key:"prayer",label:"Prayer Wall",icon:"Pry",desc:"Prayer requests",actions:["view","create","edit","delete"]},
   {key:"reports",label:"Reports",icon:"Rpt",desc:"All reports and analytics",actions:["view","create","edit","delete"]},
   {key:"media",label:"Media Library",icon:"Med",desc:"Sermons and files",actions:["view","create","edit","delete"]},
+  {key:"sickvisits",label:"Hospital & Visits",icon:"Hosp",desc:"Hospital and sick visit log",actions:["view","create","edit","delete"]},
+  {key:"benevolence",label:"Benevolence Fund",icon:"Ben",desc:"Benevolence fund requests",actions:["view","create","edit","delete"]},
+  {key:"counseling",label:"Counseling Log",icon:"Cns",desc:"Pastoral counseling sessions",actions:["view","create","edit","delete"]},
   {key:"settings",label:"System Settings",icon:"Set",desc:"Users, roles, and config",actions:["view","create","edit","delete"]},
 ];
 const PORTAL_PERMS=[
@@ -1766,7 +1804,7 @@ const avc=s=>{let x=0;for(let c of(s||""))x+=c.charCodeAt(0);return AVC[x%AVC.le
 const ini=(f,l)=>(((f||"")[0]||"")+((l||"")[0]||"")).toUpperCase();
 const f$=n=>"$"+Number(n).toLocaleString();
 const fd=d=>d?new Date(d+"T00:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"}):"—";
-const td=()=>new Date().toISOString().split("T")[0];
+const td=()=>new Date().toLocaleDateString("en-CA",{timeZone:"America/Phoenix"});
 const albl=a=>({view:"View",create:"Create",edit:"Edit",delete:"Delete"}[a]||a);
 const actionColor=a=>({view:BL,create:GR,edit:"#d97706",delete:RE}[a]||MU);
 
@@ -2054,6 +2092,8 @@ function UsersTab({members,users,setUsers,roles,permissions,currentUser,churchId
   const [overrideModal,setOverrideModal] = useState(null);
   const [confirmModal,setConfirmModal] = useState(null);
   const [codeCopied,setCodeCopied] = useState(false);
+  const [staffLinkCopied,setStaffLinkCopied] = useState(false);
+  const [newLinkCopied,setNewLinkCopied] = useState(false);
   const [mSearch,setMSearch] = useState("");
   const [mDropOpen,setMDropOpen] = useState(false);
   const nid = useRef(Math.max(299,...users.map(u=>+(u.id)||0))+1);
@@ -2138,6 +2178,33 @@ function UsersTab({members,users,setUsers,roles,permissions,currentUser,churchId
         </div>
       )}
 
+      {churchId && isAdmin && (
+        <div style={{display:"flex",gap:10,marginBottom:14,flexWrap:"wrap"}}>
+          {/* Button 1 — Staff/Member Sign-In link (shows Sign In + Join as Staff only) */}
+          <div style={{flex:1,minWidth:220,background:"#eff6ff",border:"1px solid #bfdbfe",borderRadius:10,padding:"12px 14px",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:12,fontWeight:600,color:"#1d4ed8",marginBottom:2}}>🔗 Staff &amp; Member Sign-In Link</div>
+              <div style={{fontSize:11,color:MU,lineHeight:1.4}}>Send to existing staff/members. Shows <strong>Sign In</strong> &amp; <strong>Join as Staff</strong> only.</div>
+            </div>
+            <button onClick={()=>{navigator.clipboard.writeText(window.location.origin+"?mode=staff");setStaffLinkCopied(true);setTimeout(()=>setStaffLinkCopied(false),2500);}} style={{padding:"7px 14px",background:staffLinkCopied?"#16a34a":"#1d4ed8",color:"#fff",border:"none",borderRadius:7,fontSize:12,cursor:"pointer",fontWeight:500,whiteSpace:"nowrap",flexShrink:0}}>
+              {staffLinkCopied?"✓ Copied!":"Copy Link"}
+            </button>
+          </div>
+          {/* Button 2 — New Church registration link (only shown to super admin) */}
+          {currentUser?.superAdmin && (
+            <div style={{flex:1,minWidth:220,background:"#fef9c3",border:"1px solid #fde047",borderRadius:10,padding:"12px 14px",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:12,fontWeight:600,color:"#854d0e",marginBottom:2}}>⛪ New Church Registration Link</div>
+                <div style={{fontSize:11,color:MU,lineHeight:1.4}}>Share with other churches to set up their own account. Shows <strong>New Church</strong> tab only.</div>
+              </div>
+              <button onClick={()=>{navigator.clipboard.writeText(window.location.origin+"?mode=new");setNewLinkCopied(true);setTimeout(()=>setNewLinkCopied(false),2500);}} style={{padding:"7px 14px",background:newLinkCopied?"#16a34a":"#d97706",color:"#fff",border:"none",borderRadius:7,fontSize:12,cursor:"pointer",fontWeight:500,whiteSpace:"nowrap",flexShrink:0}}>
+                {newLinkCopied?"✓ Copied!":"Copy Link"}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}>
         <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search users by name or email..." style={{flex:1,minWidth:240,padding:"8px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}/>
         <select value={filterRole} onChange={e=>setFilterRole(e.target.value)} style={{padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:12,outline:"none",background:W}}>
@@ -2177,7 +2244,7 @@ function UsersTab({members,users,setUsers,roles,permissions,currentUser,churchId
                     <td style={{padding:"11px 14px"}}>
                       <div style={{display:"flex",alignItems:"center",gap:10}}>
                         <Av f={m.first} l={m.last} sz={34}/>
-                        <div><div style={{fontSize:13,fontWeight:500,color:N}}>{m.first} {m.last}</div><div style={{fontSize:11,color:MU}}>{m.role||"Member"}</div></div>
+                        <div><div style={{fontSize:13,fontWeight:500,color:N}}>{m.first} {m.last}</div><div style={{fontSize:11,color:MU}}>{m.phone||m.email||""}</div></div>
                       </div>
                     </td>
                     <td style={{padding:"11px 14px",fontSize:12,color:MU}}>{m.email||"—"}</td>
@@ -2229,7 +2296,7 @@ function UsersTab({members,users,setUsers,roles,permissions,currentUser,churchId
                       const q=mSearch.toLowerCase();
                       return m.first?.toLowerCase().includes(q)||m.last?.toLowerCase().includes(q)||(m.first+" "+m.last).toLowerCase().includes(q);
                     }).map(m=>(
-                      <div key={m.id} onMouseDown={()=>{setForm(f=>({...f,memberId:m.id}));setMSearch(m.first+" "+m.last);setMDropOpen(false);}}
+                      <div key={m.id} onMouseDown={()=>{setForm(f=>({...f,memberId:m.id,email:m.email||f.email||""}));setMSearch(m.first+" "+m.last);setMDropOpen(false);}}
                         style={{padding:"9px 14px",cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",gap:10,borderBottom:"0.5px solid "+BR+"55"}}
                         onMouseEnter={e=>e.currentTarget.style.background="#f5f3ff"}
                         onMouseLeave={e=>e.currentTarget.style.background=W}>
@@ -2245,23 +2312,22 @@ function UsersTab({members,users,setUsers,roles,permissions,currentUser,churchId
         </Fld>
         <Fld label="Staff Login Email" style={{marginBottom:4}}>
           <Inp type="email" value={form.email} onChange={v=>setForm(f=>({...f,email:v}))} placeholder="staff@email.com"/>
-          <div style={{fontSize:10,color:MU,marginTop:3,lineHeight:1.4}}>Required so staff can log in. Must match the email they use to register on the login page.</div>
+          {form.memberId && !form.email && <div style={{fontSize:10,color:AM,marginTop:3,lineHeight:1.4}}>⚠ This member has no email on their profile — enter one manually here, then also update it on their Members Profile.</div>}
+          {!form.memberId && <div style={{fontSize:10,color:MU,marginTop:3,lineHeight:1.4}}>Required so staff can log in. Must match the email they use to register on the login page.</div>}
         </Fld>
         <Fld label="Assign Role *">
-          <select value={form.roleId} onChange={e=>setForm(f=>({...f,roleId:e.target.value,secondaryRoleId:e.target.value!==roles.find(r=>r.name==="Team Leader")?.id?"":f.secondaryRoleId}))} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}>
+          <select value={form.roleId} onChange={e=>setForm(f=>({...f,roleId:e.target.value}))} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}>
             <option value="">Select a role</option>
             {roles.map(r=><option key={r.id} value={r.id}>{r.name}</option>)}
           </select>
         </Fld>
-        {form.roleId===roles.find(r=>r.name==="Team Leader")?.id && (
-          <Fld label="Secondary Role (optional)">
-            <select value={form.secondaryRoleId||""} onChange={e=>setForm(f=>({...f,secondaryRoleId:e.target.value}))} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}>
-              <option value="">— None —</option>
-              {roles.filter(r=>r.id!==form.roleId).map(r=><option key={r.id} value={r.id}>{r.name}</option>)}
-            </select>
-            <div style={{fontSize:10,color:MU,marginTop:3,lineHeight:1.4}}>Team Leaders can hold a second role. Their permissions will combine both roles.</div>
-          </Fld>
-        )}
+        <Fld label="Secondary Role (optional)">
+          <select value={form.secondaryRoleId||""} onChange={e=>setForm(f=>({...f,secondaryRoleId:e.target.value}))} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}>
+            <option value="">— None —</option>
+            {roles.filter(r=>r.id!==form.roleId).map(r=><option key={r.id} value={r.id}>{r.name}</option>)}
+          </select>
+          <div style={{fontSize:10,color:MU,marginTop:3,lineHeight:1.4}}>Any user can hold a second role. Their permissions will combine both roles.</div>
+        </Fld>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <Fld label="Password *"><Inp type="password" value={form.password} onChange={v=>setForm(f=>({...f,password:v}))} placeholder="Create a password"/></Fld>
           <Fld label="4-Digit PIN *"><PINInput value={form.pin} onChange={v=>setForm(f=>({...f,pin:v}))}/></Fld>
@@ -2713,7 +2779,7 @@ function PortalTab({members,portalMembers,setPortalMembers,currentUser,roles}){
                       <span style={{fontSize:14,fontWeight:500}}>{m.first} {m.last}</span>
                       <span style={{fontSize:11,borderRadius:20,padding:"2px 9px",fontWeight:500,background:active?"#dcfce7":"#fee2e2",color:active?GR:RE}}>{pm.status}</span>
                     </div>
-                    <div style={{fontSize:12,color:MU,marginTop:2}}>{m.email} · {m.role||"Member"}</div>
+                    <div style={{fontSize:12,color:MU,marginTop:2}}>{m.email}</div>
                   </div>
                   <div style={{display:"flex",gap:6}}>
                     {isAdmin && <Btn onClick={()=>{setEditPin({memberId:pm.memberId,pin:""});setPinModal(true);}} v="ghost" style={{fontSize:11,padding:"4px 9px"}}>Reset PIN</Btn>}
@@ -2744,7 +2810,7 @@ function PortalTab({members,portalMembers,setPortalMembers,currentUser,roles}){
         <Fld label="Select Member *">
           <select value={sel?.id||""} onChange={e=>setSel(members.find(m=>m.id===+e.target.value)||null)} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}>
             <option value="">Choose a member</option>
-            {avail.map(m=><option key={m.id} value={m.id}>{m.first} {m.last}{m.role?" ("+m.role+")":""}</option>)}
+            {avail.map(m=><option key={m.id} value={m.id}>{m.first} {m.last}</option>)}
           </select>
         </Fld>
         <Fld label="Set 4-Digit Portal PIN *"><PINInput value={pin} onChange={setPin}/></Fld>
@@ -3472,7 +3538,7 @@ function smsPersonalize(text,person,cs){
 }
 
 // ── SMS COMPOSER (Single Recipient) ──
-function SmsComposer({open,onClose,initialPhone,initialName,initialBody,initialCategory,relatedType,relatedId,cs,templates,members,visitors,onSend}){
+function SmsComposer({open,onClose,initialPhone,initialName,initialBody,initialCategory,relatedType,relatedId,cs,templates,members,visitors,onSend,smsConfig={}}:any){
   const [phone,setPhone]=useState("");
   const [toName,setToName]=useState("");
   const [body,setBody]=useState("");
@@ -3483,8 +3549,15 @@ function SmsComposer({open,onClose,initialPhone,initialName,initialBody,initialC
   const [aiLoad,setAiLoad]=useState(false);
   const [copied,setCopied]=useState(false);
   const [errorMsg,setErrorMsg]=useState("");
+  const [sending,setSending]=useState(false);
+  const [sendResult,setSendResult]=useState<any>(null);
+  const [dirQuery,setDirQuery]=useState("");
+  const [dirSugOpen,setDirSugOpen]=useState(false);
+  const [dirAnchor,setDirAnchor]=useState<{top:number,left:number,width:number}|null>(null);
+  const dirInputRef=useRef<HTMLInputElement>(null);
 
   const stats=smsStats(body);
+  const hasTwilio=!!(smsConfig?.accountSid&&smsConfig?.authToken&&smsConfig?.fromPhone);
 
   useEffect(()=>{
     if(open){
@@ -3493,7 +3566,7 @@ function SmsComposer({open,onClose,initialPhone,initialName,initialBody,initialC
       setBody(initialBody||"");
       setCategory(initialCategory||"General");
       setShowTpl(false);setCopied(false);setErrorMsg("");
-      setPickerMode("manual");setPickerId("");
+      setPickerMode("manual");setPickerId("");setDirQuery("");setDirSugOpen(false);setDirAnchor(null);
     }
   },[open,initialPhone,initialName,initialBody,initialCategory]);
 
@@ -3501,6 +3574,14 @@ function SmsComposer({open,onClose,initialPhone,initialName,initialBody,initialC
     ...members.filter(m=>m.phone).map(m=>({...m,_type:"member",label:m.first+" "+m.last+" (Member)"})),
     ...visitors.filter(v=>v.phone).map(v=>({...v,_type:"visitor",label:v.first+" "+v.last+" (Visitor)"})),
   ];
+  const dirSuggestions=dirQuery.trim().length>0?allPeople.filter(p=>{
+    const q=dirQuery.toLowerCase().trim();
+    const words=q.split(/\s+/).filter(Boolean);
+    const fullName=((p.first||"")+" "+(p.last||"")).toLowerCase();
+    const nameMatch=words.every((w:string)=>fullName.includes(w));
+    const phoneMatch=(p.phone||"").replace(/\D/g,"").includes(q.replace(/\D/g,""));
+    return nameMatch||phoneMatch;
+  }).slice(0,8):[];
 
   const pickPerson=id=>{
     const p=allPeople.find(x=>String(x.id)===id);
@@ -3528,11 +3609,29 @@ function SmsComposer({open,onClose,initialPhone,initialName,initialBody,initialC
   const doSmsLink=()=>{
     if(!phone.trim()){setErrorMsg("Phone number required.");return;}
     if(!body.trim()){setErrorMsg("Message required.");return;}
-    setErrorMsg("");
+    setErrorMsg(""); setSendResult(null);
     const clean=phone.replace(/\D/g,"");
     window.open("sms:"+clean+"?body="+encodeURIComponent(body),"_blank");
     if(onSend) onSend({to:phone,toName,body,category,method:"sms-link",status:"Opened in SMS App",relatedType,relatedId});
     onClose();
+  };
+
+  const doSendNow=async()=>{
+    if(!phone.trim()){setErrorMsg("Phone number required.");return;}
+    if(!body.trim()){setErrorMsg("Message required.");return;}
+    if(!hasTwilio){setErrorMsg("Twilio credentials not configured. Go to SMS Center → Service Config.");return;}
+    setErrorMsg(""); setSendResult(null); setSending(true);
+    try{
+      const r=await fetch("/api/send-sms",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({accountSid:smsConfig.accountSid,authToken:smsConfig.authToken,fromPhone:smsConfig.fromPhone,to:phone,body})});
+      const d=await r.json();
+      if(!r.ok||d.error){setSendResult({ok:false,msg:(d.error||"Send failed")+(d.code?" (Code "+d.code+")":"")+(d.moreInfo?" — "+d.moreInfo:"")});}
+      else{
+        setSendResult({ok:true,msg:"Message sent successfully!"});
+        if(onSend) onSend({to:phone,toName,body,category,method:"twilio",status:"Sent",relatedType,relatedId});
+        setTimeout(()=>{setSendResult(null);onClose();},1800);
+      }
+    }catch(e:any){setSendResult({ok:false,msg:"Network error: "+e.message});}
+    setSending(false);
   };
 
   const doCopy=()=>{
@@ -3570,12 +3669,45 @@ function SmsComposer({open,onClose,initialPhone,initialName,initialBody,initialC
               <Fld label="Name (optional)"><Inp value={toName} onChange={setToName} placeholder="First Last"/></Fld>
             </div>
           ):(
-            <Fld label="Select Member or Visitor">
-              <select value={pickerId} onChange={e=>pickPerson(e.target.value)} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}>
-                <option value="">— Choose person —</option>
-                {allPeople.map(p=><option key={p._type+p.id} value={String(p.id)}>{p.label} — {p.phone}</option>)}
-              </select>
-            </Fld>
+            <>
+              <Fld label="Search by name or phone">
+                <div style={{position:"relative"}}>
+                  <input
+                    ref={dirInputRef}
+                    value={dirQuery}
+                    onChange={e=>{
+                      setDirQuery(e.target.value);
+                      if(dirInputRef.current){const r=dirInputRef.current.getBoundingClientRect();setDirAnchor({top:r.bottom+4,left:r.left,width:r.width});}
+                      setDirSugOpen(true);
+                    }}
+                    onFocus={()=>{if(dirQuery&&dirInputRef.current){const r=dirInputRef.current.getBoundingClientRect();setDirAnchor({top:r.bottom+4,left:r.left,width:r.width});setDirSugOpen(true);}}}
+                    onBlur={()=>setTimeout(()=>setDirSugOpen(false),180)}
+                    placeholder="Start typing first or last name, or phone…"
+                    style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}
+                  />
+                  {dirSugOpen&&dirSuggestions.length>0&&dirAnchor&&(
+                    <div style={{position:"fixed",top:dirAnchor.top,left:dirAnchor.left,width:dirAnchor.width,background:W,border:"1px solid "+BR,borderRadius:8,boxShadow:"0 6px 24px #0003",zIndex:9999,maxHeight:260,overflowY:"auto"}}>
+                      {dirSuggestions.map(p=>(
+                        <div key={p._type+p.id}
+                          onMouseDown={()=>{pickPerson(String(p.id));setDirQuery(p.first+" "+(p.last||""));setDirSugOpen(false);}}
+                          style={{padding:"9px 13px",cursor:"pointer",borderBottom:"0.5px solid "+BR}}
+                          onMouseEnter={e=>(e.currentTarget as HTMLElement).style.background=N+"0d"}
+                          onMouseLeave={e=>(e.currentTarget as HTMLElement).style.background=W}>
+                          <div style={{fontSize:13,fontWeight:500,color:N}}>{p.first} {p.last}</div>
+                          <div style={{fontSize:11,color:MU,marginTop:1}}>{p.phone} · {p._type==="member"?"Member":"Visitor"}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </Fld>
+              <Fld label="Or browse full directory">
+                <select value={pickerId} onChange={e=>pickPerson(e.target.value)} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}>
+                  <option value="">— Choose person —</option>
+                  {allPeople.map(p=><option key={p._type+p.id} value={String(p.id)}>{p.label} — {p.phone}</option>)}
+                </select>
+              </Fld>
+            </>
           )}
           {phone&&<div style={{fontSize:11,color:MU,marginTop:4}}>📱 {phone}</div>}
         </div>
@@ -3612,13 +3744,23 @@ function SmsComposer({open,onClose,initialPhone,initialName,initialBody,initialC
         </div>
 
         {errorMsg&&<div style={{background:"#fee2e2",border:"0.5px solid #fca5a5",borderRadius:8,padding:"10px 12px",marginBottom:12,fontSize:12,color:RE}}>{errorMsg}</div>}
+        {sendResult&&<div style={{background:sendResult.ok?"#dcfce7":"#fee2e2",border:"0.5px solid "+(sendResult.ok?"#86efac":"#fca5a5"),borderRadius:8,padding:"10px 12px",marginBottom:12,fontSize:12,color:sendResult.ok?GR:RE}}>{sendResult.ok?"✓ ":"✕ "}{sendResult.msg}</div>}
 
-        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-          <Btn onClick={doSmsLink} v="primary" style={{flex:1,justifyContent:"center",minWidth:140}}>📱 Open SMS App</Btn>
-          <Btn onClick={doCopy} v={copied?"success":"outline"} style={{flex:1,justifyContent:"center",minWidth:120}}>{copied?"✓ Copied!":"Copy Message"}</Btn>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap" as any}}>
+          {hasTwilio&&(
+            <Btn onClick={doSendNow} v="primary" style={{flex:2,justifyContent:"center",minWidth:160}} disabled={sending}>
+              {sending?"Sending...":"📤 Send Now"}
+            </Btn>
+          )}
+          <Btn onClick={doSmsLink} v={hasTwilio?"ghost":"primary"} style={{flex:1,justifyContent:"center",minWidth:130}}>📱 Open SMS App</Btn>
+          <Btn onClick={doCopy} v={copied?"success":"outline"} style={{flex:1,justifyContent:"center",minWidth:110}}>{copied?"✓ Copied!":"Copy"}</Btn>
           <Btn onClick={onClose} v="ghost" style={{padding:"10px 16px"}}>Cancel</Btn>
         </div>
-        <div style={{fontSize:10,color:MU,marginTop:10,lineHeight:1.5}}>"Open SMS App" pre-fills your phone's messaging app. "Copy Message" puts it on your clipboard. Twilio direct-send can be wired in from SMS Service config when ready.</div>
+        <div style={{fontSize:10,color:MU,marginTop:10,lineHeight:1.5}}>{
+          hasTwilio
+            ?"📤 \"Send Now\" sends directly via Twilio. \"Open SMS App\" opens your phone's messaging app."
+            :"\"Open SMS App\" works on phones. \"Copy\" works everywhere. To enable direct sending, configure Twilio in SMS Center → Service Config."
+        }</div>
       </div>
     </div>
   );
@@ -3751,6 +3893,33 @@ function SmsCenter({smsLog,setSmsLog,smsTemplates,setSmsTemplates,smsConfig,setS
   const [editTpl,setEditTpl]=useState(null);
   const [tplForm,setTplForm]=useState({name:"",category:"General",body:""});
   const [cfgSaved,setCfgSaved]=useState(false);
+  const [testPhone,setTestPhone]=useState("");
+  const [testResult,setTestResult]=useState<any>(null);
+  const [testSending,setTestSending]=useState(false);
+
+  const sendTestSms=async()=>{
+    if(!testPhone.trim()){setTestResult({ok:false,msg:"Enter a phone number to test."});return;}
+    if(!(smsConfig?.accountSid&&smsConfig?.authToken&&smsConfig?.fromPhone)){setTestResult({ok:false,msg:"Fill in all three Twilio fields first."});return;}
+    setTestSending(true);setTestResult(null);
+    try{
+      const r=await fetch("/api/send-sms",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({accountSid:smsConfig.accountSid,authToken:smsConfig.authToken,fromPhone:smsConfig.fromPhone,to:testPhone,body:"Test from AICMS - Twilio is connected!"})});
+      const d=await r.json();
+      if(!r.ok||d.error){setTestResult({ok:false,msg:(d.error||"Send failed")+(d.code?" (Code "+d.code+")":"")+( d.moreInfo?" — "+d.moreInfo:"")});}
+      else{
+        setTestResult({ok:true,sid:d.sid,messageStatus:d.messageStatus||"queued",to:d.to,from:d.from,checking:true});
+        // Poll for final delivery status after 5 seconds
+        setTimeout(async()=>{
+          try{
+            const creds=btoa(smsConfig.accountSid+":"+smsConfig.authToken);
+            const sr=await fetch("https://api.twilio.com/2010-04-01/Accounts/"+smsConfig.accountSid+"/Messages/"+d.sid+".json",{headers:{Authorization:"Basic "+creds}});
+            const sd=await sr.json();
+            setTestResult((prev:any)=>({...prev,messageStatus:sd.status||prev.messageStatus,errorCode:sd.error_code,errorMessage:sd.error_message,checking:false}));
+          }catch{setTestResult((prev:any)=>({...prev,checking:false}));}
+        },5000);
+      }
+    }catch(e:any){setTestResult({ok:false,msg:"Network error: "+e.message});}
+    setTestSending(false);
+  };
 
   const stats={
     total:smsLog.length,
@@ -3870,21 +4039,29 @@ function SmsCenter({smsLog,setSmsLog,smsTemplates,setSmsTemplates,smsConfig,setS
       {tab==="service"&&(
         <div>
           {cfgSaved&&<div style={{background:"#dcfce7",border:"0.5px solid #86efac",borderRadius:9,padding:"10px 16px",marginBottom:14,fontSize:13,color:"#14532d",fontWeight:500}}>SMS service configuration saved.</div>}
-          <div style={{background:GL+"22",border:"1px solid "+G,borderRadius:10,padding:"14px 18px",marginBottom:16,fontSize:13,color:"#7a5c10",lineHeight:1.8}}>
-            <div style={{fontSize:14,fontWeight:600,marginBottom:6}}>About SMS Sending</div>
-            <strong>1. Open in SMS App (always works)</strong> — Pre-fills your phone's native messaging app with the text ready to send.<br/>
-            <strong>2. Copy Message (always works)</strong> — Copies text to clipboard so you can paste into any messaging tool.<br/>
-            <strong>3. Twilio Direct Send (requires credentials)</strong> — Sends SMS from within the app using your Twilio account. Paste credentials below — a developer will wire the send function.
-          </div>
           <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:18,marginBottom:14}}>
             <h3 style={{fontSize:14,fontWeight:500,color:N,margin:"0 0 14px"}}>Twilio Configuration</h3>
+            <div style={{background:"#f0fdf4",border:"0.5px solid #86efac",borderRadius:8,padding:"10px 14px",marginBottom:14,fontSize:12,color:"#14532d"}}>✅ Direct SMS sending is active. Enter your Twilio credentials below, then use the Test button to confirm they work.</div>
             <Fld label="Account SID"><Inp value={smsConfig.accountSid||""} onChange={v=>setSmsConfig(c=>({...c,accountSid:v}))} placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"/></Fld>
             <Fld label="Auth Token"><Inp type="password" value={smsConfig.authToken||""} onChange={v=>setSmsConfig(c=>({...c,authToken:v}))} placeholder="Your Twilio auth token"/></Fld>
             <Fld label="From Phone Number"><Inp value={smsConfig.fromPhone||""} onChange={v=>setSmsConfig(c=>({...c,fromPhone:v}))} placeholder="+16235550100"/></Fld>
             <Btn onClick={()=>{setCfgSaved(true);setTimeout(()=>setCfgSaved(false),2500);}} v="success">Save Configuration</Btn>
           </div>
-          <div style={{background:"#fff5f5",border:"0.5px solid #fca5a5",borderRadius:10,padding:"12px 16px",fontSize:12,color:RE,lineHeight:1.7}}>
-            <strong>Developer Note:</strong> Once credentials are saved, wire <code>sendDirectSms(smsConfig, to, body)</code> to call the Twilio Messages API (<code>POST /2010-04-01/Accounts/{"{SID}"}/Messages.json</code>). "Open in SMS App" and "Copy" work immediately with zero setup.
+          <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:18,marginBottom:14}}>
+            <h3 style={{fontSize:14,fontWeight:500,color:N,margin:"0 0 6px"}}>Test Connection</h3>
+            <p style={{fontSize:12,color:MU,margin:"0 0 12px"}}>Send a real test SMS to confirm your credentials work. Enter any phone number to receive the test message.</p>
+            <Fld label="Send Test SMS To"><Inp value={testPhone} onChange={setTestPhone} placeholder="+16235550100 or 6235550100"/></Fld>
+            {testResult&&!testResult.ok&&<div style={{background:"#fee2e2",border:"0.5px solid #fca5a5",borderRadius:8,padding:"10px 12px",marginBottom:10,fontSize:12,color:RE}}>✕ {testResult.msg}</div>}
+            {testResult&&testResult.ok&&<div style={{background:"#f0fdf4",border:"0.5px solid #86efac",borderRadius:8,padding:"12px 14px",marginBottom:10,fontSize:12}}>
+              <div style={{fontWeight:600,color:GR,marginBottom:6}}>✅ Twilio accepted the message</div>
+              <div style={{color:TX,marginBottom:4}}><b>To:</b> {testResult.to} &nbsp;··&nbsp; <b>From:</b> {testResult.from}</div>
+              <div style={{color:TX,marginBottom:4}}><b>Status:</b> <span style={{fontWeight:500,color:testResult.messageStatus==="queued"||testResult.messageStatus==="sent"?AM:testResult.messageStatus==="delivered"?GR:MU}}>{testResult.messageStatus}</span></div>
+              <div style={{color:TX,marginBottom:8}}><b>SID:</b> <a href={"https://console.twilio.com/us1/monitor/logs/sms/"+testResult.sid} target="_blank" rel="noreferrer" style={{color:BL,fontWeight:500}}>{testResult.sid} ↗</a></div>
+              <div style={{background:"#fffbeb",border:"0.5px solid #fde68a",borderRadius:6,padding:"8px 10px",color:"#92400e",fontSize:11,lineHeight:1.6}}>
+                <b>⚠️ If no text arrived:</b> Check the SID link above in Twilio’s logs to see the delivery status. Common reasons: (1) <b>Trial account</b> — can only send to <a href="https://console.twilio.com/us1/develop/phone-numbers/manage/verified" target="_blank" rel="noreferrer" style={{color:BL}}>verified numbers</a> in your Twilio console; (2) the destination carrier filtered the message; (3) the number isn’t in E.164 format.
+              </div>
+            </div>}
+            <Btn onClick={sendTestSms} v={testSending?"ghost":"primary"} disabled={testSending}>{testSending?"Sending test...":"📤 Send Test Message"}</Btn>
           </div>
         </div>
       )}
@@ -3939,9 +4116,11 @@ function Visitation({visitors,setVisitors,members,setMembers,users,currentUser,r
   const [careAlertDismissed,setCareAlertDismissed] = useState(false);
   const [aiRep,setAiRep] = useState("");
   const [aiLoad,setAiLoad] = useState(false);
-  const [tyModal,setTyModal] = useState<any>(null); // {visitor, letterBody, generating}
+  const [tyModal,setTyModal] = useState<any>(null);
   const [tyBody,setTyBody] = useState("");
   const [tyGenerating,setTyGenerating] = useState(false);
+  const [profileModal,setProfileModal] = useState<any>(null);
+  const [profileForm,setProfileForm] = useState<any>({});
   const nid = useRef(Math.max(699,...(visitRecords||[]).map((r:any)=>+(r.id)||0))+1);
   const pastorDisplayName = (()=>{ const pm = members.find((m:any)=>(m.role||'').toLowerCase().includes('pastor')); return pm ? pm.first+' '+pm.last : (window.__CS__?.pastorName||'Pastor'); })();
 
@@ -4026,9 +4205,10 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
     });
   },[]);
   // Sync: create visitRecords for any visitors that don't have one yet
+  // Skip children (isChild) and secondary spouses (isSpouseOf) — they share the primary's card
   useEffect(()=>{
     setVisitRecords(rs=>{
-      const missing = visitors.filter(v=>!rs.find(r=>r.visitorId===v.id));
+      const missing = visitors.filter(v=>!v.isChild && !v.isSpouseOf && !rs.find(r=>r.visitorId===v.id));
       if(missing.length===0) return rs;
       return [...rs,...missing.map(v=>({id:nid.current++,visitorId:v.id,stage:"Pastor",createdDate:v.firstVisit||td(),contacts:[],teamSupervisorUserId:null,teamLeaderUserId:null,sponsorUserId:null}))];
     });
@@ -4054,8 +4234,9 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
   const getLast = rec => rec && rec.contacts.length>0 ? rec.contacts[rec.contacts.length-1] : null;
   const activeUsers = users.filter(u=>u.status==="Active"&&!u.superAdmin);
 
-  // Role-based visibility: Super Admin and Administrator see all visits; others only see visits assigned to them
-  const isAdmin = currentUser?.superAdmin || !!(currentUser?.roleId && roles?.find((r:any)=>r.id===currentUser.roleId)?.name==="Administrator");
+  // Role-based visibility: Super Admin, Administrator, and Staff see all visits; others only see visits assigned to them
+  const currentRoleName = roles?.find((r:any)=>r.id===currentUser?.roleId)?.name||"";
+  const isAdmin = currentUser?.superAdmin || currentRoleName==="Administrator" || currentRoleName==="Staff";
   const visibleRecords = isAdmin ? visitRecords : visitRecords.filter((r:any) => r.teamSupervisorUserId===currentUser?.id || r.teamLeaderUserId===currentUser?.id || r.sponsorUserId===currentUser?.id);
 
   // OngoingCare stats
@@ -4072,26 +4253,32 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
       if(rec.stage==="Pastor") {
         const upd = {...rec,contacts:newContacts,stage:"TeamSupervisor"};
         setVisitRecords(rs=>rs.map(r=>r.id===rec.id?upd:r));
+        localStorage.setItem('ntcc_force_cloud_save','1');
         setLogModal(null); setAssignModal({rec:upd,type:"TeamSupervisor"}); setAssignUid("");
       } else if(rec.stage==="TeamSupervisor") {
         const upd = {...rec,contacts:newContacts,stage:"TeamLeader"};
         setVisitRecords(rs=>rs.map(r=>r.id===rec.id?upd:r));
+        localStorage.setItem('ntcc_force_cloud_save','1');
         setLogModal(null); setAssignModal({rec:upd,type:"TeamLeader"}); setAssignUid("");
       } else if(rec.stage==="TeamLeader") {
         const upd = {...rec,contacts:newContacts,stage:"Sponsor"};
         setVisitRecords(rs=>rs.map(r=>r.id===rec.id?upd:r));
+        localStorage.setItem('ntcc_force_cloud_save','1');
         setLogModal(null); setAssignModal({rec:upd,type:"Sponsor"}); setAssignUid("");
       } else if(rec.stage==="Sponsor") {
         // Initial sponsor visit complete → enter OngoingCare cycle
         setVisitRecords(rs=>rs.map(r=>r.id===rec.id?{...r,contacts:newContacts,stage:"OngoingCare",ongoingStartDate:td(),sponsorInitialDate:td()}:r));
+        localStorage.setItem('ntcc_force_cloud_save','1');
         setLogModal(null);
       } else if(rec.stage==="OngoingCare") {
         // Each completed ongoing contact resets the 14-day cycle (via getNextDue)
         setVisitRecords(rs=>rs.map(r=>r.id===rec.id?{...r,contacts:newContacts}:r));
+        localStorage.setItem('ntcc_force_cloud_save','1');
         setLogModal(null);
       }
     } else {
       setVisitRecords(rs=>rs.map(r=>r.id===rec.id?{...r,contacts:newContacts}:r));
+      localStorage.setItem('ntcc_force_cloud_save','1');
       setLogModal(null);
     }
     setLogForm({method:"Call",date:td(),notes:"",completed:false});
@@ -4105,6 +4292,7 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
       if(r.id!==id) return r;
       return type==="TeamLeader" ? {...r,teamLeaderUserId:+assignUid} : type==="TeamSupervisor" ? {...r,teamSupervisorUserId:+assignUid} : {...r,sponsorUserId:+assignUid};
     }));
+    localStorage.setItem('ntcc_force_cloud_save','1');
     setAssignModal(null); setAssignUid("");
   };
 
@@ -4112,6 +4300,14 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
   const stopOngoing = recId => {
     if(!confirm("Stop ongoing care? Record will be marked Complete.")) return;
     setVisitRecords(rs=>rs.map(r=>r.id===recId?{...r,stage:"Complete",completedDate:td()}:r));
+    localStorage.setItem('ntcc_force_cloud_save','1');
+  };
+
+  const sendBackToPastor = (rec) => {
+    const v = getV(rec.visitorId);
+    if(!confirm(`Return ${v?.first??""} ${v?.last??""} to Pastor Visit stage?`)) return;
+    setVisitRecords(rs=>rs.map(r=>r.id===rec.id?{...r,stage:"Pastor"}:r));
+    localStorage.setItem('ntcc_force_cloud_save','1');
   };
 
   const convertToMember = (rec) => {
@@ -4135,6 +4331,7 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
     }]);
     // Mark visitor record as Converted
     setVisitRecords(rs=>rs.map(r=>r.id===rec.id?{...r,stage:"Converted",completedDate:td(),convertedMemberId:newMemberId}:r));
+    localStorage.setItem('ntcc_force_cloud_save','1');
     // Update visitor stage
     setVisitors(vs=>vs.map(v2=>v2.id===v.id?{...v2,stage:"Member"}:v2));
   };
@@ -4189,7 +4386,7 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
             </button>
           ))}
         </div>
-        <Btn onClick={()=>setView("addperson")} v="gold" style={{flexShrink:0,fontSize:12,display:canAddVisitor?"inline-flex":"none"}}>+ Add Visitor</Btn>
+        <Btn onClick={()=>{(window as any).__addPersonDefault__="visitor";setView("addperson");}} v="gold" style={{flexShrink:0,fontSize:12,display:canAddVisitor?"inline-flex":"none"}}>+ Add Visitor</Btn>
       </div>
 
       {/* PIPELINE TAB */}
@@ -4212,6 +4409,8 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
                     const v = getV(rec.visitorId);
                     if(!v) return null;
                     const last = getLast(rec);
+                    const famSpouse = visitors.find((x:any)=>x.isSpouseOf===v.id||(v.spouseId&&x.id===v.spouseId));
+                    const famKids:any[] = v.familyId ? visitors.filter((x:any)=>x.familyId===v.familyId&&x.isChild) : [];
                     const needsAssign = (stage==="TeamSupervisor"&&!rec.teamSupervisorUserId)||(stage==="TeamLeader"&&!rec.teamLeaderUserId)||(stage==="Sponsor"&&!rec.sponsorUserId);
                     const cs = stage==="OngoingCare" ? careStatus(rec) : null;
                     const due = stage==="OngoingCare" ? getNextDue(rec) : null;
@@ -4220,9 +4419,15 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
                         <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
                           <Av f={v.first} l={v.last} sz={28}/>
                           <div style={{minWidth:0,flex:1}}>
-                            <div style={{fontSize:13,fontWeight:500,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{v.first} {v.last}</div>
+                            <div style={{fontSize:13,fontWeight:500,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{v.first} {v.last}{famSpouse?" & "+famSpouse.first+" "+famSpouse.last:""}</div>
+                            {famKids.length>0 && <div style={{fontSize:10,color:MU}}>Children: {famKids.map((c:any)=>c.first).join(", ")}</div>}
                             <div style={{fontSize:11,color:MU}}>{fd(v.firstVisit)}</div>
                           </div>
+                          <button
+                            onClick={()=>{setProfileModal(v);setProfileForm({first:v.first||'',last:v.last||'',phone:v.phone||'',email:v.email||'',address:v.address?.street||'',city:v.address?.city||'',state:v.address?.state||'',zip:v.address?.zip||'',gender:v.gender||'',birthday:v.birthday||'',firstVisit:v.firstVisit||'',notes:v.notes||'',stage:v.stage||''});}}
+                            title="View Profile"
+                            style={{background:N+"12",border:"0.5px solid "+N+"33",borderRadius:7,width:26,height:26,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:12,flexShrink:0,color:N}}
+                          >👤</button>
                         </div>
                         {needsAssign && <div style={{fontSize:11,background:"#fee2e2",color:RE,borderRadius:4,padding:"2px 7px",marginBottom:6,display:"inline-block"}}>Needs Assignment</div>}
                         {cs && (
@@ -4239,8 +4444,34 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
                           </div>
                         )}
                         {due && <div style={{fontSize:10,color:cs?.color||MU,marginBottom:6,fontWeight:500}}>Next check-in: {fd(due)}</div>}
-                        <div style={{fontSize:11,color:MU,marginBottom:8}}>To: {getAssigned(rec)}</div>
+                        <div style={{fontSize:11,color:MU,marginBottom:4}}>To: {getAssigned(rec)}</div>
+                        {stage==="OngoingCare" && (isAdmin || !!(currentUser?.roleId && roles?.find((r:any)=>r.id===currentUser.roleId)?.name==="Pastor")) && (
+                          <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8,flexWrap:"wrap"}}>
+                            <span style={{fontSize:11,color:MU}}>Reassign:</span>
+                            <select
+                              defaultValue=""
+                              onChange={e=>{
+                                const uid=+e.target.value;
+                                if(!uid) return;
+                                setVisitRecords((rs:any[])=>rs.map(r=>r.id===rec.id?{...r,sponsorUserId:uid}:r));
+                                localStorage.setItem('ntcc_force_cloud_save','1');
+                                e.target.value="";
+                              }}
+                              style={{fontSize:11,padding:"3px 8px",border:"0.5px solid "+BR,borderRadius:6,background:W,color:TX,cursor:"pointer",flex:1}}
+                            >
+                              <option value="">— choose —</option>
+                              {activeUsers.filter((u:any)=>{const rn=(roles?.find((r:any)=>r.id===u.roleId)||{}).name||"";return rn==="Pastor"||rn==="Sponsor";}).map((u:any)=>{
+                                const m=members.find((x:any)=>x.id===u.memberId);
+                                const rn=(roles?.find((r:any)=>r.id===u.roleId)||{}).name||"";
+                                return m?<option key={u.id} value={u.id}>{m.first+" "+m.last} ({rn})</option>:null;
+                              })}
+                            </select>
+                          </div>
+                        )}
                         {stage!=="Complete" && <Btn onClick={()=>{setLogModal(rec);setLogForm({method:"Call",date:td(),notes:"",completed:false});}} v="ai" style={{fontSize:11,padding:"4px 8px",width:"100%",justifyContent:"center"}}>Log Contact</Btn>}
+                        {["TeamSupervisor","TeamLeader","Sponsor"].includes(stage) && (
+                          <Btn onClick={()=>sendBackToPastor(rec)} v="ghost" style={{fontSize:11,padding:"4px 8px",width:"100%",justifyContent:"center",marginTop:4,color:N,border:"0.5px solid "+N+"44"}}>&#8617; Return to Pastor Visit</Btn>
+                        )}
                         {stage==="Complete" && <div style={{fontSize:11,color:TE,fontWeight:500,textAlign:"center"}}>Fully Complete</div>}
                         <Btn onClick={()=>openThankYouLetter(v)} v="ghost" disabled={!(v.address?.street&&v.address?.city&&v.address?.state&&v.address?.zip)} style={{fontSize:11,padding:"4px 8px",width:"100%",justifyContent:"center",marginTop:4}}>📄 Thank You Letter</Btn>
                       </div>
@@ -4300,6 +4531,13 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
                 const careContacts = (rec.contacts||[]).filter(c=>c.stage==="OngoingCare");
                 const last = careContacts[careContacts.length-1] || getLast(rec);
                 const sponsor = getUName(rec.sponsorUserId);
+                const isPastor = !!(currentUser?.roleId && roles?.find((r:any)=>r.id===currentUser.roleId)?.name==="Pastor");
+                const canReassign = isAdmin || isPastor;
+                // Users eligible to be sponsor: Pastor or Sponsor role, Active
+                const sponsorEligible = activeUsers.filter(u=>{
+                  const rn = (roles?.find((r:any)=>r.id===u.roleId)||{}).name||"";
+                  return rn==="Pastor"||rn==="Sponsor";
+                });
                 return (
                   <div key={rec.id} style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:16,borderLeft:"4px solid "+(cs?.color||BR)}}>
                     <div style={{display:"flex",alignItems:"center",gap:14,flexWrap:"wrap"}}>
@@ -4315,6 +4553,29 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
                           )}
                         </div>
                         <div style={{fontSize:12,color:MU}}>Sponsor: <strong style={{color:TX}}>{sponsor}</strong> · First visit {fd(v.firstVisit)} · {careContacts.length} ongoing contact{careContacts.length!==1?"s":""} logged</div>
+                        {canReassign && (
+                          <div style={{display:"flex",alignItems:"center",gap:6,marginTop:5,flexWrap:"wrap"}}>
+                            <span style={{fontSize:11,color:MU}}>Reassign sponsor:</span>
+                            <select
+                              defaultValue=""
+                              onChange={e=>{
+                                const uid = +e.target.value;
+                                if(!uid) return;
+                                setVisitRecords((rs:any[])=>rs.map(r=>r.id===rec.id?{...r,sponsorUserId:uid}:r));
+                                localStorage.setItem('ntcc_force_cloud_save','1');
+                                e.target.value="";
+                              }}
+                              style={{fontSize:11,padding:"3px 8px",border:"0.5px solid "+BR,borderRadius:6,background:W,color:TX,cursor:"pointer"}}
+                            >
+                              <option value="">— choose —</option>
+                              {sponsorEligible.map((u:any)=>{
+                                const m=members.find((x:any)=>x.id===u.memberId);
+                                const rn=(roles?.find((r:any)=>r.id===u.roleId)||{}).name||"";
+                                return m ? <option key={u.id} value={u.id}>{m.first+" "+m.last} ({rn})</option> : null;
+                              })}
+                            </select>
+                          </div>
+                        )}
                       </div>
                       <div style={{textAlign:"right",minWidth:120}}>
                         <div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:0.5}}>Next Check-In</div>
@@ -4596,6 +4857,147 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
         })()}
       </Modal>
 
+      {/* ── Visitor Profile Slide-in Drawer ── */}
+      {profileModal && (()=>{
+        const rec=(visitRecords||[]).find((r:any)=>r.visitorId===profileModal.id||r.visitorId===String(profileModal.id));
+        const contacts=(rec?.contacts||[]).slice().sort((a:any,b:any)=>b.date.localeCompare(a.date));
+        const lastContact=contacts[0]||null;
+        const sponsorUser=activeUsers.find((u:any)=>u.id===rec?.sponsorUserId);
+        const sponsorMember=sponsorUser?members.find((m:any)=>m.id===sponsorUser.memberId):null;
+        const sponsorName=sponsorMember?(sponsorMember.first+" "+sponsorMember.last):profileModal.sponsor||"";
+        const pf=(k:string)=>profileForm[k]||'';
+        const spf=(k:string)=>(val:string)=>setProfileForm((f:any)=>({...f,[k]:val}));
+        const addrFull=[pf('address'),pf('city'),pf('state'),pf('zip')].filter(Boolean).join(', ');
+        const openMap=()=>{
+          if(!addrFull) return;
+          const q=encodeURIComponent(addrFull);
+          const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+          window.open(isIOS?'maps://maps.apple.com/?q='+q:'https://maps.google.com/?q='+q,'_blank');
+        };
+        const openSms=()=>{if(pf('phone'))(window as any).__openSmsComposer__?.({to:pf('phone'),toName:pf('first')+' '+pf('last')});else alert('No phone on file.');};
+        const saveProfile=()=>{
+          setVisitors((vs:any[])=>vs.map((vis:any)=>vis.id===profileModal.id?{...vis,first:pf('first'),last:pf('last'),phone:pf('phone'),email:pf('email'),address:{street:pf('address'),city:pf('city'),state:pf('state'),zip:pf('zip')},gender:pf('gender'),birthday:pf('birthday'),firstVisit:pf('firstVisit'),notes:pf('notes'),stage:pf('stage')}:vis));
+          localStorage.setItem('ntcc_force_cloud_save','1');
+          setProfileModal(null);
+        };
+        return (
+          <>
+            {/* Backdrop */}
+            <div onClick={()=>setProfileModal(null)} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.35)',zIndex:900}}/>
+            {/* Drawer */}
+            <div style={{position:'fixed',top:0,right:0,bottom:0,width:380,maxWidth:'95vw',background:W,boxShadow:'-4px 0 32px rgba(0,0,0,0.18)',zIndex:901,display:'flex',flexDirection:'column',overflowY:'auto'}}>
+              {/* Drawer header */}
+              <div style={{background:N,padding:'18px 20px 14px',flexShrink:0}}>
+                <div style={{display:'flex',alignItems:'flex-start',gap:12}}>
+                  <Av f={pf('first')} l={pf('last')} sz={46}/>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:17,fontWeight:700,color:'#fff',marginBottom:2}}>{pf('first')} {pf('last')}</div>
+                    <div style={{fontSize:11,color:'rgba(255,255,255,0.7)'}}>First Visit: {pf('firstVisit')?fd(pf('firstVisit')):'—'} · {pf('stage')||'Visitor'}</div>
+                  </div>
+                  <button onClick={()=>setProfileModal(null)} style={{background:'rgba(255,255,255,0.15)',border:'none',borderRadius:7,width:28,height:28,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',color:'#fff',fontSize:16,flexShrink:0}}>✕</button>
+                </div>
+              </div>
+              {/* Quick-view info */}
+              <div style={{padding:'16px 20px',borderBottom:'0.5px solid '+BR,flexShrink:0,display:'flex',flexDirection:'column',gap:10}}>
+                {/* Phone */}
+                {pf('phone') ? (
+                  <div style={{display:'flex',alignItems:'center',gap:10}}>
+                    <span style={{fontSize:18}}>📞</span>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:11,color:MU,fontWeight:500,marginBottom:1}}>Phone</div>
+                      <div style={{fontSize:14,fontWeight:500,color:TX}}>{pf('phone')}</div>
+                    </div>
+                    <button onClick={openSms} style={{background:GR+"18",border:"0.5px solid "+GR+"55",borderRadius:7,padding:"5px 12px",cursor:"pointer",fontSize:12,color:GR,fontWeight:600}}>💬 SMS</button>
+                  </div>
+                ) : (
+                  <div style={{display:'flex',alignItems:'center',gap:10,color:MU}}>
+                    <span style={{fontSize:18}}>📞</span>
+                    <div style={{flex:1}}><div style={{fontSize:11,fontWeight:500,marginBottom:1}}>Phone</div><div style={{fontSize:13,fontStyle:'italic'}}>No phone on file</div></div>
+                  </div>
+                )}
+                {/* Address */}
+                <div style={{display:'flex',alignItems:'flex-start',gap:10}}>
+                  <span style={{fontSize:18,marginTop:2}}>📍</span>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:11,color:MU,fontWeight:500,marginBottom:1}}>Address</div>
+                    {addrFull ? (
+                      <button onClick={openMap} style={{background:'none',border:'none',padding:0,cursor:'pointer',textAlign:'left',color:BL,fontSize:13,fontWeight:500,textDecoration:'underline',textDecorationStyle:'dotted',textDecorationColor:BL+'88',lineHeight:1.4}}>
+                        {pf('address')&&<div>{pf('address')}</div>}
+                        {(pf('city')||pf('state')||pf('zip'))&&<div>{[pf('city'),pf('state'),pf('zip')].filter(Boolean).join(', ')}</div>}
+                        <div style={{fontSize:10,color:BL,marginTop:2}}>🗺 Tap to open map</div>
+                      </button>
+                    ) : <div style={{fontSize:13,color:MU,fontStyle:'italic'}}>No address on file</div>}
+                  </div>
+                </div>
+                {/* Sponsor */}
+                {sponsorName && (
+                  <div style={{display:'flex',alignItems:'center',gap:10}}>
+                    <span style={{fontSize:18}}>🤝</span>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:11,color:MU,fontWeight:500,marginBottom:1}}>Sponsor / Greeter</div>
+                      <div style={{fontSize:13,fontWeight:500,color:TX}}>{sponsorName}</div>
+                    </div>
+                  </div>
+                )}
+                {/* Last Contact */}
+                {lastContact && (
+                  <div style={{background:BG,border:'0.5px solid '+BR,borderRadius:8,padding:'8px 12px'}}>
+                    <div style={{fontSize:11,color:MU,fontWeight:600,marginBottom:4,textTransform:'uppercase',letterSpacing:0.4}}>Last Contact</div>
+                    <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
+                      <span style={{fontSize:11,background:(METH_CLR[lastContact.method]||{bg:BG}).bg,color:(METH_CLR[lastContact.method]||{c:MU}).c,borderRadius:4,padding:'2px 7px',fontWeight:500}}>{METH_IC[lastContact.method]} {lastContact.method}</span>
+                      <span style={{fontSize:12,color:MU}}>{fd(lastContact.date)}</span>
+                      {lastContact.completed && <span style={{fontSize:11,color:GR,fontWeight:600}}>✓ Completed</span>}
+                    </div>
+                    {lastContact.notes && <div style={{fontSize:12,color:TX,marginTop:4,fontStyle:'italic'}}>"{lastContact.notes}"</div>}
+                  </div>
+                )}
+                {contacts.length>1 && (
+                  <div style={{fontSize:11,color:MU}}>+{contacts.length-1} more contact{contacts.length-1>1?'s':''} — see edit form below</div>
+                )}
+              </div>
+              {/* Edit form section */}
+              <div style={{padding:'16px 20px',flex:1}}>
+                <div style={{fontSize:12,fontWeight:600,color:N,marginBottom:10,textTransform:'uppercase',letterSpacing:0.5}}>Edit Info</div>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8,marginBottom:8}}>
+                  <Fld label="First Name"><Inp value={pf('first')} onChange={spf('first')}/></Fld>
+                  <Fld label="Last Name"><Inp value={pf('last')} onChange={spf('last')}/></Fld>
+                  <Fld label="Phone"><Inp value={pf('phone')} onChange={spf('phone')} placeholder="(555) 000-0000"/></Fld>
+                  <Fld label="Email"><Inp value={pf('email')} onChange={spf('email')} placeholder="email@…"/></Fld>
+                  <Fld label="Birthday"><Inp type="date" value={pf('birthday')} onChange={spf('birthday')}/></Fld>
+                  <Fld label="First Visit Date"><Inp type="date" value={pf('firstVisit')} onChange={spf('firstVisit')}/></Fld>
+                </div>
+                <Fld label="Street Address"><Inp value={pf('address')} onChange={spf('address')}/></Fld>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 72px 84px',gap:8,marginBottom:8}}>
+                  <Fld label="City"><Inp value={pf('city')} onChange={spf('city')}/></Fld>
+                  <Fld label="State"><Inp value={pf('state')} onChange={spf('state')}/></Fld>
+                  <Fld label="Zip"><Inp value={pf('zip')} onChange={spf('zip')}/></Fld>
+                </div>
+                <Fld label="Notes"><textarea value={pf('notes')} onChange={e=>spf('notes')(e.target.value)} rows={2} placeholder="Any notes about this visitor…" style={{width:'100%',padding:'8px 10px',border:'0.5px solid '+BR,borderRadius:8,fontSize:13,fontFamily:'inherit',resize:'vertical',boxSizing:'border-box' as any,background:W}}/></Fld>
+                {contacts.length>0 && (
+                  <div style={{marginTop:10}}>
+                    <div style={{fontSize:11,fontWeight:600,color:N,marginBottom:6,textTransform:'uppercase',letterSpacing:0.4}}>Contact History ({contacts.length})</div>
+                    <div style={{maxHeight:150,overflowY:'auto',display:'flex',flexDirection:'column',gap:5}}>
+                      {contacts.map((c:any,i:number)=>(
+                        <div key={i} style={{fontSize:11,background:c.completed?'#f0fdf4':BG,border:'0.5px solid '+(c.completed?'#86efac':BR),borderRadius:6,padding:'6px 10px',display:'flex',gap:8,alignItems:'center'}}>
+                          <span style={{fontWeight:500,color:c.completed?GR:TX}}>{METH_IC[c.method]||''} {c.method}</span>
+                          <span style={{color:MU}}>{fd(c.date)}</span>
+                          {c.completed && <span style={{color:GR,fontWeight:500,marginLeft:'auto'}}>✓</span>}
+                          {c.notes && <span style={{color:MU,fontStyle:'italic',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:100}}>{c.notes}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div style={{display:'flex',gap:8,marginTop:14,paddingTop:14,borderTop:'0.5px solid '+BR}}>
+                  <Btn onClick={saveProfile} style={{flex:1,justifyContent:'center'}}>Save Changes</Btn>
+                  <Btn onClick={()=>setProfileModal(null)} v="ghost">Cancel</Btn>
+                </div>
+              </div>
+            </div>
+          </>
+        );
+      })()}
+
       {/* ── Thank You Letter Modal ── */}
       <Modal open={!!tyModal} onClose={()=>{setTyModal(null);setTyBody("");}} title={"📄 Thank You Letter"} width={620}>
         {tyModal && (
@@ -4648,6 +5050,7 @@ function Groups({members,groups,setGroups,grpMeetings,setGrpMeetings,currentUser
   const [checked,setChecked]=useState(new Set());
   const [logForm,setLogForm]=useState({date:td(),walkIns:0,notes:""});
   const [expandedId,setExpandedId]=useState(null);
+  const [availSearch,setAvailSearch]=useState("");
   const [aiSum,setAiSum]=useState("");const[aiSumLoad,setAiSumLoad]=useState(false);
   const [bulkMsg,setBulkMsg]=useState("");const[bulkLoad,setBulkLoad]=useState(false);
   const [indivMsgs,setIndivMsgs]=useState({});const[indivLoad,setIndivLoad]=useState({});
@@ -4702,6 +5105,7 @@ function Groups({members,groups,setGroups,grpMeetings,setGrpMeetings,currentUser
   const attRate=m=>enrolled.length?Math.round(m.presentIds.length/enrolled.length*100):0;
   const pColor=r=>r>=75?GR:r>=50?AM:RE;
   const avail=group?members.filter(m=>!group.memberIds.includes(m.id)):[];
+  const filtAvail=availSearch.trim().length>0?avail.filter(m=>(m.first+" "+m.last).toLowerCase().includes(availSearch.trim().toLowerCase())):avail;
   // Filter groups based on role:
   // - Admin / Super Admin → all groups
   // - Team Leader → only groups they are the leader of
@@ -4789,7 +5193,7 @@ function Groups({members,groups,setGroups,grpMeetings,setGrpMeetings,currentUser
                 </div>
                 {enrolled.length===0?<div style={{padding:32,textAlign:"center",color:MU,fontSize:13}}>No members yet.</div>:enrolled.map(m=>(
                   <div key={m.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 16px",borderBottom:"0.5px solid "+BR}}>
-                    <Av f={m.first} l={m.last} sz={32}/><div style={{flex:1}}><div style={{fontSize:13,fontWeight:500}}>{m.first} {m.last}</div><div style={{fontSize:11,color:MU}}>{m.role||"Member"} · {m.phone}</div></div>
+                    <Av f={m.first} l={m.last} sz={32}/><div style={{flex:1}}><div style={{fontSize:13,fontWeight:500}}>{m.first} {m.last}</div><div style={{fontSize:11,color:MU}}>{m.phone}</div></div>
                     {m.id===group.leaderId&&<span style={{fontSize:10,background:group.color+"22",color:group.color,borderRadius:10,padding:"2px 8px",fontWeight:500}}>Leader</span>}
                     <button onClick={()=>removeMember(m.id)} style={{background:"#fee2e2",border:"none",borderRadius:6,padding:"4px 8px",cursor:"pointer",color:RE,fontSize:11}}>Remove</button>
                   </div>
@@ -4797,10 +5201,13 @@ function Groups({members,groups,setGroups,grpMeetings,setGrpMeetings,currentUser
               </div>
               <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,overflow:"hidden"}}>
                 <div style={{padding:"12px 16px",borderBottom:"0.5px solid "+BR,background:"#f8f9fc"}}><div style={{fontSize:13,fontWeight:500}}>Available Members</div><div style={{fontSize:11,color:MU}}>{avail.length} available to add</div></div>
-                {avail.length===0?<div style={{padding:32,textAlign:"center",color:MU,fontSize:13}}>All members are enrolled.</div>:avail.map(m=>(
+                <div style={{padding:"8px 12px",borderBottom:"0.5px solid "+BR}}>
+                  <input value={availSearch} onChange={e=>setAvailSearch(e.target.value)} placeholder="Search available members..." style={{width:"100%",boxSizing:"border-box",padding:"7px 10px",border:"0.5px solid "+BR,borderRadius:7,fontSize:12,outline:"none"}}/>
+                </div>
+                {avail.length===0?<div style={{padding:32,textAlign:"center",color:MU,fontSize:13}}>All members are enrolled.</div>:filtAvail.length===0?<div style={{padding:20,textAlign:"center",color:MU,fontSize:13}}>No members match "{availSearch}".</div>:filtAvail.map(m=>(
                   <div key={m.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 16px",borderBottom:"0.5px solid "+BR}}>
-                    <Av f={m.first} l={m.last} sz={32}/><div style={{flex:1}}><div style={{fontSize:13,fontWeight:500}}>{m.first} {m.last}</div><div style={{fontSize:11,color:MU}}>{m.role||"Member"} · {m.phone}</div></div>
-                    <button onClick={()=>addMember(m.id)} style={{background:"#dcfce7",border:"none",borderRadius:6,padding:"4px 8px",cursor:"pointer",color:GR,fontSize:11,fontWeight:500}}>+ Add</button>
+                    <Av f={m.first} l={m.last} sz={32}/><div style={{flex:1}}><div style={{fontSize:13,fontWeight:500}}>{m.first} {m.last}</div><div style={{fontSize:11,color:MU}}>{m.phone}</div></div>
+                    <button onClick={()=>{addMember(m.id);setAvailSearch("");}} style={{background:"#dcfce7",border:"none",borderRadius:6,padding:"4px 8px",cursor:"pointer",color:GR,fontSize:11,fontWeight:500}}>+ Add</button>
                   </div>
                 ))}
               </div>
@@ -4960,7 +5367,7 @@ function Groups({members,groups,setGroups,grpMeetings,setGrpMeetings,currentUser
         <Fld label="Group Leader">
           <select value={form.leaderId||""} onChange={e=>sf("leaderId")(e.target.value)} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}>
             <option value="">No leader assigned</option>
-            {members.map(m=><option key={m.id} value={m.id}>{m.first} {m.last}{m.role?" ("+m.role+")":""}</option>)}
+            {members.map(m=><option key={m.id} value={m.id}>{m.first} {m.last}</option>)}
           </select>
         </Fld>
         <Fld label="Show on Event Calendar">
@@ -4997,7 +5404,7 @@ function Groups({members,groups,setGroups,grpMeetings,setGrpMeetings,currentUser
           {enrolled.map(m=>{const present=checked.has(m.id);return(
             <div key={m.id} onClick={()=>togglePresent(m.id)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",borderRadius:8,border:"0.5px solid "+(present?GR+"66":RE+"44"),background:present?"#f0fdf4":"#fff5f5",cursor:"pointer",userSelect:"none"}}>
               <div style={{width:20,height:20,borderRadius:4,border:"1.5px solid "+(present?GR:RE),background:present?GR:"#fee2e2",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><span style={{color:"#fff",fontSize:12,lineHeight:1}}>{present?"v":"x"}</span></div>
-              <Av f={m.first} l={m.last} sz={26}/><div style={{flex:1}}><div style={{fontSize:13,fontWeight:500}}>{m.first} {m.last}</div><div style={{fontSize:11,color:MU}}>{m.role||"Member"}</div></div>
+              <Av f={m.first} l={m.last} sz={26}/><div style={{flex:1}}><div style={{fontSize:13,fontWeight:500}}>{m.first} {m.last}</div></div>
               <span style={{fontSize:11,fontWeight:500,color:present?GR:RE,background:present?"#dcfce7":"#fee2e2",borderRadius:10,padding:"2px 8px"}}>{present?"Present":"Absent"}</span>
             </div>
           );})}
@@ -5129,7 +5536,7 @@ function FamilyForm({newVis,setNewVis,onSubmit,allPeople}){
   );
 }
 
-function CalendarView({members,visitors,setVisitors,groups,recurring,setRecurring,custom,setCustom,checkIns,setCheckIns,grpMeetings=[],setGrpMeetings=()=>{},prospects=[],setProspects=()=>{},servicePlans={},setServicePlans=()=>{}}){
+function CalendarView({members,visitors,setVisitors,groups,recurring,setRecurring,custom,setCustom,checkIns,setCheckIns,grpMeetings=[],setGrpMeetings=()=>{},prospects=[],setProspects=()=>{},servicePlans={},setServicePlans=()=>{},classrooms=[],children=[],kidsCheckIns=[],setKidsCheckIns=()=>{}}){
   const [ctab,setCtab]=useState("calendar");
   const [yr,setYr]=useState(2026);const[mo,setMo]=useState(3);
   const [selDate,setSelDate]=useState("2026-04-20");const[selEvt,setSelEvt]=useState(null);
@@ -5201,6 +5608,18 @@ function CalendarView({members,visitors,setVisitors,groups,recurring,setRecurrin
       }
     } else {
       setGrpMeetings(ms=>[...ms,{id:nid.current++,groupId:grp.id,date:grp.date,presentIds:[member.id],absentIds:grp.memberIds.filter(id=>id!==member.id),walkIns:0,notes:"Auto-logged from calendar check-in",total:1}]);
+    }
+  };
+  // Group un-check-in — removes a check-in record and updates grpMeetings presentIds
+  const undoGrpCI=member=>{
+    if(!grpCheckedIds.has(member.id))return;
+    const grp=selGrpEvt;
+    // Remove from calendar check-ins
+    setCheckIns(cs=>cs.filter(c=>!(c.iid===grp.iid&&c.pid===member.id)));
+    // Remove from Groups Ministry attendance
+    const existingMeet=grpMeetings.find(m=>m.groupId===grp.id&&m.date===grp.date);
+    if(existingMeet){
+      setGrpMeetings(ms=>ms.map(m=>m.id===existingMeet.id?{...m,presentIds:m.presentIds.filter(id=>id!==member.id),absentIds:[...new Set([...m.absentIds,member.id])],total:Math.max(0,m.total-1)}:m));
     }
   };
   const doCIFam=()=>{
@@ -5398,58 +5817,90 @@ function CalendarView({members,visitors,setVisitors,groups,recurring,setRecurrin
                       {dayGrpEvts.map(grp=>{
                         const grpCIs=checkIns.filter(c=>c.iid===grp.iid);
                         const isSel=selGrpEvt?.iid===grp.iid;
-                        const enrolled=members.filter(m=>grp.memberIds.includes(m.id));
-                        const leader=members.find(m=>m.id===grp.leaderId);
-                        const presentIds=new Set(grpCIs.map(c=>c.pid));
+                        // Detect classroom group: explicit link OR name match (normalise spaces around hyphens)
+                        const _normName=(s:string)=>s.toLowerCase().replace(/\s*-\s*/g,"-").trim();
+                        const linkedCl=(classrooms||[]).find((cl:any)=>
+                          (cl.linkedGroupId&&String(cl.linkedGroupId)===String(grp.id))||
+                          _normName(cl.name)===_normName(grp.name)
+                        );
+                        const isClassroomGroup=!!linkedCl;
+                        // Enrolled: children for classroom groups, adult members for regular groups
+                        const enrolledChildren=isClassroomGroup?(children||[]).filter((ch:any)=>ch.classroomId===linkedCl.id&&ch.status!=="Graduated"):[];
+                        const enrolledAdults=isClassroomGroup?[]:members.filter(m=>grp.memberIds.includes(m.id));
+                        const enrolled=isClassroomGroup?enrolledChildren:enrolledAdults;
+                        const leader=isClassroomGroup?null:members.find(m=>m.id===grp.leaderId);
+                        // Present: kids check-ins for classroom groups, calendar CIs for regular groups
+                        const todayKidsCI=isClassroomGroup?new Set((kidsCheckIns||[]).filter((ci:any)=>ci.classroomId===linkedCl.id&&ci.date===grp.date&&!ci.checkedOut&&ci.childId).map((ci:any)=>ci.childId)):new Set();
+                        const presentIds=isClassroomGroup?todayKidsCI:new Set(grpCIs.map(c=>c.pid));
+                        const checkedInCount=isClassroomGroup?todayKidsCI.size:grpCIs.length;
+                        // Check-in / undo for classroom groups (children)
+                        const doKidCalCI=(ch:any)=>{
+                          if(presentIds.has(ch.id))return;
+                          setCheckIns((cs:any[])=>[...cs,{id:nid.current++,iid:grp.iid,eid:"g"+grp.id,ename:grp.name,date:grp.date,time:grp.time||"",pid:ch.id,ptype:"child",first:ch.first,last:ch.last,phone:"",isNew:false,isGroupCI:true,groupId:grp.id,isKid:true}]);
+                          setKidsCheckIns((cs:any[])=>[...cs,{id:nid.current++,childId:ch.id,memberId:null,first:ch.first,last:ch.last,classroomId:linkedCl.id,date:grp.date,time:new Date().toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit",hour12:true}),code:null,checkedOut:false,isCalendarCI:true}]);
+                        };
+                        const undoKidCalCI=(ch:any)=>{
+                          if(!presentIds.has(ch.id))return;
+                          setCheckIns((cs:any[])=>cs.filter(c=>!(c.iid===grp.iid&&c.pid===ch.id)));
+                          setKidsCheckIns((cs:any[])=>cs.map((ci:any)=>ci.childId===ch.id&&ci.classroomId===linkedCl.id&&ci.date===grp.date&&!ci.checkedOut?{...ci,checkedOut:true,checkOutTime:new Date().toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit",hour12:true})}:ci));
+                        };
                         return(
                           <div key={grp.iid} style={{marginBottom:6,border:"1.5px solid "+(isSel?grp.color:grp.color+"44"),borderRadius:10,overflow:"hidden"}}>
                             <div onClick={()=>{setSelGrpEvt(isSel?null:grp);setSelEvt(null);setSearch("");setNewVis(null);setGrpCISearch("");}} style={{padding:"9px 12px",cursor:"pointer",display:"flex",alignItems:"center",gap:8,background:isSel?grp.color+"14":grp.color+"06"}}>
                               <div style={{width:4,height:34,borderRadius:2,background:grp.color,flexShrink:0}}></div>
                               <div style={{flex:1,minWidth:0}}>
-                                <div style={{fontSize:12,fontWeight:500,color:grp.color,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{grp.name}</div>
+                                <div style={{fontSize:12,fontWeight:500,color:grp.color,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{grp.name}{isClassroomGroup&&<span style={{fontSize:9,background:grp.color+"22",color:grp.color,borderRadius:8,padding:"1px 5px",fontWeight:500,marginLeft:5}}>🎒 Classroom</span>}</div>
                                 <div style={{fontSize:10,color:MU}}>{grp.time}{grp.location?" · "+grp.location:""}</div>
                                 {leader&&<div style={{fontSize:9,color:grp.color,marginTop:1}}>Leader: {leader.first} {leader.last}</div>}
                               </div>
                               <div style={{textAlign:"right",flexShrink:0}}>
-                                <div style={{fontSize:13,fontWeight:600,color:grpCIs.length>0?GR:MU}}>{grpCIs.length}/{enrolled.length}</div>
-                                <div style={{fontSize:9,color:MU}}>checked in</div>
+                                <div style={{fontSize:13,fontWeight:600,color:checkedInCount>0?GR:MU}}>{checkedInCount}/{enrolled.length}</div>
+                                <div style={{fontSize:9,color:MU}}>{isClassroomGroup?"children in":"checked in"}</div>
                               </div>
                             </div>
                             {isSel&&(
                               <div style={{borderTop:"0.5px solid "+grp.color+"44",padding:"10px 12px",background:grp.color+"04"}}>
-                                {leader&&(
+                                {leader&&!isClassroomGroup&&(
                                   <div style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",background:grp.color+"12",borderRadius:7,marginBottom:10,border:"0.5px solid "+grp.color+"33"}}>
                                     <Av f={leader.first} l={leader.last} sz={26}/>
                                     <div><div style={{fontSize:11,color:MU,lineHeight:1}}>Group Leader</div><div style={{fontSize:12,fontWeight:500,color:grp.color}}>{leader.first} {leader.last}</div></div>
                                     <span style={{marginLeft:"auto",fontSize:10,background:grp.color,color:"#fff",borderRadius:10,padding:"2px 8px",fontWeight:500}}>Leader</span>
                                   </div>
                                 )}
-                                <div style={{fontSize:10,fontWeight:600,color:N,textTransform:"uppercase",letterSpacing:0.5,marginBottom:8}}>Group Member Check-In</div>
-                                <input value={grpCISearch} onChange={e=>setGrpCISearch(e.target.value)} placeholder="Search group member..." style={{width:"100%",padding:"7px 10px",border:"0.5px solid "+BR,borderRadius:7,fontSize:12,outline:"none",boxSizing:"border-box",marginBottom:8}}/>
+                                {isClassroomGroup&&linkedCl&&(
+                                  <div style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",background:grp.color+"10",borderRadius:7,marginBottom:10,border:"0.5px solid "+grp.color+"33"}}>
+                                    <div style={{width:10,height:10,borderRadius:3,background:linkedCl.color,flexShrink:0}}/>
+                                    <div style={{flex:1}}><div style={{fontSize:11,color:MU,lineHeight:1}}>Classroom</div><div style={{fontSize:12,fontWeight:500,color:grp.color}}>{linkedCl.name}{linkedCl.location?" · "+linkedCl.location:""}</div></div>
+                                    <span style={{fontSize:10,background:grp.color+"22",color:grp.color,borderRadius:8,padding:"2px 8px",fontWeight:500}}>{enrolled.length} enrolled</span>
+                                  </div>
+                                )}
+                                <div style={{fontSize:10,fontWeight:600,color:N,textTransform:"uppercase",letterSpacing:0.5,marginBottom:8}}>{isClassroomGroup?"Children Check-In":"Group Member Check-In"}</div>
+                                <input value={grpCISearch} onChange={e=>setGrpCISearch(e.target.value)} placeholder={isClassroomGroup?"Search child...":"Search group member..."} style={{width:"100%",padding:"7px 10px",border:"0.5px solid "+BR,borderRadius:7,fontSize:12,outline:"none",boxSizing:"border-box",marginBottom:8}}/>
                                 <div style={{display:"flex",flexDirection:"column",gap:5}}>
                                   {enrolled.filter(m=>grpCISearch.trim().length<2||(m.first+" "+m.last).toLowerCase().includes(grpCISearch.toLowerCase())).map(m=>{
                                     const isIn=presentIds.has(m.id);
+                                    const hasMed=isClassroomGroup&&((m.allergies?.length>0)||(m.medical?.length>0));
                                     return(
-                                      <div key={m.id} onClick={()=>!isIn&&doGrpCI(m)} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",borderRadius:8,border:"0.5px solid "+(isIn?GR+"55":BR),background:isIn?"#f0fdf4":W,cursor:isIn?"default":"pointer",transition:"all 0.1s"}}>
+                                      <div key={m.id} onClick={()=>isIn?(isClassroomGroup?undoKidCalCI(m):undoGrpCI(m)):(isClassroomGroup?doKidCalCI(m):doGrpCI(m))} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",borderRadius:8,border:"0.5px solid "+(isIn?GR+"55":BR),background:isIn?"#f0fdf4":W,cursor:"pointer",transition:"all 0.1s"}}>
                                         <div style={{width:18,height:18,borderRadius:4,border:"1.5px solid "+(isIn?GR:BR),background:isIn?GR:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
                                           {isIn&&<span style={{color:"#fff",fontSize:11,lineHeight:1}}>v</span>}
                                         </div>
                                         <Av f={m.first} l={m.last} sz={26}/>
                                         <div style={{flex:1,minWidth:0}}>
-                                          <div style={{fontSize:12,fontWeight:500,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{m.first} {m.last}</div>
-                                          <div style={{fontSize:10,color:MU}}>{m.role||"Member"}</div>
+                                          <div style={{fontSize:12,fontWeight:500,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{m.first} {m.last}{hasMed&&<span style={{fontSize:10,background:"#fee2e2",color:RE,borderRadius:4,padding:"0 4px",fontWeight:600,marginLeft:5}}>⚠</span>}</div>
+                                          {isClassroomGroup&&m.parentName&&<div style={{fontSize:10,color:MU}}>{m.parentName}{m.parentPhone?" · "+m.parentPhone:""}</div>}
                                         </div>
-                                        {m.id===grp.leaderId&&<span style={{fontSize:9,background:grp.color+"22",color:grp.color,borderRadius:8,padding:"1px 6px",fontWeight:500}}>Leader</span>}
-                                        {isIn?<span style={{fontSize:10,color:GR,fontWeight:600}}>Present</span>:<span style={{fontSize:10,background:grp.color,color:"#fff",borderRadius:4,padding:"2px 7px",cursor:"pointer"}}>Mark In</span>}
+                                        {!isClassroomGroup&&m.id===grp.leaderId&&<span style={{fontSize:9,background:grp.color+"22",color:grp.color,borderRadius:8,padding:"1px 6px",fontWeight:500}}>Leader</span>}
+                                        {isIn?<span style={{fontSize:10,color:GR,fontWeight:600,cursor:"pointer"}} title="Click to remove">✓ Present</span>:<span style={{fontSize:10,background:grp.color,color:"#fff",borderRadius:4,padding:"2px 7px",cursor:"pointer"}}>Mark In</span>}
                                       </div>
                                     );
                                   })}
-                                  {enrolled.length===0&&<div style={{fontSize:12,color:MU,fontStyle:"italic",textAlign:"center",padding:12}}>No members enrolled in this group yet.</div>}
+                                  {enrolled.length===0&&<div style={{fontSize:12,color:MU,fontStyle:"italic",textAlign:"center",padding:12}}>{isClassroomGroup?"No children enrolled in this classroom yet.":"No members enrolled in this group yet."}</div>}
                                 </div>
-                                {grpCIs.length>0&&(
+                                {(isClassroomGroup?todayKidsCI.size:grpCIs.length)>0&&(
                                   <div style={{marginTop:10,padding:"8px 10px",background:"#f0fdf4",borderRadius:7,border:"0.5px solid #86efac"}}>
-                                    <div style={{fontSize:10,color:GR,fontWeight:600,marginBottom:4}}>Auto-logged to Groups Ministry Attendance</div>
-                                    <div style={{fontSize:11,color:MU}}>{grpCIs.length} of {enrolled.length} members marked present · {new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"})}</div>
+                                    <div style={{fontSize:10,color:GR,fontWeight:600,marginBottom:4}}>{isClassroomGroup?"Synced to Education Check-In Records":"Auto-logged to Groups Ministry Attendance"}</div>
+                                    <div style={{fontSize:11,color:MU}}>{isClassroomGroup?todayKidsCI.size:grpCIs.length} of {enrolled.length} {isClassroomGroup?"children":"members"} marked present · {new Date().toLocaleDateString("en-US",{month:"short",day:"numeric"})}</div>
                                   </div>
                                 )}
                               </div>
@@ -5539,7 +5990,7 @@ function CalendarView({members,visitors,setVisitors,groups,recurring,setRecurrin
 }
 
 // ── DASHBOARD ──
-function Dashboard({members,visitors,attendance,giving,prayers,setView,canViewGiving,isRestrictedUser,canAddPerson}:any) {
+function Dashboard({members,visitors,attendance,giving,prayers,setView,canViewGiving,isRestrictedUser,canAddPerson,groups=[],grpMeetings=[],visitRecords=[]}:any) {
   const [insight,setInsight] = useState("");
   const [iLoad,setILoad] = useState(false);
   const [alerts,setAlerts] = useState([]);
@@ -5569,13 +6020,67 @@ function Dashboard({members,visitors,attendance,giving,prayers,setView,canViewGi
     setALoad(false);
   };
 
+  // ── Church Health Chart Data (last 30 days) ────────────────
+  const CH_COLORS=[N,GR,PU,BL,AM,G,"#0891b2",RE];
+  const thirty30=new Date();thirty30.setDate(thirty30.getDate()-30);
+  const start30=thirty30.toISOString().slice(0,10);
+  const weekSun=(d:string)=>{const dt=new Date(d+"T12:00:00");dt.setDate(dt.getDate()-dt.getDay());return dt.toISOString().slice(0,10);};
+  const fmtWk=(d:string)=>new Date(d+"T12:00:00").toLocaleDateString("en-US",{month:"numeric",day:"numeric"});
+
+  // Attendance trend
+  const attWkMap:{[k:string]:number}={};
+  attendance.forEach((a:any)=>{if(a.date<start30)return;const k=weekSun(a.date);attWkMap[k]=(attWkMap[k]||0)+(a.count||0);});
+  const attTrend=Object.entries(attWkMap).sort((a,b)=>a[0].localeCompare(b[0])).map(([k,v])=>({label:fmtWk(k),total:v as number}));
+  const attTotal30=attendance.filter((a:any)=>a.date>=start30).reduce((s:number,a:any)=>s+(a.count||0),0);
+
+  // Member growth
+  const memWkMap:{[k:string]:number}={};
+  members.forEach((m:any)=>{const d=m.joined||m.addedDate||"";if(!d||d<start30)return;const k=weekSun(d);memWkMap[k]=(memWkMap[k]||0)+1;});
+  const memGrowth=Object.entries(memWkMap).sort((a,b)=>a[0].localeCompare(b[0])).map(([k,v])=>({label:fmtWk(k),count:v as number}));
+  const newMem30=members.filter((m:any)=>{const d=m.joined||m.addedDate||"";return d&&d>=start30;}).length;
+
+  // Prayer health
+  const activePrayers=prayers.filter((p:any)=>p.status==="Active").length;
+  const answeredPrayers=prayers.filter((p:any)=>p.status==="Answered").length;
+  const prayers30=prayers.filter((p:any)=>p.date>=start30).length;
+  const prayerPieData=[{name:"Active",value:activePrayers,color:AM},{name:"Answered",value:answeredPrayers,color:GR}];
+
+  // Follow-up completion rate — based on visitRecords (Pipeline) completed contacts
+  const totalVisitors=visitors.length;
+  const fuDone=visitors.filter((v:any)=>{
+    const rec=(visitRecords as any[]).find((r:any)=>r.visitorId===v.id||r.visitorId===String(v.id));
+    if(!rec)return false;
+    if(rec.stage==="Complete"||rec.stage==="Converted")return true;
+    return (rec.contacts||[]).some((c:any)=>c.completed);
+  }).length;
+  const needFU=totalVisitors-fuDone;
+  const fuPct=totalVisitors?Math.round(fuDone/totalVisitors*100):0;
+  const fuPieData=[{name:"Followed Up",value:fuDone,color:GR},{name:"Needs Follow-Up",value:needFU,color:RE}];
+
+  // Visitor→Member conversion (all time)
+  const convPct=totalVisitors+members.length?Math.round(members.length/(totalVisitors+members.length)*100):0;
+  const convPieData=[{name:"Members",value:members.length,color:N},{name:"Visitors",value:totalVisitors,color:AM}];
+
+  // Group participation (last 30 days)
+  const grpTotMap:{[k:string]:{total:number;meets:number}}={};
+  grpMeetings.forEach((m:any)=>{if(m.date<start30)return;if(!grpTotMap[m.groupId])grpTotMap[m.groupId]={total:0,meets:0};grpTotMap[m.groupId].total+=(m.total||0);grpTotMap[m.groupId].meets++;});
+  const grpBarData=Object.entries(grpTotMap).map(([gid,d]:any)=>{const g=groups.find((x:any)=>String(x.id)===String(gid));return{name:g?.name||"Group "+gid,total:d.total,meets:d.meets};}).sort((a:any,b:any)=>b.total-a.total).slice(0,8);
+  const grpMeets30=grpMeetings.filter((m:any)=>m.date>=start30).length;
+  const grpAttendees30=grpMeetings.filter((m:any)=>m.date>=start30).reduce((s:number,m:any)=>s+(m.total||0),0);
+
+  // Giving 30
+  const giv30=giving.filter((g:any)=>g.date>=start30).reduce((s:number,g:any)=>s+g.amount,0);
+
+  const hasChartData=attTrend.length>0||memGrowth.length>0||grpBarData.length>0;
+  // ─────────────────────────────────────────────────────────────
+
   const pc = (p:string) => p==="high"?RE:p==="medium"?AM:GR;
   const qnav=[['Directory','people'],['Visitation','visitation'],['Attendance','attendance'],['Prayer Wall','prayer'],['Access Control','access'],['AI Assistant','ai'],['Settings','settings']];
   if(canViewGiving) qnav.splice(3,0,['Giving','giving']);
 
   return (
     <div>
-      {/* Add Person Banner — shown only when canAddPerson permission is granted */}
+      {/* Add Person Banner */}
       {canAddPerson && <div onClick={()=>setView("addperson")} style={{background:"linear-gradient(135deg,"+N+",#2a4a8a)",borderRadius:12,padding:"16px 22px",marginBottom:20,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <div>
           <div style={{color:G,fontSize:11,fontWeight:600,textTransform:"uppercase",letterSpacing:1.5,marginBottom:3}}>Central Intake</div>
@@ -5584,6 +6089,149 @@ function Dashboard({members,visitors,attendance,giving,prayers,setView,canViewGi
         </div>
         <div style={{color:"#fff",fontSize:28,opacity:0.5}}>→</div>
       </div>}
+
+      {/* ── Church Health Dashboard (last 30 days) ── */}
+      <div style={{marginBottom:20}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+          <div style={{fontSize:15,fontWeight:600,color:N}}>Church Health — Last 30 Days</div>
+          <span style={{fontSize:11,color:MU}}>Auto-computed from all modules</span>
+        </div>
+        {/* KPI Scorecard row */}
+        <div style={{display:"flex",gap:10,marginBottom:14,flexWrap:"wrap"}}>
+          <Stat label="Attendance" value={attTotal30} sub="Total headcount" color={BL}/>
+          <Stat label="New Members" value={newMem30} sub="Added this period" color={GR}/>
+          {canViewGiving && <Stat label="Giving" value={f$(giv30)} sub="Tithes & offerings" color={G}/>}
+          <Stat label="Group Meetings" value={grpMeets30} sub={grpAttendees30+" total attendees"} color={PU}/>
+          <Stat label="Prayers (30 days)" value={prayers30} sub={activePrayers+" active · "+answeredPrayers+" answered"} color={AM}/>
+        </div>
+
+        {hasChartData&&(
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            {/* Row 1: Attendance trend — full width */}
+            {attTrend.length>0&&(
+              <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:16}}>
+                <div style={{fontSize:13,fontWeight:500,color:N,marginBottom:10}}>Attendance Trend (Weekly)</div>
+                <ResponsiveContainer width="100%" height={180}>
+                  <LineChart data={attTrend} margin={{top:5,right:20,left:0,bottom:5}}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={BR}/>
+                    <XAxis dataKey="label" tick={{fontSize:11,fill:MU}} axisLine={false} tickLine={false}/>
+                    <YAxis tick={{fontSize:10,fill:MU}} axisLine={false} tickLine={false} allowDecimals={false}/>
+                    <Tooltip formatter={(v:any)=>[v,"Total Headcount"]} contentStyle={{borderRadius:8,border:"0.5px solid "+BR,fontSize:12}}/>
+                    <Line type="monotone" dataKey="total" stroke={BL} strokeWidth={2.5} dot={{r:3,fill:BL}} activeDot={{r:5}}/>
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+            {/* Row 2: Member growth + Prayer health */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+              {/* Member growth bar */}
+              <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:16}}>
+                <div style={{fontSize:13,fontWeight:500,color:N,marginBottom:10}}>New Member Growth (Weekly)</div>
+                {memGrowth.length>0?(
+                  <ResponsiveContainer width="100%" height={180}>
+                    <BarChart data={memGrowth} margin={{top:5,right:10,left:0,bottom:5}}>
+                      <CartesianGrid strokeDasharray="3 3" stroke={BR}/>
+                      <XAxis dataKey="label" tick={{fontSize:11,fill:MU}} axisLine={false} tickLine={false}/>
+                      <YAxis tick={{fontSize:10,fill:MU}} axisLine={false} tickLine={false} allowDecimals={false}/>
+                      <Tooltip formatter={(v:any)=>[v,"New Members"]} contentStyle={{borderRadius:8,border:"0.5px solid "+BR,fontSize:12}}/>
+                      <Bar dataKey="count" fill={GR} radius={[4,4,0,0]}/>
+                    </BarChart>
+                  </ResponsiveContainer>
+                ):(
+                  <div style={{height:180,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",color:MU,gap:6}}>
+                    <div style={{fontSize:30,fontWeight:700,color:GR}}>{members.filter((m:any)=>m.status==="Active").length}</div>
+                    <div style={{fontSize:12}}>Active Members Total</div>
+                    <div style={{fontSize:11,color:MU}}>No new additions in last 30 days</div>
+                  </div>
+                )}
+              </div>
+              {/* Prayer pie */}
+              <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:16}}>
+                <div style={{fontSize:13,fontWeight:500,color:N,marginBottom:8}}>Prayer Request Health</div>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <ResponsiveContainer width={130} height={150}>
+                    <PieChart>
+                      <Pie data={prayerPieData} cx={60} cy={70} innerRadius={44} outerRadius={62} dataKey="value" startAngle={90} endAngle={-270}>
+                        {prayerPieData.map((_:any,i:number)=><Cell key={i} fill={prayerPieData[i].color}/>)}
+                      </Pie>
+                      <Tooltip formatter={(v:any,_n:any,p:any)=>[v,p.payload.name]} contentStyle={{borderRadius:8,border:"0.5px solid "+BR,fontSize:12}}/>
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div style={{flex:1,display:"flex",flexDirection:"column",gap:8}}>
+                    {prayerPieData.map((d:any,i:number)=>(
+                      <div key={i} style={{display:"flex",alignItems:"center",gap:8}}>
+                        <div style={{width:10,height:10,borderRadius:2,background:d.color,flexShrink:0}}></div>
+                        <div>
+                          <div style={{fontSize:13,fontWeight:600,color:TX}}>{d.value}</div>
+                          <div style={{fontSize:11,color:MU}}>{d.name}</div>
+                        </div>
+                      </div>
+                    ))}
+                    <div style={{marginTop:4,paddingTop:8,borderTop:"0.5px solid "+BR}}>
+                      <div style={{fontSize:11,color:MU}}>Total prayers</div>
+                      <div style={{fontSize:15,fontWeight:600,color:N}}>{prayers.length}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {/* Row 3: Follow-up rate + Group participation */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+              {/* Follow-up + conversion donut */}
+              <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:16}}>
+                <div style={{fontSize:13,fontWeight:500,color:N,marginBottom:8}}>Visitor Follow-Up Status</div>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <ResponsiveContainer width={130} height={150}>
+                    <PieChart>
+                      <Pie data={fuPieData} cx={60} cy={70} innerRadius={44} outerRadius={62} dataKey="value" startAngle={90} endAngle={-270}>
+                        {fuPieData.map((_:any,i:number)=><Cell key={i} fill={fuPieData[i].color}/>)}
+                      </Pie>
+                      <Tooltip formatter={(v:any,_n:any,p:any)=>[v,p.payload.name]} contentStyle={{borderRadius:8,border:"0.5px solid "+BR,fontSize:12}}/>
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:30,fontWeight:700,color:fuPct>=70?GR:fuPct>=40?AM:RE,marginBottom:2}}>{fuPct}%</div>
+                    <div style={{fontSize:11,color:MU,marginBottom:10}}>Completion rate</div>
+                    {fuPieData.map((d:any,i:number)=>(
+                      <div key={i} style={{display:"flex",alignItems:"center",gap:6,marginBottom:5}}>
+                        <div style={{width:9,height:9,borderRadius:2,background:d.color,flexShrink:0}}></div>
+                        <span style={{fontSize:12,color:TX}}>{d.value} {d.name}</span>
+                      </div>
+                    ))}
+                    <div style={{marginTop:8,paddingTop:8,borderTop:"0.5px solid "+BR,fontSize:11,color:MU}}>
+                      Conversion: <strong style={{color:N}}>{convPct}%</strong> of contacts are members
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {/* Group participation bar */}
+              <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:16}}>
+                <div style={{fontSize:13,fontWeight:500,color:N,marginBottom:10}}>Group/Ministry Participation (30 days)</div>
+                {grpBarData.length>0?(
+                  <ResponsiveContainer width="100%" height={150}>
+                    <BarChart data={grpBarData} layout="vertical" margin={{top:0,right:20,left:10,bottom:0}}>
+                      <CartesianGrid strokeDasharray="3 3" stroke={BR} horizontal={false}/>
+                      <XAxis type="number" tick={{fontSize:10,fill:MU}} axisLine={false} tickLine={false} allowDecimals={false}/>
+                      <YAxis type="category" dataKey="name" tick={{fontSize:11,fill:MU}} axisLine={false} tickLine={false} width={110}/>
+                      <Tooltip formatter={(v:any)=>[v,"Attendees"]} contentStyle={{borderRadius:8,border:"0.5px solid "+BR,fontSize:12}}/>
+                      <Bar dataKey="total" radius={[0,4,4,0]}>
+                        {grpBarData.map((_:any,i:number)=><Cell key={i} fill={CH_COLORS[i%CH_COLORS.length]}/>)}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                ):(
+                  <div style={{height:150,display:"flex",alignItems:"center",justifyContent:"center",color:MU,fontSize:13,fontStyle:"italic",textAlign:"center"}}>No group meetings in the last 30 days.</div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+        {!hasChartData&&(
+          <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:30,textAlign:"center",color:MU,fontSize:13,fontStyle:"italic"}}>
+            Charts will appear once attendance, member, or group data has been recorded.
+          </div>
+        )}
+      </div>
       <div style={{display:"flex",gap:12,marginBottom:20,flexWrap:"wrap"}}>
         <Stat label="Active Members" value={activeM} sub={"of "+members.length+" total"}/>
         <Stat label="Visitors" value={visitors.length} sub={fu+" need follow-up"} color={AM}/>
@@ -5659,8 +6307,1261 @@ const PROSPECT_STATUSES = [
   {id:"Confirmed",    label:"Confirmed Coming",color:"#16a34a"},
 ];
 
+// ═══════════════════════════════════════════════════════════════
+// VOLUNTEER / USHER SCHEDULER
+// ═══════════════════════════════════════════════════════════════
+const SERVICE_ROLES_LIST = ["Usher","Greeter","Sound/Media","Offering Counter","Parking","Welcome Desk","Nursery","Security","Praise Team","Other"];
+function VolunteerScheduler({members,volunteerSlots,setVolunteerSlots}:any) {
+  const blank = ()=>({date:td(),service:"Sunday Morning Worship",role:"Usher",memberId:"",notes:""});
+  const [modal,setModal] = useState(false);
+  const [form,setForm] = useState<any>(blank());
+  const [editing,setEditing] = useState<any>(null);
+  const [filterDate,setFilterDate] = useState("");
+  const [filterRole,setFilterRole] = useState("All");
+  const [search,setSearch] = useState("");
+  const [tab,setTab] = useState("upcoming");
+  const nid = useRef(9500);
+  const sf = (k:string) => (v:any) => setForm((f:any)=>({...f,[k]:v}));
+  const activeMembers = members.filter((m:any)=>m.status==="Active").sort((a:any,b:any)=>a.last.localeCompare(b.last));
+  const today = td();
+  const save = () => {
+    if(!form.memberId||!form.date||!form.role){alert("Date, role, and member required.");return;}
+    const rec = {date:form.date,service:form.service,role:form.role,memberId:+form.memberId,notes:form.notes};
+    if(editing){setVolunteerSlots((s:any[])=>s.map(x=>x.id===editing.id?{...x,...rec}:x));}
+    else{setVolunteerSlots((s:any[])=>[{...rec,id:nid.current++},...s]);}
+    setModal(false); setEditing(null); setForm(blank());
+  };
+  const del = (id:number) => {if(confirm("Remove this slot?"))setVolunteerSlots((s:any[])=>s.filter(x=>x.id!==id));};
+  const openEdit = (s:any) => {setEditing(s);setForm({date:s.date,service:s.service,role:s.role,memberId:String(s.memberId),notes:s.notes||""});setModal(true);};
+  const getName = (mid:number) => {const m=members.find((x:any)=>x.id===mid);return m?m.first+" "+m.last:"Unknown";};
+  const getPhone = (mid:number) => {const m=members.find((x:any)=>x.id===mid);return m?.phone||"";};
+
+  let shown = [...volunteerSlots].sort((a:any,b:any)=>a.date.localeCompare(b.date));
+  if(tab==="upcoming") shown=shown.filter(s=>s.date>=today);
+  if(tab==="past") shown=shown.filter(s=>s.date<today);
+  if(filterDate) shown=shown.filter(s=>s.date===filterDate);
+  if(filterRole!=="All") shown=shown.filter(s=>s.role===filterRole);
+  if(search) shown=shown.filter(s=>getName(s.memberId).toLowerCase().includes(search.toLowerCase())||s.role.toLowerCase().includes(search.toLowerCase()));
+
+  // By-member stats
+  const memberStats:{[k:number]:number}={};
+  volunteerSlots.forEach((s:any)=>{memberStats[s.memberId]=(memberStats[s.memberId]||0)+1;});
+  const topVolunteers = Object.entries(memberStats).sort((a:any,b:any)=>b[1]-a[1]).slice(0,5).map(([mid,count])=>({name:getName(+mid),count}));
+
+  const printSchedule = (mode:"print"|"word") => {
+    const title = "Volunteer & Usher Schedule";
+    const rows = shown.map((s:any)=>`
+      <tr>
+        <td>${fd(s.date)}</td>
+        <td>${s.service}</td>
+        <td>${s.role}</td>
+        <td>${getName(s.memberId)}</td>
+        <td>${getPhone(s.memberId)||"—"}</td>
+        <td>${s.notes||"—"}</td>
+      </tr>`).join("");
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title>
+      <style>
+        body{font-family:Arial,sans-serif;font-size:12px;color:#1f2937;padding:24px;}
+        h2{color:#1a2e5a;margin-bottom:4px;font-size:18px;}
+        p{color:#6b7280;font-size:11px;margin:0 0 16px;}
+        table{width:100%;border-collapse:collapse;}
+        th{background:#1a2e5a;color:#fff;padding:8px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:0.4px;}
+        td{padding:8px 12px;border-bottom:0.5px solid #e2e5ec;font-size:12px;}
+        tr:nth-child(even) td{background:#f4f6fb;}
+        @media print{body{padding:0;}}
+      </style></head><body>
+      <h2>${title}</h2>
+      <p>Generated ${new Date().toLocaleDateString()} &nbsp;·&nbsp; ${shown.length} record${shown.length!==1?"s":""}</p>
+      <table>
+        <thead><tr><th>Date</th><th>Service</th><th>Role</th><th>Member</th><th>Phone</th><th>Notes</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      </body></html>`;
+    if(mode==="word"){
+      const blob=new Blob([html],{type:"application/msword"});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement("a"); a.href=url; a.download="Volunteer_Schedule.doc"; a.click();
+      URL.revokeObjectURL(url);
+    } else {
+      const w=window.open("","_blank");
+      if(!w) return;
+      w.document.write(html); w.document.close(); w.focus();
+      setTimeout(()=>w.print(),400);
+    }
+  };
+
+  return (
+    <div>
+      {/* Stats */}
+      <div style={{display:"flex",gap:10,marginBottom:16,flexWrap:"wrap"}}>
+        <Stat label="Total Slots" value={volunteerSlots.length} color={N}/>
+        <Stat label="Upcoming" value={volunteerSlots.filter((s:any)=>s.date>=today).length} color={GR}/>
+        <Stat label="Past" value={volunteerSlots.filter((s:any)=>s.date<today).length} color={MU}/>
+        <Stat label="Volunteers" value={new Set(volunteerSlots.map((s:any)=>s.memberId)).size} color={BL}/>
+      </div>
+      {/* Tabs */}
+      <div style={{display:"flex",gap:6,marginBottom:14,background:W,borderRadius:8,border:"0.5px solid "+BR,padding:3,width:"fit-content"}}>
+        {[["upcoming","Upcoming"],["past","Past"],["all","All"],["stats","Top Volunteers"]].map(([id,label])=>(
+          <button key={id} onClick={()=>setTab(id)} style={{padding:"6px 14px",border:"none",borderRadius:6,background:tab===id?N:"transparent",color:tab===id?"#fff":TX,fontSize:12,fontWeight:tab===id?500:400,cursor:"pointer"}}>{label}</button>
+        ))}
+      </div>
+      {tab==="stats"?(
+        <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:18}}>
+          <div style={{fontSize:14,fontWeight:500,color:N,marginBottom:14}}>Most Active Volunteers</div>
+          {topVolunteers.length===0?<p style={{color:MU,fontStyle:"italic"}}>No data yet.</p>:topVolunteers.map((v:any,i:number)=>(
+            <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:"0.5px solid "+BR}}>
+              <span style={{fontSize:13,fontWeight:500}}>{i+1}. {v.name}</span>
+              <span style={{fontSize:13,color:GR,fontWeight:600}}>{v.count} assignment{v.count!==1?"s":""}</span>
+            </div>
+          ))}
+        </div>
+      ):(
+        <>
+          <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap",alignItems:"center",justifyContent:"space-between"}}>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+              <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search name or role..." style={{padding:"8px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",minWidth:180}}/>
+              <input type="date" value={filterDate} onChange={e=>setFilterDate(e.target.value)} style={{padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}/>
+              <select value={filterRole} onChange={e=>setFilterRole(e.target.value)} style={{padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}>
+                <option value="All">All Roles</option>
+                {SERVICE_ROLES_LIST.map(r=><option key={r}>{r}</option>)}
+              </select>
+            </div>
+            <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
+              <Btn onClick={()=>printSchedule("print")} v="ghost" style={{fontSize:12,padding:"6px 12px"}}>🖨 Print / PDF</Btn>
+              <Btn onClick={()=>printSchedule("word")} v="ghost" style={{fontSize:12,padding:"6px 12px"}}>📄 Download Word</Btn>
+              <Btn onClick={()=>{setEditing(null);setForm(blank());setModal(true);}}>+ Add Slot</Btn>
+            </div>
+          </div>
+          {shown.length===0?(
+            <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:40,textAlign:"center",color:MU}}>No volunteer slots found. Click + Add Slot to schedule someone.</div>
+          ):(
+            <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,overflow:"hidden"}}>
+              <table style={{width:"100%",borderCollapse:"collapse"}}>
+                <thead><tr style={{background:"#f8f9fc"}}>{["Date","Service","Role","Member","Phone","Notes",""].map(h=><th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:11,fontWeight:500,color:MU,textTransform:"uppercase",letterSpacing:0.5,borderBottom:"0.5px solid "+BR}}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {shown.map((s:any)=>(
+                    <tr key={s.id} style={{borderBottom:"0.5px solid "+BR}}>
+                      <td style={{padding:"10px 14px",fontSize:13,fontWeight:500}}>{fd(s.date)}</td>
+                      <td style={{padding:"10px 14px",fontSize:12,color:MU}}>{s.service}</td>
+                      <td style={{padding:"10px 14px"}}><span style={{background:N+"15",color:N,borderRadius:20,padding:"3px 10px",fontSize:11,fontWeight:500}}>{s.role}</span></td>
+                      <td style={{padding:"10px 14px",fontSize:13,fontWeight:500}}>{getName(s.memberId)}</td>
+                      <td style={{padding:"10px 14px",fontSize:12,color:BL}}>{getPhone(s.memberId)?<a href={"tel:"+getPhone(s.memberId)} style={{color:BL,textDecoration:"none"}}>{getPhone(s.memberId)}</a>:"—"}</td>
+                      <td style={{padding:"10px 14px",fontSize:12,color:MU}}>{s.notes||"—"}</td>
+                      <td style={{padding:"10px 14px"}}>
+                        <div style={{display:"flex",gap:5}}>
+                          <Btn onClick={()=>openEdit(s)} v="ghost" style={{fontSize:11,padding:"3px 8px"}}>Edit</Btn>
+                          <Btn onClick={()=>del(s.id)} v="danger" style={{fontSize:11,padding:"3px 8px"}}>✕</Btn>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+      <Modal open={modal} onClose={()=>{setModal(false);setEditing(null);setForm(blank());}} title={editing?"Edit Slot":"Add Volunteer Slot"} width={480}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+          <Fld label="Date"><Inp type="date" value={form.date} onChange={sf("date")}/></Fld>
+          <Fld label="Role">
+            <select value={form.role} onChange={e=>sf("role")(e.target.value)} style={{width:"100%",padding:"9px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}>
+              {SERVICE_ROLES_LIST.map(r=><option key={r}>{r}</option>)}
+            </select>
+          </Fld>
+        </div>
+        <Fld label="Service">
+          <select value={form.service} onChange={e=>sf("service")(e.target.value)} style={{width:"100%",padding:"9px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}>
+            {["Sunday Morning Worship","Education Department","Sunday Night Service","Tuesday Bible Study","Thursday Worship","Special Event"].map(s=><option key={s}>{s}</option>)}
+          </select>
+        </Fld>
+        <Fld label="Member">
+          <select value={form.memberId} onChange={e=>sf("memberId")(e.target.value)} style={{width:"100%",padding:"9px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}>
+            <option value="">— Select Member —</option>
+            {activeMembers.map((m:any)=><option key={m.id} value={m.id}>{m.last}, {m.first}</option>)}
+          </select>
+        </Fld>
+        <Fld label="Notes"><Inp value={form.notes} onChange={sf("notes")} placeholder="Optional notes"/></Fld>
+        <div style={{display:"flex",gap:8,marginTop:6}}>
+          <Btn onClick={save} style={{flex:1,justifyContent:"center"}}>{editing?"Save Changes":"Add Slot"}</Btn>
+          <Btn v="ghost" onClick={()=>{setModal(false);setEditing(null);setForm(blank());}} style={{flex:1,justifyContent:"center"}}>Cancel</Btn>
+        </div>
+      </Modal>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CLASSES & LEADERSHIP TRAINING TRACKER
+// ═══════════════════════════════════════════════════════════════
+const CLASS_TYPES = ["New Member Class","Leadership Class","Bible Study Course","Baptism Prep","Discipleship","Outreach Training","Youth Leader Training","Other"];
+const CLASS_STATUSES = ["Enrolled","In Progress","Completed","Dropped"];
+function ClassesTracker({members,visitors=[],prospects=[],classEnrollments,setClassEnrollments,classSessions,setClassSessions}:any) {
+  const blank = ()=>({memberId:"",className:"New Member Class",startDate:td(),completedDate:"",status:"Enrolled",sessions:0,notes:""});
+  const [modal,setModal] = useState(false);
+  const [form,setForm] = useState<any>(blank());
+  const [editing,setEditing] = useState<any>(null);
+  const [filterClass,setFilterClass] = useState("All");
+  const [filterStatus,setFilterStatus] = useState("All");
+  const [search,setSearch] = useState("");
+  const [mainTab,setMainTab] = useState("enrollments");
+  const nid = useRef(9600);
+  const sf = (k:string) => (v:any) => setForm((f:any)=>({...f,[k]:v}));
+  const getName = (mid:number) => {const m=members.find((x:any)=>x.id===mid);return m?m.first+" "+m.last:"Unknown";};
+  const activeMembers = members.filter((m:any)=>m.status==="Active").sort((a:any,b:any)=>a.last.localeCompare(b.last));
+
+  // ── Attendance state ──
+  const [attModal,setAttModal] = useState(false);
+  const [attClass,setAttClass] = useState("");
+  const [sessModal,setSessModal] = useState(false);
+  const [sessDate,setSessDate] = useState(td());
+  const [sessSearch,setSessSearch] = useState("");
+  const [selected,setSelected] = useState<any[]>([]);
+
+  const allPeople = [
+    ...members.map((m:any)=>({personId:m.id,personType:"member",name:m.first+" "+m.last})),
+    ...visitors.map((v:any)=>({personId:v.id,personType:"visitor",name:v.first+" "+v.last})),
+    ...prospects.map((p:any)=>({personId:p.id,personType:"prospect",name:p.first+" "+p.last}))
+  ].sort((a:any,b:any)=>a.name.localeCompare(b.name));
+
+  const getClassSessions = (cn:string) => [...classSessions].filter((s:any)=>s.className===cn).sort((a:any,b:any)=>b.sessionDate.localeCompare(a.sessionDate));
+
+  const getEnrolled = (cn:string) => classEnrollments
+    .filter((e:any)=>e.className===cn)
+    .map((e:any)=>{const m=members.find((x:any)=>x.id===e.memberId);return m?{personId:m.id,personType:"member",name:m.first+" "+m.last}:null;})
+    .filter(Boolean);
+
+  const openAttendance = (cn:string) => {setAttClass(cn);setAttModal(true);};
+
+  const openNewSess = () => {
+    setSessDate(td());
+    setSelected(getEnrolled(attClass));
+    setSessSearch("");
+    setSessModal(true);
+  };
+
+  const saveSess = () => {
+    if(!sessDate){alert("Session date is required.");return;}
+    const rec = {id:Date.now(),className:attClass,sessionDate:sessDate,attendees:[...selected]};
+    setClassSessions((s:any[])=>[rec,...s]);
+    setClassEnrollments((enr:any[])=>enr.map((e:any)=>{
+      if(e.className!==attClass) return e;
+      if(!selected.find((a:any)=>a.personId===e.memberId&&a.personType==="member")) return e;
+      return {...e,sessions:(e.sessions||0)+1};
+    }));
+    localStorage.setItem('ntcc_force_cloud_save','1');
+    setSessModal(false);
+  };
+
+  const delSess = (id:number) => {if(confirm("Delete this session record?")){setClassSessions((s:any[])=>s.filter((x:any)=>x.id!==id));localStorage.setItem('ntcc_force_cloud_save','1');}};
+
+  const toggle = (p:any) => setSelected((prev:any[])=>{
+    const has=prev.find((a:any)=>a.personId===p.personId&&a.personType===p.personType);
+    return has?prev.filter((a:any)=>!(a.personId===p.personId&&a.personType===p.personType)):[...prev,p];
+  });
+
+  const sessSearchResults = sessSearch.trim().length>0
+    ? allPeople.filter((p:any)=>p.name.toLowerCase().includes(sessSearch.toLowerCase())).slice(0,20)
+    : [];
+
+  // ── Enrollment CRUD ──
+  const save = () => {
+    if(!form.memberId||!form.className){alert("Member and class name required.");return;}
+    const rec = {memberId:+form.memberId,className:form.className,startDate:form.startDate,completedDate:form.completedDate,status:form.status,sessions:+form.sessions||0,notes:form.notes};
+    if(editing){setClassEnrollments((e:any[])=>e.map((x:any)=>x.id===editing.id?{...x,...rec}:x));}
+    else{setClassEnrollments((e:any[])=>[{...rec,id:nid.current++},...e]);}
+    setModal(false); setEditing(null); setForm(blank());
+  };
+  const del = (id:number) => {if(confirm("Remove enrollment?"))setClassEnrollments((e:any[])=>e.filter((x:any)=>x.id!==id));};
+  const openEdit = (e:any) => {setEditing(e);setForm({memberId:String(e.memberId),className:e.className,startDate:e.startDate,completedDate:e.completedDate||"",status:e.status,sessions:String(e.sessions||0),notes:e.notes||""});setModal(true);};
+
+  const STATUS_COLORS:any={Enrolled:BL,InProgress:AM,"In Progress":AM,Completed:GR,Dropped:MU};
+  let shown = [...classEnrollments].sort((a:any,b:any)=>b.startDate.localeCompare(a.startDate));
+  if(filterClass!=="All") shown=shown.filter((e:any)=>e.className===filterClass);
+  if(filterStatus!=="All") shown=shown.filter((e:any)=>e.status===filterStatus);
+  if(search) shown=shown.filter((e:any)=>getName(e.memberId).toLowerCase().includes(search.toLowerCase())||e.className.toLowerCase().includes(search.toLowerCase()));
+
+  const byClass:{[k:string]:{total:number;completed:number}}={};
+  classEnrollments.forEach((e:any)=>{if(!byClass[e.className])byClass[e.className]={total:0,completed:0};byClass[e.className].total++;if(e.status==="Completed")byClass[e.className].completed++;});
+
+  const bySession:{[k:string]:{sessions:number;totalAttendees:number;lastSession:string}}={};
+  classSessions.forEach((s:any)=>{
+    if(!bySession[s.className])bySession[s.className]={sessions:0,totalAttendees:0,lastSession:""};
+    bySession[s.className].sessions++;
+    bySession[s.className].totalAttendees+=s.attendees.length;
+    if(!bySession[s.className].lastSession||s.sessionDate>bySession[s.className].lastSession)bySession[s.className].lastSession=s.sessionDate;
+  });
+
+  return (
+    <div>
+      {/* Main tab switcher */}
+      <div style={{display:"flex",gap:6,marginBottom:16,background:W,borderRadius:8,border:"0.5px solid "+BR,padding:3,width:"fit-content"}}>
+        {[["enrollments","📋 Enrollments"],["report","📊 Attendance Report"]].map(([id,label])=>(
+          <button key={id} onClick={()=>setMainTab(id)} style={{padding:"6px 14px",border:"none",borderRadius:6,background:mainTab===id?N:"transparent",color:mainTab===id?"#fff":TX,fontSize:12,fontWeight:mainTab===id?500:400,cursor:"pointer"}}>{label}</button>
+        ))}
+      </div>
+
+      {/* ── ATTENDANCE REPORT TAB ── */}
+      {mainTab==="report"&&(
+        <div>
+          <div style={{display:"flex",gap:10,marginBottom:16,flexWrap:"wrap"}}>
+            <Stat label="Total Sessions" value={classSessions.length} color={N}/>
+            <Stat label="Unique Classes" value={Object.keys(bySession).length} color={BL}/>
+            <Stat label="Total Attendances" value={classSessions.reduce((s:number,x:any)=>s+x.attendees.length,0)} color={GR}/>
+          </div>
+          {classSessions.length===0?(
+            <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:40,textAlign:"center",color:MU}}>No sessions recorded yet. Take attendance from the Enrollments tab.</div>
+          ):(
+            <div style={{display:"flex",flexDirection:"column",gap:16}}>
+              {Object.entries(bySession).map(([cn,stats]:any)=>{
+                const sessions=getClassSessions(cn);
+                return(
+                  <div key={cn} style={{background:W,border:"0.5px solid "+BR,borderRadius:12,overflow:"hidden"}}>
+                    <div style={{background:"#f8f9fc",padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",borderBottom:"0.5px solid "+BR}}>
+                      <span style={{fontWeight:600,color:N,fontSize:14}}>{cn}</span>
+                      <div style={{display:"flex",gap:16,fontSize:12,color:MU}}>
+                        <span>{stats.sessions} session{stats.sessions!==1?"s":""}</span>
+                        <span>{stats.totalAttendees} total attendances</span>
+                        <span>Last: {stats.lastSession?fd(stats.lastSession):"—"}</span>
+                      </div>
+                    </div>
+                    {sessions.map((s:any)=>(
+                      <div key={s.id} style={{padding:"10px 16px",borderBottom:"0.5px solid "+BR}}>
+                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:s.attendees.length>0?6:0}}>
+                          <span style={{fontWeight:500,fontSize:13}}>{fd(s.sessionDate)}</span>
+                          <span style={{fontSize:12,color:MU}}>{s.attendees.length} present</span>
+                        </div>
+                        {s.attendees.length>0&&(
+                          <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                            {s.attendees.map((a:any,i:number)=>(
+                              <span key={i} style={{fontSize:11,background:BG,color:TX,borderRadius:20,padding:"2px 8px"}}>{a.name}</span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── ENROLLMENTS TAB ── */}
+      {mainTab==="enrollments"&&(
+        <div>
+          <div style={{display:"flex",gap:10,marginBottom:16,flexWrap:"wrap"}}>
+            <Stat label="Total Enrollments" value={classEnrollments.length} color={N}/>
+            <Stat label="Completed" value={classEnrollments.filter((e:any)=>e.status==="Completed").length} color={GR}/>
+            <Stat label="In Progress" value={classEnrollments.filter((e:any)=>["Enrolled","In Progress"].includes(e.status)).length} color={AM}/>
+            <Stat label="Classes" value={new Set(classEnrollments.map((e:any)=>e.className)).size} color={BL}/>
+          </div>
+          {Object.keys(byClass).length>0&&(
+            <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:16,marginBottom:16}}>
+              <div style={{fontSize:13,fontWeight:500,color:N,marginBottom:10}}>Class Summary</div>
+              {Object.entries(byClass).map(([cls,d]:any)=>{
+                const pct=d.total?Math.round(d.completed/d.total*100):0;
+                return(<div key={cls} style={{marginBottom:10}}>
+                  <div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:3}}><span style={{fontWeight:500}}>{cls}</span><span style={{color:GR}}>{d.completed}/{d.total} graduated ({pct}%)</span></div>
+                  <div style={{height:5,background:BG,borderRadius:3,overflow:"hidden"}}><div style={{width:pct+"%",height:"100%",background:GR}}/></div>
+                </div>);
+              })}
+            </div>
+          )}
+          <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap",alignItems:"center",justifyContent:"space-between"}}>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+              <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search name or class..." style={{padding:"8px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",minWidth:180}}/>
+              <select value={filterClass} onChange={e=>setFilterClass(e.target.value)} style={{padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}>
+                <option value="All">All Classes</option>
+                {CLASS_TYPES.map((c:string)=><option key={c}>{c}</option>)}
+              </select>
+              <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)} style={{padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}>
+                <option value="All">All Statuses</option>
+                {CLASS_STATUSES.map((s:string)=><option key={s}>{s}</option>)}
+              </select>
+            </div>
+            <Btn onClick={()=>{setEditing(null);setForm(blank());setModal(true);}}>+ Enroll Member</Btn>
+          </div>
+          {shown.length===0?(
+            <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:40,textAlign:"center",color:MU}}>No enrollments yet. Click + Enroll Member to get started.</div>
+          ):(
+            <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,overflow:"hidden"}}>
+              <table style={{width:"100%",borderCollapse:"collapse"}}>
+                <thead><tr style={{background:"#f8f9fc"}}>{["Member","Class","Started","Status","Sessions","Notes",""].map(h=><th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:11,fontWeight:500,color:MU,textTransform:"uppercase",letterSpacing:0.5,borderBottom:"0.5px solid "+BR}}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {shown.map((e:any)=>{
+                    const sc=STATUS_COLORS[e.status]||MU;
+                    return(<tr key={e.id} style={{borderBottom:"0.5px solid "+BR}}>
+                      <td style={{padding:"10px 14px",fontSize:13,fontWeight:500}}>{getName(e.memberId)}</td>
+                      <td style={{padding:"10px 14px",fontSize:13}}>{e.className}</td>
+                      <td style={{padding:"10px 14px",fontSize:12,color:MU}}>{e.startDate?fd(e.startDate):"—"}</td>
+                      <td style={{padding:"10px 14px"}}><span style={{background:sc+"18",color:sc,borderRadius:20,padding:"3px 10px",fontSize:11,fontWeight:500}}>{e.status}</span></td>
+                      <td style={{padding:"10px 14px",fontSize:13,fontWeight:500,color:N}}>{e.sessions||0}</td>
+                      <td style={{padding:"10px 14px",fontSize:12,color:MU}}>{e.notes||"—"}</td>
+                      <td style={{padding:"10px 14px"}}>
+                        <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                          <Btn onClick={()=>openAttendance(e.className)} v="ghost" style={{fontSize:11,padding:"3px 8px"}}>📋 Attendance</Btn>
+                          <Btn onClick={()=>openEdit(e)} v="ghost" style={{fontSize:11,padding:"3px 8px"}}>Edit</Btn>
+                          <Btn onClick={()=>del(e.id)} v="danger" style={{fontSize:11,padding:"3px 8px"}}>✕</Btn>
+                        </div>
+                      </td>
+                    </tr>);
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Enrollment Modal ── */}
+      <Modal open={modal} onClose={()=>{setModal(false);setEditing(null);setForm(blank());}} title={editing?"Edit Enrollment":"Enroll Member"} width={480}>
+        <Fld label="Member">
+          <select value={form.memberId} onChange={e=>sf("memberId")(e.target.value)} style={{width:"100%",padding:"9px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}>
+            <option value="">— Select Member —</option>
+            {activeMembers.map((m:any)=><option key={m.id} value={m.id}>{m.last}, {m.first}</option>)}
+          </select>
+        </Fld>
+        <Fld label="Class">
+          <select value={form.className} onChange={e=>sf("className")(e.target.value)} style={{width:"100%",padding:"9px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}>
+            {CLASS_TYPES.map((c:string)=><option key={c}>{c}</option>)}
+          </select>
+        </Fld>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <Fld label="Start Date"><Inp type="date" value={form.startDate} onChange={sf("startDate")}/></Fld>
+          <Fld label="Sessions Attended"><Inp type="number" value={form.sessions} onChange={sf("sessions")} placeholder="0"/></Fld>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <Fld label="Status">
+            <select value={form.status} onChange={e=>sf("status")(e.target.value)} style={{width:"100%",padding:"9px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}>
+              {CLASS_STATUSES.map((s:string)=><option key={s}>{s}</option>)}
+            </select>
+          </Fld>
+          <Fld label="Completion Date (optional)"><Inp type="date" value={form.completedDate} onChange={sf("completedDate")}/></Fld>
+        </div>
+        <Fld label="Notes"><textarea value={form.notes} onChange={e=>sf("notes")(e.target.value)} rows={2} placeholder="Any notes..." style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",fontFamily:"inherit",resize:"vertical",boxSizing:"border-box"}}/></Fld>
+        <div style={{display:"flex",gap:8,marginTop:6}}>
+          <Btn onClick={save} style={{flex:1,justifyContent:"center"}}>{editing?"Save Changes":"Enroll"}</Btn>
+          <Btn v="ghost" onClick={()=>{setModal(false);setEditing(null);setForm(blank());}} style={{flex:1,justifyContent:"center"}}>Cancel</Btn>
+        </div>
+      </Modal>
+
+      {/* ── Attendance History Modal ── */}
+      <Modal open={attModal} onClose={()=>setAttModal(false)} title={"Attendance — "+attClass} width={620}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+          <span style={{fontSize:13,color:MU}}>{getClassSessions(attClass).length} session{getClassSessions(attClass).length!==1?"s":""} recorded</span>
+          <Btn onClick={openNewSess}>+ New Session</Btn>
+        </div>
+        {getClassSessions(attClass).length===0?(
+          <div style={{padding:32,textAlign:"center",color:MU,fontSize:13}}>No sessions yet. Click + New Session to record attendance.</div>
+        ):(
+          <div style={{display:"flex",flexDirection:"column",gap:8,maxHeight:420,overflowY:"auto"}}>
+            {getClassSessions(attClass).map((s:any)=>(
+              <div key={s.id} style={{background:BG,borderRadius:10,padding:"12px 14px",border:"0.5px solid "+BR}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:s.attendees.length>0?8:0}}>
+                  <span style={{fontWeight:600,fontSize:13,color:N}}>{fd(s.sessionDate)}</span>
+                  <div style={{display:"flex",alignItems:"center",gap:10}}>
+                    <span style={{fontSize:12,color:MU}}>{s.attendees.length} present</span>
+                    <Btn onClick={()=>delSess(s.id)} v="danger" style={{fontSize:11,padding:"2px 7px"}}>✕</Btn>
+                  </div>
+                </div>
+                {s.attendees.length>0&&(
+                  <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
+                    {s.attendees.map((a:any,i:number)=>(
+                      <span key={i} style={{fontSize:11,background:W,border:"0.5px solid "+BR,color:TX,borderRadius:20,padding:"2px 9px"}}>{a.name}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </Modal>
+
+      {/* ── New Session Modal ── */}
+      <Modal open={sessModal} onClose={()=>setSessModal(false)} title={"Take Attendance — "+attClass} width={560}>
+        <Fld label="Session Date"><Inp type="date" value={sessDate} onChange={setSessDate}/></Fld>
+        <Fld label="Attendees">
+          <div style={{border:"0.5px solid "+BR,borderRadius:8,padding:10,maxHeight:280,overflowY:"auto",background:"#fafbfc"}}>
+            {getEnrolled(attClass).length>0&&(
+              <>
+                <div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:0.5,marginBottom:6,fontWeight:500}}>Enrolled Members</div>
+                {getEnrolled(attClass).map((p:any)=>{
+                  const checked=!!selected.find((a:any)=>a.personId===p.personId&&a.personType===p.personType);
+                  return(
+                    <label key={p.personId+"-"+p.personType} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",cursor:"pointer",fontSize:13}}>
+                      <input type="checkbox" checked={checked} onChange={()=>toggle(p)} style={{accentColor:N,width:15,height:15}}/>
+                      <span style={{flex:1}}>{p.name}</span>
+                      <span style={{fontSize:10,color:MU,background:BG,borderRadius:20,padding:"1px 6px"}}>member</span>
+                    </label>
+                  );
+                })}
+                <div style={{borderTop:"0.5px solid "+BR,margin:"8px 0"}}/>
+              </>
+            )}
+            <div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:0.5,marginBottom:6,fontWeight:500}}>Add Others (visitors / prospects / walk-ins)</div>
+            <input
+              value={sessSearch}
+              onChange={e=>setSessSearch(e.target.value)}
+              placeholder="Search by name..."
+              style={{width:"100%",padding:"7px 10px",border:"0.5px solid "+BR,borderRadius:6,fontSize:12,outline:"none",boxSizing:"border-box",marginBottom:4}}
+            />
+            {sessSearchResults.map((p:any)=>{
+              if(getEnrolled(attClass).find((e:any)=>e.personId===p.personId&&e.personType===p.personType)) return null;
+              const checked=!!selected.find((a:any)=>a.personId===p.personId&&a.personType===p.personType);
+              return(
+                <label key={p.personId+"-"+p.personType} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",cursor:"pointer",fontSize:13}}>
+                  <input type="checkbox" checked={checked} onChange={()=>toggle(p)} style={{accentColor:N,width:15,height:15}}/>
+                  <span style={{flex:1}}>{p.name}</span>
+                  <span style={{fontSize:10,color:MU,background:BG,borderRadius:20,padding:"1px 6px"}}>{p.personType}</span>
+                </label>
+              );
+            })}
+          </div>
+          <div style={{fontSize:11,color:GR,marginTop:5,fontWeight:500}}>{selected.length} person{selected.length!==1?"s":""} marked present</div>
+        </Fld>
+        <div style={{display:"flex",gap:8,marginTop:6}}>
+          <Btn onClick={saveSess} style={{flex:1,justifyContent:"center"}}>Save Attendance</Btn>
+          <Btn v="ghost" onClick={()=>setSessModal(false)} style={{flex:1,justifyContent:"center"}}>Cancel</Btn>
+        </div>
+      </Modal>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HOSPITAL & SICK VISIT LOG
+// ═══════════════════════════════════════════════════════════════
+const VISIT_TYPES = ["Hospital Visit","Home Visit","Nursing Home","Rehab Center","Phone Call","Prayer Visit","Other"];
+const VISIT_STATUSES = ["Scheduled","In Progress","Visited","Cancelled"];
+function SickVisitLog({members,visitors,sickVisits,setSickVisits,users=[],roles=[]}:any) {
+  const blank = ()=>({personId:"",personType:"member",dateCreated:td(),visitedDate:"",visitType:"Hospital Visit",facility:"",visitedBy:"",status:"Scheduled",notes:"",nextFollowUp:""});
+  const [modal,setModal] = useState(false);
+  const [form,setForm] = useState<any>(blank());
+  const [editing,setEditing] = useState<any>(null);
+  const [filterStatus,setFilterStatus] = useState("All");
+  const [search,setSearch] = useState("");
+  const nid = useRef(9700);
+  const sf = (k:string) => (v:any) => setForm((f:any)=>({...f,[k]:v}));
+  const allPeople = [...members.map((m:any)=>({...m,_type:"member"})),...visitors.map((v:any)=>({...v,_type:"visitor"}))];
+  const getPerson = (id:number,type:string) => type==="member"?members.find((m:any)=>m.id===id):visitors.find((v:any)=>v.id===id);
+  const getPersonName = (id:number,type:string) => {const p=getPerson(id,type);return p?p.first+" "+p.last:"Unknown";};
+  const save = () => {
+    if(!form.personId){alert("Person is required.");return;}
+    const rec={personId:+form.personId,personType:form.personType,dateCreated:form.dateCreated||td(),visitedDate:form.visitedDate,visitType:form.visitType,facility:form.facility,visitedBy:form.visitedBy,status:form.status,notes:form.notes,nextFollowUp:form.nextFollowUp};
+    if(editing){setSickVisits((s:any[])=>s.map(x=>x.id===editing.id?{...x,...rec}:x));}
+    else{setSickVisits((s:any[])=>{const nid=Date.now();return [{...rec,id:nid},...s];});}
+    localStorage.setItem('ntcc_force_cloud_save','1');
+    setModal(false); setEditing(null); setForm(blank());
+  };
+  const del = (id:number)=>{if(confirm("Delete this visit record?")){setSickVisits((s:any[])=>s.filter(x=>x.id!==id));localStorage.setItem('ntcc_force_cloud_save','1');}};
+  const [facilityOther,setFacilityOther] = useState(false);
+  const knownFacilities = Array.from(new Set(sickVisits.map((s:any)=>s.facility).filter(Boolean))).sort() as string[];
+  const openEdit=(v:any)=>{
+    const isKnown=!v.facility||knownFacilities.includes(v.facility);
+    setFacilityOther(!isKnown);
+    setEditing(v);
+    setForm({personId:String(v.personId),personType:v.personType,dateCreated:v.dateCreated||v.visitDate||td(),visitedDate:v.visitedDate||"",visitType:v.visitType,facility:v.facility||"",visitedBy:v.visitedBy||"",status:v.status,notes:v.notes||"",nextFollowUp:v.nextFollowUp||""});
+    setModal(true);
+  };
+  const staffOptions = users.filter((u:any)=>u.status==="Active"&&!u.superAdmin).map((u:any)=>{const m=members.find((x:any)=>x.id===u.memberId);return m?{id:u.id,name:m.first+" "+m.last}:null;}).filter(Boolean);
+  const SV_COLORS:any={Scheduled:BL,"In Progress":AM,Visited:GR,Cancelled:MU};
+  let shown=[...sickVisits].sort((a:any,b:any)=>(b.dateCreated||b.visitDate||"").localeCompare(a.dateCreated||a.visitDate||""));
+  if(filterStatus!=="All") shown=shown.filter(s=>s.status===filterStatus);
+  if(search) shown=shown.filter(s=>getPersonName(s.personId,s.personType).toLowerCase().includes(search.toLowerCase())||s.facility.toLowerCase().includes(search.toLowerCase()));
+
+  return (
+    <div>
+      <div style={{display:"flex",gap:10,marginBottom:16,flexWrap:"wrap"}}>
+        <Stat label="Total Visits" value={sickVisits.length} color={N}/>
+        <Stat label="Active" value={sickVisits.filter((s:any)=>["Scheduled","In Progress"].includes(s.status)).length} color={AM}/>
+        <Stat label="Visited" value={sickVisits.filter((s:any)=>s.status==="Visited").length} color={BL}/>
+        <Stat label="Cancelled" value={sickVisits.filter((s:any)=>s.status==="Cancelled").length} color={MU}/>
+      </div>
+      <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap",alignItems:"center",justifyContent:"space-between"}}>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search name or facility..." style={{padding:"8px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",minWidth:180}}/>
+          <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)} style={{padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}>
+            <option value="All">All Statuses</option>
+            {VISIT_STATUSES.map(s=><option key={s}>{s}</option>)}
+          </select>
+        </div>
+        <Btn onClick={()=>{setEditing(null);setFacilityOther(false);setForm(blank());setModal(true);}}>+ Log Visit</Btn>
+      </div>
+      {shown.length===0?(
+        <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:40,textAlign:"center",color:MU}}>No visit records yet. Click + Log Visit to record one.</div>
+      ):(
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {shown.map((v:any)=>{
+            const sc=SV_COLORS[v.status]||MU;
+            const p=getPerson(v.personId,v.personType);
+            return(<div key={v.id} style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:"14px 16px"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:8}}>
+                <div>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}>
+                    <span style={{fontSize:15,fontWeight:600,color:TX}}>{getPersonName(v.personId,v.personType)}</span>
+                    <span style={{fontSize:10,background:v.personType==="member"?"#dcfce7":"#fff3e0",color:v.personType==="member"?GR:AM,borderRadius:20,padding:"2px 8px",fontWeight:500}}>{v.personType}</span>
+                    <span style={{background:sc+"18",color:sc,borderRadius:20,padding:"2px 9px",fontSize:11,fontWeight:500}}>{v.status}</span>
+                  </div>
+                  <div style={{display:"flex",gap:14,flexWrap:"wrap",fontSize:12,color:MU}}>
+                    <span>� Created: {fd(v.dateCreated||v.visitDate)}</span>
+                    {v.visitedDate?<span style={{color:GR}}>✅ Visited: {fd(v.visitedDate)}</span>:<span style={{color:AM}}>⏳ Not yet visited</span>}
+                    <span>🏥 {v.visitType}</span>
+                    {v.facility&&<span>📍 {v.facility}</span>}
+                    {v.visitedBy&&<span>👤 Visited by {v.visitedBy}</span>}
+                    {v.nextFollowUp&&<span style={{color:AM}}>⏰ Follow-up: {fd(v.nextFollowUp)}</span>}
+                  </div>
+                  {v.notes&&<div style={{fontSize:12,color:MU,fontStyle:"italic",marginTop:6}}>💬 {v.notes}</div>}
+                </div>
+                <div style={{display:"flex",gap:5}}>
+                  <Btn onClick={()=>openEdit(v)} v="ghost" style={{fontSize:11,padding:"4px 10px"}}>Edit</Btn>
+                  <Btn onClick={()=>del(v.id)} v="danger" style={{fontSize:11,padding:"4px 8px"}}>✕</Btn>
+                </div>
+              </div>
+            </div>);
+          })}
+        </div>
+      )}
+      <Modal open={modal} onClose={()=>{setModal(false);setEditing(null);setForm(blank());}} title={editing?"Edit Visit":"Log Visit"} width={500}>
+        <Fld label="Person">
+          <select value={form.personId} onChange={e=>{const opt=e.target.selectedOptions[0];sf("personId")(e.target.value);sf("personType")(opt?.dataset.type||"member");}} style={{width:"100%",padding:"9px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}>
+            <option value="">— Select Person —</option>
+            <optgroup label="Members">{members.filter((m:any)=>m.status==="Active").sort((a:any,b:any)=>a.last.localeCompare(b.last)).map((m:any)=><option key={m.id} value={m.id} data-type="member">{m.last}, {m.first}</option>)}</optgroup>
+            <optgroup label="Visitors">{visitors.sort((a:any,b:any)=>a.last.localeCompare(b.last)).map((v:any)=><option key={v.id} value={v.id} data-type="visitor">{v.last}, {v.first}</option>)}</optgroup>
+          </select>
+        </Fld>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <Fld label="Date Created"><Inp type="date" value={form.dateCreated} onChange={sf("dateCreated")}/></Fld>
+          <Fld label="Date Visited"><Inp type="date" value={form.visitedDate} onChange={sf("visitedDate")} placeholder="Leave blank until visited"/></Fld>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <Fld label="Visit Type">
+            <select value={form.visitType} onChange={e=>sf("visitType")(e.target.value)} style={{width:"100%",padding:"9px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}>
+              {VISIT_TYPES.map(t=><option key={t}>{t}</option>)}
+            </select>
+          </Fld>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <Fld label="Facility/Location">
+            {knownFacilities.length===0||facilityOther?(
+              <div style={{display:"flex",gap:6}}>
+                <Inp value={form.facility} onChange={sf("facility")} placeholder="Hospital, home, etc." style={{flex:1}}/>
+                {knownFacilities.length>0&&<button type="button" onClick={()=>{setFacilityOther(false);sf("facility")("");}} style={{padding:"0 8px",border:"0.5px solid "+BR,borderRadius:8,background:W,cursor:"pointer",fontSize:12,color:MU}}>↩</button>}
+              </div>
+            ):(
+              <select value={form.facility} onChange={e=>{if(e.target.value==="__other__"){setFacilityOther(true);sf("facility")("");}else sf("facility")(e.target.value);}} style={{width:"100%",padding:"9px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}>
+                <option value="">— Select Facility —</option>
+                {knownFacilities.map((f:string)=><option key={f} value={f}>{f}</option>)}
+                <option value="__other__">+ Add new facility…</option>
+              </select>
+            )}
+          </Fld>
+          <Fld label="Visited By">
+            <select value={form.visitedBy} onChange={e=>sf("visitedBy")(e.target.value)} style={{width:"100%",padding:"9px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}>
+              <option value="">— Select Staff —</option>
+              {staffOptions.map((u:any)=><option key={u.id} value={u.name}>{u.name}</option>)}
+            </select>
+          </Fld>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <Fld label="Status">
+            <select value={form.status} onChange={e=>sf("status")(e.target.value)} style={{width:"100%",padding:"9px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}>
+              {VISIT_STATUSES.map(s=><option key={s}>{s}</option>)}
+            </select>
+          </Fld>
+          <Fld label="Next Follow-Up (optional)"><Inp type="date" value={form.nextFollowUp} onChange={sf("nextFollowUp")}/></Fld>
+        </div>
+        <Fld label="Notes"><textarea value={form.notes} onChange={e=>sf("notes")(e.target.value)} rows={3} placeholder="Visit details, prayer notes, condition, etc." style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",fontFamily:"inherit",resize:"vertical",boxSizing:"border-box"}}/></Fld>
+        <div style={{display:"flex",gap:8,marginTop:6}}>
+          <Btn onClick={save} style={{flex:1,justifyContent:"center"}}>{editing?"Save Changes":"Save Visit"}</Btn>
+          <Btn v="ghost" onClick={()=>{setModal(false);setEditing(null);setForm(blank());}} style={{flex:1,justifyContent:"center"}}>Cancel</Btn>
+        </div>
+      </Modal>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BENEVOLENCE FUND TRACKER
+// ═══════════════════════════════════════════════════════════════
+const BEN_CATEGORIES = ["Food Assistance","Rent / Housing","Utility Bill","Medical","Transportation","Clothing","Emergency Cash","Condolence Meal","Flower Arrangement","Other"];
+const BEN_STATUSES = ["Pending","Approved","Disbursed","Denied","Withdrawn"];
+const MEAL_DAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+function BenevolencePage({members,visitors,benevolence,setBenevolence}:any) {
+  const blank=()=>({personId:"",personType:"member",requestDate:td(),category:"Food Assistance",amountRequested:"",amountApproved:"",disbursedDate:"",status:"Pending",approvedBy:"",notes:"",familyName:"",mealStartDate:"",mealEndDate:"",mealProviders:[] as any[],flowerDeliveryDate:"",flowerDeliveryAddress:""});
+  const [modal,setModal] = useState(false);
+  const [form,setForm] = useState<any>(blank());
+  const [editing,setEditing] = useState<any>(null);
+  const [filterStatus,setFilterStatus] = useState("All");
+  const [search,setSearch] = useState("");
+  const [openProvIdx,setOpenProvIdx] = useState<number|null>(null);
+  const nid = useRef(9800);
+  const sf = (k:string) => (v:any) => setForm((f:any)=>({...f,[k]:v}));
+  const getPerson = (id:number,type:string) => type==="member"?members.find((m:any)=>m.id===id):visitors.find((v:any)=>v.id===id);
+  const getPersonName = (id:number,type:string) => {const p=getPerson(id,type);return p?p.first+" "+p.last:"Unknown";};
+  const addProvider=()=>setForm((f:any)=>({...f,mealProviders:[...(f.mealProviders||[]),{day:"Monday",memberId:null,memberName:"",search:""}]}));
+  const removeProvider=(i:number)=>{setOpenProvIdx(null);setForm((f:any)=>({...f,mealProviders:f.mealProviders.filter((_:any,idx:number)=>idx!==i)}));};
+  const updateProvider=(i:number,patch:any)=>setForm((f:any)=>({...f,mealProviders:f.mealProviders.map((p:any,idx:number)=>idx===i?{...p,...patch}:p)}));
+  const selectProvMember=(i:number,m:any)=>{updateProvider(i,{memberId:m.id,memberName:m.first+" "+m.last,search:""});setOpenProvIdx(null);};
+  const save = () => {
+    if(!form.personId){alert("Please select a person / family contact.");return;}
+    if(!["Condolence Meal","Flower Arrangement"].includes(form.category)&&!form.amountRequested){alert("Amount required.");return;}
+    const rec={personId:+form.personId,personType:form.personType,requestDate:form.requestDate,category:form.category,amountRequested:+form.amountRequested||0,amountApproved:+form.amountApproved||0,disbursedDate:form.disbursedDate,status:form.status,approvedBy:form.approvedBy,notes:form.notes,familyName:form.familyName||"",mealStartDate:form.mealStartDate||"",mealEndDate:form.mealEndDate||"",mealProviders:(form.mealProviders||[]).map(({search:_s,...rest}:any)=>rest),flowerDeliveryDate:form.flowerDeliveryDate||"",flowerDeliveryAddress:form.flowerDeliveryAddress||""};
+    if(editing){setBenevolence((b:any[])=>b.map(x=>x.id===editing.id?{...x,...rec}:x));}
+    else{setBenevolence((b:any[])=>[{...rec,id:Date.now()},...b]);}
+    localStorage.setItem('ntcc_force_cloud_save','1');
+    setModal(false); setEditing(null); setForm(blank());
+  };
+  const del = (id:number)=>{if(confirm("Delete this request?")){setBenevolence((b:any[])=>b.filter(x=>x.id!==id));localStorage.setItem('ntcc_force_cloud_save','1');}};
+  const openEdit=(b:any)=>{setEditing(b);setForm({personId:String(b.personId),personType:b.personType,requestDate:b.requestDate,category:b.category,amountRequested:String(b.amountRequested),amountApproved:String(b.amountApproved||""),disbursedDate:b.disbursedDate||"",status:b.status,approvedBy:b.approvedBy||"",notes:b.notes||"",familyName:b.familyName||"",mealStartDate:b.mealStartDate||"",mealEndDate:b.mealEndDate||"",mealProviders:(b.mealProviders||[]).map((p:any)=>({...p,search:""})),flowerDeliveryDate:b.flowerDeliveryDate||"",flowerDeliveryAddress:b.flowerDeliveryAddress||""});setModal(true);};
+  const BS_COLORS:any={Pending:AM,Approved:BL,Disbursed:GR,Denied:RE,Withdrawn:MU};
+  let shown=[...benevolence].sort((a:any,b:any)=>b.requestDate.localeCompare(a.requestDate));
+  if(filterStatus!=="All") shown=shown.filter(b=>b.status===filterStatus);
+  if(search) shown=shown.filter(b=>getPersonName(b.personId,b.personType).toLowerCase().includes(search.toLowerCase())||b.category.toLowerCase().includes(search.toLowerCase())||(b.familyName||"").toLowerCase().includes(search.toLowerCase()));
+  const totalDisbursed=benevolence.filter((b:any)=>b.status==="Disbursed").reduce((a:number,b:any)=>a+b.amountApproved,0);
+  const totalPending=benevolence.filter((b:any)=>b.status==="Pending").reduce((a:number,b:any)=>a+b.amountRequested,0);
+
+  return (
+    <div>
+      <div style={{display:"flex",gap:10,marginBottom:16,flexWrap:"wrap"}}>
+        <Stat label="Total Requests" value={benevolence.length} color={N}/>
+        <Stat label="Pending" value={benevolence.filter((b:any)=>b.status==="Pending").length} color={AM} sub={f$(totalPending)+" requested"}/>
+        <Stat label="Disbursed" value={benevolence.filter((b:any)=>b.status==="Disbursed").length} color={GR} sub={f$(totalDisbursed)+" total"}/>
+        <Stat label="Denied" value={benevolence.filter((b:any)=>b.status==="Denied").length} color={RE}/>
+      </div>
+      <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap",alignItems:"center",justifyContent:"space-between"}}>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search name, family or category..." style={{padding:"8px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",minWidth:200}}/>
+          <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)} style={{padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}>
+            <option value="All">All Statuses</option>
+            {BEN_STATUSES.map(s=><option key={s}>{s}</option>)}
+          </select>
+        </div>
+        <Btn onClick={()=>{setEditing(null);setForm(blank());setModal(true);}}>+ New Request</Btn>
+      </div>
+      {shown.length===0?(
+        <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:40,textAlign:"center",color:MU}}>No benevolence requests yet.</div>
+      ):(
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {shown.map((b:any)=>{
+            const sc=BS_COLORS[b.status]||MU;
+            return(<div key={b.id} style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:"14px 16px"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:8}}>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4,flexWrap:"wrap"}}>
+                    <span style={{fontSize:15,fontWeight:600,color:TX}}>{getPersonName(b.personId,b.personType)}</span>
+                    <span style={{fontSize:10,background:b.personType==="member"?"#dcfce7":"#fff3e0",color:b.personType==="member"?GR:AM,borderRadius:20,padding:"2px 8px",fontWeight:500}}>{b.personType}</span>
+                    <span style={{background:sc+"18",color:sc,borderRadius:20,padding:"2px 9px",fontSize:11,fontWeight:500}}>{b.status}</span>
+                    <span style={{fontSize:12,fontWeight:500,color:N}}>{b.category}</span>
+                    {b.familyName&&<span style={{fontSize:12,color:MU}}>· Family: <strong style={{color:TX}}>{b.familyName}</strong></span>}
+                  </div>
+                  <div style={{display:"flex",gap:16,flexWrap:"wrap",fontSize:12,color:MU}}>
+                    <span>📅 Requested {fd(b.requestDate)}</span>
+                    {b.amountRequested>0&&<span>Requested: <strong style={{color:TX}}>{f$(b.amountRequested)}</strong></span>}
+                    {b.amountApproved>0&&<span>Approved: <strong style={{color:GR}}>{f$(b.amountApproved)}</strong></span>}
+                    {b.approvedBy&&<span>By: {b.approvedBy}</span>}
+                    {b.disbursedDate&&<span>Disbursed: {fd(b.disbursedDate)}</span>}
+                    {b.mealStartDate&&b.mealEndDate&&<span>🍽 Meals: {fd(b.mealStartDate)} – {fd(b.mealEndDate)}</span>}
+                    {b.flowerDeliveryDate&&<span>🌸 Delivery: {fd(b.flowerDeliveryDate)}</span>}
+                    {b.flowerDeliveryAddress&&<span>📍 {b.flowerDeliveryAddress}</span>}
+                  </div>
+                  {b.category==="Condolence Meal"&&(b.mealProviders||[]).length>0&&(
+                    <div style={{marginTop:8,display:"flex",flexWrap:"wrap",gap:5}}>
+                      {b.mealProviders.map((p:any,i:number)=>(
+                        <span key={i} style={{fontSize:11,background:"#fef9ec",border:"0.5px solid #f5d6a0",borderRadius:6,padding:"2px 9px",color:"#92400e"}}><strong>{p.day}:</strong> {p.memberName||"—"}</span>
+                      ))}
+                    </div>
+                  )}
+                  {b.notes&&<div style={{fontSize:12,color:MU,fontStyle:"italic",marginTop:6}}>💬 {b.notes}</div>}
+                </div>
+                <div style={{display:"flex",gap:5,flexShrink:0}}>
+                  <Btn onClick={()=>openEdit(b)} v="ghost" style={{fontSize:11,padding:"4px 10px"}}>Edit</Btn>
+                  <Btn onClick={()=>del(b.id)} v="danger" style={{fontSize:11,padding:"4px 8px"}}>✕</Btn>
+                </div>
+              </div>
+            </div>);
+          })}
+        </div>
+      )}
+      <Modal open={modal} onClose={()=>{setModal(false);setEditing(null);setForm(blank());setOpenProvIdx(null);}} title={editing?"Edit Request":"New Benevolence Request"} width={520}>
+        <Fld label={form.category==="Condolence Meal"?"Family Contact (Member)":"Person"}>
+          <select value={form.personId} onChange={e=>{const opt=e.target.selectedOptions[0];const newId=e.target.value;const newType=opt?.dataset.type||"member";setForm((f:any)=>{let autoFamily=f.familyName;if(f.category==="Condolence Meal"&&newId){const pool=newType==="member"?members:visitors;const person=pool.find((p:any)=>String(p.id)===newId);if(person){autoFamily=person.family||(person.last?"The "+person.last+" Family":"");}}return{...f,personId:newId,personType:newType,familyName:autoFamily};});}} style={{width:"100%",padding:"9px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}>
+            <option value="">— Select Person —</option>
+            <optgroup label="Members">{members.filter((m:any)=>m.status==="Active").sort((a:any,b:any)=>a.last.localeCompare(b.last)).map((m:any)=><option key={m.id} value={m.id} data-type="member">{m.last}, {m.first}</option>)}</optgroup>
+            <optgroup label="Visitors">{visitors.sort((a:any,b:any)=>a.last.localeCompare(b.last)).map((v:any)=><option key={v.id} value={v.id} data-type="visitor">{v.last}, {v.first}</option>)}</optgroup>
+          </select>
+        </Fld>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <Fld label="Request Date"><Inp type="date" value={form.requestDate} onChange={sf("requestDate")}/></Fld>
+          <Fld label="Category">
+            <select value={form.category} onChange={e=>{sf("category")(e.target.value);setOpenProvIdx(null);}} style={{width:"100%",padding:"9px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}>
+              {BEN_CATEGORIES.map(c=><option key={c}>{c}</option>)}
+            </select>
+          </Fld>
+        </div>
+        {/* ── CONDOLENCE MEAL SECTION ── */}
+        {form.category==="Condolence Meal"&&(
+          <div style={{background:"#fdf6ec",border:"0.5px solid #f5d6a0",borderRadius:10,padding:14,display:"flex",flexDirection:"column",gap:10}}>
+            <div style={{fontSize:12,fontWeight:700,color:"#92400e",letterSpacing:0.3}}>🍽 Condolence Meal Details</div>
+            <Fld label="Bereaved Family Name"><Inp value={form.familyName} onChange={sf("familyName")} placeholder="e.g. The Johnson Family"/></Fld>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <Fld label="Meal Week Start"><Inp type="date" value={form.mealStartDate} onChange={sf("mealStartDate")}/></Fld>
+              <Fld label="Meal Week End"><Inp type="date" value={form.mealEndDate} onChange={sf("mealEndDate")}/></Fld>
+            </div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div style={{fontSize:12,fontWeight:600,color:TX}}>Meal Providers <span style={{fontSize:11,color:MU,fontWeight:400}}>— assign a member to each day</span></div>
+              <Btn onClick={addProvider} v="outline" style={{fontSize:11,padding:"3px 10px"}}>+ Add Day</Btn>
+            </div>
+            {(form.mealProviders||[]).length===0&&<div style={{fontSize:12,color:MU,fontStyle:"italic"}}>No providers added yet. Click "+ Add Day" to begin.</div>}
+            {(form.mealProviders||[]).map((prov:any,i:number)=>{
+              const activeMembers=members.filter((m:any)=>m.status==="Active");
+              const filtered=prov.search.trim()?activeMembers.filter((m:any)=>(m.first+" "+m.last).toLowerCase().includes(prov.search.toLowerCase())):activeMembers.slice(0,8);
+              return(
+                <div key={i} style={{display:"flex",gap:6,alignItems:"flex-start",flexWrap:"nowrap"}}>
+                  <select value={prov.day} onChange={e=>updateProvider(i,{day:e.target.value})} style={{padding:"7px 8px",border:"0.5px solid "+BR,borderRadius:7,fontSize:12,outline:"none",width:112,flexShrink:0,background:W}}>
+                    {MEAL_DAYS.map(d=><option key={d}>{d}</option>)}
+                  </select>
+                  <div style={{flex:1,position:"relative",minWidth:0}}>
+                    {prov.memberId?(
+                      <div style={{display:"flex",gap:6,alignItems:"center",padding:"7px 10px",background:"#f0fdf4",border:"0.5px solid #bbf7d0",borderRadius:7,fontSize:12}}>
+                        <span style={{flex:1,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{prov.memberName}</span>
+                        <button onClick={()=>updateProvider(i,{memberId:null,memberName:"",search:""})} style={{background:"none",border:"none",color:RE,cursor:"pointer",fontSize:16,lineHeight:1,padding:0,flexShrink:0}}>×</button>
+                      </div>
+                    ):(
+                      <>
+                        <input value={prov.search} onChange={e=>{updateProvider(i,{search:e.target.value});setOpenProvIdx(i);}} onFocus={()=>setOpenProvIdx(i)} onBlur={()=>setTimeout(()=>setOpenProvIdx(p=>p===i?null:p),200)} placeholder="Search member…" style={{width:"100%",padding:"7px 10px",border:"0.5px solid "+BR,borderRadius:7,fontSize:12,outline:"none",boxSizing:"border-box"}}/>
+                        {openProvIdx===i&&(
+                          <div style={{position:"absolute",top:"100%",left:0,right:0,background:W,border:"0.5px solid "+BR,borderRadius:8,boxShadow:"0 4px 16px rgba(0,0,0,0.13)",zIndex:400,maxHeight:180,overflowY:"auto",marginTop:2}}>
+                            {filtered.length===0
+                              ?<div style={{padding:"10px 12px",fontSize:12,color:MU,fontStyle:"italic"}}>No members found.</div>
+                              :filtered.map((m:any)=>(
+                                <div key={m.id} onMouseDown={()=>selectProvMember(i,m)} style={{padding:"9px 12px",fontSize:12,cursor:"pointer",borderBottom:"0.5px solid "+BR}} onMouseEnter={e=>(e.currentTarget.style.background="#f5f3ff")} onMouseLeave={e=>(e.currentTarget.style.background=W)}>
+                                  {m.first} {m.last}
+                                </div>
+                              ))
+                            }
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                  <button onClick={()=>removeProvider(i)} title="Remove" style={{background:"none",border:"0.5px solid "+RE+"55",color:RE,borderRadius:6,fontSize:12,padding:"6px 9px",cursor:"pointer",flexShrink:0,lineHeight:1}}>✕</button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {/* ── FLOWER ARRANGEMENT SECTION ── */}
+        {form.category==="Flower Arrangement"&&(
+          <div style={{background:"#fdf4f8",border:"0.5px solid #f0abca",borderRadius:10,padding:14,display:"flex",flexDirection:"column",gap:10}}>
+            <div style={{fontSize:12,fontWeight:700,color:"#9d174d",letterSpacing:0.3}}>🌸 Flower Arrangement Details</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <Fld label="Delivery Date"><Inp type="date" value={form.flowerDeliveryDate} onChange={sf("flowerDeliveryDate")}/></Fld>
+              <div/>
+            </div>
+            <Fld label="Delivery Address"><Inp value={form.flowerDeliveryAddress} onChange={sf("flowerDeliveryAddress")} placeholder="e.g. 123 Main St, City, ST"/></Fld>
+          </div>
+        )}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <Fld label={form.category==="Condolence Meal"?"Est. Cost ($) — optional":"Amount Requested ($)"}><Inp type="number" value={form.amountRequested} onChange={sf("amountRequested")} placeholder="0.00"/></Fld>
+          <Fld label="Amount Approved ($)"><Inp type="number" value={form.amountApproved} onChange={sf("amountApproved")} placeholder="0.00"/></Fld>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <Fld label="Status">
+            <select value={form.status} onChange={e=>sf("status")(e.target.value)} style={{width:"100%",padding:"9px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}>
+              {BEN_STATUSES.map(s=><option key={s}>{s}</option>)}
+            </select>
+          </Fld>
+          <Fld label="Disbursed Date"><Inp type="date" value={form.disbursedDate} onChange={sf("disbursedDate")}/></Fld>
+        </div>
+        <Fld label="Approved By"><Inp value={form.approvedBy} onChange={sf("approvedBy")} placeholder="Pastor Hall, Board, etc."/></Fld>
+        <Fld label="Notes"><textarea value={form.notes} onChange={e=>sf("notes")(e.target.value)} rows={3} placeholder="Description, situation, follow-up notes..." style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",fontFamily:"inherit",resize:"vertical",boxSizing:"border-box"}}/></Fld>
+        <div style={{display:"flex",gap:8,marginTop:6}}>
+          <Btn onClick={save} style={{flex:1,justifyContent:"center"}}>{editing?"Save Changes":"Submit Request"}</Btn>
+          <Btn v="ghost" onClick={()=>{setModal(false);setEditing(null);setForm(blank());setOpenProvIdx(null);}} style={{flex:1,justifyContent:"center"}}>Cancel</Btn>
+        </div>
+      </Modal>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HOSPITALITY ACCOUNT LEDGER
+// Credit = money IN (donations), Debit = money OUT (expenses)
+// Running balance = beginningBalance + sum(credits) - sum(debits)
+// ═══════════════════════════════════════════════════════════════
+const HOSP_CATEGORIES = ["Donation","Offering","Reimbursement","Expense","Supply Purchase","Event Cost","Withdrawal","Other"];
+const HOSP_MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+function HospitalityAccountPage({members,hospitality,setHospitality}:any){
+  // hospitality state shape: {beginningBalance:number, entries:[]}
+  const acct = hospitality || {beginningBalance:0,entries:[]};
+  const [editBal,setEditBal]=useState(false);
+  const [balInput,setBalInput]=useState(String(acct.beginningBalance));
+  const [modal,setModal]=useState(false);
+  const [editing,setEditing]=useState<any>(null);
+  const [memberSearch,setMemberSearch]=useState("");
+  const [memberOpen,setMemberOpen]=useState(false);
+  const today=td();
+  const nowY=new Date().getFullYear();
+  const nowM=new Date().getMonth(); // 0-indexed
+  const [filterMonth,setFilterMonth]=useState(String(nowM)); // "0"-"11" or "all"
+  const [filterYear,setFilterYear]=useState(String(nowY));
+  const blankEntry=()=>({date:today,memberId:null as number|null,memberName:"",description:"",category:"Donation",credit:"",debit:"",checkRef:"",recordedBy:""});
+  const [form,setForm]=useState<any>(blankEntry());
+  const sf=(k:string)=>(v:any)=>setForm((f:any)=>({...f,[k]:v}));
+  const nid=useRef(Date.now()+88000);
+
+  const saveBalance=()=>{
+    setHospitality((h:any)=>({...h,beginningBalance:parseFloat(balInput)||0}));
+    localStorage.setItem('ntcc_force_cloud_save','1');
+    setEditBal(false);
+  };
+
+  const activeMembers=(members||[]).filter((m:any)=>m.status==="Active").sort((a:any,b:any)=>a.last.localeCompare(b.last));
+  const filteredMembers=memberSearch.trim()?activeMembers.filter((m:any)=>(m.first+" "+m.last).toLowerCase().includes(memberSearch.toLowerCase())):activeMembers.slice(0,8);
+
+  const selectMember=(m:any)=>{setForm((f:any)=>({...f,memberId:m.id,memberName:m.first+" "+m.last}));setMemberSearch("");setMemberOpen(false);};
+  const clearMember=()=>setForm((f:any)=>({...f,memberId:null,memberName:""}));
+
+  const save=()=>{
+    const credit=parseFloat(form.credit)||0;
+    const debit=parseFloat(form.debit)||0;
+    if(!form.date){alert("Date is required.");return;}
+    if(credit===0&&debit===0){alert("Enter a Credit or Debit amount.");return;}
+    const rec={id:editing?.id??nid.current++,date:form.date,memberId:form.memberId,memberName:form.memberName||"",description:form.description,category:form.category,credit,debit,checkRef:form.checkRef,recordedBy:form.recordedBy};
+    setHospitality((h:any)=>{
+      const entries=editing?h.entries.map((e:any)=>e.id===rec.id?rec:e):[...(h.entries||[]),rec];
+      return{...h,entries};
+    });
+    localStorage.setItem('ntcc_force_cloud_save','1');
+    setModal(false);setEditing(null);setForm(blankEntry());setMemberSearch("");
+  };
+
+  const del=(id:number)=>{if(confirm("Delete this entry?")){
+    setHospitality((h:any)=>({...h,entries:(h.entries||[]).filter((e:any)=>e.id!==id)}));
+    localStorage.setItem('ntcc_force_cloud_save','1');
+  }};
+  const openEdit=(e:any)=>{setEditing(e);setForm({date:e.date,memberId:e.memberId,memberName:e.memberName||"",description:e.description,category:e.category,credit:e.credit?String(e.credit):"",debit:e.debit?String(e.debit):"",checkRef:e.checkRef||"",recordedBy:e.recordedBy||""});setMemberSearch("");setModal(true);};
+
+  // Filter
+  const allEntries=[...(acct.entries||[])].sort((a:any,b:any)=>a.date.localeCompare(b.date));
+  const filtered=allEntries.filter((e:any)=>{
+    const d=new Date(e.date+"T00:00:00");
+    if(filterYear!=="all"&&d.getFullYear()!==+filterYear)return false;
+    if(filterMonth!=="all"&&d.getMonth()!==+filterMonth)return false;
+    return true;
+  });
+
+  // Running balance across ALL entries (ordered) then slice to filtered display
+  let runBal=acct.beginningBalance;
+  const withBal=allEntries.map((e:any)=>{runBal+=((e.credit||0)-(e.debit||0));return{...e,runBal};});
+  const filteredWithBal=withBal.filter((e:any)=>filtered.some((f:any)=>f.id===e.id));
+
+  // Stats for filtered period
+  const periodCredit=filtered.reduce((s:number,e:any)=>s+(e.credit||0),0);
+  const periodDebit=filtered.reduce((s:number,e:any)=>s+(e.debit||0),0);
+  const endingBal=filteredWithBal.length>0?filteredWithBal[filteredWithBal.length-1].runBal:acct.beginningBalance;
+  const years=Array.from(new Set(allEntries.map((e:any)=>new Date(e.date+"T00:00:00").getFullYear()))).sort().reverse();
+  if(!years.includes(nowY))years.unshift(nowY);
+
+  return(
+    <div>
+      {/* Header stats */}
+      <div style={{display:"flex",gap:10,marginBottom:16,flexWrap:"wrap"}}>
+        <div style={{background:W,border:"0.5px solid "+BR,borderRadius:10,padding:"12px 18px",minWidth:160}}>
+          <div style={{fontSize:11,color:MU,textTransform:"uppercase",letterSpacing:0.4,marginBottom:4}}>Beginning Balance</div>
+          {editBal?(
+            <div style={{display:"flex",gap:6,alignItems:"center"}}>
+              <span style={{fontSize:13,color:MU}}>$</span>
+              <input autoFocus value={balInput} onChange={e=>setBalInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")saveBalance();if(e.key==="Escape")setEditBal(false);}} style={{width:100,padding:"4px 6px",border:"0.5px solid "+N,borderRadius:6,fontSize:14,fontWeight:600,outline:"none"}}/>
+              <Btn onClick={saveBalance} style={{fontSize:11,padding:"3px 9px"}}>Set</Btn>
+              <Btn onClick={()=>setEditBal(false)} v="ghost" style={{fontSize:11,padding:"3px 8px"}}>✕</Btn>
+            </div>
+          ):(
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <span style={{fontSize:18,fontWeight:700,color:N}}>{f$(acct.beginningBalance)}</span>
+              <button onClick={()=>{setBalInput(String(acct.beginningBalance));setEditBal(true);}} title="Edit" style={{background:"none",border:"none",cursor:"pointer",fontSize:13,color:MU,padding:0}}>✎</button>
+            </div>
+          )}
+        </div>
+        <Stat label="Total Credits" value={f$(periodCredit)} color={GR} sub={"money in"}/>
+        <Stat label="Total Debits" value={f$(periodDebit)} color={RE} sub={"money out"}/>
+        <div style={{background:W,border:"2px solid "+(endingBal>=0?GR:RE),borderRadius:10,padding:"12px 18px",minWidth:160}}>
+          <div style={{fontSize:11,color:MU,textTransform:"uppercase",letterSpacing:0.4,marginBottom:4}}>
+            {filterMonth==="all"&&filterYear==="all"?"Current Balance":filterMonth==="all"?"End of "+filterYear+" Balance":"End of "+HOSP_MONTHS[+filterMonth]+" Balance"}
+          </div>
+          <span style={{fontSize:18,fontWeight:700,color:endingBal>=0?GR:RE}}>{f$(endingBal)}</span>
+        </div>
+      </div>
+
+      {/* Filters + Add */}
+      <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap",alignItems:"center",justifyContent:"space-between"}}>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
+          <select value={filterMonth} onChange={e=>setFilterMonth(e.target.value)} style={{padding:"7px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}>
+            <option value="all">All Months</option>
+            {HOSP_MONTHS.map((m,i)=><option key={i} value={String(i)}>{m}</option>)}
+          </select>
+          <select value={filterYear} onChange={e=>setFilterYear(e.target.value)} style={{padding:"7px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}>
+            <option value="all">All Years</option>
+            {years.map(y=><option key={y} value={String(y)}>{y}</option>)}
+          </select>
+          {(filterMonth!=="all"||filterYear!=="all")&&<button onClick={()=>{setFilterMonth("all");setFilterYear("all");}} style={{background:"none",border:"0.5px solid "+BR,borderRadius:6,fontSize:12,padding:"6px 10px",cursor:"pointer",color:MU}}>Clear Filter</button>}
+        </div>
+        <Btn onClick={()=>{setEditing(null);setForm(blankEntry());setMemberSearch("");setModal(true);}}>+ Add Entry</Btn>
+      </div>
+
+      {/* Ledger table */}
+      {filteredWithBal.length===0?(
+        <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:"40px 20px",textAlign:"center",color:MU}}>No entries for this period. Click "+ Add Entry" to begin.</div>
+      ):(
+        <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,overflow:"hidden"}}>
+          <table style={{width:"100%",borderCollapse:"collapse"}}>
+            <thead>
+              <tr style={{background:"#f8f9fc"}}>
+                {["Date","Name / Source","Category","Description","Check #","Recorded By","Credit (IN)","Debit (OUT)","Balance",""].map(h=>(
+                  <th key={h} style={{padding:"9px 12px",textAlign:["Credit (IN)","Debit (OUT)","Balance"].includes(h)?"right":"left",fontSize:11,fontWeight:500,color:MU,textTransform:"uppercase",letterSpacing:0.4,borderBottom:"0.5px solid "+BR,whiteSpace:"nowrap"}}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filteredWithBal.map((e:any,idx:number)=>(
+                <tr key={e.id} style={{borderBottom:"0.5px solid "+BR,background:idx%2===0?W:"#fafbfc"}} onMouseEnter={ev=>ev.currentTarget.style.background="#f0f4ff"} onMouseLeave={ev=>ev.currentTarget.style.background=idx%2===0?W:"#fafbfc"}>
+                  <td style={{padding:"9px 12px",fontSize:12,whiteSpace:"nowrap"}}>{fd(e.date)}</td>
+                  <td style={{padding:"9px 12px",fontSize:12,fontWeight:500,maxWidth:140,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.memberName||<span style={{color:MU,fontStyle:"italic"}}>—</span>}</td>
+                  <td style={{padding:"9px 12px",fontSize:11}}><span style={{background:N+"18",color:N,borderRadius:4,padding:"2px 7px",fontWeight:500}}>{e.category}</span></td>
+                  <td style={{padding:"9px 12px",fontSize:12,color:MU,maxWidth:180,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{e.description||"—"}</td>
+                  <td style={{padding:"9px 12px",fontSize:12,color:MU}}>{e.checkRef||"—"}</td>
+                  <td style={{padding:"9px 12px",fontSize:12,color:MU}}>{e.recordedBy||"—"}</td>
+                  <td style={{padding:"9px 12px",fontSize:12,textAlign:"right",fontWeight:e.credit>0?600:400,color:e.credit>0?GR:MU}}>{e.credit>0?f$(e.credit):"—"}</td>
+                  <td style={{padding:"9px 12px",fontSize:12,textAlign:"right",fontWeight:e.debit>0?600:400,color:e.debit>0?RE:MU}}>{e.debit>0?f$(e.debit):"—"}</td>
+                  <td style={{padding:"9px 12px",fontSize:12,textAlign:"right",fontWeight:700,color:e.runBal>=0?GR:RE,whiteSpace:"nowrap"}}>{f$(e.runBal)}</td>
+                  <td style={{padding:"9px 12px",whiteSpace:"nowrap"}}>
+                    <div style={{display:"flex",gap:4}}>
+                      <Btn onClick={()=>openEdit(e)} v="ghost" style={{fontSize:11,padding:"3px 8px"}}>✎</Btn>
+                      <Btn onClick={()=>del(e.id)} v="danger" style={{fontSize:11,padding:"3px 7px"}}>✕</Btn>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr style={{background:"#f0f4ff",borderTop:"1.5px solid "+N+"33"}}>
+                <td colSpan={6} style={{padding:"10px 12px",fontSize:12,fontWeight:700,color:TX}}>Period Totals</td>
+                <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,fontWeight:700,color:GR}}>{f$(periodCredit)}</td>
+                <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,fontWeight:700,color:RE}}>{f$(periodDebit)}</td>
+                <td style={{padding:"10px 12px",textAlign:"right",fontSize:13,fontWeight:700,color:endingBal>=0?GR:RE}}>{f$(endingBal)}</td>
+                <td/>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
+
+      {/* Donor summary — who has given */}
+      {(acct.entries||[]).filter((e:any)=>e.credit>0&&e.memberName).length>0&&(
+        <div style={{marginTop:20}}>
+          <div style={{fontSize:13,fontWeight:600,color:TX,marginBottom:10}}>Donor Summary</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+            {Object.entries(
+              (acct.entries||[]).filter((e:any)=>e.credit>0&&e.memberName).reduce((acc:any,e:any)=>{acc[e.memberName]=(acc[e.memberName]||0)+e.credit;return acc;},{})
+            ).sort((a:any,b:any)=>b[1]-a[1]).map(([name,total]:any)=>(
+              <div key={name} style={{background:W,border:"0.5px solid "+BR,borderRadius:8,padding:"8px 14px",display:"flex",gap:10,alignItems:"center"}}>
+                <Av f={name.split(" ")[0]} l={name.split(" ").slice(1).join(" ")} sz={28}/>
+                <div><div style={{fontSize:13,fontWeight:500}}>{name}</div><div style={{fontSize:12,color:GR,fontWeight:600}}>{f$(total)} given</div></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Add/Edit Modal */}
+      <Modal open={modal} onClose={()=>{setModal(false);setEditing(null);setForm(blankEntry());setMemberSearch("");}} title={editing?"Edit Entry":"Add Ledger Entry"} width={500}>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <Fld label="Date *"><Inp type="date" value={form.date} onChange={sf("date")}/></Fld>
+          <Fld label="Category">
+            <select value={form.category} onChange={e=>sf("category")(e.target.value)} style={{width:"100%",padding:"9px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}>
+              {HOSP_CATEGORIES.map(c=><option key={c}>{c}</option>)}
+            </select>
+          </Fld>
+        </div>
+        <Fld label="Name / Source (auto-fill from Members)">
+          {form.memberId?(
+            <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",background:"#f0fdf4",border:"0.5px solid #bbf7d0",borderRadius:8,fontSize:13}}>
+              <span style={{flex:1,fontWeight:500}}>{form.memberName}</span>
+              <button onClick={clearMember} style={{background:"none",border:"none",color:RE,cursor:"pointer",fontSize:16,padding:0}}>×</button>
+            </div>
+          ):(
+            <div style={{position:"relative"}}>
+              <input value={memberSearch} onChange={e=>{setMemberSearch(e.target.value);setMemberOpen(true);}} onFocus={()=>setMemberOpen(true)} onBlur={()=>setTimeout(()=>setMemberOpen(false),200)} placeholder="Search member or type a name…" style={{width:"100%",padding:"9px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",boxSizing:"border-box"}}/>
+              {memberOpen&&(
+                <div style={{position:"absolute",top:"100%",left:0,right:0,background:W,border:"0.5px solid "+BR,borderRadius:8,boxShadow:"0 4px 16px rgba(0,0,0,0.13)",zIndex:400,maxHeight:200,overflowY:"auto",marginTop:2}}>
+                  {memberSearch.trim()&&!filteredMembers.some((m:any)=>(m.first+" "+m.last).toLowerCase()===memberSearch.trim().toLowerCase())&&(
+                    <div onMouseDown={()=>{setForm((f:any)=>({...f,memberName:memberSearch.trim(),memberId:null}));setMemberSearch("");setMemberOpen(false);}} style={{padding:"9px 12px",fontSize:12,color:BL,cursor:"pointer",borderBottom:"0.5px solid "+BR,fontStyle:"italic"}}>Use "{memberSearch.trim()}" (not a member)</div>
+                  )}
+                  {filteredMembers.length===0&&!memberSearch.trim()&&<div style={{padding:"10px 12px",fontSize:12,color:MU}}>Start typing to search…</div>}
+                  {filteredMembers.map((m:any)=>(
+                    <div key={m.id} onMouseDown={()=>selectMember(m)} style={{padding:"9px 12px",fontSize:12,cursor:"pointer",borderBottom:"0.5px solid "+BR}} onMouseEnter={e=>(e.currentTarget.style.background="#f5f3ff")} onMouseLeave={e=>(e.currentTarget.style.background=W)}>
+                      {m.first} {m.last}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </Fld>
+        <Fld label="Description / Memo"><Inp value={form.description} onChange={sf("description")} placeholder="e.g. Sunday offering, supply purchase…"/></Fld>
+        <div style={{background:"#f8f9fc",border:"0.5px solid "+BR,borderRadius:10,padding:14,display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <Fld label="💚 Credit — Money IN ($)"><Inp type="number" value={form.credit} onChange={sf("credit")} placeholder="0.00"/></Fld>
+          <Fld label="🔴 Debit — Money OUT ($)"><Inp type="number" value={form.debit} onChange={sf("debit")} placeholder="0.00"/></Fld>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <Fld label="Check / Reference #"><Inp value={form.checkRef} onChange={sf("checkRef")} placeholder="e.g. #1042"/></Fld>
+          <Fld label="Recorded By"><Inp value={form.recordedBy} onChange={sf("recordedBy")} placeholder="Staff name"/></Fld>
+        </div>
+        <div style={{display:"flex",gap:8,marginTop:6}}>
+          <Btn onClick={save} style={{flex:1,justifyContent:"center"}}>{editing?"Save Changes":"Add Entry"}</Btn>
+          <Btn v="ghost" onClick={()=>{setModal(false);setEditing(null);setForm(blankEntry());setMemberSearch("");}} style={{flex:1,justifyContent:"center"}}>Cancel</Btn>
+        </div>
+      </Modal>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PASTORAL COUNSELING LOG  (private — pastor/admin only)
+// ═══════════════════════════════════════════════════════════════
+const COUNSEL_CATEGORIES = ["Marriage","Grief / Loss","Addiction","Financial","Family","Spiritual","Mental Health","Conflict","Life Coaching","Pre-Marital","Other"];
+const COUNSEL_STATUSES = ["Active","On Hold","Referred","Completed"];
+function CounselingLog({members,visitors,counselingLogs,setCounselingLogs}:any) {
+  const blank=()=>({personId:"",personType:"member",sessionDate:td(),category:"Marriage",counselor:"",sessionNotes:"",actionItems:"",nextSession:"",status:"Active",confidential:true});
+  const [modal,setModal] = useState(false);
+  const [form,setForm] = useState<any>(blank());
+  const [editing,setEditing] = useState<any>(null);
+  const [filterCat,setFilterCat] = useState("All");
+  const [filterStatus,setFilterStatus] = useState("All");
+  const [search,setSearch] = useState("");
+  const [expanded,setExpanded] = useState<number|null>(null);
+  const nid = useRef(9900);
+  const sf = (k:string) => (v:any) => setForm((f:any)=>({...f,[k]:v}));
+  const getPerson = (id:number,type:string) => type==="member"?members.find((m:any)=>m.id===id):visitors.find((v:any)=>v.id===id);
+  const getPersonName = (id:number,type:string) => {const p=getPerson(id,type);return p?p.first+" "+p.last:"Unknown";};
+  const save = () => {
+    if(!form.personId||!form.sessionDate||!form.category){alert("Person, date, and category required.");return;}
+    const rec={personId:+form.personId,personType:form.personType,sessionDate:form.sessionDate,category:form.category,counselor:form.counselor,sessionNotes:form.sessionNotes,actionItems:form.actionItems,nextSession:form.nextSession,status:form.status,confidential:true};
+    if(editing){setCounselingLogs((l:any[])=>l.map(x=>x.id===editing.id?{...x,...rec}:x));}
+    else{setCounselingLogs((l:any[])=>[{...rec,id:Date.now()},...l]);}
+    localStorage.setItem('ntcc_force_cloud_save','1');
+    setModal(false); setEditing(null); setForm(blank());
+  };
+  const del = (id:number)=>{if(confirm("Permanently delete this counseling record?")){setCounselingLogs((l:any[])=>l.filter(x=>x.id!==id));localStorage.setItem('ntcc_force_cloud_save','1');}};
+  const openEdit=(l:any)=>{setEditing(l);setForm({personId:String(l.personId),personType:l.personType,sessionDate:l.sessionDate,category:l.category,counselor:l.counselor||"",sessionNotes:l.sessionNotes||"",actionItems:l.actionItems||"",nextSession:l.nextSession||"",status:l.status,confidential:true});setModal(true);};
+  const CS_COLORS:any={Active:BL,"On Hold":AM,Referred:PU,Completed:GR};
+  let shown=[...counselingLogs].sort((a:any,b:any)=>b.sessionDate.localeCompare(a.sessionDate));
+  if(filterCat!=="All") shown=shown.filter(l=>l.category===filterCat);
+  if(filterStatus!=="All") shown=shown.filter(l=>l.status===filterStatus);
+  if(search) shown=shown.filter(l=>getPersonName(l.personId,l.personType).toLowerCase().includes(search.toLowerCase())||l.category.toLowerCase().includes(search.toLowerCase()));
+
+  return (
+    <div>
+      <div style={{background:"#fef3c7",border:"1px solid "+G,borderRadius:10,padding:"10px 14px",marginBottom:14,fontSize:12,color:"#7a5c10"}}>
+        🔒 <strong>Confidential.</strong> Counseling records are private and visible only to authorized staff. Handle all entries with pastoral discretion.
+      </div>
+      <div style={{display:"flex",gap:10,marginBottom:16,flexWrap:"wrap"}}>
+        <Stat label="Total Sessions" value={counselingLogs.length} color={N}/>
+        <Stat label="Active Cases" value={counselingLogs.filter((l:any)=>l.status==="Active").length} color={BL}/>
+        <Stat label="Completed" value={counselingLogs.filter((l:any)=>l.status==="Completed").length} color={GR}/>
+        <Stat label="Unique Persons" value={new Set(counselingLogs.map((l:any)=>l.personType+":"+l.personId)).size} color={PU}/>
+      </div>
+      <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap",alignItems:"center",justifyContent:"space-between"}}>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search name or topic..." style={{padding:"8px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",minWidth:180}}/>
+          <select value={filterCat} onChange={e=>setFilterCat(e.target.value)} style={{padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}>
+            <option value="All">All Topics</option>
+            {COUNSEL_CATEGORIES.map(c=><option key={c}>{c}</option>)}
+          </select>
+          <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)} style={{padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}>
+            <option value="All">All Statuses</option>
+            {COUNSEL_STATUSES.map(s=><option key={s}>{s}</option>)}
+          </select>
+        </div>
+        <Btn onClick={()=>{setEditing(null);setForm(blank());setModal(true);}}>+ Log Session</Btn>
+      </div>
+      {shown.length===0?(
+        <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:40,textAlign:"center",color:MU}}>No counseling sessions logged yet.</div>
+      ):(
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {shown.map((l:any)=>{
+            const sc=CS_COLORS[l.status]||MU;
+            const isExp=expanded===l.id;
+            return(<div key={l.id} style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:"14px 16px",cursor:"pointer"}} onClick={()=>setExpanded(isExp?null:l.id)}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:8}}>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4,flexWrap:"wrap"}}>
+                    <span style={{fontSize:15,fontWeight:600,color:TX}}>{getPersonName(l.personId,l.personType)}</span>
+                    <span style={{background:sc+"18",color:sc,borderRadius:20,padding:"2px 9px",fontSize:11,fontWeight:500}}>{l.status}</span>
+                    <span style={{background:PU+"18",color:PU,borderRadius:20,padding:"2px 9px",fontSize:11,fontWeight:500}}>{l.category}</span>
+                    <span style={{fontSize:11,color:MU}}>🔒 Confidential</span>
+                  </div>
+                  <div style={{display:"flex",gap:14,flexWrap:"wrap",fontSize:12,color:MU}}>
+                    <span>📅 {fd(l.sessionDate)}</span>
+                    {l.counselor&&<span>👤 {l.counselor}</span>}
+                    {l.nextSession&&<span style={{color:AM}}>⏰ Next: {fd(l.nextSession)}</span>}
+                  </div>
+                </div>
+                <div style={{display:"flex",gap:5,flexShrink:0}} onClick={e=>e.stopPropagation()}>
+                  <Btn onClick={()=>openEdit(l)} v="ghost" style={{fontSize:11,padding:"4px 10px"}}>Edit</Btn>
+                  <Btn onClick={()=>del(l.id)} v="danger" style={{fontSize:11,padding:"4px 8px"}}>✕</Btn>
+                </div>
+              </div>
+              {isExp&&(
+                <div style={{marginTop:12,borderTop:"0.5px solid "+BR,paddingTop:10}}>
+                  {l.sessionNotes&&<div style={{marginBottom:8}}><div style={{fontSize:11,color:MU,fontWeight:600,textTransform:"uppercase",letterSpacing:0.5,marginBottom:3}}>Session Notes</div><div style={{fontSize:13,color:TX,lineHeight:1.6,whiteSpace:"pre-wrap"}}>{l.sessionNotes}</div></div>}
+                  {l.actionItems&&<div><div style={{fontSize:11,color:MU,fontWeight:600,textTransform:"uppercase",letterSpacing:0.5,marginBottom:3}}>Action Items</div><div style={{fontSize:13,color:TX,lineHeight:1.6,whiteSpace:"pre-wrap"}}>{l.actionItems}</div></div>}
+                </div>
+              )}
+            </div>);
+          })}
+        </div>
+      )}
+      <Modal open={modal} onClose={()=>{setModal(false);setEditing(null);setForm(blank());}} title={editing?"Edit Session":"Log Counseling Session"} width={520}>
+        <Fld label="Person">
+          <select value={form.personId} onChange={e=>{const opt=e.target.selectedOptions[0];sf("personId")(e.target.value);sf("personType")(opt?.dataset.type||"member");}} style={{width:"100%",padding:"9px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}>
+            <option value="">— Select Person —</option>
+            <optgroup label="Members">{members.filter((m:any)=>m.status==="Active").sort((a:any,b:any)=>a.last.localeCompare(b.last)).map((m:any)=><option key={m.id} value={m.id} data-type="member">{m.last}, {m.first}</option>)}</optgroup>
+            <optgroup label="Visitors">{visitors.sort((a:any,b:any)=>a.last.localeCompare(b.last)).map((v:any)=><option key={v.id} value={v.id} data-type="visitor">{v.last}, {v.first}</option>)}</optgroup>
+          </select>
+        </Fld>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <Fld label="Session Date"><Inp type="date" value={form.sessionDate} onChange={sf("sessionDate")}/></Fld>
+          <Fld label="Category">
+            <select value={form.category} onChange={e=>sf("category")(e.target.value)} style={{width:"100%",padding:"9px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}>
+              {COUNSEL_CATEGORIES.map(c=><option key={c}>{c}</option>)}
+            </select>
+          </Fld>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          <Fld label="Counselor"><Inp value={form.counselor} onChange={sf("counselor")} placeholder="Pastor Hall, etc."/></Fld>
+          <Fld label="Status">
+            <select value={form.status} onChange={e=>sf("status")(e.target.value)} style={{width:"100%",padding:"9px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}>
+              {COUNSEL_STATUSES.map(s=><option key={s}>{s}</option>)}
+            </select>
+          </Fld>
+        </div>
+        <Fld label="Next Session (optional)"><Inp type="date" value={form.nextSession} onChange={sf("nextSession")}/></Fld>
+        <Fld label="Session Notes (confidential)"><textarea value={form.sessionNotes} onChange={e=>sf("sessionNotes")(e.target.value)} rows={4} placeholder="What was discussed, observations, spiritual guidance given..." style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",fontFamily:"inherit",resize:"vertical",boxSizing:"border-box"}}/></Fld>
+        <Fld label="Action Items"><textarea value={form.actionItems} onChange={e=>sf("actionItems")(e.target.value)} rows={2} placeholder="Prayer assignments, scriptures to read, follow-up tasks..." style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",fontFamily:"inherit",resize:"vertical",boxSizing:"border-box"}}/></Fld>
+        <div style={{display:"flex",gap:8,marginTop:6}}>
+          <Btn onClick={save} style={{flex:1,justifyContent:"center"}}>{editing?"Save Changes":"Save Session"}</Btn>
+          <Btn v="ghost" onClick={()=>{setModal(false);setEditing(null);setForm(blank());}} style={{flex:1,justifyContent:"center"}}>Cancel</Btn>
+        </div>
+      </Modal>
+    </div>
+  );
+}
+
 function ProspectsPage({prospects,setProspects,members}:any) {
-  const blank = () => ({first:"",last:"",phone:"",street:"",city:"",state:"",zip:"",invitedBy:"",invitedById:null,status:"Not Contacted",notes:""});
+  const blank = () => ({first:"",last:"",phone:"",email:"",street:"",city:"",state:"",zip:"",invitedBy:"",invitedById:null,status:"Not Contacted",notes:""});
   const [form,setForm] = useState(blank());
   const [modal,setModal] = useState(false);
   const [editing,setEditing] = useState<any>(null);
@@ -5673,17 +7574,18 @@ function ProspectsPage({prospects,setProspects,members}:any) {
   const openAdd = () => { setEditing(null); setForm(blank()); setInvSug([]); setModal(true); };
   const openEdit = (p:any) => {
     setEditing(p);
-    setForm({first:p.first,last:p.last,phone:p.phone||"",street:p.address?.street||"",city:p.address?.city||"",state:p.address?.state||"",zip:p.address?.zip||"",invitedBy:p.invitedBy||"",invitedById:p.invitedById||null,status:p.status||"Not Contacted",notes:p.notes||""});
+    setForm({first:p.first,last:p.last,phone:p.phone||"",email:p.email||"",street:p.address?.street||"",city:p.address?.city||"",state:p.address?.state||"",zip:p.address?.zip||"",invitedBy:p.invitedBy||"",invitedById:p.invitedById||null,status:p.status||"Not Contacted",notes:p.notes||""});
     setInvSug([]); setModal(true);
   };
   const save = () => {
     if(!form.first||!form.phone){alert("First name and phone number required.");return;}
-    const rec = {first:form.first,last:form.last,phone:form.phone,address:{street:form.street,city:form.city,state:form.state,zip:form.zip},invitedBy:form.invitedBy,invitedById:form.invitedById,status:form.status,notes:form.notes,addedDate:editing?.addedDate||td()};
+    const rec = {first:form.first,last:form.last?.trim()||"N/A",phone:form.phone,email:form.email,address:{street:form.street,city:form.city,state:form.state,zip:form.zip},invitedBy:form.invitedBy,invitedById:form.invitedById,status:form.status,notes:form.notes,addedDate:editing?.addedDate||td()};
     if(editing){
       setProspects((ps:any[])=>ps.map((p:any)=>p.id===editing.id?{...p,...rec}:p));
     } else {
-      setProspects((ps:any[])=>[{...rec,id:nid.current++},...ps]);
+      setProspects((ps:any[])=>[{...rec,id:Date.now()},...ps]);
     }
+    localStorage.setItem('ntcc_force_cloud_save','1');
     setModal(false);
   };
   const del = (id:number) => { if(confirm("Remove this prospect?")) setProspects((ps:any[])=>ps.filter((p:any)=>p.id!==id)); };
@@ -5759,6 +7661,7 @@ function ProspectsPage({prospects,setProspects,members}:any) {
                 </div>
                 <div style={{display:"flex",gap:16,flexWrap:"wrap",marginBottom:p.notes?6:0}}>
                   {p.phone && <span style={{fontSize:12,color:BL}}><a href={"tel:"+p.phone} style={{color:BL,textDecoration:"none"}}>📞 {p.phone}</a></span>}
+                  {p.email && <span style={{fontSize:12,color:BL}}><a href={"mailto:"+p.email} style={{color:BL,textDecoration:"none"}}>✉ {p.email}</a></span>}
                   {addr && <span style={{fontSize:12,color:MU}}>📍 {addr}</span>}
                   {(p.invitedBy||inviter) && <span style={{fontSize:12,color:MU}}>👤 Invited by {inviter?(inviter.first+" "+inviter.last):p.invitedBy}</span>}
                   {p.addedDate && <span style={{fontSize:11,color:MU}}>Added {p.addedDate}</span>}
@@ -5787,7 +7690,10 @@ function ProspectsPage({prospects,setProspects,members}:any) {
           <Fld label="First Name *"><Inp value={form.first} onChange={sf("first")} placeholder="First"/></Fld>
           <Fld label="Last Name"><Inp value={form.last} onChange={sf("last")} placeholder="Last"/></Fld>
         </div>
-        <Fld label="Phone *"><Inp value={form.phone} onChange={v=>sf("phone")(fmtPhone(v))} placeholder="(555) 000-0000"/></Fld>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:0}}>
+          <Fld label="Phone *"><Inp value={form.phone} onChange={v=>sf("phone")(fmtPhone(v))} placeholder="(555) 000-0000"/></Fld>
+          <Fld label="Email"><Inp type="email" value={form.email} onChange={sf("email")} placeholder="email@example.com"/></Fld>
+        </div>
 
         <div style={{fontSize:11,color:MU,fontWeight:600,marginBottom:6,marginTop:4,textTransform:"uppercase",letterSpacing:0.4}}>Address</div>
         <Fld label="Street"><Inp value={form.street} onChange={sf("street")} placeholder="123 Main St"/></Fld>
@@ -5861,7 +7767,8 @@ const MiniStat = ({label,value,color=N,sub}:any) => (
   </div>
 );
 function People({members,setMembers,visitors,setVisitors,attendance,giving,setGiving,prayers,setPrayers,groups,setGroups,grpMeetings,setGrpMeetings,visitRecords,setVisitRecords,checkIns,setCheckIns,setView,canViewGiving,currentUser,roles=[],children=[],setChildren=null}:any) {
-  const [tab,setTab] = useState("members");
+  const [tab, setTabRaw] = useState<string>(()=>(window as any).__peopleTab__||"members");
+  const setTab = (t: string) => { (window as any).__peopleTab__ = t; setTabRaw(t); };
   const [search,setSearch] = useState("");
   const [showSug,setShowSug] = useState(false);
   const [modal,setModal] = useState(false);
@@ -5878,16 +7785,15 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
   const nid = useRef(200);
 
   // ── Filter & Selection ──────────────────────────────────────────
-  const BLANK_FILTERS = {status:"all",gender:"all",ageRange:"all",membershipClass:"all",baptism:"all",groupId:"all",giving:"all",joinRange:"all",hasPhone:"all",hasEmail:"all",birthdayThisMonth:false};
+  const BLANK_FILTERS = {status:"all",gender:"all",ageRange:"all",membershipClass:"all",baptism:"all",groupId:"all",giving:"all",joinFrom:"",joinTo:"",hasPhone:"all",hasEmail:"all",birthdayThisMonth:false,attendedLast7:false};
   const [filterOpen,setFilterOpen] = useState(false);
   const [filters,setFilters] = useState({...BLANK_FILTERS});
-  const [selected,setSelected] = useState<Set<number>>(new Set());
+  const [selected,setSelected] = useState<{[k:string]:true}>({});
   const [groupAssignOpen,setGroupAssignOpen] = useState(false);
-  const [roleAssignOpen,setRoleAssignOpen] = useState(false);
-  const [roleAssignVal,setRoleAssignVal] = useState("");
   const sf2 = (k:string) => (v:any) => setFilters(f=>({...f,[k]:v}));
   const clearFilters = () => setFilters({...BLANK_FILTERS});
-  const activeFiltersCount = Object.entries(filters).filter(([k,v])=>k==="birthdayThisMonth"?v:v!=="all").length;
+  const activeFiltersCount = Object.entries(filters).filter(([k,v])=>k==="birthdayThisMonth"||k==="attendedLast7"?v:typeof v==="string"&&v!==""&&v!=="all").length;
+  const [sortBy,setSortBy] = useState("firstName");
 
   const blankForm = () => ({first:"",last:"",status:"Active",role:"",phone:"",email:"",joined:td(),family:"",notes:"",stage:"First Visit",firstVisit:td(),sponsor:"",...EMPTY_PERSON_FIELDS,address:{...EMPTY_ADDR}});
   const [form,setForm] = useState(blankForm());
@@ -5964,10 +7870,16 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
       if(filters.giving==="yes"&&!hasGiven) return false;
       if(filters.giving==="no"&&hasGiven) return false;
     }
-    if(filters.joinRange!=="all") {
+    if(filters.joinFrom||filters.joinTo) {
       const d = p.joined||p.firstVisit; if(!d) return false;
-      const days = Math.floor((Date.now()-new Date(d+"T00:00:00").getTime())/(1000*60*60*24));
-      if(days>parseInt(filters.joinRange)) return false;
+      if(filters.joinFrom && d < filters.joinFrom) return false;
+      if(filters.joinTo && d > filters.joinTo) return false;
+    }
+    if(filters.attendedLast7 && tab==="members") {
+      const cutoff7 = new Date(); cutoff7.setDate(cutoff7.getDate()-7);
+      const cutoffStr = cutoff7.toLocaleDateString('en-CA',{timeZone:'America/Phoenix'});
+      const attended = checkIns.some((c:any)=>String(c.pid)===String(p.id)&&c.date>=cutoffStr);
+      if(!attended) return false;
     }
     if(filters.hasPhone!=="all") {
       if(filters.hasPhone==="yes"&&!p.phone) return false;
@@ -5983,20 +7895,57 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
     }
     return true;
   });
-  const rawList = tab==="members" ? members : visitors;
-  const filt = applyFilters(rawList, search.trim().toLowerCase());
-  const selectedPeople = filt.filter((p:any)=>selected.has(p.id));
-  const allSelected = filt.length>0 && filt.every((p:any)=>selected.has(p.id));
+  // Precompute member lookup sets for O(1) dedup in rawList filter
+  // norm() collapses internal whitespace so "John  Smith" matches "John Smith"
+  const _norm = (s:any) => (s||"").trim().replace(/\s+/g," ").toLowerCase();
+  const _memberIdSet = new Set(members.map((m:any)=>String(m.id)));
+  const _memberNameSet = new Set(members.map((m:any)=>(_norm(m.first)+"|"+_norm(m.last))).filter((k:string)=>k!=="|"));
+  // Also build a fullName set for compound-name matching (e.g. "Abigal Uribe Ramirez"
+  // stored as first:"Abigal Uribe" last:"Ramirez" in members vs first:"Abigal" last:"Uribe Ramirez" in visitors)
+  const _memberFullNameSet = new Set(members.map((m:any)=>_norm((m.first||"")+" "+(m.last||""))).filter((k:string)=>k.trim()!==""));
+  const rawList = tab==="members" ? members : visitors.filter((v:any)=>{
+    // Exclude visitors whose type field is already "Member"
+    if((v.type||"").toLowerCase().trim()==="member") return false;
+    // Exclude family-role Adults, Spouses, HoH, and anyone tagged as "Member" role
+    const role=(v.role||v.familyRole||"").toLowerCase().trim();
+    if(role==="adult"||role==="spouse"||role==="head of household"||role==="member") return false;
+    // Exclude anyone already in the members list: check by ID, first|last key, or full name
+    const vKey=_norm(v.first)+"|"+_norm(v.last);
+    const vFull=_norm((v.first||"")+" "+(v.last||"")).trim();
+    if(v.id!=null&&_memberIdSet.has(String(v.id))) return false;
+    if(vKey!=="|"&&_memberNameSet.has(vKey)) return false;
+    if(vFull&&_memberFullNameSet.has(vFull)) return false;
+    // Exclude Complete/Converted pipeline records
+    const vr=(visitRecords||[]).find((r:any)=>r.visitorId===v.id||r.visitorId===String(v.id));
+    if(vr&&(vr.stage==="Complete"||vr.stage==="Converted")) return false;
+    return true;
+  });
+  const filtRaw = applyFilters(rawList, search.trim().toLowerCase());
+  const filt = [...filtRaw].sort((a:any,b:any)=>{
+    if(sortBy==="firstName") return (a.first||"a").localeCompare(b.first||"b");
+    if(sortBy==="lastName") return (a.last||"a").localeCompare(b.last||"b");
+    if(sortBy==="dateDesc") { const da=a.joined||a.firstVisit||""; const db=b.joined||b.firstVisit||""; return db.localeCompare(da); }
+    return 0;
+  });
+  const _isSel = (p:any) => !!selected[String(p.id)];
+  const selCount = Object.keys(selected).length;
+  const selectedPeople = filt.filter(_isSel);
+  const allSelected = filt.length>0 && filt.every(_isSel);
   const toggleSelectAll = () => {
-    if(allSelected) setSelected(new Set());
-    else setSelected(new Set(filt.map((p:any)=>p.id)));
+    if(allSelected) setSelected({});
+    else { const m:{[k:string]:true}={}; filt.forEach((p:any)=>{m[String(p.id)]=true;}); setSelected(m); }
   };
-  const toggleSelect = (id:number) => setSelected(s => { const n=new Set(s); n.has(id)?n.delete(id):n.add(id); return n; });
+  const toggleSelect = (id:any) => setSelected(s=>{ const k=String(id); if(s[k]){const n={...s};delete n[k];return n;} return {...s,[k]:true}; });
   const exportCSV = (people:any[]) => {
-    const rows = [["First Name","Last Name","Phone","Email","Address","City","State","Zip","Status"]];
+    const rows = [["First Name","Last Name","Phone","Email","Address","City","State","Zip","Status","First Visited"]];
     people.forEach(p => {
       const a = p.address||{};
-      rows.push([p.first,p.last,p.phone||"",p.email||"",a.street||"",a.city||"",a.state||"",a.zip||"",p.status||""]);
+      const vr = (visitRecords||[]).find((r:any)=>r.visitorId===p.id||r.visitorId===String(p.id));
+      const pastorContacts = (vr?.contacts||[]).filter((c:any)=>c.stage==="Pastor");
+      const firstVisited = pastorContacts.length>0
+        ? pastorContacts.slice().sort((a:any,b:any)=>a.date.localeCompare(b.date))[0].date
+        : (vr?.createdDate||vr?.startDate||p.firstVisit||"");
+      rows.push([p.first,p.last,p.phone||"",p.email||"",a.street||"",a.city||"",a.state||"",a.zip||"",p.status||"",firstVisited]);
     });
     const csv = rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(",")).join("\n");
     const blob = new Blob([csv],{type:"text/csv"});
@@ -6139,7 +8088,7 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
   const remChild = i => setEditForm(f=>({...f,children:f.children.filter((_,idx)=>idx!==i)}));
   const toggleArr = (field,item) => setEditForm(f=>{const arr=f[field]||[];return {...f,[field]:arr.includes(item)?arr.filter(x=>x!==item):[...arr,item]};});
 
-  const hdrs = ["Name",tab==="members"?"Role":"Status","Phone",tab==="members"?"Joined":"First Visit",tab==="members"?"Status":"Sponsor","Actions"];
+  const hdrs = tab==="members" ? ["Name","Phone","Joined","Status","Actions"] : ["Name","First Time","Phone","Status","Actions"];
 
   const formatAddr = a => !a||!a.street ? "" : a.street + (a.city?", "+a.city:"") + (a.state?", "+a.state:"") + (a.zip?" "+a.zip:"");
   const TABS = [{id:"personal",label:"Personal"},{id:"family",label:"Family"},{id:"activity",label:"Activity"},{id:"groups",label:"Groups"},{id:"pastoral",label:"Pastoral"},{id:"notes",label:"Notes"}];
@@ -6149,7 +8098,7 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
       {/* ── Tab / Search / Action bar ─────────────────────────────── */}
       <div style={{display:"flex",gap:8,marginBottom:8,alignItems:"center",flexWrap:"wrap"}}>
         {["members","visitors"].map(t=>(
-          <button key={t} onClick={()=>{setTab(t);setSelected(new Set());setSearch("");setShowSug(false);}} style={{padding:"8px 18px",borderRadius:8,cursor:"pointer",border:"0.5px solid "+BR,background:tab===t?N:W,color:tab===t?"#fff":TX,fontSize:13,fontWeight:tab===t?500:400}}>
+          <button key={t} onClick={()=>{setTab(t);setSelected({});setSearch("");setShowSug(false);}} style={{padding:"8px 18px",borderRadius:8,cursor:"pointer",border:"0.5px solid "+BR,background:tab===t?N:W,color:tab===t?"#fff":TX,fontSize:13,fontWeight:tab===t?500:400}}>
             {t==="members"?"Members ("+members.length+")":"Visitors ("+visitors.length+")"}
           </button>
         ))}
@@ -6161,7 +8110,7 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
               {filt.slice(0,8).map((p:any)=>(
                 <div key={p.id} onMouseDown={()=>{openDetail(p);setShowSug(false);setSearch("");}} style={{padding:"8px 14px",cursor:"pointer",fontSize:13,color:TX,display:"flex",alignItems:"center",gap:10,borderBottom:"0.5px solid "+BR}} onMouseEnter={e=>(e.currentTarget.style.background=BG)} onMouseLeave={e=>(e.currentTarget.style.background=W)}>
                   <Av f={p.first} l={p.last} sz={28}/>
-                  <div><div style={{fontWeight:500,color:N}}>{p.first} {p.last}</div><div style={{fontSize:11,color:MU}}>{p.email||p.phone||(tab==="members"?p.role||"Member":p.stage||"Visitor")}</div></div>
+                  <div><div style={{fontWeight:500,color:N}}>{p.first} {p.last}</div><div style={{fontSize:11,color:MU}}>{p.email||p.phone||(tab==="members"?"Member":p.stage||"Visitor")}</div></div>
                 </div>
               ))}
               {filt.length>8&&<div style={{padding:"6px 14px",fontSize:11,color:MU,borderTop:"0.5px solid "+BR}}>+{filt.length-8} more — keep typing to narrow results</div>}
@@ -6172,13 +8121,13 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
           🔍 Filter {activeFiltersCount>0&&<span style={{background:G,color:"#fff",borderRadius:20,fontSize:10,padding:"1px 7px",fontWeight:600}}>{activeFiltersCount}</span>}
         </button>
         {activeFiltersCount>0&&<button onClick={clearFilters} style={{padding:"8px 10px",borderRadius:8,border:"0.5px solid "+BR,background:W,cursor:"pointer",fontSize:12,color:MU}}>✕ Clear</button>}
-        <Btn onClick={()=>setView("addperson")}>+ Add {tab==="members"?"Member":"Visitor"}</Btn>
+        <Btn onClick={()=>{(window as any).__addPersonDefault__=tab==="visitors"?"visitor":"member";setView("addperson");}}>+ Add {tab==="members"?"Member":"Visitor"}</Btn>
       </div>
 
       {/* ── Bulk Action Toolbar (appears when items selected) ────── */}
-      {selected.size>0 && (
+      {selCount>0 && (
         <div style={{display:"flex",alignItems:"center",gap:6,padding:"8px 14px",background:GL,border:"0.5px solid "+G,borderRadius:10,marginBottom:8,flexWrap:"wrap"}}>
-          <span style={{fontSize:12,fontWeight:600,color:N,marginRight:4}}>{selected.size} selected</span>
+          <span style={{fontSize:12,fontWeight:600,color:N,marginRight:4}}>{selCount} selected</span>
           <Btn v="primary" style={{fontSize:11,padding:"5px 10px"}} onClick={()=>{
             const recips = selectedPeople.map(p=>({name:p.first+" "+p.last,email:p.email||""}));
             if(window.__openBulkEmailComposer__) window.__openBulkEmailComposer__({recipients:recips,relatedType:"member"});
@@ -6189,13 +8138,27 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
           }}>📱 SMS</Btn>
           <Btn v="gold" style={{fontSize:11,padding:"5px 10px"}} onClick={()=>exportCSV(selectedPeople)}>📤 Export CSV</Btn>
           <Btn v="ghost" style={{fontSize:11,padding:"5px 10px"}} onClick={()=>setGroupAssignOpen(true)}>👥 Assign Group</Btn>
-          <Btn v="ghost" style={{fontSize:11,padding:"5px 10px"}} onClick={()=>{setRoleAssignVal("");setRoleAssignOpen(true);}}>🏷️ Set Role</Btn>
           <Btn v="ghost" style={{fontSize:11,padding:"5px 10px"}} onClick={()=>printDirectory(selectedPeople)}>🖨️ Print</Btn>
           <Btn v="ghost" style={{fontSize:11,padding:"5px 10px"}} onClick={()=>{
             const lines = selectedPeople.map(p=>p.first+" "+p.last+(p.phone?" | "+p.phone:"")+(p.email?" | "+p.email:"")).join("\n");
-            navigator.clipboard.writeText(lines).then(()=>alert("Copied "+selected.size+" contacts to clipboard."));
+            navigator.clipboard.writeText(lines).then(()=>alert("Copied "+selCount+" contacts to clipboard."));
           }}>📋 Copy List</Btn>
-          <button onClick={()=>setSelected(new Set())} style={{marginLeft:"auto",background:"none",border:"none",cursor:"pointer",color:MU,fontSize:12}}>✕ Deselect all</button>
+          {currentUser?.superAdmin && <Btn v="danger" style={{fontSize:11,padding:"5px 10px"}} onClick={()=>{
+            if(!confirm("Permanently delete "+selCount+" selected "+(tab==="members"?"member":"visitor")+(selCount>1?"s":"")+"? This cannot be undone."))return;
+            const pType=tab==="members"?"members":"visitors";
+            const selIds = new Set(selectedPeople.map((p:any)=>String(p.id)));
+            const selNames = new Set(selectedPeople.map((p:any)=>((p.first||"")+" "+(p.last||"")).trim()));
+            if(pType==="members") setMembers((ms:any[])=>ms.filter((m:any)=>!selIds.has(String(m.id))));
+            else setVisitors((vs:any[])=>vs.filter((v:any)=>!selIds.has(String(v.id))));
+            if(setVisitRecords) setVisitRecords((rs:any[])=>rs.filter((r:any)=>!selIds.has(String(r.visitorId))));
+            if(setCheckIns) setCheckIns((cs:any[])=>cs.filter((c:any)=>!(selIds.has(String(c.pid))&&c.ptype===pType)));
+            if(setGiving) setGiving((gs:any[])=>gs.filter((g:any)=>!selNames.has(g.name)));
+            if(setPrayers) setPrayers((ps:any[])=>ps.filter((p:any)=>!selNames.has(p.name)));
+            if(setGroups) setGroups((gs:any[])=>gs.map((g:any)=>({...g,memberIds:g.memberIds.filter((id:any)=>!selIds.has(String(id))),leaderId:selIds.has(String(g.leaderId))?null:g.leaderId})));
+            if(setGrpMeetings) setGrpMeetings((ms:any[])=>ms.map((m:any)=>({...m,presentIds:m.presentIds.filter((id:any)=>!selIds.has(String(id))),absentIds:m.absentIds.filter((id:any)=>!selIds.has(String(id)))})));
+            setSelected({});
+          }}>🗑 Delete Selected</Btn>}
+          <button onClick={()=>setSelected({})} style={{marginLeft:"auto",background:"none",border:"none",cursor:"pointer",color:MU,fontSize:12}}>✕ Deselect all</button>
         </div>
       )}
 
@@ -6206,6 +8169,14 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
           {activeFiltersCount>0&&<span style={{marginLeft:8}}>({activeFiltersCount} filter{activeFiltersCount>1?"s":""} active)</span>}
         </div>
       )}
+
+      {/* ── Sort Bar ─────────────────────────────────────────────── */}
+      <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
+        <span style={{fontSize:11,color:MU,fontWeight:500,marginRight:4}}>Sort by:</span>
+        {([{k:"firstName",l:"A–Z First Name"},{k:"lastName",l:"A–Z Last Name"},{k:"dateDesc",l:tab==="members"?"Date Joined ↓":"Date Visited ↓"}] as any[]).map((opt:any)=>(
+          <button key={opt.k} onClick={()=>setSortBy(opt.k)} style={{padding:"4px 10px",borderRadius:20,border:"1px solid "+(sortBy===opt.k?N:BR),background:sortBy===opt.k?N:W,color:sortBy===opt.k?W:TX,fontSize:11,cursor:"pointer",fontWeight:sortBy===opt.k?600:400,transition:"all 0.15s"}}>{opt.l}</button>
+        ))}
+      </div>
 
       {/* ── Table ────────────────────────────────────────────────── */}
       <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,overflow:"hidden"}}>
@@ -6218,9 +8189,9 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
           </tr></thead>
           <tbody>
             {filt.map(p=>(
-              <tr key={p.id} style={{borderBottom:"0.5px solid "+BR,cursor:"pointer",transition:"background 0.1s",background:selected.has(p.id)?GL:W}} onMouseEnter={e=>!selected.has(p.id)&&(e.currentTarget.style.background="#f8f9fc")} onMouseLeave={e=>!selected.has(p.id)&&(e.currentTarget.style.background=W)}>
+              <tr key={p.id} style={{borderBottom:"0.5px solid "+BR,cursor:"pointer",transition:"background 0.1s",background:_isSel(p)?GL:W}} onMouseEnter={e=>!_isSel(p)&&(e.currentTarget.style.background="#f8f9fc")} onMouseLeave={e=>!_isSel(p)&&(e.currentTarget.style.background=W)}>
                 <td style={{padding:"10px 12px"}} onClick={e=>e.stopPropagation()}>
-                  <input type="checkbox" checked={selected.has(p.id)} onChange={()=>toggleSelect(p.id)} style={{cursor:"pointer"}}/>
+                  <input type="checkbox" checked={_isSel(p)} onChange={()=>toggleSelect(p.id)} style={{cursor:"pointer"}}/>
                 </td>
                 <td style={{padding:"10px 14px"}} onClick={()=>openDetail(p)}>
                   <div style={{display:"flex",alignItems:"center",gap:10}}>
@@ -6228,10 +8199,19 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
                     <div><div style={{fontSize:13,fontWeight:500,color:N}}>{p.first} {p.last}</div><div style={{fontSize:11,color:MU}}>{p.email||"No email"}</div></div>
                   </div>
                 </td>
-                <td style={{padding:"10px 14px",fontSize:13}} onClick={()=>openDetail(p)}>{tab==="members"?(p.role||"Member"):<Badge label={p.stage}/>}</td>
-                <td style={{padding:"10px 14px",fontSize:13}} onClick={()=>openDetail(p)}>{p.phone||"No phone"}</td>
-                <td style={{padding:"10px 14px",fontSize:13}} onClick={()=>openDetail(p)}>{fd(tab==="members"?p.joined:p.firstVisit)}</td>
-                <td style={{padding:"10px 14px",fontSize:13}} onClick={()=>openDetail(p)}>{tab==="members"?<Badge label={p.status}/>:(p.sponsor||"Unassigned")}</td>
+                {tab==="members" ? (
+                  <>
+                    <td style={{padding:"10px 14px",fontSize:13}} onClick={()=>openDetail(p)}>{p.phone||"No phone"}</td>
+                    <td style={{padding:"10px 14px",fontSize:13}} onClick={()=>openDetail(p)}>{fd(p.joined)}</td>
+                    <td style={{padding:"10px 14px",fontSize:13}} onClick={()=>openDetail(p)}><Badge label={p.status||"Active"}/></td>
+                  </>
+                ) : (
+                  <>
+                    <td style={{padding:"10px 14px",fontSize:13}} onClick={()=>openDetail(p)}><Badge label="First Time" color={AM} size="sm"/><div style={{fontSize:11,color:MU,marginTop:2}}>{fd(p.firstVisit)||"—"}</div></td>
+                    <td style={{padding:"10px 14px",fontSize:13}} onClick={()=>openDetail(p)}>{p.phone||"No phone"}</td>
+                    <td style={{padding:"10px 14px",fontSize:13}} onClick={()=>openDetail(p)}><Badge label={p.status||"Active"}/></td>
+                  </>
+                )}
                 <td style={{padding:"10px 14px"}} onClick={e=>e.stopPropagation()}>
                   <div style={{display:"flex",gap:6}}>
                     <Btn onClick={()=>openDetail(p)} v="ai" style={{fontSize:11,padding:"4px 8px"}}>View</Btn>
@@ -6240,7 +8220,7 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
                 </td>
               </tr>
             ))}
-            {filt.length===0 && <tr><td colSpan={7} style={{padding:40,textAlign:"center",color:MU}}>{activeFiltersCount>0||search?"No records match the current filters.":"No records found."}</td></tr>}
+            {filt.length===0 && <tr><td colSpan={6} style={{padding:40,textAlign:"center",color:MU}}>{activeFiltersCount>0||search?"No records match the current filters.":"No records found."}</td></tr>}
           </tbody>
         </table>
       </div>
@@ -6269,8 +8249,11 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
           <Fld label="Giving Status">
             <Slt value={filters.giving} onChange={sf2("giving")} opts={[{v:"all",l:"Any"},{v:"yes",l:"Has Given"},{v:"no",l:"Never Given"}]}/>
           </Fld>
-          <Fld label={tab==="members"?"Joined Within":"Visited Within"}>
-            <Slt value={filters.joinRange} onChange={sf2("joinRange")} opts={[{v:"all",l:"Any Time"},{v:"30",l:"Last 30 Days"},{v:"90",l:"Last 90 Days"},{v:"365",l:"Last Year"}]}/>
+          <Fld label={tab==="members"?"Joined From":"Visited From"}>
+            <Inp type="date" value={filters.joinFrom} onChange={sf2("joinFrom")}/>
+          </Fld>
+          <Fld label={tab==="members"?"Joined To":"Visited To"}>
+            <Inp type="date" value={filters.joinTo} onChange={sf2("joinTo")}/>
           </Fld>
           <Fld label="Has Phone">
             <Slt value={filters.hasPhone} onChange={sf2("hasPhone")} opts={[{v:"all",l:"Any"},{v:"yes",l:"Has Phone"},{v:"no",l:"No Phone"}]}/>
@@ -6283,6 +8266,11 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
           <input type="checkbox" id="bmonth" checked={filters.birthdayThisMonth} onChange={e=>setFilters(f=>({...f,birthdayThisMonth:e.target.checked}))} style={{cursor:"pointer"}}/>
           <label htmlFor="bmonth" style={{fontSize:13,cursor:"pointer",color:TX}}>🎂 Birthday this month only</label>
         </div>
+        {tab==="members"&&<div style={{marginTop:6,display:"flex",alignItems:"center",gap:8,padding:"8px 10px",background:BG,borderRadius:8}}>
+          <input type="checkbox" id="att7" checked={filters.attendedLast7} onChange={e=>setFilters(f=>({...f,attendedLast7:e.target.checked}))} style={{cursor:"pointer"}}/>
+          <label htmlFor="att7" style={{fontSize:13,cursor:"pointer",color:TX}}>✅ Attended in last 7 days (check-in)</label>
+        </div>}
+
         <div style={{marginTop:14,display:"flex",gap:8}}>
           <Btn style={{flex:1,justifyContent:"center"}} onClick={()=>setFilterOpen(false)}>Apply Filters</Btn>
           <Btn v="ghost" style={{flex:1,justifyContent:"center"}} onClick={()=>{clearFilters();setFilterOpen(false);}}>Clear All</Btn>
@@ -6291,7 +8279,7 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
       </Modal>
 
       {/* ── Assign to Group Modal ─────────────────────────────────── */}
-      <Modal open={groupAssignOpen} onClose={()=>setGroupAssignOpen(false)} title={"👥 Assign "+selected.size+" to Group"} width={400}>
+      <Modal open={groupAssignOpen} onClose={()=>setGroupAssignOpen(false)} title={"👥 Assign "+selCount+" to Group"} width={400}>
         <div style={{display:"flex",flexDirection:"column",gap:8}}>
           {groups.length===0 && <p style={{color:MU,fontSize:13}}>No groups created yet. Create a group first in the Groups section.</p>}
           {groups.map((g:any)=>(
@@ -6299,8 +8287,8 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
               const ids = selectedPeople.map((p:any)=>p.id);
               setGroups((gs:any[])=>gs.map((grp:any)=>grp.id===g.id?{...grp,memberIds:[...new Set([...grp.memberIds,...ids])]}:grp));
               setGroupAssignOpen(false);
-              alert(selected.size+" member(s) added to "+g.name+".");
-              setSelected(new Set());
+              alert(selCount+" member(s) added to "+g.name+".");
+              setSelected({});
             }} style={{padding:"10px 14px",borderRadius:8,border:"0.5px solid "+BR,background:W,cursor:"pointer",textAlign:"left",display:"flex",alignItems:"center",gap:10}}>
               <span style={{width:10,height:10,borderRadius:"50%",background:g.color||N,display:"inline-block"}}/>
               <span style={{fontSize:13,fontWeight:500,color:TX}}>{g.name}</span>
@@ -6311,29 +8299,6 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
         <Btn v="ghost" style={{marginTop:12,width:"100%",justifyContent:"center"}} onClick={()=>setGroupAssignOpen(false)}>Cancel</Btn>
       </Modal>
 
-      {/* ── Set Role Modal ───────────────────────────────────────── */}
-      <Modal open={roleAssignOpen} onClose={()=>setRoleAssignOpen(false)} title={"🏷️ Set Role for "+selected.size+" Member(s)"} width={380}>
-        <Fld label="New Role / Title">
-          <Inp value={roleAssignVal} onChange={setRoleAssignVal} placeholder="e.g. Deacon, Choir, Usher..."/>
-        </Fld>
-        <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:12}}>
-          {["Deacon","Deaconess","Choir","Usher","Elder","Minister","Teacher","Youth Leader"].map(r=>(
-            <button key={r} onClick={()=>setRoleAssignVal(r)} style={{padding:"4px 10px",borderRadius:20,border:"0.5px solid "+BR,background:roleAssignVal===r?GL:W,color:roleAssignVal===r?N:TX,fontSize:12,cursor:"pointer"}}>{r}</button>
-          ))}
-        </div>
-        <div style={{display:"flex",gap:8}}>
-          <Btn style={{flex:1,justifyContent:"center"}} onClick={()=>{
-            if(!roleAssignVal){alert("Enter a role.");return;}
-            const ids = new Set(selectedPeople.map((p:any)=>p.id));
-            setMembers((ms:any[])=>ms.map(m=>ids.has(m.id)?{...m,role:roleAssignVal}:m));
-            setVisitors((vs:any[])=>vs.map(v=>ids.has(v.id)?{...v,role:roleAssignVal}:v));
-            setRoleAssignOpen(false);
-            alert("Role \u201c"+roleAssignVal+"\u201d applied to "+selected.size+" person(s).");
-            setSelected(new Set());
-          }}>Apply Role</Btn>
-          <Btn v="ghost" style={{flex:1,justifyContent:"center"}} onClick={()=>setRoleAssignOpen(false)}>Cancel</Btn>
-        </div>
-      </Modal>
 
       {/* Add New Modal — simplified, rich fields editable after */}
       <Modal open={modal} onClose={()=>setModal(false)} title={"Add "+(tab==="members"?"Member":"Visitor")}>
@@ -6347,15 +8312,7 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
         </div>
         {tab==="members" ? (
           <div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-              <Fld label="Status"><Slt value={form.status} onChange={sf("status")} opts={["Active","Inactive"]}/></Fld>
-              <Fld label="Role">
-                <select value={form.role||""} onChange={e=>sf("role")(e.target.value)} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",fontFamily:"inherit",color:form.role?TX:MU,background:"#fff",boxSizing:"border-box" as any}}>
-                  <option value="">— Select Role —</option>
-                  {(roles.length>0?roles:SEED_ROLES).map((r:any)=>(<option key={r.id} value={r.name}>{r.name}</option>))}
-                </select>
-              </Fld>
-            </div>
+            <Fld label="Status"><Slt value={form.status} onChange={sf("status")} opts={["Active","Inactive"]}/></Fld>
             <Fld label="Join Date"><Inp type="date" value={form.joined} onChange={sf("joined")}/></Fld>
           </div>
         ) : (
@@ -6446,7 +8403,7 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
                       <InfoRow label="Anniversary" value={detail.anniversary?fd(detail.anniversary):""}/>
                       <InfoRow label="Salvation Date" value={detail.salvationDate?fd(detail.salvationDate):""}/>
                       <InfoRow label="Baptism Date" value={detail.baptismDate?fd(detail.baptismDate):""}/>
-                      <InfoRow label={detail._type==="members"?"Member Since":"First Visit"} value={fd(detail._type==="members"?detail.joined:detail.firstVisit)}/>
+                      {detail._type==="members"?<InfoRow label="Member Since" value={fd(detail.joined)}/>:<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"0.5px solid "+BR+"80"}}><span style={{fontSize:12,color:MU,fontWeight:500}}>First Time</span><div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:10,background:"#fef3c7",color:"#92400e",borderRadius:20,padding:"2px 8px",fontWeight:600}}>First Time Visitor</span><span style={{fontSize:13}}>{fd(detail.firstVisit||detail.addedDate||detail.createdDate||detail.joined)||"—"}</span></div></div>}
                     </SectionCard>
                     <SectionCard title="Emergency Contact">
                       <InfoRow label="Name" value={detail.emergencyName}/>
@@ -6554,6 +8511,33 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
                         </div>
                       )}
                     </SectionCard>
+                    {/* Other family members sharing familyId */}
+                    {detail.familyId && (()=>{
+                      const sharedFam=[...members,...visitors].filter((p:any)=>
+                        p.familyId===detail.familyId &&
+                        p.id!==detail.id &&
+                        p.id!==detail.spouseId &&
+                        !(detail.children||[]).some((c:any)=>c.memberId===p.id)
+                      );
+                      if(sharedFam.length===0) return null;
+                      return (
+                        <SectionCard title={"Family Members ("+sharedFam.length+")"}>
+                          <div style={{fontSize:11,color:MU,marginBottom:8}}>Others sharing the same family unit:</div>
+                          <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                            {sharedFam.map((p:any)=>(
+                              <div key={p.id} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 10px",background:BG,borderRadius:7,border:"0.5px solid "+BR}}>
+                                <Av f={p.first} l={p.last} sz={26}/>
+                                <div style={{flex:1}}>
+                                  <button onClick={()=>openDetail({...p,_type:members.find((m:any)=>m.id===p.id)?"members":"visitors"})} style={{background:"none",border:"none",cursor:"pointer",fontSize:13,fontWeight:600,color:N,padding:0,textDecoration:"underline",textDecorationStyle:"dotted",textDecorationColor:N+"66"}}>{p.first} {p.last}</button>
+                                  <div style={{fontSize:11,color:MU}}>{p.role||p.stage||p.type||""}{p.birthday?" · Age "+calcAge(p.birthday):""}</div>
+                                </div>
+                                <span style={{fontSize:10,background:N+"12",color:N,borderRadius:4,padding:"2px 6px",fontWeight:500}}>{members.find((m:any)=>m.id===p.id)?"Member":"Visitor"}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </SectionCard>
+                      );
+                    })()}
                   </div>
                 )}
 
@@ -6566,7 +8550,7 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
                         <MiniStat label="Check-Ins" value={stats.personCIs.length} color={N}/>
                       </div>
                       <InfoRow label="Last Attended" value={stats.lastAttended?fd(stats.lastAttended):""}/>
-                      <InfoRow label={detail._type==="members"?"Member Since":"First Visit"} value={fd(detail._type==="members"?detail.joined:detail.firstVisit)}/>
+                      {detail._type==="members"?<InfoRow label="Member Since" value={fd(detail.joined)}/>:<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"0.5px solid "+BR+"80"}}><span style={{fontSize:12,color:MU,fontWeight:500}}>First Time</span><div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:10,background:"#fef3c7",color:"#92400e",borderRadius:20,padding:"2px 8px",fontWeight:600}}>First Time Visitor</span><span style={{fontSize:13}}>{fd(detail.firstVisit||detail.addedDate||detail.createdDate||detail.joined)||"—"}</span></div></div>}
                     </SectionCard>
                     {canViewGiving && <SectionCard title="Giving Summary">
                       <div style={{display:"flex",gap:8,marginBottom:10}}>
@@ -6722,14 +8706,8 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
                     </div>
                   </Fld>
                   {detail._type==="members" ? (
-                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
                       <Fld label="Status"><Slt value={editForm.status||"Active"} onChange={ef("status")} opts={["Active","Inactive"]}/></Fld>
-                      <Fld label="Role">
-                        <select value={editForm.role||""} onChange={e=>ef("role")(e.target.value)} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",fontFamily:"inherit",color:editForm.role?TX:MU,background:"#fff",boxSizing:"border-box" as any}}>
-                          <option value="">— Select Role —</option>
-                          {(roles.length>0?roles:SEED_ROLES).map((r:any)=>(<option key={r.id} value={r.name}>{r.name}</option>))}
-                        </select>
-                      </Fld>
                       <Fld label="Member Since"><Inp type="date" value={editForm.joined||""} onChange={ef("joined")}/></Fld>
                     </div>
                   ) : (
@@ -7022,78 +9000,457 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
 }
 
 // ── ATTENDANCE ──
-function Attendance({attendance,setAttendance,setView}:any) {
+function Attendance({attendance,setAttendance,setView,checkIns,kidsCheckIns,grpMeetings,members,visitors,groups}:any) {
+  const [period,setPeriod] = useState("month");
   const [modal,setModal] = useState(false);
-  const [form,setForm] = useState({date:td(),service:"Sunday Morning Worship",count:"",members:"",visitors:"",notes:""});
   const [insight,setInsight] = useState("");
   const [load,setLoad] = useState(false);
+  const [activeTab,setActiveTab] = useState("services"); // services | checkins | breakdown
+  const [expandedSvc,setExpandedSvc] = useState<string|null>(null);
+  const [expandedEvents,setExpandedEvents] = useState<Set<string>>(new Set());
+  const toggleEvent=(key:string)=>setExpandedEvents(prev=>{const n=new Set(prev);n.has(key)?n.delete(key):n.add(key);return n;});
   const nid = useRef(300);
-  const sf = k => v => setForm(f=>({...f,[k]:v}));
+  const [form,setForm] = useState({date:td(),service:"Sunday Morning Worship",count:"",members:"",visitors:"",notes:""});
+  const sf = (k:string) => (v:any) => setForm((f:any)=>({...f,[k]:v}));
+
+  const today = td();
+
+  const getRange = ():{start:string,end:string} => {
+    if(period==="today") return {start:today,end:today};
+    if(period==="week"){const d=new Date(today);d.setDate(d.getDate()-6);return {start:d.toISOString().split("T")[0],end:today};}
+    if(period==="month"){const d=new Date(today);return {start:d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-01",end:today};}
+    return {start:"",end:""};
+  };
+  const {start,end} = getRange();
+  const inRange = (date:string) => !start || (date>=start && date<=end);
+
+  // ── Service records ──
+  const filtAtt = (attendance||[]).filter((a:any)=>inRange(a.date)).sort((a:any,b:any)=>b.date.localeCompare(a.date));
+  const totalSvcCount = filtAtt.reduce((a:any,s:any)=>a+s.count,0);
+  const avgSvc = filtAtt.length ? Math.round(totalSvcCount/filtAtt.length) : 0;
+  const best = [...filtAtt].sort((a:any,b:any)=>b.count-a.count)[0]||{count:0,service:""};
+
+  // ── Event check-ins ──
+  const filtCI = (checkIns||[]).filter((c:any)=>inRange(c.date));
+
+  // ── Aggregate check-ins by date+event into service summary rows ──
+  const ciAgg:any = {};
+  for(const ci of filtCI){
+    const key = `${ci.date}__${ci.ename||""}`;
+    if(!ciAgg[key]) ciAgg[key] = {id:`ci-${key}`,date:ci.date,service:ci.ename||"Event",count:0,members:0,visitors:0,notes:"",_isEvent:true};
+    ciAgg[key].count++;
+    if(ci.ptype==="member") ciAgg[key].members++; else ciAgg[key].visitors++;
+  }
+  const ciEventRows:any[] = Object.values(ciAgg);
+
+  // ── Kids check-ins ──
+  const filtKids = (kidsCheckIns||[]).filter((c:any)=>inRange(c.date||""));
+
+  // ── Group meetings (summary rows — always visible regardless of individual check-ins) ──
+  const filtGrpMeets = (grpMeetings||[]).filter((m:any)=>inRange(m.date));
+  const grpMeetRows = filtGrpMeets.map((meet:any)=>{
+    const grp = (groups||[]).find((g:any)=>g.id===meet.groupId);
+    return {
+      id:`gm-${meet.id}`,
+      date:meet.date,
+      service:grp?grp.name:"Group Meeting",
+      count:meet.total||meet.presentIds?.length||0,
+      members:meet.presentIds?.length||0,
+      visitors:meet.walkIns||0,
+      notes:meet.notes||"",
+      _isGroup:true,
+      groupId:meet.groupId,
+    };
+  });
+
+  // ── Group member check-ins (expanded from presentIds, for Check-In Details tab) ──
+  const grpRows:any[] = [];
+  for(const meet of filtGrpMeets){
+    const grp = (groups||[]).find((g:any)=>g.id===meet.groupId);
+    for(const mid of (meet.presentIds||[])){
+      const mem = (members||[]).find((m:any)=>m.id===mid);
+      if(mem) grpRows.push({id:`g-${meet.id}-${mid}`,date:meet.date,ename:grp?grp.name:"Group Meeting",first:mem.first,last:mem.last,phone:mem.phone||"",ptype:"member",kind:"Group"});
+    }
+    for(let w=0;w<(meet.walkIns||0);w++) grpRows.push({id:`gw-${meet.id}-${w}`,date:meet.date,ename:grp?grp.name:"Group Meeting",first:"Walk-In",last:"",phone:"",ptype:"visitor",kind:"Group"});
+  }
+
+  const totalEventCI = filtCI.length;
+  const totalKidsCI = filtKids.length;
+  // Count total group attendees from meeting totals (not just individually checked-in)
+  const totalGrpAttendees = filtGrpMeets.reduce((a:any,m:any)=>a+(m.total||m.presentIds?.length||0),0);
+
+  // ── Combined service log (manual headcounts + event check-in aggregates only; groups excluded) ──
+  const allServiceRows = [
+    ...filtAtt.map((a:any)=>({...a,_isGroup:false,_isEvent:false})),
+    ...ciEventRows,
+  ].sort((a:any,b:any)=>b.date.localeCompare(a.date));
+
+  // ── Service type breakdown ──
+  const SVC_TYPES = ["Sunday Morning Worship","Education Department","Sunday Night Service","Tuesday Bible Study","Thursday Worship","Special Event","Other"];
+  const breakdown = [
+    ...SVC_TYPES.map(svc=>{
+      // include both manual attendance AND event check-in aggregates for this service name
+      const manualRecs = filtAtt.filter((a:any)=>a.service===svc);
+      const eventRecs = ciEventRows.filter((r:any)=>r.service===svc);
+      const allRecs = [...manualRecs, ...eventRecs];
+      return {name:svc,sessions:allRecs.length,total:allRecs.reduce((a:any,r:any)=>a+r.count,0),records:allRecs,isGroup:false};
+    }),
+    // Group meetings breakdown by group name
+    ...Object.values(grpMeetRows.reduce((acc:any,row:any)=>{
+      if(!acc[row.service]) acc[row.service]={name:row.service,sessions:0,total:0,records:[],isGroup:true};
+      acc[row.service].sessions++;
+      acc[row.service].total+=row.count;
+      acc[row.service].records.push(row);
+      return acc;
+    },{})),
+    // Any event check-ins that don't match a standard service type
+    ...Object.values(ciEventRows.filter((r:any)=>!SVC_TYPES.includes(r.service)).reduce((acc:any,row:any)=>{
+      if(!acc[row.service]) acc[row.service]={name:row.service,sessions:0,total:0,records:[],isGroup:false,isEvent:true};
+      acc[row.service].sessions++;
+      acc[row.service].total+=row.count;
+      acc[row.service].records.push(row);
+      return acc;
+    },{})),
+  ].filter((s:any)=>s.sessions>0);
+
   const save = () => {
     if(!form.date||!form.count){alert("Date and count required.");return;}
-    setAttendance([{...form,count:+form.count,members:+form.members||0,visitors:+form.visitors||0,id:nid.current++},...attendance]);
+    setAttendance((prev:any)=>[{...form,count:+form.count,members:+form.members||0,visitors:+form.visitors||0,id:nid.current++},...prev]);
     setModal(false);
     setForm({date:td(),service:"Sunday Morning Worship",count:"",members:"",visitors:"",notes:""});
   };
+
   const genAi = async () => {
     setLoad(true);
-    const data = attendance.slice(0,6).map(a=>a.date+": "+a.service+" "+a.count+" ("+a.members+"M/"+a.visitors+"V)").join(", ");
-    const txt = await callAI([{role:"user",content:"Analyze NTCC attendance for Pastor Hall in 2-3 sentences: "+data}],[],[],[],[],[],{});
+    const data = attendance.slice(0,8).map((a:any)=>a.date+": "+a.service+" "+a.count+" ("+a.members+"M/"+a.visitors+"V)").join(", ");
+    const txt = await callAI([{role:"user",content:"Analyze NTCC Glendale church attendance for Pastor Hall in 2-3 sentences covering trends, best services, and a pastoral encouragement: "+data}],[],[],[],[],[],{});
     setInsight(txt); setLoad(false);
   };
-  const avg = attendance.length ? Math.round(attendance.reduce((a,s)=>a+s.count,0)/attendance.length) : 0;
-  const best = [...attendance].sort((a,b)=>b.count-a.count)[0]||{count:0,service:""};
+
+  const exportCSV = () => {
+    const rows:any[][] = [["Date","Service/Event","Type","Member/Guest Name","Phone","Check-In Time"]];
+    filtCI.forEach((c:any)=>rows.push([c.date,c.ename,c.ptype==="member"?"Member":"Visitor",`${c.first} ${c.last}`,c.phone||"",c.at||""]));
+    filtKids.forEach((c:any)=>rows.push([c.date||"",c.className||"Kids Church","Children",`${c.first||""} ${c.last||""}`.trim(),c.phone||"",c.checkInTime||""]));
+    grpRows.forEach((c:any)=>rows.push([c.date,c.ename,"Group",`${c.first} ${c.last}`.trim(),c.phone,""]));
+    filtAtt.forEach((a:any)=>rows.push([a.date,a.service,"Service Headcount",`Total: ${a.count} (${a.members}M / ${a.visitors}V)`,"",a.notes||""]));
+    const csv=rows.map(r=>r.map((v:any)=>`"${String(v||"").replace(/"/g,'""')}"`).join(",")).join("\n");
+    const blob=new Blob([csv],{type:"text/csv"});
+    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`attendance-${period}-${today}.csv`;a.click();
+  };
+
+  const PERIOD_TABS=[["today","Today"],["week","This Week"],["month","This Month"],["all","All Time"]];
+  const VIEW_TABS=[["services","Service Log"],["breakdown","By Service Type"],["checkins","Check-In Details"]];
+
+  const cardStyle={background:W,border:"0.5px solid "+BR,borderRadius:12,padding:"12px 16px",flex:1,minWidth:120};
+  const thStyle={padding:"9px 12px",textAlign:"left" as const,fontSize:11,fontWeight:500,color:MU,textTransform:"uppercase" as const,letterSpacing:0.5,borderBottom:"0.5px solid "+BR,background:"#f8f9fc"};
+  const tdS={padding:"9px 12px",fontSize:13,borderBottom:"0.5px solid "+BR};
+
+  // ── Chart data ──────────────────────────────────────────────────────────────
+  // Helper: get ISO week-start (Sunday) for a date string
+  const weekStart = (dateStr:string) => {
+    const d = new Date(dateStr+"T00:00:00");
+    d.setDate(d.getDate() - d.getDay());
+    return d.toISOString().split("T")[0];
+  };
+  const fmtWeek = (dateStr:string) => {
+    const d = new Date(dateStr+"T00:00:00");
+    return (d.getMonth()+1)+"/"+d.getDate();
+  };
+
+  // All records from every source (use unfiltered for trend chart so history shows)
+  const allRecords:any[] = [
+    ...(attendance||[]).map((a:any)=>({date:a.date,count:a.count,service:a.service})),
+    ...(checkIns||[]).reduce((acc:any,c:any)=>{
+      const key=c.date+"__"+(c.ename||"");
+      const ex=acc.find((x:any)=>x._key===key);
+      if(ex){ex.count++;}else{acc.push({_key:key,date:c.date,count:1,service:c.ename||"Event"});}
+      return acc;
+    },[]),
+    ...(grpMeetings||[]).map((m:any)=>{const grp=(groups||[]).find((g:any)=>g.id===m.groupId);return {date:m.date,count:m.total||m.presentIds?.length||0,service:grp?grp.name:"Group Meeting"};}),
+  ].filter((r:any)=>r.date);
+
+  // Weekly trend — last 12 weeks (all time, regardless of period filter)
+  const weekMap:any = {};
+  for(const r of allRecords){
+    const wk = weekStart(r.date);
+    if(!weekMap[wk]) weekMap[wk]={week:wk,label:fmtWeek(wk),total:0};
+    weekMap[wk].total += r.count||0;
+  }
+  const trendData = Object.values(weekMap).sort((a:any,b:any)=>a.week.localeCompare(b.week)).slice(-12);
+
+  // Bar chart — current period totals by service name (top 8 services)
+  const barMap:any = {};
+  for(const r of allRecords.filter((r:any)=>inRange(r.date))){
+    if(!barMap[r.service]) barMap[r.service]={name:r.service.replace(" Worship","").replace(" Service","").replace(" Department","").replace(" Study","").replace("Sunday Morning","Sun AM").replace("Sunday Night","Sun PM").replace("Thursday","Thu").replace("Tuesday Bible","Tue Bible").replace("Education","Education"),total:0};
+    barMap[r.service].total += r.count||0;
+  }
+  const barData = Object.values(barMap).sort((a:any,b:any)=>b.total-a.total).slice(0,8);
+
+  // Pie chart — current period by service type bucket
+  const SVC_COLORS:any = {"Sunday Morning Worship":N,"Education Department":G,"Sunday Night Service":PU,"Tuesday Bible Study":GR,"Thursday Worship":BL,"Special Event":AM,"Other":"#0891b2"};
+  const pieMap:any = {};
+  for(const r of allRecords.filter((r:any)=>inRange(r.date))){
+    const bucket = ["Sunday Morning Worship","Education Department","Sunday Night Service","Tuesday Bible Study","Thursday Worship","Special Event"].includes(r.service) ? r.service : "Other";
+    if(!pieMap[bucket]) pieMap[bucket]={name:bucket,value:0,color:SVC_COLORS[bucket]||MU};
+    pieMap[bucket].value += r.count||0;
+  }
+  const pieData = Object.values(pieMap).filter((p:any)=>p.value>0);
+
+  const CHART_COLORS=[N,GR,PU,BL,AM,G,"#0891b2",RE];
+
   return (
     <div>
-      <div style={{display:"flex",gap:12,marginBottom:20}}>
-        <Stat label="Services" value={attendance.length}/>
-        <Stat label="Avg Attendance" value={avg} color={BL}/>
-        <Stat label="Best Service" value={best.count} sub={best.service} color={GR}/>
-        <Stat label="Total Visitors" value={attendance.reduce((a,s)=>a+s.visitors,0)} color={AM}/>
+      {/* Period tabs */}
+      <div style={{display:"flex",gap:4,marginBottom:16,background:BG,borderRadius:9,padding:4,border:"0.5px solid "+BR,width:"fit-content"}}>
+        {PERIOD_TABS.map(([v,l])=><button key={v} onClick={()=>setPeriod(v)} style={{padding:"6px 14px",borderRadius:7,border:"none",background:period===v?W:BG,color:period===v?N:MU,fontSize:12,fontWeight:period===v?500:400,cursor:"pointer",boxShadow:period===v?"0 1px 4px #00000012":"none"}}>{l}</button>)}
       </div>
-      <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:16,marginBottom:16}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-          <h3 style={{fontSize:14,fontWeight:500,color:N,margin:0}}>AI Attendance Analysis</h3>
-          <Btn onClick={genAi} v="ai" style={{fontSize:12,padding:"5px 10px"}}>{load?"Analyzing...":"Analyze Trends"}</Btn>
+
+      {/* Stats row */}
+      <div style={{display:"flex",gap:10,marginBottom:16,flexWrap:"wrap"}}>
+        <div style={cardStyle}><div style={{fontSize:11,color:MU,marginBottom:2}}>Services Logged</div><div style={{fontSize:22,fontWeight:600,color:N}}>{filtAtt.length}</div></div>
+        <div style={cardStyle}><div style={{fontSize:11,color:MU,marginBottom:2}}>Avg Service Count</div><div style={{fontSize:22,fontWeight:600,color:BL}}>{avgSvc}</div></div>
+        <div style={cardStyle}><div style={{fontSize:11,color:MU,marginBottom:2}}>Event Check-Ins</div><div style={{fontSize:22,fontWeight:600,color:GR}}>{totalEventCI}</div></div>
+        <div style={cardStyle}><div style={{fontSize:11,color:MU,marginBottom:2}}>Group Attendees</div><div style={{fontSize:22,fontWeight:600,color:PU}}>{totalGrpAttendees}</div></div>
+        <div style={cardStyle}><div style={{fontSize:11,color:MU,marginBottom:2}}>Kids Check-Ins</div><div style={{fontSize:22,fontWeight:600,color:AM}}>{totalKidsCI}</div></div>
+      </div>
+
+      {/* ── CHARTS SECTION ── */}
+      {trendData.length>0&&(
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
+
+          {/* Line Chart — Weekly Attendance Trend */}
+          <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:"16px 14px",gridColumn:"1/-1"}}>
+            <div style={{fontSize:13,fontWeight:500,color:N,marginBottom:4}}>Weekly Attendance Trend</div>
+            <div style={{fontSize:11,color:MU,marginBottom:12}}>Total attendance from all sources, grouped by week (all-time history)</div>
+            <ResponsiveContainer width="100%" height={200}>
+              <LineChart data={trendData} margin={{top:4,right:16,left:-10,bottom:0}}>
+                <CartesianGrid strokeDasharray="3 3" stroke={BR}/>
+                <XAxis dataKey="label" tick={{fontSize:11,fill:MU}} tickLine={false} axisLine={false}/>
+                <YAxis tick={{fontSize:11,fill:MU}} tickLine={false} axisLine={false}/>
+                <Tooltip contentStyle={{background:W,border:"0.5px solid "+BR,borderRadius:8,fontSize:12}} formatter={(v:any)=>[v+" people","Total"]}/>
+                <Line type="monotone" dataKey="total" stroke={N} strokeWidth={2.5} dot={{r:4,fill:N,strokeWidth:0}} activeDot={{r:6}}/>
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Bar Chart — By Service */}
+          {barData.length>0&&(
+            <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:"16px 14px"}}>
+              <div style={{fontSize:13,fontWeight:500,color:N,marginBottom:4}}>Attendance by Service</div>
+              <div style={{fontSize:11,color:MU,marginBottom:12}}>Total attendance per service — {period==="all"?"all time":period==="month"?"this month":period==="week"?"this week":"today"}</div>
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={barData} margin={{top:4,right:8,left:-14,bottom:30}}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={BR} vertical={false}/>
+                  <XAxis dataKey="name" tick={{fontSize:9,fill:MU}} tickLine={false} axisLine={false} angle={-30} textAnchor="end" interval={0}/>
+                  <YAxis tick={{fontSize:11,fill:MU}} tickLine={false} axisLine={false}/>
+                  <Tooltip contentStyle={{background:W,border:"0.5px solid "+BR,borderRadius:8,fontSize:12}} formatter={(v:any)=>[v+" people","Attendance"]}/>
+                  <Bar dataKey="total" radius={[5,5,0,0]}>
+                    {barData.map((_:any,i:number)=><Cell key={i} fill={CHART_COLORS[i%CHART_COLORS.length]}/>)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {/* Pie/Donut Chart — Service Type Share */}
+          {pieData.length>0&&(
+            <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:"16px 14px"}}>
+              <div style={{fontSize:13,fontWeight:500,color:N,marginBottom:4}}>Attendance by Service Type</div>
+              <div style={{fontSize:11,color:MU,marginBottom:12}}>Share of total attendance per service type — {period==="all"?"all time":period==="month"?"this month":period==="week"?"this week":"today"}</div>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <ResponsiveContainer width="55%" height={200}>
+                  <PieChart>
+                    <Pie data={pieData} cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={2} dataKey="value">
+                      {pieData.map((entry:any,i:number)=><Cell key={i} fill={entry.color||CHART_COLORS[i%CHART_COLORS.length]}/>)}
+                    </Pie>
+                    <Tooltip contentStyle={{background:W,border:"0.5px solid "+BR,borderRadius:8,fontSize:12}} formatter={(v:any,n:any,p:any)=>[v+" people",p.payload.name]}/>
+                  </PieChart>
+                </ResponsiveContainer>
+                <div style={{flex:1,display:"flex",flexDirection:"column",gap:5}}>
+                  {pieData.map((entry:any,i:number)=>{
+                    const total=pieData.reduce((a:any,p:any)=>a+p.value,0);
+                    const pct=total?Math.round(entry.value/total*100):0;
+                    return(
+                      <div key={i} style={{display:"flex",alignItems:"center",gap:6}}>
+                        <div style={{width:10,height:10,borderRadius:2,background:entry.color||CHART_COLORS[i%CHART_COLORS.length],flexShrink:0}}/>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:10,color:TX,fontWeight:500,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{entry.name.replace(" Worship","").replace(" Department","").replace(" Service","").replace(" Study","")}</div>
+                          <div style={{fontSize:10,color:MU}}>{entry.value} · {pct}%</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
         </div>
-        <p style={{fontSize:13,lineHeight:1.7,color:insight?TX:MU,fontStyle:insight?"normal":"italic",margin:0}}>{insight||"Click Analyze Trends for AI-powered attendance insights, Pastor Hall."}</p>
+      )}
+
+      {/* AI analysis bar */}
+      <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:"12px 16px",marginBottom:16,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+        <Btn onClick={genAi} v="ai" style={{fontSize:12,padding:"5px 12px",flexShrink:0}}>{load?"Analyzing...":"✦ AI Analysis"}</Btn>
+        <p style={{fontSize:13,lineHeight:1.6,color:insight?TX:MU,fontStyle:insight?"normal":"italic",margin:0,flex:1}}>{insight||"Click AI Analysis for pastoral attendance insights powered by AI."}</p>
       </div>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-        <h3 style={{fontSize:14,fontWeight:500,color:N,margin:0}}>Service Log</h3>
+
+      {/* View tabs + actions */}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:8}}>
+        <div style={{display:"flex",gap:0,background:BG,borderRadius:8,border:"0.5px solid "+BR,overflow:"hidden"}}>
+          {VIEW_TABS.map(([v,l])=><button key={v} onClick={()=>setActiveTab(v)} style={{padding:"7px 14px",border:"none",borderBottom:"2px solid "+(activeTab===v?N:"transparent"),background:activeTab===v?"#f0f4ff":BG,fontSize:12,fontWeight:activeTab===v?500:400,color:activeTab===v?N:MU,cursor:"pointer"}}>{l}</button>)}
+        </div>
         <div style={{display:"flex",gap:8}}>
-          {setView && <Btn onClick={()=>setView("addperson")} v="gold" style={{fontSize:12}}>+ Add New Person</Btn>}
-          <Btn onClick={()=>setModal(true)}>+ Log Service</Btn>
+          <Btn onClick={exportCSV} v="ghost" style={{fontSize:12,padding:"6px 12px"}}>↓ Export CSV</Btn>
+          <Btn onClick={()=>setModal(true)} style={{fontSize:12}}>+ Log Service</Btn>
         </div>
       </div>
-      <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,overflow:"hidden"}}>
-        <table style={{width:"100%",borderCollapse:"collapse"}}>
-          <thead>
-            <tr style={{background:"#f8f9fc"}}>
-              {["Date","Service","Total","Members","Visitors","Notes",""].map(h=><th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:11,fontWeight:500,color:MU,textTransform:"uppercase",letterSpacing:0.5,borderBottom:"0.5px solid "+BR}}>{h}</th>)}
-            </tr>
-          </thead>
-          <tbody>
-            {attendance.map(a=>(
-              <tr key={a.id} style={{borderBottom:"0.5px solid "+BR}}>
-                <td style={{padding:"10px 14px",fontSize:13,fontWeight:500}}>{fd(a.date)}</td>
-                <td style={{padding:"10px 14px",fontSize:13}}>{a.service}</td>
-                <td style={{padding:"10px 14px",fontSize:15,fontWeight:500,color:N}}>{a.count}</td>
-                <td style={{padding:"10px 14px",fontSize:13,color:GR}}>{a.members}</td>
-                <td style={{padding:"10px 14px",fontSize:13,color:AM}}>{a.visitors}</td>
-                <td style={{padding:"10px 14px",fontSize:13,color:MU}}>{a.notes||"None"}</td>
-                <td style={{padding:"10px 14px"}}><Btn onClick={()=>setAttendance(attendance.filter(s=>s.id!==a.id))} v="danger" style={{fontSize:11,padding:"3px 8px"}}>X</Btn></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+
+      {/* ── SERVICE LOG TAB ── */}
+      {activeTab==="services" && (
+        <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,overflow:"hidden"}}>
+          {allServiceRows.length===0 ? (
+            <div style={{padding:40,textAlign:"center",color:MU,fontSize:13}}>No service records for this period. Click <strong>+ Log Service</strong> to add one.</div>
+          ) : (
+            <table style={{width:"100%",borderCollapse:"collapse"}}>
+              <thead><tr>{["Date","Service / Group","Total","Members","Visitors","Notes",""].map(h=><th key={h} style={thStyle}>{h}</th>)}</tr></thead>
+              <tbody>
+                {allServiceRows.map((a:any)=>(
+                  <tr key={a.id} style={{borderBottom:"0.5px solid "+BR,background:a._isGroup?PU+"08":a._isEvent?GR+"08":"transparent"}}>
+                    <td style={{...tdS,fontWeight:500}}>{fd(a.date)}</td>
+                    <td style={tdS}><span style={{display:"inline-flex",alignItems:"center",gap:5}}>
+                      {a._isGroup&&<span style={{fontSize:9,background:PU+"22",color:PU,borderRadius:8,padding:"1px 6px",fontWeight:500}}>Group</span>}
+                      {a._isEvent&&<span style={{fontSize:9,background:GR+"22",color:GR,borderRadius:8,padding:"1px 6px",fontWeight:500}}>Check-In</span>}
+                      {a.service}
+                    </span></td>
+                    <td style={{...tdS,fontSize:15,fontWeight:600,color:N}}>{a.count}</td>
+                    <td style={{...tdS,color:GR}}>{a.members||0}</td>
+                    <td style={{...tdS,color:AM}}>{a.visitors||0}</td>
+                    <td style={{...tdS,color:MU,maxWidth:200}}>{a.notes||"—"}</td>
+                    <td style={tdS}>{!a._isGroup&&!a._isEvent&&<Btn onClick={()=>setAttendance((prev:any)=>prev.filter((s:any)=>s.id!==a.id))} v="danger" style={{fontSize:11,padding:"3px 8px"}}>✕</Btn>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
+      {/* ── BREAKDOWN BY SERVICE TYPE TAB ── */}
+      {activeTab==="breakdown" && (
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {breakdown.length===0 && <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:40,textAlign:"center",color:MU,fontSize:13}}>No service data for this period.</div>}
+          {breakdown.map(s=>(
+            <div key={s.name} style={{background:W,border:"0.5px solid "+BR,borderRadius:12,overflow:"hidden"}}>
+              <div onClick={()=>setExpandedSvc(expandedSvc===s.name?null:s.name)} style={{padding:"12px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer"}}>
+                <div>
+                  <div style={{fontSize:14,fontWeight:500,color:N}}>{s.name}</div>
+                  <div style={{fontSize:11,color:MU,marginTop:2}}>{s.sessions} session{s.sessions!==1?"s":""}</div>
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:16}}>
+                  <div style={{textAlign:"right"}}><div style={{fontSize:20,fontWeight:600,color:N}}>{s.total}</div><div style={{fontSize:10,color:MU}}>total</div></div>
+                  <div style={{textAlign:"right"}}><div style={{fontSize:16,fontWeight:500,color:BL}}>{s.sessions?Math.round(s.total/s.sessions):0}</div><div style={{fontSize:10,color:MU}}>avg</div></div>
+                  <span style={{color:MU,fontSize:14}}>{expandedSvc===s.name?"▲":"▼"}</span>
+                </div>
+              </div>
+              {expandedSvc===s.name && (
+                <table style={{width:"100%",borderCollapse:"collapse",borderTop:"0.5px solid "+BR}}>
+                  <thead><tr>{["Date","Total Attendance","Members","Visitors","Notes"].map(h=><th key={h} style={thStyle}>{h}</th>)}</tr></thead>
+                  <tbody>
+                    {s.records.map((r:any)=>(
+                      <tr key={r.id} style={{borderBottom:"0.5px solid "+BR}}>
+                        <td style={{...tdS,fontWeight:500}}>{fd(r.date)}</td>
+                        <td style={{...tdS,fontWeight:600,color:N}}>{r.count}</td>
+                        <td style={{...tdS,color:GR}}>{r.members||0}</td>
+                        <td style={{...tdS,color:AM}}>{r.visitors||0}</td>
+                        <td style={{...tdS,color:MU}}>{r.notes||"—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── CHECK-IN DETAILS TAB ── */}
+      {activeTab==="checkins" && (()=>{
+        const allRows=[
+          ...grpRows.map((c:any)=>({date:c.date,ename:c.ename,kind:"Group",name:`${c.first} ${c.last}`.trim(),phone:c.phone||"",at:"",_key:c.id})),
+        ];
+        if(allRows.length===0) return(
+          <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:40,textAlign:"center",color:MU,fontSize:13}}>No individual check-ins for this period. Check-ins recorded from the Event Calendar or Groups Ministry will appear here.</div>
+        );
+        const grouped:Map<string,{date:string,ename:string,rows:any[]}>=new Map();
+        allRows.sort((a,b)=>b.date.localeCompare(a.date)).forEach(row=>{
+          const key=row.date+"|"+row.ename;
+          if(!grouped.has(key)) grouped.set(key,{date:row.date,ename:row.ename,rows:[]});
+          grouped.get(key)!.rows.push(row);
+        });
+        const kindColor=(k:string)=>k==="Member"?{bg:"#eff6ff",fg:BL}:k==="Children"?{bg:"#fef9c3",fg:AM}:k==="Group"?{bg:"#f5f3ff",fg:PU}:{bg:"#f0fdf4",fg:GR};
+        return(
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {[...grouped.entries()].map(([key,grp])=>{
+              const isOpen=expandedEvents.has(key);
+              const memCt=grp.rows.filter(r=>r.kind==="Member").length;
+              const visCt=grp.rows.filter(r=>r.kind==="Visitor").length;
+              const kidCt=grp.rows.filter(r=>r.kind==="Children").length;
+              const grpCt=grp.rows.filter(r=>r.kind==="Group").length;
+              return(
+                <div key={key} style={{background:W,border:"0.5px solid "+BR,borderRadius:10,overflow:"hidden"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:12,padding:"11px 16px",cursor:"pointer",background:isOpen?N+"08":W}} onClick={()=>toggleEvent(key)}>
+                    <div style={{minWidth:90,flexShrink:0}}>
+                      <div style={{fontSize:12,fontWeight:600,color:TX}}>{fd(grp.date)}</div>
+                    </div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:13,fontWeight:600,color:N,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{grp.ename}</div>
+                      <div style={{fontSize:11,color:MU,marginTop:2,display:"flex",gap:8,flexWrap:"wrap"}}>
+                        {memCt>0&&<span>{memCt} Member{memCt!==1?"s":""}</span>}
+                        {visCt>0&&<span>{visCt} Visitor{visCt!==1?"s":""}</span>}
+                        {kidCt>0&&<span>{kidCt} Child{kidCt!==1?"ren":""}</span>}
+                        {grpCt>0&&<span>{grpCt} Group member{grpCt!==1?"s":""}</span>}
+                        <span style={{color:N,fontWeight:500}}>{grp.rows.length} total</span>
+                      </div>
+                    </div>
+                    <button onClick={e=>{e.stopPropagation();toggleEvent(key);}} style={{padding:"5px 14px",borderRadius:6,border:"0.5px solid "+(isOpen?N:BR),background:isOpen?N:W,color:isOpen?"#fff":N,fontSize:12,fontWeight:500,cursor:"pointer",flexShrink:0}}>
+                      {isOpen?"Close":"View"}
+                    </button>
+                  </div>
+                  {isOpen&&(
+                    <div style={{borderTop:"0.5px solid "+BR}}>
+                      <table style={{width:"100%",borderCollapse:"collapse"}}>
+                        <thead><tr>{["Name","Type","Phone","Check-In Time"].map(h=><th key={h} style={thStyle}>{h}</th>)}</tr></thead>
+                        <tbody>
+                          {grp.rows.map((row:any,i:number)=>{
+                            const c=kindColor(row.kind);
+                            return(
+                              <tr key={row._key} style={{borderBottom:"0.5px solid "+BR,background:i%2===0?W:"#fafbfc"}}>
+                                <td style={{...tdS,fontWeight:500}}>{row.name}</td>
+                                <td style={tdS}><span style={{fontSize:10,padding:"2px 7px",borderRadius:10,background:c.bg,color:c.fg,fontWeight:500}}>{row.kind}</span></td>
+                                <td style={{...tdS,color:MU}}>{row.phone||"—"}</td>
+                                <td style={{...tdS,color:MU}}>{row.at||"—"}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
+
+      {/* Log New Service Modal */}
       <Modal open={modal} onClose={()=>setModal(false)} title="Log New Service">
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <Fld label="Date *"><Inp type="date" value={form.date} onChange={sf("date")}/></Fld>
-          <Fld label="Service Type"><Slt value={form.service} onChange={sf("service")} opts={["Sunday Morning Worship","Sunday Evening Service","Wednesday Bible Study","Special Event","Youth Service","Prayer Meeting"]}/></Fld>
+          <Fld label="Service Type"><Slt value={form.service} onChange={sf("service")} opts={["Sunday Morning Worship","Education Department","Sunday Night Service","Tuesday Bible Study","Thursday Worship","Special Event","Other"]}/></Fld>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
-          <Fld label="Total *"><Inp type="number" value={form.count} onChange={sf("count")} placeholder="0"/></Fld>
+          <Fld label="Total Count *"><Inp type="number" value={form.count} onChange={sf("count")} placeholder="0"/></Fld>
           <Fld label="Members"><Inp type="number" value={form.members} onChange={sf("members")} placeholder="0"/></Fld>
           <Fld label="Visitors"><Inp type="number" value={form.visitors} onChange={sf("visitors")} placeholder="0"/></Fld>
         </div>
@@ -7426,24 +9783,31 @@ function PledgeDrives({pledgeDrives,setPledgeDrives,pledges,setPledges,giving,me
 }
 
 // Tithe calculation helpers
-// Church Tithe = 10% of all offerings EXCEPT Tithe, Sunday Morning Offering, Housing Payment
-// Pastor's Draw = 60% of Tithe + Sunday Morning Offering (weekly)
-const CHURCH_TITHE_EXCLUDE = ["Tithe","Sunday Morning Offering","Housing Payment"];
-function calcTithes(givingRecords:any){
+// Church Tithe = 10% of all offerings EXCEPT Tithe, Tithes, Sunday Morning Offering, Rent
+// Pastor's Draw = 60% of Tithe + Tithes + Sunday Morning Offering (weekly)
+const CHURCH_TITHE_EXCLUDE = ["Tithe","Tithes","Sunday Morning Offering","Rent"];
+function calcTithes(givingRecords:any, pastorPct:number=60){
   const tithe = givingRecords.filter((g:any)=>g.category==="Tithe").reduce((a:number,g:any)=>a+(+g.amount),0);
+  const tithesPlural = givingRecords.filter((g:any)=>g.category==="Tithes").reduce((a:number,g:any)=>a+(+g.amount),0);
+  const titheBase = tithe + tithesPlural;
   const sundayMorning = givingRecords.filter((g:any)=>g.category==="Sunday Morning Offering").reduce((a:number,g:any)=>a+(+g.amount),0);
   const otherOfferings = givingRecords.filter((g:any)=>!CHURCH_TITHE_EXCLUDE.includes(g.category)).reduce((a:number,g:any)=>a+(+g.amount),0);
-  const churchBase = otherOfferings; // excludes Tithe, Sunday Morning Offering, Housing Payment
-  const pastorBase = tithe + sundayMorning;
+  const churchWeeklyBase = titheBase + sundayMorning; // pastor draw base
+  const pastorDraw = Math.round(churchWeeklyBase * (pastorPct/100) * 100) / 100;
+  const churchTithe = Math.round(otherOfferings * 0.10 * 100) / 100; // 10% of all except Tithe, Tithes, Sunday Morning, Rent
   return {
     tithe,
+    tithesPlural,
+    titheBase,
     sundayMorning,
     otherOfferings,
-    pastorBase,
-    churchBase,
-    pastorDraw: Math.round(pastorBase * 0.60 * 100) / 100,
-    pastorTithe: Math.round(pastorBase * 0.60 * 100) / 100, // alias for backward compat
-    churchTithe: Math.round(churchBase * 0.10 * 100) / 100
+    churchWeeklyBase,
+    pastorBase: churchWeeklyBase,
+    churchBase: otherOfferings,
+    churchTithe,
+    pastorDraw,
+    pastorTithe: pastorDraw,
+    pastorPct,
   };
 }
 
@@ -7498,19 +9862,30 @@ function WeeklyReports({giving,weeklyReports,setWeeklyReports}){
     setViewReport(updated);
   };
 
-  // Auto-save: generate reports for all Mondays with giving activity that aren't yet saved
+  // Auto-save: generate reports for all Mondays with giving activity
+  // Also updates existing auto-generated reports if their total changed (e.g. after CSV import)
   useEffect(()=>{
     if(giving.length===0) return;
-    const mondays = new Set(giving.map(g=>getMondayOf(g.date)));
-    const existing = new Set(weeklyReports.map(r=>r.weekStart));
-    const newReports = [];
-    mondays.forEach(m=>{
-      if(!existing.has(m)){
-        const data = computeWeekReport(m, giving);
-        newReports.push({id:"wr_"+m,generated:new Date().toISOString(),auto:true,...data});
+    const mondays = [...new Set(giving.map((g:any)=>getMondayOf(g.date)))];
+    const existingMap = new Map(weeklyReports.map((r:any)=>[r.weekStart,r]));
+    const newReports:any[] = [];
+    const updMap = new Map<string,any>();
+    mondays.forEach((m:string)=>{
+      const computed = computeWeekReport(m, giving);
+      const existing = existingMap.get(m);
+      if(!existing){
+        newReports.push({id:"wr_"+m,generated:new Date().toISOString(),auto:true,...computed});
+      } else if(existing.auto && existing.total !== computed.total){
+        updMap.set(m,{...existing,...computed,generated:new Date().toISOString(),auto:true});
       }
     });
-    if(newReports.length>0) setWeeklyReports(rs=>[...rs,...newReports]);
+    if(newReports.length>0 || updMap.size>0){
+      setWeeklyReports((rs:any[])=>{
+        let result = updMap.size>0 ? rs.map((r:any)=>updMap.has(r.weekStart)?updMap.get(r.weekStart):r) : [...rs];
+        if(newReports.length>0) result = [...result,...newReports];
+        return result;
+      });
+    }
   // eslint-disable-next-line
   },[giving.length]);
 
@@ -7567,7 +9942,7 @@ function WeeklyReports({giving,weeklyReports,setWeeklyReports}){
               <h2 style={{fontSize:22,fontWeight:500,color:N,margin:"0 0 4px"}}>{window.__CS__?.name||"New Testament Christian Church"}</h2>
               <div style={{fontSize:13,color:MU}}>{window.__CS__?.address||"Glendale, AZ"} — {window.__CS__?.pastorName||"Pastor R. E. Hall"}</div>
               <div style={{fontSize:15,fontWeight:500,color:N,marginTop:10}}>Week of {fd(r.weekStart)} — {fd(r.weekEnd)}</div>
-              <div style={{fontSize:10,color:MU,marginTop:3}}>{r.auto?"Auto-generated":"Manually regenerated"} on {gen.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})} at {gen.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"})}</div>
+              <div style={{fontSize:10,color:MU,marginTop:3}}>{r.auto?"Auto-generated":"Manually regenerated"} on {gen.toLocaleDateString("en-US",{timeZone:"America/Phoenix",month:"short",day:"numeric",year:"numeric"})} at {gen.toLocaleTimeString("en-US",{timeZone:"America/Phoenix",hour:"numeric",minute:"2-digit"})}</div>
             </div>
 
             {/* Top Summary */}
@@ -7592,13 +9967,13 @@ function WeeklyReports({giving,weeklyReports,setWeeklyReports}){
 
             {/* Tithes Section */}
             {(()=>{
-              const _EXCL = ["Tithe","Sunday Morning Offering","Housing Payment"];
-              const eligibleEntries = Object.entries(r.byCategory).filter(([cat])=>!_EXCL.includes(cat)).sort((a,b)=>b[1]-a[1]);
+              const eligibleEntries = Object.entries(r.byCategory).filter(([cat])=>!CHURCH_TITHE_EXCLUDE.includes(cat)).sort((a,b)=>b[1]-a[1]);
               const eligibleBase = eligibleEntries.reduce((s,[,v])=>s+v,0);
               const churchWeeklyTithe = Math.round(eligibleBase*0.10*100)/100;
               const effectiveDrawPct = r.pastorDrawPct ?? globalDrawPct;
-              const pastorDraw = r.tithes ? Math.round(((r.tithes.tithe||0)+(r.tithes.sundayMorning||0))*(effectiveDrawPct/100)*100)/100 : 0;
+              const pastorDraw = r.tithes ? Math.round(((r.tithes.tithe||0)+(r.tithes.tithesPlural||0)+(r.tithes.sundayMorning||0))*(effectiveDrawPct/100)*100)/100 : 0;
               const titheCollected = r.tithes?.tithe||0;
+              const tithesCollected = r.tithes?.tithesPlural||0;
               const sundayMorning = r.tithes?.sundayMorning||0;
               if(eligibleBase===0 && pastorDraw===0) return null;
               return (
@@ -7611,8 +9986,7 @@ function WeeklyReports({giving,weeklyReports,setWeeklyReports}){
                     <div style={{fontSize:11,color:"#7a5c10",fontWeight:600,textTransform:"uppercase",letterSpacing:0.5,marginBottom:6}}>Church Weekly Tithe</div>
                     <div style={{fontSize:26,fontWeight:700,color:N,marginBottom:8}}>{f$(churchWeeklyTithe)}</div>
                     <div style={{fontSize:11,color:MU,lineHeight:1.8}}>
-                      <div style={{fontSize:10,color:MU,marginBottom:4,fontStyle:"italic"}}>Excluded: Tithe, Sunday Morning Offering, Housing Payment</div>
-                      {eligibleEntries.map(([cat,amt])=>(
+                      <div style={{fontSize:10,color:MU,marginBottom:4,fontStyle:"italic"}}>Excluded: Tithe, Tithes, Sunday Morning Offering, Rent</div>                      {eligibleEntries.map(([cat,amt])=>(
                         <div key={cat} style={{display:"flex",justifyContent:"space-between"}}><span>{cat}:</span><strong>{f$(amt)}</strong></div>
                       ))}
                       <div style={{display:"flex",justifyContent:"space-between",borderTop:"0.5px solid "+G+"44",marginTop:4,paddingTop:4,fontWeight:600,color:N}}><span>Total eligible:</span><strong>{f$(eligibleBase)}</strong></div>
@@ -7641,6 +10015,7 @@ function WeeklyReports({giving,weeklyReports,setWeeklyReports}){
                     <div style={{fontSize:26,fontWeight:700,color:N,marginBottom:8}}>{f$(pastorDraw)}</div>
                     <div style={{fontSize:11,color:MU,lineHeight:1.6}}>
                       <div style={{display:"flex",justifyContent:"space-between"}}><span>Tithe collected:</span><strong>{f$(titheCollected)}</strong></div>
+                      <div style={{display:"flex",justifyContent:"space-between"}}><span>Tithes collected:</span><strong>{f$(tithesCollected)}</strong></div>
                       <div style={{display:"flex",justifyContent:"space-between"}}><span>Sun. Morning Offering:</span><strong>{f$(sundayMorning)}</strong></div>
                       <div style={{display:"flex",justifyContent:"space-between",borderTop:"0.5px solid "+G+"44",marginTop:4,paddingTop:4,fontWeight:600,color:GR}}><span>{effectiveDrawPct}% of combined:</span><strong>{f$(pastorDraw)}</strong></div>
                     </div>
@@ -7796,6 +10171,8 @@ function WeeklyReports({giving,weeklyReports,setWeeklyReports}){
 
 function TithesView({giving,weeklyReports}){
   const [range,setRange] = useState("month");
+  const [drawPct,setDrawPct] = useState(()=>Number(localStorage.getItem("ntcc_pastor_draw_pct")||"60"));
+  const updateDrawPct = (pct:number)=>{ setDrawPct(pct); localStorage.setItem("ntcc_pastor_draw_pct",String(pct)); };
   const today = new Date();
 
   // Filter giving by range
@@ -7816,7 +10193,7 @@ function TithesView({giving,weeklyReports}){
     rangeLabel = "Year to Date "+yr;
   }
 
-  const tithes = calcTithes(filteredGiving);
+  const tithes = calcTithes(filteredGiving, drawPct);
   const totalInRange = filteredGiving.reduce((a,g)=>a+g.amount,0);
 
   // Weekly breakdown - compute tithes for each saved week
@@ -7827,7 +10204,7 @@ function TithesView({giving,weeklyReports}){
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:10}}>
         <div>
           <h3 style={{fontSize:15,fontWeight:500,color:N,margin:0}}>Church Tithe & Pastor's Draw</h3>
-          <div style={{fontSize:12,color:MU,marginTop:2}}>Church: 10% of all offerings (excl. Tithe, Sunday Morning, Housing) · Pastor's Draw: 60% of Tithes + Sunday Morning Offering</div>
+          <div style={{fontSize:12,color:MU,marginTop:2}}>Church Weekly Tithe: 10% of all offerings (excl. Tithe, Tithes, Sunday Morning, Rent) · Pastor's Draw: selected % of Tithe + Tithes + Sunday Morning</div>
         </div>
         <div style={{display:"flex",gap:6,background:W,borderRadius:8,border:"0.5px solid "+BR,padding:3}}>
           {[["week","This Week"],["month","This Month"],["ytd","Year to Date"],["all","All Time"]].map(([id,label])=>(
@@ -7843,21 +10220,17 @@ function TithesView({giving,weeklyReports}){
       {/* Two big tithe cards */}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:20}}>
         <div style={{background:W,border:"1.5px solid "+G,borderRadius:12,overflow:"hidden"}}>
-          <div style={{background:N,color:"#fff",padding:"14px 18px"}}>
+        <div style={{background:N,color:"#fff",padding:"14px 18px"}}>
             <div style={{fontSize:11,color:G,textTransform:"uppercase",letterSpacing:1.5,fontWeight:600,marginBottom:2}}>Church Weekly Tithe</div>
-            <div style={{fontSize:13}}>10% of all offerings (excl. Tithe, Sunday Morning, Housing)</div>
+            <div style={{fontSize:13}}>10% of all offerings (excl. Tithe, Sunday Morning, Rent)</div>
           </div>
           <div style={{padding:20}}>
             <div style={{fontSize:36,fontWeight:700,color:N,marginBottom:16}}>{f$(tithes.churchTithe)}</div>
             <div style={{fontSize:12,color:MU,textTransform:"uppercase",letterSpacing:0.5,marginBottom:10,fontWeight:500}}>Calculation</div>
             <div style={{background:BG,borderRadius:8,padding:14,border:"0.5px solid "+BR}}>
               <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0",fontSize:13}}>
-                <span style={{color:MU}}>All other offerings (excl. Tithe, Sun. Morning, Housing)</span>
+                <span style={{color:MU}}>All other offerings (excl. Tithe, Sun. Morning, Rent)</span>
                 <span style={{fontWeight:500}}>{f$(tithes.otherOfferings)}</span>
-              </div>
-              <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0",fontSize:13,color:N,borderTop:"0.5px solid "+BR,marginTop:4,paddingTop:8,fontWeight:500}}>
-                <span>Eligible Base</span>
-                <span>{f$(tithes.churchBase)}</span>
               </div>
               <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0",fontSize:13,color:MU}}>
                 <span>× 10%</span>
@@ -7873,11 +10246,18 @@ function TithesView({giving,weeklyReports}){
 
         <div style={{background:W,border:"1.5px solid "+G,borderRadius:12,overflow:"hidden"}}>
           <div style={{background:G,color:"#fff",padding:"14px 18px"}}>
-            <div style={{fontSize:11,color:"#fff",textTransform:"uppercase",letterSpacing:1.5,fontWeight:600,marginBottom:2,opacity:0.85}}>Pastor's Draw (Weekly)</div>
-            <div style={{fontSize:13}}>60% of Tithes + Sunday Morning Offering</div>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <div>
+                <div style={{fontSize:11,color:"#fff",textTransform:"uppercase",letterSpacing:1.5,fontWeight:600,marginBottom:2,opacity:0.85}}>Pastor's Draw (Weekly)</div>
+                <div style={{fontSize:13}}>{drawPct}% of Tithes + Sunday Morning Offering</div>
+              </div>
+              <select value={drawPct} onChange={e=>updateDrawPct(Number(e.target.value))} style={{fontSize:12,fontWeight:600,color:N,border:"none",borderRadius:6,padding:"4px 8px",background:"#fff",cursor:"pointer"}}>
+                {[0,10,20,30,40,50,60].map(p=><option key={p} value={p}>{p===0?"0% — No Draw":p+"%"}</option>)}
+              </select>
+            </div>
           </div>
           <div style={{padding:20}}>
-            <div style={{fontSize:36,fontWeight:700,color:N,marginBottom:16}}>{f$(tithes.pastorDraw??tithes.pastorTithe)}</div>
+            <div style={{fontSize:36,fontWeight:700,color:N,marginBottom:16}}>{f$(tithes.pastorDraw)}</div>
             <div style={{fontSize:12,color:MU,textTransform:"uppercase",letterSpacing:0.5,marginBottom:10,fontWeight:500}}>Calculation</div>
             <div style={{background:BG,borderRadius:8,padding:14,border:"0.5px solid "+BR}}>
               <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0",fontSize:13}}>
@@ -7890,15 +10270,15 @@ function TithesView({giving,weeklyReports}){
               </div>
               <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0",fontSize:13,color:N,borderTop:"0.5px solid "+BR,marginTop:4,paddingTop:8,fontWeight:500}}>
                 <span>Subtotal</span>
-                <span>{f$(tithes.pastorBase)}</span>
+                <span>{f$(tithes.churchWeeklyBase)}</span>
               </div>
               <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0",fontSize:13,color:MU}}>
-                <span>× 60%</span>
+                <span>× {drawPct}%</span>
                 <span></span>
               </div>
               <div style={{display:"flex",justifyContent:"space-between",padding:"8px 0 0",fontSize:14,fontWeight:600,borderTop:"0.5px solid "+BR,marginTop:4}}>
                 <span style={{color:N}}>Pastor's Draw</span>
-                <span style={{color:GR}}>{f$(tithes.pastorDraw??tithes.pastorTithe)}</span>
+                <span style={{color:GR}}>{f$(tithes.pastorDraw)}</span>
               </div>
             </div>
           </div>
@@ -7911,7 +10291,7 @@ function TithesView({giving,weeklyReports}){
           <div style={{fontSize:11,color:"#7a5c10",textTransform:"uppercase",letterSpacing:1,fontWeight:600}}>Total Tithes for {rangeLabel}</div>
           <div style={{fontSize:12,color:"#7a5c10",marginTop:2}}>Church Tithe + Pastor's Draw combined</div>
         </div>
-        <div style={{fontSize:30,fontWeight:700,color:N}}>{f$(tithes.churchTithe + (tithes.pastorDraw??tithes.pastorTithe))}</div>
+        <div style={{fontSize:30,fontWeight:700,color:N}}>{f$(tithes.churchTithe + tithes.pastorDraw)}</div>
       </div>
 
       {/* Weekly history */}
@@ -7922,10 +10302,13 @@ function TithesView({giving,weeklyReports}){
             <div style={{fontSize:11,color:MU,marginTop:2}}>Tithes calculated for each saved weekly report</div>
           </div>
           <table style={{width:"100%",borderCollapse:"collapse"}}>
-            <thead><tr style={{background:"#f8f9fc"}}>{["Week","Total Giving","Church Tithe","Pastor's Draw","Combined"].map(h=><th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:11,fontWeight:500,color:MU,textTransform:"uppercase",letterSpacing:0.5,borderBottom:"0.5px solid "+BR}}>{h}</th>)}</tr></thead>
+            <thead><tr style={{background:"#f8f9fc"}}>{["Week","Total Giving","Church Tithe (10%)","Pastor's Draw ("+drawPct+"%)","Combined"].map(h=><th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:11,fontWeight:500,color:MU,textTransform:"uppercase",letterSpacing:0.5,borderBottom:"0.5px solid "+BR}}>{h}</th>)}</tr></thead>
             <tbody>
               {sortedWeeks.map(r=>{
-                const t = r.tithes || calcTithes([]);
+                const t = calcTithes(
+                  giving.filter((g:any)=>g.date>=r.weekStart&&g.date<=r.weekEnd),
+                  r.pastorDrawPct!=null ? r.pastorDrawPct : drawPct
+                );
                 return (
                   <tr key={r.id} style={{borderBottom:"0.5px solid "+BR}}>
                     <td style={{padding:"10px 14px"}}>
@@ -7934,17 +10317,17 @@ function TithesView({giving,weeklyReports}){
                     </td>
                     <td style={{padding:"10px 14px",fontSize:13,fontWeight:500,color:N}}>{f$(r.total)}</td>
                     <td style={{padding:"10px 14px",fontSize:13,fontWeight:500,color:N}}>{f$(t.churchTithe)}</td>
-                    <td style={{padding:"10px 14px",fontSize:13,fontWeight:500,color:G}}>{f$(t.pastorDraw??t.pastorTithe)}</td>
-                    <td style={{padding:"10px 14px",fontSize:13,fontWeight:600,color:GR}}>{f$(t.churchTithe + (t.pastorDraw??t.pastorTithe))}</td>
+                    <td style={{padding:"10px 14px",fontSize:13,fontWeight:500,color:G}}>{f$(t.pastorDraw)}</td>
+                    <td style={{padding:"10px 14px",fontSize:13,fontWeight:600,color:GR}}>{f$(t.churchTithe + t.pastorDraw)}</td>
                   </tr>
                 );
               })}
               <tr style={{background:GL+"22",fontWeight:600}}>
                 <td style={{padding:"10px 14px",fontSize:13,color:N}}>Grand Total</td>
                 <td style={{padding:"10px 14px",fontSize:13,color:N}}>{f$(sortedWeeks.reduce((a,r)=>a+r.total,0))}</td>
-                <td style={{padding:"10px 14px",fontSize:13,color:N}}>{f$(sortedWeeks.reduce((a,r)=>a+(r.tithes?.churchTithe||0),0))}</td>
-                <td style={{padding:"10px 14px",fontSize:13,color:G}}>{f$(sortedWeeks.reduce((a:number,r:any)=>a+(r.tithes?.pastorDraw??r.tithes?.pastorTithe??0),0))}</td>
-                <td style={{padding:"10px 14px",fontSize:13,color:GR}}>{f$(sortedWeeks.reduce((a:number,r:any)=>a+(r.tithes?.churchTithe||0)+(r.tithes?.pastorDraw??r.tithes?.pastorTithe??0),0))}</td>
+                <td style={{padding:"10px 14px",fontSize:13,color:N}}>{f$(sortedWeeks.reduce((a:number,r:any)=>a+calcTithes(giving.filter((g:any)=>g.date>=r.weekStart&&g.date<=r.weekEnd),r.pastorDrawPct!=null?r.pastorDrawPct:drawPct).churchTithe,0))}</td>
+                <td style={{padding:"10px 14px",fontSize:13,color:G}}>{f$(sortedWeeks.reduce((a:number,r:any)=>a+calcTithes(giving.filter((g:any)=>g.date>=r.weekStart&&g.date<=r.weekEnd),r.pastorDrawPct!=null?r.pastorDrawPct:drawPct).pastorDraw,0))}</td>
+                <td style={{padding:"10px 14px",fontSize:13,color:GR}}>{f$(sortedWeeks.reduce((a:number,r:any)=>{const t=calcTithes(giving.filter((g:any)=>g.date>=r.weekStart&&g.date<=r.weekEnd),r.pastorDrawPct!=null?r.pastorDrawPct:drawPct);return a+t.churchTithe+t.pastorDraw;},0))}</td>
               </tr>
             </tbody>
           </table>
@@ -8179,27 +10562,566 @@ function GivingHistory({giving,members,visitors}){
   );
 }
 
-function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledges,members,visitors,weeklyReports,setWeeklyReports,emailTemplates,currentUser=null,roles=[]}:any) {
+// ── GIVING BATCHES ─────────────────────────────────────────────────────────
+function GivingBatches({giving,setGiving,givingBatches,setGivingBatches,members,visitors}:any){
+  const [viewBatch,setViewBatch]=useState<any>(null);
+  const [addModal,setAddModal]=useState(false);
+  const [addForm,setAddForm]=useState<any>({date:td(),name:"",category:"Sunday Morning Offering",amount:"",method:"Online",notes:""});
+  const [addSugg,setAddSugg]=useState<any[]>([]);
+  const [showAddSugg,setShowAddSugg]=useState(false);
+  const [pastWeekModal,setPastWeekModal]=useState(false);
+  const [pastWeekMonday,setPastWeekMonday]=useState(getMondayOf(td()));
+  const nid=useRef(Date.now()+9000);
+  const todayMonday=getMondayOf(td());
+  const todaySunday=getSundayOf(todayMonday);
+  const allPeople=[...(members||[]).map((m:any)=>({name:(m.first||"")+" "+(m.last||""),type:"Member"})),...(visitors||[]).map((v:any)=>({name:(v.first||"")+" "+(v.last||""),type:"Visitor"}))].filter(p=>p.name.trim().length>1);
+
+  const sortedBatches=[...givingBatches].sort((a:any,b:any)=>b.weekStart.localeCompare(a.weekStart));
+  const openBatch=givingBatches.find((b:any)=>b.status==="open");
+  const currentWeekBatchExists=givingBatches.some((b:any)=>b.weekStart===todayMonday);
+
+  const startNewWeek=()=>{
+    if(currentWeekBatchExists){alert("A batch for this week already exists.");return;}
+    // Close any open batches
+    setGivingBatches((prev:any[])=>[
+      {id:"batch_"+todaySunday,weekStart:todayMonday,weekEnd:todaySunday,sundayDate:todaySunday,status:"open",createdAt:new Date().toISOString(),closedAt:null},
+      ...prev.map((b:any)=>b.status==="open"?{...b,status:"closed",closedAt:new Date().toISOString()}:b)
+    ]);
+  };
+
+  const createPastWeekBatch=()=>{
+    const monday=pastWeekMonday;
+    const sunday=getSundayOf(monday);
+    if(givingBatches.some((b:any)=>b.weekStart===monday)){alert("A batch for that week already exists.");return;}
+    setGivingBatches((prev:any[])=>[...prev,{id:"batch_"+sunday,weekStart:monday,weekEnd:sunday,sundayDate:sunday,status:"closed",createdAt:new Date().toISOString(),closedAt:new Date().toISOString()}]);
+    setPastWeekModal(false);
+  };
+
+  const closeBatch=(batch:any)=>{
+    if(!confirm("Close batch for week of "+fd(batch.weekStart)+"? You can re-open it any time.")) return;
+    const updated={...batch,status:"closed",closedAt:new Date().toISOString()};
+    setGivingBatches((prev:any[])=>prev.map((b:any)=>b.id===batch.id?updated:b));
+    if(viewBatch?.id===batch.id) setViewBatch(updated);
+  };
+
+  const reopenBatch=(batch:any)=>{
+    const updated={...batch,status:"open",closedAt:null};
+    setGivingBatches((prev:any[])=>prev.map((b:any)=>b.id===batch.id?updated:b));
+    if(viewBatch?.id===batch.id) setViewBatch(updated);
+  };
+
+  const batchGiving=(batch:any)=>giving.filter((g:any)=>g.date>=batch.weekStart&&g.date<=batch.weekEnd);
+
+  const exportBatchCSV=(batch:any)=>{
+    const rows=batchGiving(batch);
+    const header="Date,Name,Category,Amount,Method,Notes";
+    const lines=rows.map((g:any)=>[g.date,'"'+(g.name||"")+'"','"'+(g.category||"")+'"',g.amount,'"'+(g.method||"")+'"','"'+(g.notes||"")+'"'].join(","));
+    const csv=[header,...lines].join("\n");
+    const blob=new Blob([csv],{type:"text/csv"});
+    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="giving_batch_"+batch.sundayDate+".csv";a.click();
+  };
+
+  const openAddModal=(batch:any)=>{
+    // Default date to batch's Sunday (or today if within batch week)
+    const defaultDate=td()>=batch.weekStart&&td()<=batch.weekEnd?td():batch.weekEnd;
+    setAddForm({date:defaultDate,name:"",category:"Sunday Morning Offering",amount:"",method:"Online",notes:"",_batchStart:batch.weekStart,_batchEnd:batch.weekEnd});
+    setAddSugg([]);setShowAddSugg(false);
+    setAddModal(true);
+  };
+
+  const saveAddRecord=()=>{
+    if(!addForm.name||!addForm.amount){alert("Name and amount required.");return;}
+    setGiving((prev:any[])=>[{...addForm,amount:+addForm.amount,id:nid.current++},...prev]);
+    setAddModal(false);
+    // Refresh viewBatch so the new record appears
+    if(viewBatch) setViewBatch((b:any)=>({...b}));
+  };
+
+  const handleAddNameInput=(val:string)=>{
+    setAddForm((f:any)=>({...f,name:val}));
+    if(val.trim().length>=1){const q=val.toLowerCase();const hits=allPeople.filter(p=>p.name.toLowerCase().includes(q)).slice(0,8);setAddSugg(hits);setShowAddSugg(hits.length>0);}else{setShowAddSugg(false);}
+  };
+
+  // ── DETAIL VIEW ──
+  if(viewBatch){
+    const latestBatch=givingBatches.find((b:any)=>b.id===viewBatch.id)||viewBatch;
+    const rows=batchGiving(latestBatch);
+    const total=rows.reduce((a:number,g:any)=>a+g.amount,0);
+    const byCat:{[k:string]:number}={};
+    const byMeth:{[k:string]:number}={};
+    rows.forEach((g:any)=>{byCat[g.category]=(byCat[g.category]||0)+g.amount;byMeth[g.method]=(byMeth[g.method]||0)+g.amount;});
+    const isOpen=latestBatch.status==="open";
+    return(
+      <div>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16,flexWrap:"wrap"}}>
+          <button onClick={()=>setViewBatch(null)} style={{background:"none",border:"0.5px solid "+BR,borderRadius:8,padding:"6px 12px",fontSize:13,cursor:"pointer",color:TX}}>← All Batches</button>
+          <div style={{flex:1}}>
+            <div style={{fontSize:15,fontWeight:600,color:N}}>Batch: {fd(latestBatch.weekStart)} – {fd(latestBatch.weekEnd)}</div>
+            <div style={{fontSize:11,color:MU}}>Saved as: {latestBatch.sundayDate} · {isOpen?<span style={{color:GR,fontWeight:500}}>Open</span>:<span style={{color:RE,fontWeight:500}}>Closed {latestBatch.closedAt?fd(latestBatch.closedAt.slice(0,10)):""}</span>}</div>
+          </div>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+            <Btn onClick={()=>openAddModal(latestBatch)} style={{fontSize:12,padding:"6px 12px"}}>+ Add Record</Btn>
+            <Btn onClick={()=>exportBatchCSV(latestBatch)} v="ghost" style={{fontSize:12,padding:"6px 12px"}}>⬇ CSV</Btn>
+            {isOpen?<Btn onClick={()=>closeBatch(latestBatch)} v="danger" style={{fontSize:12,padding:"6px 12px"}}>Close Batch</Btn>:<Btn onClick={()=>reopenBatch(latestBatch)} v="ghost" style={{fontSize:12,padding:"6px 12px"}}>Re-open</Btn>}
+          </div>
+        </div>
+        <div style={{display:"flex",gap:10,marginBottom:14,flexWrap:"wrap"}}>
+          <Stat label="Total" value={f$(total)} color={GR} sub={rows.length+" record"+(rows.length!==1?"s":"")}/>
+          <Stat label="Givers" value={new Set(rows.map((g:any)=>g.name)).size} color={N}/>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
+          <div style={{background:W,border:"0.5px solid "+BR,borderRadius:10,padding:14}}>
+            <div style={{fontSize:12,fontWeight:600,color:N,marginBottom:10,textTransform:"uppercase",letterSpacing:0.5}}>By Category</div>
+            {Object.entries(byCat).sort((a:any,b:any)=>b[1]-a[1]).map(([cat,amt]:any)=>(
+              <div key={cat} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"0.5px solid "+BR,fontSize:13}}><span style={{color:TX}}>{cat}</span><span style={{fontWeight:500,color:GR}}>{f$(amt)}</span></div>
+            ))}
+            {Object.keys(byCat).length===0&&<div style={{fontSize:12,color:MU,fontStyle:"italic"}}>No records this week</div>}
+          </div>
+          <div style={{background:W,border:"0.5px solid "+BR,borderRadius:10,padding:14}}>
+            <div style={{fontSize:12,fontWeight:600,color:N,marginBottom:10,textTransform:"uppercase",letterSpacing:0.5}}>By Method</div>
+            {Object.entries(byMeth).sort((a:any,b:any)=>b[1]-a[1]).map(([meth,amt]:any)=>(
+              <div key={meth} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"0.5px solid "+BR,fontSize:13}}><span style={{color:TX}}>{meth}</span><span style={{fontWeight:500,color:GR}}>{f$(amt)}</span></div>
+            ))}
+            {Object.keys(byMeth).length===0&&<div style={{fontSize:12,color:MU,fontStyle:"italic"}}>No records this week</div>}
+          </div>
+        </div>
+        <div style={{background:W,border:"0.5px solid "+BR,borderRadius:10,overflow:"hidden"}}>
+          <div style={{padding:"10px 14px",borderBottom:"0.5px solid "+BR,fontSize:13,fontWeight:500,color:N,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span>Giving Records ({rows.length})</span>
+          </div>
+          {rows.length===0
+            ?<div style={{padding:"20px 14px",fontSize:13,color:MU,fontStyle:"italic",textAlign:"center"}}>No records yet — click "+ Add Record" above.</div>
+            :<table style={{width:"100%",borderCollapse:"collapse"}}>
+              <thead><tr style={{background:"#f8f9fc"}}>{["Date","Name","Category","Amount","Method","Notes"].map(h=><th key={h} style={{padding:"8px 12px",textAlign:"left",fontSize:11,fontWeight:500,color:MU,textTransform:"uppercase",letterSpacing:0.4,borderBottom:"0.5px solid "+BR}}>{h}</th>)}</tr></thead>
+              <tbody>
+                {rows.map((g:any)=>(
+                  <tr key={g.id} style={{borderBottom:"0.5px solid "+BR}}>
+                    <td style={{padding:"9px 12px",fontSize:12}}>{fd(g.date)}</td>
+                    <td style={{padding:"9px 12px",fontSize:13,fontWeight:500}}>{g.name}</td>
+                    <td style={{padding:"9px 12px",fontSize:12}}>{g.category}</td>
+                    <td style={{padding:"9px 12px",fontSize:13,fontWeight:500,color:GR}}>{f$(g.amount)}</td>
+                    <td style={{padding:"9px 12px",fontSize:12}}>{g.method}</td>
+                    <td style={{padding:"9px 12px",fontSize:12,color:MU}}>{g.notes||"—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>}
+        </div>
+        {/* Add Record Modal */}
+        {addModal&&(
+          <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+            <div style={{background:W,borderRadius:14,padding:28,width:"100%",maxWidth:480,boxShadow:"0 20px 60px rgba(0,0,0,0.25)"}}>
+              <div style={{fontSize:15,fontWeight:600,color:N,marginBottom:4}}>Add Record to Batch</div>
+              <div style={{fontSize:11,color:MU,marginBottom:16}}>Week of {fd(latestBatch.weekStart)} – {fd(latestBatch.weekEnd)}</div>
+              <Fld label="Date"><Inp type="date" value={addForm.date} min={addForm._batchStart} max={addForm._batchEnd} onChange={(v:string)=>setAddForm((f:any)=>({...f,date:v}))}/></Fld>
+              <Fld label="Giver's Name">
+                <div style={{position:"relative"}}>
+                  <Inp value={addForm.name} onChange={handleAddNameInput} placeholder="Type to search…" onBlur={()=>setTimeout(()=>setShowAddSugg(false),180)}/>
+                  {showAddSugg&&<div style={{position:"absolute",top:"calc(100% + 2px)",left:0,right:0,background:W,border:"1px solid "+BR,borderRadius:9,boxShadow:"0 6px 18px rgba(0,0,0,0.12)",zIndex:200,maxHeight:200,overflowY:"auto"}}>
+                    {addSugg.map((p:any,i:number)=>(
+                      <div key={i} onMouseDown={e=>{e.preventDefault();setAddForm((f:any)=>({...f,name:p.name}));setShowAddSugg(false);}} style={{padding:"9px 14px",cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",justifyContent:"space-between",borderBottom:i<addSugg.length-1?"0.5px solid "+BR+"66":"none",background:W}} onMouseEnter={e=>(e.currentTarget.style.background=BG)} onMouseLeave={e=>(e.currentTarget.style.background=W)}>
+                        <span style={{fontWeight:500,color:TX}}>{p.name}</span>
+                        <span style={{fontSize:11,color:p.type==="Member"?N:G,background:p.type==="Member"?N+"11":G+"22",padding:"2px 8px",borderRadius:20,fontWeight:500}}>{p.type}</span>
+                      </div>
+                    ))}
+                  </div>}
+                </div>
+              </Fld>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+                <Fld label="Category"><Slt value={addForm.category} onChange={(v:string)=>setAddForm((f:any)=>({...f,category:v}))} opts={["Tithe","Tithes","Sunday Morning Offering","Offering","Building Fund","Missions","Special Gift"]}/></Fld>
+                <Fld label="Amount"><Inp type="number" value={addForm.amount} onChange={(v:string)=>setAddForm((f:any)=>({...f,amount:v}))} placeholder="0.00"/></Fld>
+              </div>
+              <Fld label="Method"><Slt value={addForm.method} onChange={(v:string)=>setAddForm((f:any)=>({...f,method:v}))} opts={["Cash","Check","Online","Zelle","Other"]}/></Fld>
+              <Fld label="Notes"><Inp value={addForm.notes} onChange={(v:string)=>setAddForm((f:any)=>({...f,notes:v}))}/></Fld>
+              <div style={{display:"flex",gap:8,marginTop:4}}>
+                <Btn onClick={saveAddRecord} style={{flex:1,justifyContent:"center"}}>Save Record</Btn>
+                <Btn onClick={()=>setAddModal(false)} v="ghost" style={{flex:1,justifyContent:"center"}}>Cancel</Btn>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── LIST VIEW ──
+  return(
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
+        <div style={{fontSize:13,color:MU}}>Each batch covers Mon–Sun, saved by Sunday's date. Click a batch to view or add records.</div>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          <Btn onClick={()=>{setPastWeekMonday(getMondayOf(td()));setPastWeekModal(true);}} v="ghost" style={{fontSize:12}}>+ Past Week Batch</Btn>
+          {!currentWeekBatchExists&&<Btn onClick={startNewWeek}>▶ Start New Week ({fd(todayMonday)} – {fd(todaySunday)})</Btn>}
+          {currentWeekBatchExists&&!openBatch&&<Btn onClick={()=>{const b=givingBatches.find((x:any)=>x.weekStart===todayMonday);if(b)reopenBatch(b);}} v="ghost">Re-open Current Week</Btn>}
+        </div>
+      </div>
+      {sortedBatches.length===0&&<div style={{padding:"40px 0",textAlign:"center",color:MU,fontSize:13,fontStyle:"italic"}}>No batches yet. Click "Start New Week" to create the first batch.</div>}
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        {sortedBatches.map((batch:any)=>{
+          const rows=batchGiving(batch);
+          const total=rows.reduce((a:number,g:any)=>a+g.amount,0);
+          const isOpen=batch.status==="open";
+          const isCurrent=batch.weekStart===todayMonday;
+          return(
+            <div key={batch.id} onClick={()=>setViewBatch(batch)} style={{background:W,border:"0.5px solid "+(isCurrent?G:BR),borderRadius:12,padding:"14px 16px",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",cursor:"pointer",transition:"box-shadow 0.15s"}} onMouseEnter={e=>(e.currentTarget.style.boxShadow="0 2px 10px rgba(0,0,0,0.08)")} onMouseLeave={e=>(e.currentTarget.style.boxShadow="none")}>
+              <div style={{flex:1,minWidth:180}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:3}}>
+                  <span style={{fontSize:14,fontWeight:600,color:N}}>{fd(batch.weekStart)} – {fd(batch.weekEnd)}</span>
+                  {isCurrent&&<span style={{fontSize:10,background:G,color:"#7a5c10",borderRadius:10,padding:"1px 7px",fontWeight:600}}>Current</span>}
+                  <span style={{fontSize:10,background:isOpen?"#dcfce7":"#fee2e2",color:isOpen?"#166534":RE,borderRadius:10,padding:"1px 7px",fontWeight:600}}>{isOpen?"Open":"Closed"}</span>
+                </div>
+                <div style={{fontSize:12,color:MU}}>Saved as {batch.sundayDate} · {rows.length} record{rows.length!==1?"s":""} · {f$(total)}</div>
+              </div>
+              <div style={{display:"flex",gap:8,flexShrink:0}} onClick={e=>e.stopPropagation()}>
+                <Btn onClick={()=>setViewBatch(batch)} v="ghost" style={{fontSize:12,padding:"6px 12px"}}>View</Btn>
+                <Btn onClick={()=>exportBatchCSV(batch)} v="ghost" style={{fontSize:12,padding:"6px 12px"}}>⬇ CSV</Btn>
+                {isOpen?<Btn onClick={()=>closeBatch(batch)} v="danger" style={{fontSize:12,padding:"6px 12px"}}>Close</Btn>:<Btn onClick={()=>reopenBatch(batch)} v="ghost" style={{fontSize:12,padding:"6px 12px"}}>Re-open</Btn>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {/* Past Week Batch Modal */}
+      {pastWeekModal&&(()=>{
+        const previewSunday=getSundayOf(pastWeekMonday);
+        const alreadyExists=givingBatches.some((b:any)=>b.weekStart===pastWeekMonday);
+        return(
+          <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+            <div style={{background:W,borderRadius:14,padding:28,width:"100%",maxWidth:420,boxShadow:"0 20px 60px rgba(0,0,0,0.25)"}}>
+              <div style={{fontSize:15,fontWeight:600,color:N,marginBottom:4}}>Create Past Week Batch</div>
+              <div style={{fontSize:12,color:MU,marginBottom:18}}>Select the Monday of the week you want to create a batch for.</div>
+              <Fld label="Week Starting (Monday)">
+                <Inp type="date" value={pastWeekMonday} max={todayMonday} onChange={(v:string)=>{const m=getMondayOf(v);setPastWeekMonday(m);}}/>
+              </Fld>
+              {pastWeekMonday&&<div style={{background:"#f0f4ff",border:"0.5px solid "+BR,borderRadius:8,padding:"10px 14px",fontSize:13,color:N,marginBottom:14}}>
+                Batch: <strong>{fd(pastWeekMonday)}</strong> – <strong>{fd(previewSunday)}</strong>
+                {alreadyExists&&<div style={{color:RE,fontSize:12,marginTop:4}}>A batch for this week already exists.</div>}
+              </div>}
+              <div style={{display:"flex",gap:8,marginTop:4}}>
+                <Btn onClick={createPastWeekBatch} style={{flex:1,justifyContent:"center"}} disabled={alreadyExists}>Create Batch</Btn>
+                <Btn onClick={()=>setPastWeekModal(false)} v="ghost" style={{flex:1,justifyContent:"center"}}>Cancel</Btn>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+    </div>
+  );
+}
+
+function GivingCategoryReport({giving,allCats,members,visitors}:any){
+  const now = new Date();
+  const [selCat,setSelCat] = useState(allCats[0]||"Tithe");
+  const [filterMonth,setFilterMonth] = useState(now.getMonth()+1); // 1-12
+  const [filterYear,setFilterYear] = useState(now.getFullYear());
+  const [filterMode,setFilterMode] = useState<"month"|"year"|"all">("month");
+
+  const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const years = Array.from(new Set(giving.map((g:any)=>+g.date.slice(0,4)))).sort((a:any,b:any)=>b-a) as number[];
+  if(!years.includes(now.getFullYear())) years.unshift(now.getFullYear());
+
+  const filteredGifts = giving.filter((g:any)=>{
+    if(g.category!==selCat) return false;
+    if(filterMode==="month") return g.date.startsWith(filterYear+"-"+String(filterMonth).padStart(2,"0"));
+    if(filterMode==="year")  return g.date.startsWith(String(filterYear));
+    return true;
+  });
+
+  // Group by donor name
+  const donorMap: {[name:string]:{gifts:any[],total:number}} = {};
+  filteredGifts.forEach((g:any)=>{
+    if(!donorMap[g.name]) donorMap[g.name]={gifts:[],total:0};
+    donorMap[g.name].gifts.push(g);
+    donorMap[g.name].total+=g.amount;
+  });
+  const donors = Object.entries(donorMap)
+    .map(([name,d])=>({name,gifts:(d as any).gifts.slice().sort((a:any,b:any)=>b.date.localeCompare(a.date)),total:(d as any).total}))
+    .sort((a,b)=>b.total-a.total);
+
+  const grandTotal = donors.reduce((s,d)=>s+d.total,0);
+  const periodLabel = filterMode==="all"?"All Time":filterMode==="year"?String(filterYear):MONTHS[filterMonth-1]+" "+filterYear;
+
+  const exportCSV=()=>{
+    const rows:string[][]=[["Donor","Date","Amount","Method","Notes"]];
+    donors.forEach(d=>d.gifts.forEach((g:any)=>rows.push([d.name,g.date,String(g.amount),g.method||"",g.notes||""])));
+    rows.push(["","TOTAL",String(grandTotal),"",""]);
+    const csv=rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(",")).join("\n");
+    const blob=new Blob([csv],{type:"text/csv"});
+    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=selCat.replace(/[^a-z0-9]/gi,"_")+"_"+periodLabel.replace(/\s+/g,"_")+".csv";a.click();
+  };
+
+  const printReport=()=>{
+    const rows=donors.map(d=>`
+      <tr style="background:#f8fafc"><td colspan="4" style="padding:8px 10px;font-weight:700;color:#1e3a5f;font-size:13px">${d.name}</td><td style="padding:8px 10px;font-weight:700;color:#16a34a;text-align:right">$${d.total.toFixed(2)}</td></tr>
+      ${d.gifts.map((g:any)=>`<tr><td style="padding:5px 10px;padding-left:24px;font-size:12px;color:#6b7280">${g.date}</td><td colspan="2" style="padding:5px 10px;font-size:12px;color:#374151">${g.method||""}</td><td style="padding:5px 10px;font-size:12px;color:#6b7280;font-style:italic">${g.notes||""}</td><td style="padding:5px 10px;text-align:right;font-size:12px;color:#374151">$${g.amount.toFixed(2)}</td></tr>`).join("")}
+    `).join("");
+    const w=window.open("","_blank");
+    if(!w)return;
+    w.document.write(`<!DOCTYPE html><html><head><title>${selCat} — ${periodLabel}</title><style>body{font-family:sans-serif;font-size:13px;color:#1f2937;max-width:800px;margin:32px auto}h1{font-size:20px;color:#1e3a5f;margin-bottom:4px}h2{font-size:13px;color:#6b7280;font-weight:normal;margin:0 0 20px}table{width:100%;border-collapse:collapse}th{text-align:left;font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:0.5px;padding:6px 10px;border-bottom:2px solid #e5e7eb}tr{border-bottom:1px solid #f1f5f9}.total-row td{font-weight:700;border-top:2px solid #1e3a5f;padding:8px 10px}@media print{body{margin:16px}}</style></head><body><h1>${selCat} Category Report</h1><h2>Period: ${periodLabel} &nbsp;·&nbsp; ${donors.length} donor${donors.length!==1?"s":""} &nbsp;·&nbsp; Grand Total: $${grandTotal.toFixed(2)}</h2><table><thead><tr><th>Date</th><th>Donor</th><th>Method</th><th>Notes</th><th style="text-align:right">Amount</th></tr></thead><tbody>${rows}<tr class="total-row"><td colspan="4">Grand Total</td><td style="text-align:right;color:#16a34a">$${grandTotal.toFixed(2)}</td></tr></tbody></table></body></html>`);
+    w.document.close();w.print();
+  };
+
+  return (
+    <div>
+      {/* Controls row */}
+      <div style={{display:"flex",gap:10,marginBottom:18,flexWrap:"wrap",alignItems:"flex-end"}}>
+        {/* Category picker */}
+        <div>
+          <div style={{fontSize:11,color:"#6b7280",fontWeight:500,marginBottom:4}}>Category</div>
+          <select value={selCat} onChange={e=>setSelCat(e.target.value)} style={{padding:"8px 12px",border:"0.5px solid #d1d5db",borderRadius:8,fontSize:13,background:"#fff",outline:"none",minWidth:200,cursor:"pointer"}}>
+            {allCats.map((c:string)=><option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+        {/* Period mode */}
+        <div>
+          <div style={{fontSize:11,color:"#6b7280",fontWeight:500,marginBottom:4}}>Period</div>
+          <div style={{display:"flex",gap:0,border:"0.5px solid #d1d5db",borderRadius:8,overflow:"hidden"}}>
+            {([["month","Month"],["year","Year"],["all","All Time"]] as [string,string][]).map(([id,label])=>(
+              <button key={id} onClick={()=>setFilterMode(id as any)} style={{padding:"7px 14px",border:"none",background:filterMode===id?"#1e3a5f":"#fff",color:filterMode===id?"#fff":"#374151",fontSize:12,fontWeight:filterMode===id?500:400,cursor:"pointer"}}>{label}</button>
+            ))}
+          </div>
+        </div>
+        {/* Month (only if mode=month) */}
+        {filterMode==="month" && (
+          <div>
+            <div style={{fontSize:11,color:"#6b7280",fontWeight:500,marginBottom:4}}>Month</div>
+            <select value={filterMonth} onChange={e=>setFilterMonth(+e.target.value)} style={{padding:"8px 10px",border:"0.5px solid #d1d5db",borderRadius:8,fontSize:13,background:"#fff",outline:"none",cursor:"pointer"}}>
+              {MONTHS.map((m,i)=><option key={i+1} value={i+1}>{m}</option>)}
+            </select>
+          </div>
+        )}
+        {/* Year (month or year mode) */}
+        {filterMode!=="all" && (
+          <div>
+            <div style={{fontSize:11,color:"#6b7280",fontWeight:500,marginBottom:4}}>Year</div>
+            <select value={filterYear} onChange={e=>setFilterYear(+e.target.value)} style={{padding:"8px 10px",border:"0.5px solid #d1d5db",borderRadius:8,fontSize:13,background:"#fff",outline:"none",cursor:"pointer"}}>
+              {years.map((y:number)=><option key={y} value={y}>{y}</option>)}
+            </select>
+          </div>
+        )}
+        {/* Export buttons */}
+        <div style={{marginLeft:"auto",display:"flex",gap:8,alignItems:"flex-end"}}>
+          <button onClick={exportCSV} disabled={donors.length===0} style={{padding:"8px 14px",border:"0.5px solid #d1d5db",borderRadius:8,background:"#fff",fontSize:12,color:"#374151",cursor:donors.length===0?"not-allowed":"pointer",display:"flex",alignItems:"center",gap:5,opacity:donors.length===0?0.45:1}}>⬇ CSV</button>
+          <button onClick={printReport} disabled={donors.length===0} style={{padding:"8px 14px",border:"0.5px solid #d1d5db",borderRadius:8,background:"#fff",fontSize:12,color:"#374151",cursor:donors.length===0?"not-allowed":"pointer",display:"flex",alignItems:"center",gap:5,opacity:donors.length===0?0.45:1}}>🖨 Print</button>
+        </div>
+      </div>
+
+      {/* Summary bar */}
+      <div style={{background:"#1e3a5f",borderRadius:10,padding:"14px 20px",marginBottom:18,display:"flex",gap:24,flexWrap:"wrap",alignItems:"center"}}>
+        <div>
+          <div style={{fontSize:11,color:"rgba(255,255,255,0.6)",fontWeight:500,marginBottom:2,textTransform:"uppercase",letterSpacing:0.5}}>{selCat}</div>
+          <div style={{fontSize:22,fontWeight:700,color:"#fff"}}>${grandTotal.toFixed(2)}</div>
+          <div style={{fontSize:11,color:"rgba(255,255,255,0.6)",marginTop:1}}>{periodLabel}</div>
+        </div>
+        <div style={{width:"1px",background:"rgba(255,255,255,0.15)",alignSelf:"stretch"}}/>
+        <div>
+          <div style={{fontSize:11,color:"rgba(255,255,255,0.6)",fontWeight:500,marginBottom:2}}>Donors</div>
+          <div style={{fontSize:20,fontWeight:600,color:"#fff"}}>{donors.length}</div>
+        </div>
+        <div style={{width:"1px",background:"rgba(255,255,255,0.15)",alignSelf:"stretch"}}/>
+        <div>
+          <div style={{fontSize:11,color:"rgba(255,255,255,0.6)",fontWeight:500,marginBottom:2}}>Total Gifts</div>
+          <div style={{fontSize:20,fontWeight:600,color:"#fff"}}>{filteredGifts.length}</div>
+        </div>
+        {donors.length>0 && (
+          <>
+            <div style={{width:"1px",background:"rgba(255,255,255,0.15)",alignSelf:"stretch"}}/>
+            <div>
+              <div style={{fontSize:11,color:"rgba(255,255,255,0.6)",fontWeight:500,marginBottom:2}}>Avg Gift</div>
+              <div style={{fontSize:20,fontWeight:600,color:"#fff"}}>${(grandTotal/filteredGifts.length).toFixed(2)}</div>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Donor table */}
+      {donors.length===0 ? (
+        <div style={{textAlign:"center",padding:"48px 0",color:"#9ca3af",fontSize:14}}>
+          <div style={{fontSize:36,marginBottom:10}}>📭</div>
+          No giving records for <strong>{selCat}</strong> in {periodLabel}.
+        </div>
+      ) : (
+        <div style={{background:"#fff",border:"0.5px solid #e5e7eb",borderRadius:10,overflow:"hidden"}}>
+          {/* Table header */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 80px 90px 90px",gap:0,padding:"8px 16px",background:"#f8fafc",borderBottom:"1px solid #e5e7eb"}}>
+            <div style={{fontSize:11,color:"#9ca3af",fontWeight:600,textTransform:"uppercase",letterSpacing:0.5}}>Donor</div>
+            <div style={{fontSize:11,color:"#9ca3af",fontWeight:600,textTransform:"uppercase",letterSpacing:0.5,textAlign:"center"}}>Gifts</div>
+            <div style={{fontSize:11,color:"#9ca3af",fontWeight:600,textTransform:"uppercase",letterSpacing:0.5,textAlign:"right"}}>Total</div>
+            <div style={{fontSize:11,color:"#9ca3af",fontWeight:600,textTransform:"uppercase",letterSpacing:0.5,textAlign:"right"}}>Last Gift</div>
+          </div>
+          {donors.map((donor,di)=>(
+            <div key={donor.name} style={{borderBottom:"0.5px solid #f1f5f9"}}>
+              {/* Donor summary row */}
+              <div style={{display:"grid",gridTemplateColumns:"1fr 80px 90px 90px",gap:0,padding:"10px 16px",background:di%2===0?"#fff":"#fafafa",alignItems:"center"}}>
+                <div style={{display:"flex",alignItems:"center",gap:9}}>
+                  <div style={{width:30,height:30,borderRadius:"50%",background:"#1e3a5f",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,color:"#fff",fontWeight:700,flexShrink:0}}>
+                    {(donor.name.trim().split(" ")[0]||"?")[0].toUpperCase()}
+                  </div>
+                  <div>
+                    <div style={{fontSize:13,fontWeight:600,color:"#1f2937"}}>{donor.name}</div>
+                    <div style={{fontSize:11,color:"#9ca3af"}}>{donor.gifts[0]?.method||""}</div>
+                  </div>
+                </div>
+                <div style={{fontSize:13,color:"#6b7280",textAlign:"center"}}>{donor.gifts.length}</div>
+                <div style={{fontSize:14,fontWeight:700,color:"#16a34a",textAlign:"right"}}>${donor.total.toFixed(2)}</div>
+                <div style={{fontSize:12,color:"#6b7280",textAlign:"right"}}>{donor.gifts[0]?.date?fd(donor.gifts[0].date):"—"}</div>
+              </div>
+              {/* Individual gift rows */}
+              {donor.gifts.map((g:any,gi:number)=>(
+                <div key={gi} style={{display:"grid",gridTemplateColumns:"1fr 80px 90px 90px",gap:0,padding:"5px 16px 5px 55px",background:"#f9fafb",borderTop:"0.5px solid #f1f5f9",alignItems:"center"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:6}}>
+                    <span style={{fontSize:11,background:"#f1f5f9",color:"#6b7280",borderRadius:4,padding:"1px 6px",fontWeight:500}}>{g.method||"—"}</span>
+                    {g.notes && <span style={{fontSize:11,color:"#9ca3af",fontStyle:"italic",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:160}}>{g.notes}</span>}
+                  </div>
+                  <div style={{fontSize:11,color:"#9ca3af",textAlign:"center"}}/>
+                  <div style={{fontSize:12,color:"#374151",fontWeight:500,textAlign:"right"}}>${g.amount.toFixed(2)}</div>
+                  <div style={{fontSize:11,color:"#9ca3af",textAlign:"right"}}>{fd(g.date)}</div>
+                </div>
+              ))}
+            </div>
+          ))}
+          {/* Grand total footer */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 80px 90px 90px",gap:0,padding:"10px 16px",background:"#f0fdf4",borderTop:"2px solid #16a34a"}}>
+            <div style={{fontSize:13,fontWeight:700,color:"#1e3a5f"}}>Grand Total — {donors.length} donor{donors.length!==1?"s":""}</div>
+            <div style={{fontSize:13,color:"#6b7280",textAlign:"center"}}>{filteredGifts.length}</div>
+            <div style={{fontSize:15,fontWeight:700,color:"#16a34a",textAlign:"right"}}>${grandTotal.toFixed(2)}</div>
+            <div/>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledges,members,visitors,weeklyReports,setWeeklyReports,givingBatches,setGivingBatches,emailTemplates,currentUser=null,roles=[]}:any) {
   const [tab,setTab] = useState("giving");
   const [modal,setModal] = useState(false);
-  const [form,setForm] = useState({date:td(),name:"",category:"Tithe",amount:"",method:"Cash",notes:""});
+  const [form,setForm] = useState({date:td(),name:"",category:"Sunday Morning Offering",amount:"",method:"Online",notes:""});
   const [rep,setRep] = useState("");
   const [load,setLoad] = useState(false);
-  const nid = useRef(400);
+  const nid = useRef(Date.now());
   const sf = k => v => setForm(f=>({...f,[k]:v}));
   const [nameSugg,setNameSugg] = useState([]);
   const [showSugg,setShowSugg] = useState(false);
+  const [givPeriod,setGivPeriod] = useState("month");
 
   // Custom categories & methods (localStorage)
   const [customCats,setCustomCats] = useState(()=>{try{return JSON.parse(localStorage.getItem("ntcc_custom_giving_cats")||"[]");}catch{return [];}});
   const [customMethods,setCustomMethods] = useState(()=>{try{return JSON.parse(localStorage.getItem("ntcc_custom_giving_methods")||"[]");}catch{return [];}});
   const [editingId,setEditingId] = useState(null);
   const [confirmDelete,setConfirmDelete] = useState(null);
+  // Import from Onlinegiving.cc
+  const [showImport,setShowImport] = useState(false);
+  const [importStep,setImportStep] = useState<"upload"|"review">("upload");
+  const [importRows,setImportRows] = useState<any[]>([]);
+  const [importSkipped,setImportSkipped] = useState<any[]>([]);
+  const [importBanner,setImportBanner] = useState<{added:number,skipped:number}|null>(null);
+  const parseGivingCSV = (text:string):{valid:any[],declined:any[]} => {
+    // Proper RFC-4180 CSV tokenizer (handles quoted fields with commas inside)
+    const parseCSVLine = (line:string):string[] => {
+      const result:string[] = []; let cur=""; let inQ=false;
+      for(let i=0;i<line.length;i++){
+        const ch=line[i];
+        if(ch=='"'){ if(inQ&&line[i+1]=='"'){cur+='"';i++;}else{inQ=!inQ;} }
+        else if(ch===','&&!inQ){result.push(cur.trim());cur="";}
+        else{cur+=ch;}
+      }
+      result.push(cur.trim());
+      return result;
+    };
+    const lines = text.split(/\r?\n/).filter(l=>l.trim());
+    if(lines.length<2) return {valid:[],declined:[]};
+    const headerRaw = parseCSVLine(lines[0]).map(h=>h.toLowerCase().replace(/\s+/g,"_"));
+    const col = (row:string[], candidates:string[]) => {
+      for(const c of candidates){ const i=headerRaw.indexOf(c); if(i>=0) return (row[i]||"")
+        .trim().replace(/^"|"$/g,"").trim(); }
+      return "";
+    };
+    const toYMD = (s:string) => {
+      if(!s) return "";
+      // Strip time portion if present: "05/11/2026, 07:00 Am MST" → "05/11/2026"
+      const datePart = s.split(",")[0].trim();
+      const m1 = datePart.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if(m1) return m1[3]+"-"+m1[1].padStart(2,"0")+"-"+m1[2].padStart(2,"0");
+      const m2 = datePart.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if(m2) return datePart;
+      return datePart;
+    };
+    const rows:any[] = [];
+    const declined:any[] = [];
+    for(let i=1;i<lines.length;i++){
+      const parts = parseCSVLine(lines[i]);
+      const first = col(parts,["first_name","firstname","first"]);
+      const last  = col(parts,["last_name","lastname","last"]);
+      const name  = (first+" "+last).trim()||col(parts,["name","full_name","donor"]);
+      const amtRaw= col(parts,["amount","amt","total","gift_amount"]);
+      const amount= parseFloat(amtRaw.replace(/[$,]/g,""))||0;
+      const date  = toYMD(col(parts,["date","gift_date","transaction_date","payment_date"]));
+      const category= col(parts,["gift_fund","fund","fund_name","category","type","fund_type","designation"])||"Tithe";
+      const method= "Online"; // onlinegiving.cc imports always treated as Online
+      const notes = col(parts,["notes","note","memo","description","comment"]);
+      // Filter out declined / failed transactions by charge_status column
+      const chargeStatus = col(parts,["charge_status","status","transaction_status","payment_status","result","payment_result","gift_status"]);
+      if(chargeStatus && chargeStatus.toLowerCase()!=="approved"){
+        declined.push({name,amount,date,category,method,notes,status:chargeStatus});
+        continue;
+      }
+      if(!name||!amount||!date) continue;
+      rows.push({name,amount,date,category,method,notes});
+    }
+    return {valid:rows,declined};
+  };
+  const openImport = () => { setImportStep("upload"); setImportRows([]); setShowImport(true); };
+  const handleImportFile = (e:any) => {
+    const file = e.target.files?.[0]; if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const {valid, declined} = parseGivingCSV(ev.target?.result as string||"");
+        setImportRows(valid);
+        setImportSkipped(declined);
+        setImportStep("review");
+      } catch(err) {
+        alert("Could not read CSV file. Please check the file format and try again.");
+      }
+    };
+    reader.readAsText(file);
+    e.target.value="";
+  };
+  const confirmImport = () => {
+    try {
+      const existSet = new Set((giving||[]).map((g:any)=>{
+        const nm=(g.name||"").trim().toLowerCase();
+        return (g.date||"")+"||"+nm+"||"+Number(g.amount);
+      }));
+      let added=0,skipped=0;
+      const newRecs:any[] = [];
+      let idCounter = Date.now();
+      importRows.forEach(r=>{
+        const nm=(r.name||"").trim().toLowerCase();
+        const key=(r.date||"")+"||"+nm+"||"+Number(r.amount);
+        if(existSet.has(key)){ skipped++; return; }
+        newRecs.push({id:String(idCounter++),date:r.date,name:r.name,category:r.category||"Tithe",amount:Number(r.amount),method:"Online",notes:r.notes||""});
+        added++;
+      });
+      if(newRecs.length) setGiving((prev:any[])=>[...newRecs,...(prev||[])]);
+      // Flag for the debounced cloud-save to bypass suppressSave — ensures imported records reach Supabase
+      localStorage.setItem('ntcc_force_cloud_save','1');
+      setShowImport(false);
+      setImportStep("upload");
+      setImportRows([]);
+      setImportSkipped([]);
+      setImportBanner({added,skipped});
+      setTimeout(()=>setImportBanner(null),6000);
+    } catch(err) {
+      alert("Import failed: "+(err as any)?.message);
+    }
+  };
   const [showAddCat,setShowAddCat] = useState(false);
   const [newCat,setNewCat] = useState("");
   const [showAddMethod,setShowAddMethod] = useState(false);
   const [newMethod,setNewMethod] = useState("");
-  const BASE_CATS = ["Tithe","Sunday Morning Offering","Offering","Building Fund","Missions","Special Gift"];
+  const BASE_CATS = ["Tithe","Offering","Budget","Gift","Sunday Morning Offering","Sunday Night Offering","Thursday Night Offering","Budget Offering","Housing","Building Fund","Promo","Food","Special Gift","First Time Giver","First Time Tither","Spiritual Battle Buddy","MSK","Church Offering","World Mission"];
   const BASE_METHODS = ["Cash","Check","Online","Zelle","Other"];
   const allCats = [...BASE_CATS,...customCats];
   const allMethods = [...BASE_METHODS,...customMethods];
@@ -8249,6 +11171,37 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
   const tithe = thisMonth.filter(g=>g.category==="Tithe").reduce((a,g)=>a+g.amount,0);
   const offering = thisMonth.filter(g=>g.category==="Offering").reduce((a,g)=>a+g.amount,0);
   const activeDrives = pledgeDrives.filter(d=>d.status==="Active").length;
+
+  // ── Giving chart data ─────────────────────────────────────────
+  const GIV_COLORS=[N,GR,PU,BL,AM,G,"#0891b2",RE];
+  const getGivRange = () => {
+    const now = new Date();
+    if(givPeriod==="week"){const sun=new Date(now);sun.setDate(now.getDate()-now.getDay());return{start:sun.toISOString().slice(0,10),end:now.toISOString().slice(0,10)};}
+    if(givPeriod==="month"){const ym=now.toISOString().slice(0,7);return{start:ym+"-01",end:now.toISOString().slice(0,10)};}
+    if(givPeriod==="year"){return{start:now.getFullYear()+"-01-01",end:now.toISOString().slice(0,10)};}
+    return{start:"0000-01-01",end:"9999-12-31"};
+  };
+  const givRange = getGivRange();
+  const filtGiv = giving.filter(g=>g.date>=givRange.start&&g.date<=givRange.end);
+  const givTotal = filtGiv.reduce((a,g)=>a+g.amount,0);
+  const givGiversCount = new Set(filtGiv.map(g=>(g.name||"").trim().toLowerCase()).filter(Boolean)).size;
+  const givAvg = filtGiv.length?givTotal/filtGiv.length:0;
+  const givOnline = filtGiv.filter(g=>["Online","Zelle"].includes(g.method)).reduce((a,g)=>a+g.amount,0);
+  const givCash = filtGiv.filter(g=>g.method==="Cash").reduce((a,g)=>a+g.amount,0);
+  const givCheck = filtGiv.filter(g=>g.method==="Check").reduce((a,g)=>a+g.amount,0);
+  const givCatMap:{[k:string]:number}={};
+  filtGiv.forEach(g=>{givCatMap[g.category]=(givCatMap[g.category]||0)+g.amount;});
+  const givBarData = Object.entries(givCatMap).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([cat,amt])=>({name:cat.length>14?cat.slice(0,12)+"\u2026":cat,fullName:cat,amount:amt as number}));
+  const givPieData = Object.entries(givCatMap).sort((a,b)=>b[1]-a[1]).map(([cat,amt],i)=>({name:cat,value:amt as number,color:GIV_COLORS[i%GIV_COLORS.length]}));
+  const useMonthly = givPeriod==="year"||givPeriod==="all";
+  const givWeekOf = (d:string)=>{const dt=new Date(d+"T12:00:00");dt.setDate(dt.getDate()-dt.getDay());return dt.toISOString().slice(0,10);};
+  const givTrendMap:{[k:string]:number}={};
+  giving.forEach(g=>{const key=useMonthly?g.date.slice(0,7):givWeekOf(g.date);givTrendMap[key]=(givTrendMap[key]||0)+g.amount;});
+  const givTrendData = Object.entries(givTrendMap).sort((a,b)=>a[0].localeCompare(b[0])).slice(-12).map(([key,amount])=>({label:useMonthly?new Date(key+"-15").toLocaleDateString("en-US",{month:"short",year:"2-digit"}):new Date(key+"T12:00:00").toLocaleDateString("en-US",{month:"numeric",day:"numeric"}),amount}));
+  const givMethodMap:{[k:string]:number}={};
+  filtGiv.forEach(g=>{givMethodMap[g.method]=(givMethodMap[g.method]||0)+g.amount;});
+  // ─────────────────────────────────────────────────────────────
+
   const openEditRecord = (g) => {
     setEditingId(g.id);
     setForm({date:g.date,name:g.name,category:g.category,amount:String(g.amount),method:g.method,notes:g.notes||""});
@@ -8257,13 +11210,14 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
   const save = () => {
     if(!form.name||!form.amount){alert("Name and amount required.");return;}
     if(editingId) {
-      setGiving(giving.map(r=>r.id===editingId ? {...r,category:form.category,amount:+form.amount,method:form.method,notes:form.notes} : r));
+      setGiving(prev=>prev.map(r=>r.id===editingId ? {...r,category:form.category,amount:+form.amount,method:form.method,notes:form.notes} : r));
     } else {
-      setGiving([{...form,amount:+form.amount,id:nid.current++},...giving]);
+      const newId = nid.current++;
+      setGiving(prev=>[{...form,amount:+form.amount,id:newId},...prev]);
     }
     setModal(false);
     setEditingId(null);
-    setForm({date:td(),name:"",category:"Tithe",amount:"",method:"Cash",notes:""});
+    setForm({date:td(),name:"",category:"Sunday Morning Offering",amount:"",method:"Online",notes:""});
   };
   const genAi = async () => {
     setLoad(true);
@@ -8277,7 +11231,7 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
   return (
     <div>
       <div style={{display:"flex",marginBottom:20,background:W,borderRadius:10,border:"0.5px solid "+BR,overflow:"hidden"}}>
-        {[["giving","Giving Records"],["history","Giving History"],["weekly","Weekly Reports"],["tithes","Tithes"],["pledges","Pledge Drives"]].map(([id,label])=>(
+        {[["giving","Giving Records"],["history","Giving History"],["batches","Weekly Batches"],["weekly","Weekly Reports"],["tithes","Tithes"],["pledges","Pledge Drives"],["catreport","Category Report"]].map(([id,label])=>(
           <button key={id} onClick={()=>setTab(id)} style={{flex:1,padding:"10px 8px",border:"none",borderBottom:"2px solid "+(tab===id?G:"transparent"),background:tab===id?"#f8f9fc":W,fontSize:13,fontWeight:tab===id?500:400,color:tab===id?N:MU,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
             {label}
             {id==="weekly" && weeklyReports.length>0 && <span style={{background:BL,color:"#fff",borderRadius:10,fontSize:10,padding:"1px 6px",fontWeight:500}}>{weeklyReports.length}</span>}
@@ -8287,33 +11241,124 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
       </div>
       {tab==="history" ? (
         <GivingHistory giving={giving} members={members} visitors={visitors}/>
+      ) : tab==="batches" ? (
+        <GivingBatches giving={giving} setGiving={setGiving} givingBatches={givingBatches} setGivingBatches={setGivingBatches} members={members} visitors={visitors}/>
       ) : tab==="tithes" ? (
         <TithesView giving={giving} weeklyReports={weeklyReports}/>
       ) : tab==="weekly" ? (
         <WeeklyReports giving={giving} weeklyReports={weeklyReports} setWeeklyReports={setWeeklyReports}/>
       ) : tab==="pledges" ? (
         <PledgeDrives pledgeDrives={pledgeDrives} setPledgeDrives={setPledgeDrives} pledges={pledges} setPledges={setPledges} giving={giving} members={members} visitors={visitors}/>
+      ) : tab==="catreport" ? (
+        <GivingCategoryReport giving={giving} allCats={allCats} members={members} visitors={visitors}/>
       ) : (
       <div>
-      <div style={{display:"flex",gap:12,marginBottom:16,flexWrap:"wrap"}}>
-        <Stat label="April Total" value={f$(total)} color={GR}/>
-        <Stat label="Tithes" value={f$(tithe)} sub="This month"/>
-        <Stat label="Offerings" value={f$(offering)} sub="This month" color={G}/>
-        <Stat label="Records" value={giving.length} sub="All time"/>
+      {/* Period filter tabs */}
+      <div style={{display:"flex",gap:6,marginBottom:14,background:W,borderRadius:8,border:"0.5px solid "+BR,padding:3,alignSelf:"flex-start",width:"fit-content"}}>
+        {[["week","This Week"],["month","This Month"],["year","This Year"],["all","All Time"]].map(([id,label])=>(
+          <button key={id} onClick={()=>setGivPeriod(id)} style={{padding:"6px 14px",border:"none",borderRadius:6,background:givPeriod===id?N:"transparent",color:givPeriod===id?"#fff":TX,fontSize:12,fontWeight:givPeriod===id?500:400,cursor:"pointer"}}>{label}</button>
+        ))}
       </div>
+      {/* Dynamic stat cards */}
+      <div style={{display:"flex",gap:10,marginBottom:14,flexWrap:"wrap"}}>
+        <Stat label="Total Giving" value={f$(givTotal)} color={GR} sub={filtGiv.length+" record"+(filtGiv.length!==1?"s":"")}/>
+        <Stat label="Givers" value={givGiversCount} color={N}/>
+        <Stat label="Avg Gift" value={f$(givAvg)} color={G}/>
+        <Stat label="Online/Zelle" value={f$(givOnline)} sub={givTotal?Math.round(givOnline/givTotal*100)+"% of total":""} color={BL}/>
+        <Stat label="Cash" value={f$(givCash)} color={AM}/>
+        <Stat label="Check" value={f$(givCheck)} color={PU}/>
+      </div>
+      {/* Charts dashboard */}
+      {givTrendData.length>0&&(
+        <div style={{marginBottom:20}}>
+          {/* Giving trend line */}
+          <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:16,marginBottom:12}}>
+            <div style={{fontSize:13,fontWeight:500,color:N,marginBottom:10}}>Giving Trend — {useMonthly?"Monthly":"Weekly"} (last {givTrendData.length} periods)</div>
+            <ResponsiveContainer width="100%" height={200}>
+              <LineChart data={givTrendData} margin={{top:5,right:20,left:10,bottom:5}}>
+                <CartesianGrid strokeDasharray="3 3" stroke={BR}/>
+                <XAxis dataKey="label" tick={{fontSize:11,fill:MU}} axisLine={false} tickLine={false}/>
+                <YAxis tickFormatter={v=>"$"+v.toLocaleString()} tick={{fontSize:10,fill:MU}} axisLine={false} tickLine={false} width={70}/>
+                <Tooltip formatter={(v:any)=>["$"+Number(v).toLocaleString(),"Total Given"]} labelStyle={{fontSize:12}} contentStyle={{borderRadius:8,border:"0.5px solid "+BR,fontSize:12}}/>
+                <Line type="monotone" dataKey="amount" stroke={GR} strokeWidth={2.5} dot={{r:3,fill:GR}} activeDot={{r:5}}/>
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+          {/* Bar + Pie side by side */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+            {/* Bar by category */}
+            <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:16}}>
+              <div style={{fontSize:13,fontWeight:500,color:N,marginBottom:10}}>By Category</div>
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={givBarData} margin={{top:5,right:10,left:10,bottom:30}}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={BR}/>
+                  <XAxis dataKey="name" tick={{fontSize:10,fill:MU}} axisLine={false} tickLine={false} angle={-30} textAnchor="end"/>
+                  <YAxis tickFormatter={v=>"$"+v.toLocaleString()} tick={{fontSize:10,fill:MU}} axisLine={false} tickLine={false} width={70}/>
+                  <Tooltip formatter={(v:any,_n:any,p:any)=>["$"+Number(v).toLocaleString(),p.payload.fullName||_n]} contentStyle={{borderRadius:8,border:"0.5px solid "+BR,fontSize:12}}/>
+                  <Bar dataKey="amount" radius={[4,4,0,0]}>
+                    {givBarData.map((_:any,i:number)=><Cell key={i} fill={GIV_COLORS[i%GIV_COLORS.length]}/>)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            {/* Pie share + method breakdown */}
+            <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:16}}>
+              <div style={{fontSize:13,fontWeight:500,color:N,marginBottom:8}}>Giving Share by Category</div>
+              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                <ResponsiveContainer width={140} height={160}>
+                  <PieChart>
+                    <Pie data={givPieData} cx={65} cy={75} innerRadius={48} outerRadius={68} dataKey="value" startAngle={90} endAngle={-270}>
+                      {givPieData.map((_:any,i:number)=><Cell key={i} fill={GIV_COLORS[i%GIV_COLORS.length]}/>)}
+                    </Pie>
+                    <Tooltip formatter={(v:any)=>["$"+Number(v).toLocaleString()]} contentStyle={{borderRadius:8,border:"0.5px solid "+BR,fontSize:12}}/>
+                  </PieChart>
+                </ResponsiveContainer>
+                <div style={{flex:1,display:"flex",flexDirection:"column",gap:5,overflowY:"auto",maxHeight:160}}>
+                  {givPieData.map((d:any,i:number)=>{
+                    const pct=givTotal?Math.round(d.value/givTotal*100):0;
+                    return(<div key={i} style={{display:"flex",alignItems:"center",gap:6}}>
+                      <div style={{width:9,height:9,borderRadius:2,background:d.color,flexShrink:0}}></div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:11,color:TX,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{d.name}</div>
+                        <div style={{fontSize:10,color:MU}}>${d.value.toLocaleString()} · {pct}%</div>
+                      </div>
+                    </div>);
+                  })}
+                </div>
+              </div>
+              {/* Payment method bars */}
+              <div style={{marginTop:10,borderTop:"0.5px solid "+BR,paddingTop:8}}>
+                <div style={{fontSize:11,fontWeight:500,color:MU,textTransform:"uppercase",letterSpacing:0.5,marginBottom:6}}>Payment Methods</div>
+                {Object.entries(givMethodMap).sort((a:any,b:any)=>b[1]-a[1]).map(([method,amount]:any)=>{
+                  const pct=givTotal?Math.round(amount/givTotal*100):0;
+                  return(<div key={method} style={{marginBottom:5}}>
+                    <div style={{display:"flex",justifyContent:"space-between",fontSize:11,marginBottom:2}}>
+                      <span style={{color:TX}}>{method}</span>
+                      <span style={{color:GR,fontWeight:500}}>${amount.toLocaleString()} ({pct}%)</span>
+                    </div>
+                    <div style={{height:4,background:BG,borderRadius:2,overflow:"hidden"}}>
+                      <div style={{width:pct+"%",height:"100%",background:GR,borderRadius:2}}></div>
+                    </div>
+                  </div>);
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Pastor's Draw Card */}
       {(()=>{
         const todayMon = getMondayOf(td());
         const last5 = [...weeklyReports].sort((a,b)=>b.weekStart.localeCompare(a.weekStart)).slice(0,5);
         const currentWeek = weeklyReports.find(r=>r.weekStart===todayMon);
-        const cwTithes = currentWeek ? calcTithes(giving.filter((g:any)=>g.date>=todayMon&&g.date<=getSundayOf(todayMon))) : calcTithes([]);
-        const draw = cwTithes.pastorDraw??cwTithes.pastorTithe;
+        const cwTithes = currentWeek ? calcTithes(giving.filter((g:any)=>g.date>=todayMon&&g.date<=getSundayOf(todayMon)), Number(localStorage.getItem("ntcc_pastor_draw_pct")||"60")) : calcTithes([],Number(localStorage.getItem("ntcc_pastor_draw_pct")||"60"));
+        const draw = cwTithes.pastorDraw;
         return(
           <div style={{background:W,border:"1.5px solid "+G,borderRadius:12,padding:18,marginBottom:16}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14,flexWrap:"wrap",gap:8}}>
               <div>
                 <div style={{fontSize:11,color:"#7a5c10",textTransform:"uppercase",letterSpacing:1.5,fontWeight:600,marginBottom:2}}>Pastor's Draw — Current Week</div>
-                <div style={{fontSize:11,color:MU}}>Week of {fd(todayMon)} · 60% of Tithes + Sunday Morning Offering</div>
+                <div style={{fontSize:11,color:MU}}>Week of {fd(todayMon)} · {Number(localStorage.getItem("ntcc_pastor_draw_pct")||"60")}% of Tithes + Sunday Morning Offering</div>
               </div>
               <Btn onClick={()=>setTab("tithes")} v="gold" style={{fontSize:11,padding:"5px 12px"}}>Full Tithes View →</Btn>
             </div>
@@ -8352,27 +11397,55 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
       </div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
         <h3 style={{fontSize:14,fontWeight:500,color:N,margin:0}}>Giving Records</h3>
-        <Btn onClick={()=>setModal(true)}>+ Record Giving</Btn>
+        <div style={{display:"flex",gap:8}}>
+          <Btn onClick={openImport} v="ghost" style={{fontSize:12,padding:"6px 12px"}}>⬆ Import Onlinegiving.cc CSV</Btn>
+          <Btn onClick={()=>setModal(true)}>+ Record Giving</Btn>
+        </div>
       </div>
-      <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,overflow:"hidden"}}>
-        <table style={{width:"100%",borderCollapse:"collapse"}}>
-          <thead>
-            <tr style={{background:"#f8f9fc"}}>
-              {["Date","Name","Category","Amount","Method","Notes",""].map(h=><th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:11,fontWeight:500,color:MU,textTransform:"uppercase",letterSpacing:0.5,borderBottom:"0.5px solid "+BR}}>{h}</th>)}
-            </tr>
-          </thead>
-          <tbody>
-            {giving.map(g=>{
-              const person = members.find(m=>(m.first+" "+m.last)===g.name) || visitors.find(v=>(v.first+" "+v.last)===g.name);
-              const personEmail = person?.email || "";
-              return (
-              <tr key={g.id} style={{borderBottom:"0.5px solid "+BR}}>
-                <td style={{padding:"10px 14px",fontSize:13}}>{fd(g.date)}</td>
-                <td style={{padding:"10px 14px",fontSize:13,fontWeight:500}}>{g.name}</td>
-                <td style={{padding:"10px 14px",fontSize:13}}>{g.category}</td>
-                <td style={{padding:"10px 14px",fontSize:14,fontWeight:500,color:GR}}>{f$(g.amount)}</td>
-                <td style={{padding:"10px 14px",fontSize:13}}>{g.method}</td>
-                <td style={{padding:"10px 14px",fontSize:13,color:MU}}>{g.notes||"None"}</td>
+      {importBanner&&(
+        <div style={{background:"#f0fdf4",border:"0.5px solid #86efac",borderRadius:8,padding:"10px 14px",marginBottom:10,fontSize:13,color:"#166534",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <span>✅ Imported <b>{importBanner.added}</b> record{importBanner.added!==1?"s":""}{importBanner.skipped>0?" · "+importBanner.skipped+" duplicate"+(importBanner.skipped!==1?"s":"")+" skipped":""}</span>
+          <button onClick={()=>setImportBanner(null)} style={{background:"none",border:"none",cursor:"pointer",fontSize:16,color:"#166534",lineHeight:1}}>✕</button>
+        </div>
+      )}
+      {(()=>{
+        const currentBatch=(givingBatches||[]).find((b:any)=>b.status==="open");
+        const weekGiving=currentBatch?giving.filter((g:any)=>g.date>=currentBatch.weekStart&&g.date<=currentBatch.weekEnd):[];
+        if(!currentBatch){
+          return(
+            <div style={{background:"#fffbeb",border:"1px solid #fde68a",borderRadius:10,padding:"18px 20px",textAlign:"center"}}>
+              <div style={{fontSize:14,fontWeight:600,color:"#92400e",marginBottom:6}}>No Active Batch</div>
+              <div style={{fontSize:13,color:"#78350f",marginBottom:12}}>Go to <b>Weekly Batches</b> tab and click <b>Start New Week</b> to open a batch before entering giving records.</div>
+              <Btn onClick={()=>setTab("batches")}>Go to Weekly Batches →</Btn>
+            </div>
+          );
+        }
+        return(
+          <>
+            <div style={{background:"#f0fdf4",border:"0.5px solid #86efac",borderRadius:8,padding:"8px 14px",marginBottom:10,fontSize:12,color:"#166534",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:6}}>
+              <span><b>Active Batch:</b> {fd(currentBatch.weekStart)} – {fd(currentBatch.weekEnd)} · {weekGiving.length} record{weekGiving.length!==1?"s":""} · {f$(weekGiving.reduce((a:number,g:any)=>a+g.amount,0))}</span>
+              <button onClick={()=>setTab("batches")} style={{fontSize:11,color:"#166534",background:"none",border:"0.5px solid #86efac",borderRadius:6,padding:"3px 10px",cursor:"pointer",fontWeight:500}}>View Batch →</button>
+            </div>
+            <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,overflow:"hidden"}}>
+              <table style={{width:"100%",borderCollapse:"collapse"}}>
+                <thead>
+                  <tr style={{background:"#f8f9fc"}}>
+                    {["Date","Name","Category","Amount","Method","Notes",""].map(h=><th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:11,fontWeight:500,color:MU,textTransform:"uppercase",letterSpacing:0.5,borderBottom:"0.5px solid "+BR}}>{h}</th>)}
+                  </tr>
+                </thead>
+                <tbody>
+                  {weekGiving.length===0&&<tr><td colSpan={7} style={{padding:"24px 14px",textAlign:"center",fontSize:13,color:MU,fontStyle:"italic"}}>No records entered for this week yet. Click "+ Record Giving" above.</td></tr>}
+                  {weekGiving.map((g:any)=>{
+                    const person = members.find((m:any)=>(m.first+" "+m.last)===g.name) || visitors.find((v:any)=>(v.first+" "+v.last)===g.name);
+                    const personEmail = person?.email || "";
+                    return (
+                    <tr key={g.id} style={{borderBottom:"0.5px solid "+BR}}>
+                      <td style={{padding:"10px 14px",fontSize:13}}>{fd(g.date)}</td>
+                      <td style={{padding:"10px 14px",fontSize:13,fontWeight:500}}>{g.name}</td>
+                      <td style={{padding:"10px 14px",fontSize:13}}>{g.category}</td>
+                      <td style={{padding:"10px 14px",fontSize:14,fontWeight:500,color:GR}}>{f$(g.amount)}</td>
+                      <td style={{padding:"10px 14px",fontSize:13}}>{g.method}</td>
+                      <td style={{padding:"10px 14px",fontSize:13,color:MU}}>{g.notes||"None"}</td>
                 <td style={{padding:"10px 14px"}}>
                   <div style={{display:"flex",gap:5}}>
                     {personEmail && <Btn onClick={()=>{
@@ -8400,10 +11473,13 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
               </tr>
               );
             })}
-          </tbody>
-        </table>
-      </div>
-      <Modal open={modal} onClose={()=>{setModal(false);setEditingId(null);setForm({date:td(),name:"",category:"Tithe",amount:"",method:"Cash",notes:""}); }} title={editingId?"Edit Giving Record":"Record Giving"}>
+                </tbody>
+              </table>
+            </div>
+          </>
+        );
+      })()}
+      <Modal open={modal} onClose={()=>{setModal(false);setEditingId(null);setForm({date:td(),name:"",category:"Sunday Morning Offering",amount:"",method:"Online",notes:""}); }} title={editingId?"Edit Giving Record":"Record Giving"}>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <Fld label="Date">{editingId ? <div style={{padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,background:"#f8f9fc",color:MU}}>{fd(form.date)}</div> : <Inp type="date" value={form.date} onChange={sf("date")}/>}</Fld>
           <div style={{marginBottom:12}}>
@@ -8468,9 +11544,110 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
         <Fld label="Notes"><Inp value={form.notes} onChange={sf("notes")}/></Fld>
         <div style={{display:"flex",gap:8}}>
           <Btn onClick={save} style={{flex:1,justifyContent:"center"}}>{editingId?"Update Record":"Save Record"}</Btn>
-          <Btn onClick={()=>{setModal(false);setEditingId(null);setForm({date:td(),name:"",category:"Tithe",amount:"",method:"Cash",notes:""}); }} v="ghost" style={{flex:1,justifyContent:"center"}}>Cancel</Btn>
+          <Btn onClick={()=>{setModal(false);setEditingId(null);setForm({date:td(),name:"",category:"Sunday Morning Offering",amount:"",method:"Online",notes:""}); }} v="ghost" style={{flex:1,justifyContent:"center"}}>Cancel</Btn>
         </div>
       </Modal>
+      {showImport&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+          <div style={{background:W,borderRadius:14,padding:28,width:"100%",maxWidth:640,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 20px 60px rgba(0,0,0,0.25)"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+              <div>
+                <div style={{fontSize:16,fontWeight:600,color:N}}>Import from Onlinegiving.cc</div>
+                <div style={{fontSize:12,color:MU,marginTop:2}}>Upload your weekly CSV export · duplicates are auto-skipped</div>
+              </div>
+              <button onClick={()=>setShowImport(false)} style={{background:"none",border:"none",cursor:"pointer",fontSize:20,color:MU,lineHeight:1}}>✕</button>
+            </div>
+            {importStep==="upload"&&(
+              <div>
+                <div style={{border:"2px dashed "+BR,borderRadius:10,padding:"32px 20px",textAlign:"center",marginBottom:14}}>
+                  <div style={{fontSize:14,color:MU,marginBottom:12}}>Select your CSV file from Onlinegiving.cc</div>
+                  <div style={{fontSize:11,color:MU,marginBottom:16,lineHeight:1.6}}>Expected columns: <b>First Name, Last Name, Amount, Date, Fund, Method, Notes</b><br/>Category is read from the <b>Fund</b> column · column order doesn't matter</div>
+                  <label style={{display:"inline-block",padding:"9px 20px",background:N,color:"#fff",borderRadius:8,fontSize:13,fontWeight:500,cursor:"pointer"}}>
+                    Choose CSV File
+                    <input type="file" accept=".csv,text/csv" onChange={handleImportFile} style={{display:"none"}}/>
+                  </label>
+                </div>
+                <Btn onClick={()=>setShowImport(false)} v="ghost" style={{width:"100%",justifyContent:"center"}}>Cancel</Btn>
+              </div>
+            )}
+            {importStep=="review"&&(
+              <div>
+                <div style={{fontSize:13,color:TX,marginBottom:4}}><b>{importRows.length}</b> records ready to import{importSkipped.length>0?<span> · <b style={{color:RE}}>{importSkipped.length} declined filtered out</b></span>:null} · category read from <b>Fund</b> column</div>
+                {(()=>{
+                  const existSet=new Set((giving||[]).map((g:any)=>(g.date||"")+"||"+(g.name||"").trim().toLowerCase()+"||"+Number(g.amount)));
+                  const dupeCount=importRows.filter(r=>existSet.has((r.date||"")+"||"+(r.name||"").trim().toLowerCase()+"||"+Number(r.amount))).length;
+                  const newCount=importRows.length-dupeCount;
+                  return(
+                    <div style={{display:"flex",gap:8,marginBottom:12}}>
+                      <span style={{background:"#dcfce7",color:"#166534",padding:"3px 10px",borderRadius:20,fontSize:12,fontWeight:500}}>{newCount} new</span>
+                      {dupeCount>0&&<span style={{background:"#fef9c3",color:"#854d0e",padding:"3px 10px",borderRadius:20,fontSize:12,fontWeight:500}}>{dupeCount} duplicate{dupeCount!==1?"s":""} will be skipped</span>}
+                    </div>
+                  );
+                })()}
+                <div style={{border:"0.5px solid "+BR,borderRadius:10,overflow:"hidden",marginBottom:14,maxHeight:320,overflowY:"auto"}}>
+                  <table style={{width:"100%",borderCollapse:"collapse"}}>
+                    <thead>
+                      <tr style={{background:"#f8f9fc",position:"sticky",top:0}}>
+                        {["Date","Name","Amount","Fund/Category","Method","Notes","Status"].map(h=><th key={h} style={{padding:"8px 10px",textAlign:"left",fontSize:11,fontWeight:500,color:MU,textTransform:"uppercase",letterSpacing:0.4,borderBottom:"0.5px solid "+BR}}>{h}</th>)}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {importRows.map((r,i)=>{
+                        const existSet2=new Set((giving||[]).map((g:any)=>(g.date||"")+"||"+(g.name||"").trim().toLowerCase()+"||"+Number(g.amount)));
+                        const isDupe=existSet2.has((r.date||"")+"||"+(r.name||"").trim().toLowerCase()+"||"+Number(r.amount));
+                        const isKnown=members.some((m:any)=>(m.first+" "+m.last).trim().toLowerCase()===r.name.trim().toLowerCase())||visitors.some((v:any)=>(v.first+" "+v.last).trim().toLowerCase()===r.name.trim().toLowerCase());
+                        return(
+                          <tr key={i} style={{borderBottom:"0.5px solid "+BR,opacity:isDupe?0.5:1,background:isDupe?"#fafafa":W}}>
+                            <td style={{padding:"8px 10px",fontSize:12}}>{fd(r.date)}</td>
+                            <td style={{padding:"8px 10px",fontSize:12,fontWeight:500}}>
+                              {r.name}
+                              {isKnown&&<span style={{marginLeft:5,fontSize:10,background:N+"11",color:N,borderRadius:10,padding:"1px 6px"}}>member</span>}
+                            </td>
+                            <td style={{padding:"8px 10px",fontSize:12,color:GR,fontWeight:500}}>{f$(r.amount)}</td>
+                            <td style={{padding:"8px 10px",fontSize:12}}>{r.category||"Tithe"}</td>
+                            <td style={{padding:"8px 10px",fontSize:12}}>{r.method||"Online"}</td>
+                            <td style={{padding:"8px 10px",fontSize:12,color:MU}}>{r.notes||"—"}</td>
+                            <td style={{padding:"8px 10px",fontSize:11}}>{isDupe?<span style={{color:AM,fontWeight:500}}>skip</span>:<span style={{color:GR,fontWeight:500}}>import</span>}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                {importSkipped.length>0&&(
+                  <div style={{marginBottom:14}}>
+                    <div style={{fontSize:12,fontWeight:600,color:RE,marginBottom:6}}>⛔ {importSkipped.length} declined transaction{importSkipped.length!==1?"s":""} — not imported</div>
+                    <div style={{border:"0.5px solid #fca5a5",borderRadius:10,overflow:"hidden",maxHeight:160,overflowY:"auto"}}>
+                      <table style={{width:"100%",borderCollapse:"collapse"}}>
+                        <thead>
+                          <tr style={{background:"#fef2f2",position:"sticky",top:0}}>
+                            {["Date","Name","Amount","Fund","Status"].map(h=><th key={h} style={{padding:"6px 10px",textAlign:"left",fontSize:11,fontWeight:500,color:"#b91c1c",borderBottom:"0.5px solid #fca5a5"}}>{h}</th>)}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {importSkipped.map((r,i)=>(
+                            <tr key={i} style={{borderBottom:"0.5px solid #fca5a5",background:"#fff5f5"}}>
+                              <td style={{padding:"7px 10px",fontSize:12}}>{r.date?fd(r.date):r.date}</td>
+                              <td style={{padding:"7px 10px",fontSize:12,fontWeight:500}}>{r.name}</td>
+                              <td style={{padding:"7px 10px",fontSize:12,color:RE}}>{f$(r.amount)}</td>
+                              <td style={{padding:"7px 10px",fontSize:12}}>{r.category||"Tithe"}</td>
+                              <td style={{padding:"7px 10px",fontSize:11}}><span style={{background:"#fde8e8",color:"#b91c1c",borderRadius:10,padding:"2px 8px",fontWeight:500}}>{r.status}</span></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+                <div style={{display:"flex",gap:8}}>
+                  <Btn onClick={confirmImport} style={{flex:1,justifyContent:"center"}}>Import Records</Btn>
+                  <Btn onClick={()=>setImportStep("upload")} v="ghost" style={{flex:1,justifyContent:"center"}}>Back</Btn>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       {confirmDelete && (
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center"}}>
           <div style={{background:"#fff",borderRadius:14,padding:28,maxWidth:420,width:"90%",boxShadow:"0 10px 40px rgba(0,0,0,0.2)"}}>
@@ -8482,7 +11659,7 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
               {confirmDelete.notes&&<div style={{fontSize:12,color:"#7f1d1d",marginTop:2,fontStyle:"italic"}}>{confirmDelete.notes}</div>}
             </div>
             <div style={{display:"flex",gap:10}}>
-              <button onClick={()=>{setGiving(giving.filter((r:any)=>r.id!==confirmDelete.id));setConfirmDelete(null);}} style={{flex:1,padding:"10px 0",background:"#dc2626",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer"}}>Yes, Delete</button>
+              <button onClick={()=>{setGiving(prev=>prev.filter((r:any)=>r.id!==confirmDelete.id));setConfirmDelete(null);}} style={{flex:1,padding:"10px 0",background:"#dc2626",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer"}}>Yes, Delete</button>
               <button onClick={()=>setConfirmDelete(null)} style={{flex:1,padding:"10px 0",background:"none",border:"1px solid "+BR,borderRadius:8,fontSize:13,fontWeight:500,color:TX,cursor:"pointer"}}>Cancel</button>
             </div>
           </div>
@@ -8495,7 +11672,7 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
 }
 
 // ── PRAYER ──
-function Prayer({prayers,setPrayers,portalMode=false,portalMember=null}:any) {
+function Prayer({prayers,setPrayers,members=[],visitors=[],portalMode=false,portalMember=null}:any) {
   const [modal,setModal] = useState(portalMode);
   const [submitted,setSubmitted] = useState(false);
   const [respModal,setRespModal] = useState(null);
@@ -8504,6 +11681,12 @@ function Prayer({prayers,setPrayers,portalMode=false,portalMember=null}:any) {
   const [form,setForm] = useState({name:portalMember?(portalMember.first+" "+portalMember.last):"",request:"",date:td(),status:"Active"});
   const [showForm,setShowForm] = useState(true);
   const [justSubmitted,setJustSubmitted] = useState(false);
+  // Recipient autocomplete state
+  const [recipQuery,setRecipQuery] = useState("");
+  const [recipSugs,setRecipSugs] = useState<any[]>([]);
+  const [recipEmail,setRecipEmail] = useState("");
+  const [recipPhone,setRecipPhone] = useState("");
+  const [recipName,setRecipName] = useState("");
   const nid = useRef(500);
   const sf = (k:string) => (v:any) => setForm((f:any)=>({...f,[k]:v}));
   const save = () => {
@@ -8518,6 +11701,35 @@ function Prayer({prayers,setPrayers,portalMode=false,portalMember=null}:any) {
     const prompt = "Write a warm 3-4 sentence pastoral prayer response to \""+p.request+"\" from "+(p.name||"a member")+". Include a scripture. Sign from Pastor Hall and NTCC.";
     const txt = await callAI([{role:"user",content:prompt}],[],[],[],[],[],{});
     setAiResp(txt); setLoad(false);
+  };
+  // Build all people pool: active members + visitors + prayer submitters (by name only)
+  const allPeople = [
+    ...members.filter((m:any)=>m.status==="Active").map((m:any)=>({id:"m"+m.id,name:m.first+" "+m.last,email:m.email||"",phone:m.phone||"",source:"Member"})),
+    ...visitors.map((v:any)=>({id:"v"+v.id,name:v.first+" "+v.last,email:v.email||"",phone:v.phone||"",source:"Visitor"})),
+  ];
+  const prayerNames = prayers.filter((p:any)=>p.name&&p.name.toLowerCase()!=="anonymous").map((p:any)=>({id:"pr"+p.id,name:p.name,email:"",phone:"",source:"Requestor"}));
+  // Merge, dedup by name
+  const allPeoplePool = [...allPeople];
+  prayerNames.forEach((pr:any)=>{
+    if(!allPeoplePool.find((x:any)=>x.name.toLowerCase()===pr.name.toLowerCase())) allPeoplePool.push(pr);
+  });
+  const searchRecip = (q:string) => {
+    setRecipQuery(q);
+    if(q.length<2){setRecipSugs([]);return;}
+    const ql=q.toLowerCase();
+    setRecipSugs(allPeoplePool.filter((p:any)=>p.name.toLowerCase().includes(ql)).slice(0,8));
+  };
+  const selectRecip = (p:any) => {
+    setRecipName(p.name); setRecipEmail(p.email); setRecipPhone(p.phone);
+    setRecipQuery(p.name); setRecipSugs([]);
+  };
+  const openRespModal = (p:any) => {
+    setRespModal(p); setAiResp("");
+    // Pre-fill recipient from prayer submitter name
+    const match = allPeoplePool.find((x:any)=>p.name&&x.name.toLowerCase()===p.name.toLowerCase());
+    if(match){setRecipName(match.name);setRecipEmail(match.email);setRecipPhone(match.phone);setRecipQuery(match.name);}
+    else{setRecipName(p.name||"");setRecipEmail("");setRecipPhone("");setRecipQuery(p.name||"");}
+    setRecipSugs([]);
   };
   // Portal mode: show submit form + member's own prayer history
   if(portalMode) {
@@ -8618,9 +11830,17 @@ function Prayer({prayers,setPrayers,portalMode=false,portalMember=null}:any) {
             </div>
             <p style={{fontSize:13,lineHeight:1.7,margin:"0 0 10px"}}>{p.request}</p>
             <div style={{display:"flex",gap:8}}>
-              <Btn onClick={()=>{setRespModal(p);setAiResp("");}} v="ai" style={{fontSize:12,padding:"5px 10px"}}>AI Response</Btn>
+              <Btn onClick={()=>openRespModal(p)} v="ai" style={{fontSize:12,padding:"5px 10px"}}>AI Response</Btn>
               {p.status==="Active" && <Btn onClick={()=>setPrayers(prayers.map(r=>r.id===p.id?{...r,status:"Answered"}:r))} v="ghost" style={{fontSize:12,padding:"5px 10px"}}>Mark Answered</Btn>}
-              <Btn onClick={()=>setPrayers(prayers.filter(r=>r.id!==p.id))} v="danger" style={{fontSize:12,padding:"5px 10px"}}>X</Btn>
+              <Btn onClick={()=>{
+                if(!confirm("Delete this prayer request?"))return;
+                setPrayers((prev:any[])=>{
+                  // Find exact index to avoid deleting duplicates if IDs somehow collide
+                  const idx=prev.findIndex((r:any)=>r.id===p.id&&r.request===p.request&&r.date===p.date);
+                  if(idx===-1) return prev.filter((r:any)=>r.id!==p.id);
+                  return [...prev.slice(0,idx),...prev.slice(idx+1)];
+                });
+              }} v="danger" style={{fontSize:12,padding:"5px 10px"}}>Delete</Btn>
             </div>
           </div>
         ))}
@@ -8637,24 +11857,79 @@ function Prayer({prayers,setPrayers,portalMode=false,portalMember=null}:any) {
           <Btn onClick={()=>setModal(false)} v="ghost" style={{flex:1,justifyContent:"center"}}>Cancel</Btn>
         </div>
       </Modal>
-      <Modal open={!!respModal} onClose={()=>{setRespModal(null);setAiResp("");}} title="AI Pastoral Response" width={520}>
+      <Modal open={!!respModal} onClose={()=>{setRespModal(null);setAiResp("");}} title="AI Pastoral Response" width={540}>
         {respModal && (
           <div>
             <div style={{background:BG,borderRadius:8,padding:12,marginBottom:14,fontSize:13,lineHeight:1.7}}>
-              <strong>Request:</strong> {respModal.request}
+              <strong>Request from {respModal.name||"Anonymous"}:</strong> {respModal.request}
             </div>
-            <Btn onClick={()=>genAi(respModal)} v="ai" style={{width:"100%",justifyContent:"center",marginBottom:12}}>{load?"Generating...":"Generate Response"}</Btn>
-            <div style={{minHeight:100,fontSize:13,lineHeight:1.8,color:aiResp?TX:MU,fontStyle:aiResp?"normal":"italic",background:W,border:"0.5px solid "+BR,borderRadius:8,padding:14,whiteSpace:"pre-wrap"}}>{aiResp||"Your AI pastoral response will appear here."}</div>
-            {aiResp && (
-              <div style={{display:"flex",gap:8,marginTop:10,flexWrap:"wrap"}}>
-                <Btn onClick={()=>navigator.clipboard.writeText(aiResp)} v="gold" style={{fontSize:12}}>Copy</Btn>
-                <Btn onClick={()=>{
-                  const person = respModal.name !== "Anonymous" && respModal.name ? respModal.name : null;
-                  if(!person){alert("This prayer request is anonymous — no email address on file.");return;}
-                  window.__openEmailComposer__ && window.__openEmailComposer__({to:"",toName:respModal.name,subject:"Praying With You",body:aiResp,category:"Prayer Response",relatedType:"prayer",relatedId:respModal.id});
-                }} v="primary" style={{fontSize:12}}>Send as Email</Btn>
+            {/* Recipient search */}
+            <div style={{marginBottom:12}}>
+              <div style={{fontSize:11,fontWeight:500,color:MU,textTransform:"uppercase",letterSpacing:0.5,marginBottom:5}}>Recipient</div>
+              <div style={{position:"relative"}}>
+                <input
+                  value={recipQuery}
+                  onChange={e=>searchRecip(e.target.value)}
+                  placeholder="Type name to find member/visitor..."
+                  style={{width:"100%",padding:"9px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",boxSizing:"border-box" as any}}
+                />
+                {recipSugs.length>0&&(
+                  <div style={{position:"absolute",top:"calc(100% + 2px)",left:0,right:0,background:W,border:"0.5px solid "+BR,borderRadius:8,boxShadow:"0 4px 16px rgba(0,0,0,.10)",zIndex:300,maxHeight:200,overflowY:"auto" as any}}>
+                    {recipSugs.map((p:any)=>(
+                      <div key={p.id} onMouseDown={()=>selectRecip(p)}
+                        style={{padding:"9px 14px",cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",justifyContent:"space-between",borderBottom:"0.5px solid "+BR+"55"}}
+                        onMouseEnter={e=>(e.currentTarget as any).style.background="#f5f3ff"}
+                        onMouseLeave={e=>(e.currentTarget as any).style.background=W}>
+                        <span style={{fontWeight:500}}>{p.name}</span>
+                        <span style={{fontSize:11,color:MU}}>{p.source}{p.email?" · "+p.email:""}{p.phone?" · "+p.phone:""}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
+              {/* Email + Phone slots */}
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginTop:8}}>
+                <div>
+                  <div style={{fontSize:11,color:MU,marginBottom:3}}>Email</div>
+                  <input value={recipEmail} onChange={e=>setRecipEmail(e.target.value)} placeholder="email@example.com"
+                    style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:7,fontSize:12,outline:"none",boxSizing:"border-box" as any}}/>
+                </div>
+                <div>
+                  <div style={{fontSize:11,color:MU,marginBottom:3}}>Phone</div>
+                  <input value={recipPhone} onChange={e=>setRecipPhone(e.target.value)} placeholder="(555) 000-0000"
+                    style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:7,fontSize:12,outline:"none",boxSizing:"border-box" as any}}/>
+                </div>
+              </div>
+            </div>
+            <Btn onClick={()=>genAi(respModal)} v="ai" style={{width:"100%",justifyContent:"center",marginBottom:12}}>{load?"Generating...":"✨ Generate AI Response"}</Btn>
+            <textarea
+              value={aiResp}
+              onChange={e=>setAiResp(e.target.value)}
+              rows={6}
+              placeholder="Your AI pastoral response will appear here. You can edit before sending."
+              style={{width:"100%",padding:"10px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,lineHeight:1.8,outline:"none",fontFamily:"inherit",resize:"vertical" as any,boxSizing:"border-box" as any,color:aiResp?TX:MU}}
+            />
+            {/* Action buttons */}
+            <div style={{display:"flex",gap:8,marginTop:10,flexWrap:"wrap" as any}}>
+              <Btn onClick={()=>navigator.clipboard.writeText(aiResp)} v="gold" style={{fontSize:12}} disabled={!aiResp}>📋 Copy</Btn>
+              <Btn onClick={()=>{
+                if(!recipEmail){alert("Enter an email address for the recipient.");return;}
+                if(!aiResp){alert("Generate a response first.");return;}
+                window.__openEmailComposer__ && (window as any).__openEmailComposer__({
+                  to:recipEmail,toName:recipName||respModal.name||"",
+                  subject:"Praying With You",body:aiResp,
+                  category:"Prayer Response",relatedType:"prayer",relatedId:respModal.id
+                });
+              }} v="primary" style={{fontSize:12}}>📧 Email Response</Btn>
+              <Btn onClick={()=>{
+                if(!recipPhone){alert("Enter a phone number for the recipient.");return;}
+                if(!aiResp){alert("Generate a response first.");return;}
+                window.__openSmsComposer__ && (window as any).__openSmsComposer__({
+                  phone:recipPhone,name:recipName||respModal.name||"",
+                  category:"Prayer Response",body:aiResp
+                });
+              }} v="ghost" style={{fontSize:12,border:"0.5px solid "+GR,color:GR}}>💬 Text Response</Btn>
+            </div>
           </div>
         )}
       </Modal>
@@ -9253,7 +12528,7 @@ function CheckInPortal({classrooms,children,setChildren,kidsCheckIns,setKidsChec
   );
 }
 
-function ChildrenRoster({children,setChildren,classrooms,members,setMembers,kidsCheckIns,incidents}){
+function ChildrenRoster({children,setChildren,classrooms,members,setMembers,kidsCheckIns,incidents,onAgeOut=null}:any){
   const [search,setSearch]=useState("");
   const [cDrop,setCDrop]=useState(false);
   const [filterGrade,setFilterGrade]=useState("all");
@@ -9264,7 +12539,30 @@ function ChildrenRoster({children,setChildren,classrooms,members,setMembers,kids
   const [parentQuery,setParentQuery]=useState("");
   const [parentSugs,setParentSugs]=useState<any[]>([]);
   const nid=useRef(700);
-  const filtered=children.filter(c=>{if(search&&!(c.first+" "+c.last).toLowerCase().includes(search.toLowerCase()))return false;if(filterGrade!=="all"&&c.grade!==filterGrade)return false;return true;});
+  // Deduplicate by full name on display AND purge from state on mount
+  useEffect(()=>{
+    const seen=new Set<string>();
+    const deduped=(children as any[]).sort((a:any,b:any)=>{
+      const aG=["Young Adult","High School","Middle School","Elementary"].includes(a.grade);
+      const bG=["Young Adult","High School","Middle School","Elementary"].includes(b.grade);
+      return (aG?1:0)-(bG?1:0);
+    }).filter((c:any)=>{
+      const k=(c.first+" "+c.last).toLowerCase().trim();
+      if(seen.has(k)) return false;
+      seen.add(k); return true;
+    });
+    if(deduped.length<(children as any[]).length) setChildren(deduped);
+  },[]);
+  const filtered=(children as any[]).filter((c:any,idx:number,arr:any[])=>{
+    if(c.status==="Graduated")return false;
+    // deduplicate by name in display
+    const key=(c.first+" "+c.last).toLowerCase().trim();
+    if(arr.findIndex((x:any)=>(x.first+" "+x.last).toLowerCase().trim()===key)!==idx) return false;
+    if(search&&!(c.first+" "+c.last).toLowerCase().includes(search.toLowerCase()))return false;
+    if(filterGrade!=="all"&&c.grade!==filterGrade)return false;
+    return true;
+  });
+  const graduated=(children as any[]).filter((c:any)=>c.status==="Graduated");
   useEffect(()=>{
     if(form.parentMemberId){setParentSugs([]);return;}
     if(parentQuery.length<2){setParentSugs([]);return;}
@@ -9322,17 +12620,19 @@ function ChildrenRoster({children,setChildren,classrooms,members,setMembers,kids
           <option value="all">All levels</option>
           {CHURCH_LEVELS.map(l=><option key={l.name} value={l.name}>{l.name}</option>)}
         </select>
+        {onAgeOut&&<Btn onClick={()=>onAgeOut()} v="outline" style={{fontSize:13,borderColor:"#86efac",color:"#065f46"}}>🎓 Age Out 19+</Btn>}
         <Btn onClick={openAdd}>+ Add Child</Btn>
       </div>
       <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,overflow:"hidden"}}>
         <table style={{width:"100%",borderCollapse:"collapse"}}>
-          <thead><tr style={{background:"#f8f9fc"}}>{["Child","Age","Level","Parent","Medical","Last Visit","Actions"].map(h=><th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:11,fontWeight:500,color:MU,textTransform:"uppercase",letterSpacing:0.5,borderBottom:"0.5px solid "+BR}}>{h}</th>)}</tr></thead>
+          <thead><tr style={{background:"#f8f9fc"}}>{["Child","Age","Classroom","Parent","Medical","Last Visit","Actions"].map(h=><th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:11,fontWeight:500,color:MU,textTransform:"uppercase",letterSpacing:0.5,borderBottom:"0.5px solid "+BR}}>{h}</th>)}</tr></thead>
           <tbody>
-            {filtered.map(ch=>{const last=[...kidsCheckIns].filter(ci=>ci.childId===ch.id).sort((a,b)=>b.date.localeCompare(a.date))[0];const hasMed=(ch.allergies?.length>0||ch.medical?.length>0);const hasOpenInc=(incidents||[]).some(i=>i.childId===ch.id&&i.status!=="Resolved");const hasParent=!!(ch.parentName||ch.parentMemberId);return (<tr key={ch.id} style={{borderBottom:"0.5px solid "+BR}} onMouseEnter={e=>e.currentTarget.style.background="#f8f9fc"} onMouseLeave={e=>e.currentTarget.style.background=W}><td style={{padding:"10px 14px"}}><div style={{display:"flex",alignItems:"center",gap:10}}><Av f={ch.first} l={ch.last} sz={30}/><div><div style={{fontSize:13,fontWeight:500}}>{ch.first} {ch.last}</div><div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:2}}>{hasOpenInc&&<span style={{fontSize:10,background:"#fee2e2",color:RE,borderRadius:10,padding:"1px 6px",fontWeight:600}}>Incident</span>}{!hasParent&&<span style={{fontSize:10,background:"#fef3c7",color:"#b45309",borderRadius:10,padding:"1px 6px",fontWeight:600}}>No parent</span>}</div></div></div></td><td style={{padding:"10px 14px",fontSize:13}}>{ch.dob?calcAge(ch.dob):<span style={{color:MU,fontStyle:"italic"}}>—</span>}</td><td style={{padding:"10px 14px",fontSize:13}}>{ch.grade||<span style={{color:MU,fontStyle:"italic"}}>—</span>}</td><td style={{padding:"10px 14px",fontSize:13}}><div style={{fontWeight:ch.parentMemberId?500:400,color:ch.parentName?TX:MU,fontStyle:ch.parentName?"normal":"italic"}}>{ch.parentName||"Not linked"}</div><div style={{fontSize:11,color:MU}}>{ch.parentPhone||""}</div>{ch.parentMemberId&&<span style={{fontSize:10,background:"#d1fae5",color:"#065f46",borderRadius:10,padding:"1px 6px",fontWeight:600,display:"inline-block",marginTop:2}}>✓ linked</span>}</td><td style={{padding:"10px 14px"}}>{hasMed?(<span style={{fontSize:11,background:"#fee2e2",color:RE,borderRadius:4,padding:"2px 7px",fontWeight:500}}>Alert</span>):(<span style={{fontSize:11,color:MU}}>None</span>)}</td><td style={{padding:"10px 14px",fontSize:12,color:MU}}>{last?fd(last.date):"Never"}</td><td style={{padding:"10px 14px"}}><div style={{display:"flex",gap:6}}><Btn onClick={()=>openEdit(ch)} v="outline" style={{fontSize:11,padding:"4px 9px"}}>✎ Edit</Btn><Btn onClick={e=>{e.stopPropagation();if(confirm("Remove "+ch.first+" "+ch.last+"?"))setChildren((cs:any[])=>cs.filter(c=>c.id!==ch.id));}} v="danger" style={{fontSize:11,padding:"4px 8px"}}>✕</Btn></div></td></tr>);})}
+            {filtered.map(ch=>{const last=[...kidsCheckIns].filter(ci=>ci.childId===ch.id).sort((a,b)=>b.date.localeCompare(a.date))[0];const hasMed=(ch.allergies?.length>0||ch.medical?.length>0);const hasOpenInc=(incidents||[]).some(i=>i.childId===ch.id&&i.status!=="Resolved");const hasParent=!!(ch.parentName||ch.parentMemberId);const assignedCl=ch.classroomId?classrooms.find((c:any)=>c.id===ch.classroomId):null;return (<tr key={ch.id} style={{borderBottom:"0.5px solid "+BR}} onMouseEnter={e=>e.currentTarget.style.background="#f8f9fc"} onMouseLeave={e=>e.currentTarget.style.background=W}><td style={{padding:"10px 14px"}}><div style={{display:"flex",alignItems:"center",gap:10}}><Av f={ch.first} l={ch.last} sz={30}/><div><div style={{fontSize:13,fontWeight:500}}>{ch.first} {ch.last}</div><div style={{display:"flex",gap:4,flexWrap:"wrap",marginTop:2}}>{hasOpenInc&&<span style={{fontSize:10,background:"#fee2e2",color:RE,borderRadius:10,padding:"1px 6px",fontWeight:600}}>Incident</span>}{!hasParent&&<span style={{fontSize:10,background:"#fef3c7",color:"#b45309",borderRadius:10,padding:"1px 6px",fontWeight:600}}>No parent</span>}</div></div></div></td><td style={{padding:"10px 14px",fontSize:13}}>{ch.dob?calcAge(ch.dob):<span style={{color:MU,fontStyle:"italic"}}>—</span>}</td><td style={{padding:"10px 14px",fontSize:13}}>{assignedCl?<span style={{fontSize:12,background:assignedCl.color+"18",color:assignedCl.color,borderRadius:6,padding:"2px 8px",fontWeight:500,border:"0.5px solid "+assignedCl.color+"44"}}>{assignedCl.name}</span>:<span style={{color:MU,fontStyle:"italic"}}>Not assigned</span>}</td><td style={{padding:"10px 14px",fontSize:13}}><div style={{fontWeight:ch.parentMemberId?500:400,color:ch.parentName?TX:MU,fontStyle:ch.parentName?"normal":"italic"}}>{ch.parentName||"Not linked"}</div><div style={{fontSize:11,color:MU}}>{ch.parentPhone||""}</div>{ch.parentMemberId&&<span style={{fontSize:10,background:"#d1fae5",color:"#065f46",borderRadius:10,padding:"1px 6px",fontWeight:600,display:"inline-block",marginTop:2}}>✓ linked</span>}</td><td style={{padding:"10px 14px"}}>{hasMed?(<span style={{fontSize:11,background:"#fee2e2",color:RE,borderRadius:4,padding:"2px 7px",fontWeight:500}}>Alert</span>):(<span style={{fontSize:11,color:MU}}>None</span>)}</td><td style={{padding:"10px 14px",fontSize:12,color:MU}}>{last?fd(last.date):"Never"}</td><td style={{padding:"10px 14px"}}><div style={{display:"flex",gap:6}}><Btn onClick={()=>openEdit(ch)} v="outline" style={{fontSize:11,padding:"4px 9px"}}>✎ Edit</Btn><Btn onClick={e=>{e.stopPropagation();if(confirm("Remove "+ch.first+" "+ch.last+"?"))setChildren((cs:any[])=>cs.filter(c=>c.id!==ch.id));}} v="danger" style={{fontSize:11,padding:"4px 8px"}}>✕</Btn></div></td></tr>);})}
             {filtered.length===0&&<tr><td colSpan={7} style={{padding:40,textAlign:"center",color:MU}}>No children registered.</td></tr>}
           </tbody>
         </table>
       </div>
+      {graduated.length>0&&<div style={{marginTop:12,padding:"10px 16px",background:"#f0fdf4",border:"0.5px solid #86efac",borderRadius:10,display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}><span style={{fontSize:13,fontWeight:600,color:"#065f46"}}>🎓 {graduated.length} Graduated to Member{graduated.length===1?"":"s"} (aged out 19+):</span><span style={{fontSize:12,color:"#16a34a"}}>{graduated.map((c:any)=>c.first+" "+c.last).join(" · ")}</span></div>}
       <Modal open={modal} onClose={()=>setModal(false)} title={editing?"Edit Child":"Register New Child"} width={520}>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
           <Fld label="First Name *"><Inp value={form.first} onChange={v=>setForm(f=>({...f,first:v}))}/></Fld>
@@ -9387,32 +12687,215 @@ function ChildrenRoster({children,setChildren,classrooms,members,setMembers,kids
   );
 }
 
-function ClassroomsManager({classrooms,setClassrooms,teacherSchedule,users,members,kidsCheckIns}){
-  const [editModal,setEditModal]=useState(null);
-  const [form,setForm]=useState({});
+function ClassroomsManager({classrooms,setClassrooms,children,setChildren,teacherSchedule,users,members,kidsCheckIns,setKidsCheckIns,groups=[],checkIns=[]}:any){
+  const [editModal,setEditModal]=useState<any>(null);
+  const [kidsCIModal,setKidsCIModal]=useState<any>(null);
+  const [kidsCISearch,setKidsCISearch]=useState("");
+  const [addModal,setAddModal]=useState(false);
+  const [viewCl,setViewCl]=useState<any>(null);
+  const [assignModal,setAssignModal]=useState(false);
+  const [assignSearch,setAssignSearch]=useState("");
+  const [form,setForm]=useState<any>({});
+  const [addForm,setAddForm]=useState<any>({name:"",ageMin:"",ageMax:"",location:"",capacity:"",color:CL_COLORS[0]});
+  const nidCL=useRef(Date.now()+5000);
   const today=td();
-  const openEdit=cl=>{setEditModal(cl);setForm({location:cl.location,capacity:cl.capacity,color:cl.color,name:cl.name});};
-  const save=()=>{setClassrooms(cs=>cs.map(c=>c.id===editModal.id?{...c,...form}:c));setEditModal(null);};
+  const openEdit=(cl:any)=>{setEditModal(cl);setForm({name:cl.name,location:cl.location,capacity:cl.capacity,color:cl.color,ageMin:cl.ageMin,ageMax:cl.ageMax,linkedGroupId:cl.linkedGroupId||""});};  
+  const saveEdit=()=>{setClassrooms((cs:any[])=>cs.map(c=>c.id===editModal.id?{...c,...form,capacity:+form.capacity||0,ageMin:+form.ageMin||0,ageMax:+form.ageMax||99,linkedGroupId:form.linkedGroupId||null}:c));setEditModal(null);};
+  const saveAdd=()=>{
+    if(!addForm.name.trim()){alert("Name is required.");return;}
+    const newCL={id:nidCL.current++,name:addForm.name.trim(),grade:addForm.name.trim(),ageMin:+addForm.ageMin||0,ageMax:+addForm.ageMax||99,label:addForm.name.trim(),location:addForm.location||"",capacity:+addForm.capacity||20,color:addForm.color||CL_COLORS[0],checkin:true};
+    setClassrooms((cs:any[])=>[...cs,newCL]);
+    setAddModal(false);
+    setAddForm({name:"",ageMin:"",ageMax:"",location:"",capacity:"",color:CL_COLORS[0]});
+  };
+  const removeClassroom=(cl:any)=>{
+    if(!confirm("Remove \""+cl.name+"\" classroom? Children enrolled will be unassigned."))return;
+    setClassrooms((cs:any[])=>cs.filter(c=>c.id!==cl.id));
+    if(setChildren)setChildren((cs:any[])=>cs.map((c:any)=>c.classroomId===cl.id?{...c,classroomId:null}:c));
+    if(editModal?.id===cl.id)setEditModal(null);
+    if(viewCl?.id===cl.id)setViewCl(null);
+  };
+  const getClChildren=(cl:any)=>(children||[]).filter((c:any)=>c.classroomId===cl.id&&c.status!=="Graduated");
+  const removeFromCl=(childId:any)=>setChildren&&setChildren((cs:any[])=>cs.map((c:any)=>c.id===childId?{...c,classroomId:null}:c));
+  const assignToCl=(childId:any)=>{if(!viewCl)return;setChildren&&setChildren((cs:any[])=>cs.map((c:any)=>c.id===childId?{...c,classroomId:viewCl.id,grade:viewCl.grade||viewCl.name}:c));setAssignModal(false);setAssignSearch("");};
+  const ColorPicker=({val,onChange}:any)=><div style={{display:"flex",flexWrap:"wrap",gap:6}}>{CL_COLORS.map(c=><div key={c} onClick={()=>onChange(c)} style={{width:28,height:28,borderRadius:"50%",background:c,cursor:"pointer",border:val===c?"3px solid "+N:"3px solid transparent",boxSizing:"border-box"}}/>)}</div>;
+  const EditModalJsx=()=>(
+    <Modal open={!!editModal} onClose={()=>setEditModal(null)} title={editModal?"Edit "+editModal.name:""}>
+      <Fld label="Display Name"><Inp value={form.name||""} onChange={(v:string)=>setForm((f:any)=>({...f,name:v}))}/></Fld>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+        <Fld label="Age Min"><Inp type="number" value={form.ageMin??""} onChange={(v:string)=>setForm((f:any)=>({...f,ageMin:v}))}/></Fld>
+        <Fld label="Age Max"><Inp type="number" value={form.ageMax??""} onChange={(v:string)=>setForm((f:any)=>({...f,ageMax:v}))}/></Fld>
+      </div>
+      <Fld label="Location"><Inp value={form.location||""} onChange={(v:string)=>setForm((f:any)=>({...f,location:v}))}/></Fld>
+      <Fld label="Capacity"><Inp type="number" value={form.capacity||""} onChange={(v:string)=>setForm((f:any)=>({...f,capacity:v}))}/></Fld>
+      <Fld label="Linked Ministry Group (Calendar)"><Slt value={String(form.linkedGroupId||"")} onChange={(v:string)=>setForm((f:any)=>({...f,linkedGroupId:v||null}))} opts={[{v:"",l:"— None —"},...(groups||[]).map((g:any)=>({v:String(g.id),l:g.name}))]}/></Fld>
+      <Fld label="Color"><ColorPicker val={form.color} onChange={(c:string)=>setForm((f:any)=>({...f,color:c}))}/></Fld>
+      <div style={{display:"flex",gap:8,marginTop:4}}>
+        <Btn onClick={saveEdit} v="success" style={{flex:1,justifyContent:"center"}}>Save Changes</Btn>
+        <Btn onClick={()=>{if(editModal)removeClassroom(editModal);}} v="danger" style={{flex:1,justifyContent:"center"}}>Remove Classroom</Btn>
+      </div>
+      <Btn onClick={()=>setEditModal(null)} v="ghost" style={{width:"100%",justifyContent:"center",marginTop:6}}>Cancel</Btn>
+    </Modal>
+  );
+  // ── ROSTER DETAIL VIEW ──
+  if(viewCl){
+    const latestCl=classrooms.find((c:any)=>c.id===viewCl.id)||viewCl;
+    const roster=getClChildren(latestCl);
+    const todayCI=kidsCheckIns.filter((ci:any)=>ci.date===today&&ci.classroomId===latestCl.id&&!ci.checkedOut).length;
+    const allActive=(children||[]).filter((c:any)=>c.status!=="Graduated"&&c.status!=="Inactive");
+    const filtAssign=assignSearch.trim()?allActive.filter((c:any)=>(c.first+" "+c.last).toLowerCase().includes(assignSearch.toLowerCase())):allActive;
+    return(
+      <div>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16,flexWrap:"wrap"}}>
+          <button onClick={()=>setViewCl(null)} style={{background:"none",border:"0.5px solid "+BR,borderRadius:8,padding:"6px 12px",fontSize:13,cursor:"pointer",color:TX}}>← All Classrooms</button>
+          <div style={{flex:1,minWidth:120}}>
+            <div style={{fontSize:15,fontWeight:600,color:latestCl.color}}>{latestCl.name}</div>
+            <div style={{fontSize:11,color:MU}}>{latestCl.location} · Capacity {latestCl.capacity} · {roster.length} enrolled · {todayCI} checked in today</div>
+          </div>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+            <Btn onClick={()=>{setAssignSearch("");setAssignModal(true);}}>+ Assign Child</Btn>
+            <Btn onClick={()=>openEdit(latestCl)} v="ghost" style={{fontSize:12}}>Edit Classroom</Btn>
+          </div>
+        </div>
+        <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,overflow:"hidden",marginBottom:14}}>
+          <div style={{padding:"10px 14px",borderBottom:"0.5px solid "+BR,background:"#f8f9fc",display:"flex",alignItems:"center",gap:6}}>
+            <div style={{width:10,height:10,borderRadius:"50%",background:latestCl.color,flexShrink:0}}/>
+            <span style={{fontSize:13,fontWeight:600,color:latestCl.color}}>{latestCl.name} Roster</span>
+            <span style={{fontSize:12,color:MU,marginLeft:4}}>({roster.length} {roster.length===1?"child":"children"})</span>
+          </div>
+          {roster.length===0?(
+            <div style={{padding:"32px 14px",textAlign:"center",color:MU,fontSize:13,fontStyle:"italic"}}>No children assigned yet. Click "+ Assign Child" above.</div>
+          ):(
+            <table style={{width:"100%",borderCollapse:"collapse"}}>
+              <thead><tr style={{background:"#f8f9fc"}}>{["Name","Age","Grade","Parent","Medical",""].map(h=><th key={h} style={{padding:"9px 14px",textAlign:"left",fontSize:11,fontWeight:500,color:MU,textTransform:"uppercase",letterSpacing:0.5,borderBottom:"0.5px solid "+BR}}>{h}</th>)}</tr></thead>
+              <tbody>
+                {roster.map((ch:any)=>{const hasMed=(ch.allergies?.length>0||ch.medical?.length>0);return(
+                  <tr key={ch.id} style={{borderBottom:"0.5px solid "+BR}} onMouseEnter={e=>e.currentTarget.style.background="#f8f9fc"} onMouseLeave={e=>e.currentTarget.style.background=W}>
+                    <td style={{padding:"9px 14px"}}><div style={{display:"flex",alignItems:"center",gap:8}}><Av f={ch.first} l={ch.last} sz={28}/><span style={{fontSize:13,fontWeight:500}}>{ch.first} {ch.last}</span></div></td>
+                    <td style={{padding:"9px 14px",fontSize:13}}>{ch.dob?calcAge(ch.dob):"—"}</td>
+                    <td style={{padding:"9px 14px",fontSize:13}}>{ch.grade||"—"}</td>
+                    <td style={{padding:"9px 14px",fontSize:13}}><div style={{fontWeight:500,color:ch.parentName?TX:MU,fontStyle:ch.parentName?"normal":"italic"}}>{ch.parentName||"—"}</div>{ch.parentPhone&&<div style={{fontSize:11,color:MU}}>{ch.parentPhone}</div>}</td>
+                    <td style={{padding:"9px 14px"}}>{hasMed?<span style={{fontSize:11,background:"#fee2e2",color:RE,borderRadius:4,padding:"2px 7px",fontWeight:600}}>⚠ {(ch.allergies||[]).concat(ch.medical||[]).slice(0,2).join(", ")}</span>:<span style={{fontSize:11,color:MU}}>None</span>}</td>
+                    <td style={{padding:"9px 14px"}}><Btn onClick={()=>{if(confirm("Remove "+ch.first+" "+ch.last+" from "+latestCl.name+"?"))removeFromCl(ch.id);}} v="ghost" style={{fontSize:11,padding:"3px 8px",color:RE}}>Remove</Btn></td>
+                  </tr>
+                );})}
+              </tbody>
+            </table>
+          )}
+        </div>
+        {assignModal&&(
+          <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",zIndex:500,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+            <div style={{background:W,borderRadius:14,padding:24,width:"100%",maxWidth:480,maxHeight:"85vh",display:"flex",flexDirection:"column",boxShadow:"0 20px 60px rgba(0,0,0,0.25)"}}>
+              <div style={{fontSize:15,fontWeight:600,color:N,marginBottom:4}}>Assign Child to {latestCl.name}</div>
+              <div style={{fontSize:12,color:MU,marginBottom:12}}>Select a child. If already in another classroom they'll be moved here.</div>
+              <input autoFocus value={assignSearch} onChange={e=>setAssignSearch(e.target.value)} placeholder="Search by name…" style={{width:"100%",padding:"8px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",boxSizing:"border-box",marginBottom:10}}/>
+              <div style={{flex:1,overflowY:"auto",border:"0.5px solid "+BR,borderRadius:10,minHeight:100}}>
+                {filtAssign.length===0
+                  ?<div style={{padding:"20px 14px",textAlign:"center",fontSize:13,color:MU,fontStyle:"italic"}}>No children match.</div>
+                  :filtAssign.map((c:any)=>{
+                    const hasMed=(c.allergies?.length>0||c.medical?.length>0);
+                    const isHere=c.classroomId===latestCl.id;
+                    const otherCl=c.classroomId&&!isHere?classrooms.find((x:any)=>x.id===c.classroomId):null;
+                    return(
+                      <div key={c.id} onClick={()=>!isHere&&assignToCl(c.id)} style={{padding:"10px 14px",cursor:isHere?"default":"pointer",borderBottom:"0.5px solid "+BR,display:"flex",alignItems:"center",gap:10,background:isHere?"#f0fdf4":W}} onMouseEnter={e=>{if(!isHere)(e.currentTarget as any).style.background="#f5f3ff";}} onMouseLeave={e=>{if(!isHere)(e.currentTarget as any).style.background=W;}}>
+                        <Av f={c.first} l={c.last} sz={28}/>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:13,fontWeight:500}}>{c.first} {c.last}{isHere&&<span style={{fontSize:10,background:"#dcfce7",color:"#166534",borderRadius:10,padding:"1px 6px",fontWeight:600,marginLeft:6}}>✓ enrolled</span>}</div>
+                          <div style={{fontSize:11,color:MU}}>{c.grade||"No grade"}{c.parentName?" · "+c.parentName:""}{otherCl?<span style={{color:AM}}> · In {otherCl.name}</span>:""}</div>
+                        </div>
+                        {hasMed&&<span style={{fontSize:10,background:"#fee2e2",color:RE,borderRadius:4,padding:"2px 6px",fontWeight:600,flexShrink:0}}>⚠</span>}
+                      </div>
+                    );
+                  })
+                }
+              </div>
+              <Btn onClick={()=>{setAssignModal(false);setAssignSearch("");}} v="ghost" style={{marginTop:12,width:"100%",justifyContent:"center"}}>Cancel</Btn>
+            </div>
+          </div>
+        )}
+        <EditModalJsx/>
+      </div>
+    );
+  }
+  // ── KIDS CHECK-IN MODAL pre-computed data ──
+  const _kciRoster = kidsCIModal?getClChildren(kidsCIModal):[];
+  const _kciAlreadyIn = kidsCIModal?new Set((kidsCheckIns||[]).filter((ci:any)=>ci.classroomId===kidsCIModal.id&&ci.date===today&&!ci.checkedOut&&ci.childId).map((ci:any)=>ci.childId)):new Set();
+  const _kciFiltered = kidsCISearch.trim()?_kciRoster.filter((ch:any)=>(ch.first+" "+ch.last).toLowerCase().includes(kidsCISearch.toLowerCase())):_kciRoster;
+  const doKidsCI=(ch:any)=>{if(!setKidsCheckIns||_kciAlreadyIn.has(ch.id))return;setKidsCheckIns((cs:any[])=>[...cs,{id:nidCL.current++,childId:ch.id,memberId:null,first:ch.first,last:ch.last,classroomId:kidsCIModal.id,date:today,time:new Date().toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit",hour12:true}),code:null,checkedOut:false}]);};
+  const doKidsOut=(ch:any)=>{if(!setKidsCheckIns)return;setKidsCheckIns((cs:any[])=>cs.map((ci:any)=>ci.childId===ch.id&&ci.classroomId===kidsCIModal.id&&ci.date===today&&!ci.checkedOut?{...ci,checkedOut:true,checkOutTime:new Date().toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit",hour12:true})}:ci));};
+  // ── GRID VIEW ──
   return(
     <div>
-      <div style={{fontSize:13,color:MU,marginBottom:14}}>{classrooms.length} classrooms organized by age level. Click any to edit.</div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:12}}>
-        {classrooms.map(cl=>{const todayCI=kidsCheckIns.filter(ci=>ci.date===today&&ci.classroomId===cl.id&&!ci.checkedOut).length;const todaySch=teacherSchedule.find(t=>t.date===today&&t.classroomId===cl.id);const leadU=todaySch?.leadId&&users.find(u=>u.id===todaySch.leadId);const leadM=leadU&&members.find(m=>m.id===leadU.memberId);return (<div key={cl.id} onClick={()=>openEdit(cl)} style={{background:W,border:"1.5px solid "+cl.color+"33",borderRadius:12,overflow:"hidden",cursor:"pointer"}}><div style={{background:cl.color,color:"#fff",padding:"10px 14px",fontWeight:600}}>{cl.name}</div><div style={{padding:14}}><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}><div><div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:0.4}}>Location</div><div style={{fontSize:12,fontWeight:500,marginTop:2}}>{cl.location}</div></div><div><div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:0.4}}>Capacity</div><div style={{fontSize:12,fontWeight:500,marginTop:2}}>{cl.capacity} kids</div></div></div><div style={{paddingTop:10,borderTop:"0.5px solid "+BR}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}><span style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:0.4}}>Today</span><span style={{fontSize:12,fontWeight:600,color:todayCI>0?cl.color:MU}}>{todayCI}/{cl.capacity}</span></div><div style={{fontSize:11,color:MU}}>{leadM?"Lead: "+leadM.first+" "+leadM.last:"No teacher today"}</div></div></div></div>);})}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+        <div style={{fontSize:13,color:MU}}>{classrooms.length} classroom{classrooms.length!==1?"s":""} · click a card to view roster</div>
+        <Btn onClick={()=>{setAddForm({name:"",ageMin:"",ageMax:"",location:"",capacity:"",color:CL_COLORS[0]});setAddModal(true);}}>+ Add Classroom</Btn>
       </div>
-      <Modal open={!!editModal} onClose={()=>setEditModal(null)} title={editModal?"Edit "+editModal.name:""}>
-        <Fld label="Display Name"><Inp value={form.name||""} onChange={v=>setForm(f=>({...f,name:v}))}/></Fld>
-        <Fld label="Location"><Inp value={form.location||""} onChange={v=>setForm(f=>({...f,location:v}))}/></Fld>
-        <Fld label="Capacity"><Inp type="number" value={form.capacity||""} onChange={v=>setForm(f=>({...f,capacity:+v||0}))}/></Fld>
-        <Fld label="Color"><div style={{display:"flex",flexWrap:"wrap",gap:6}}>{CL_COLORS.map(c=><div key={c} onClick={()=>setForm(f=>({...f,color:c}))} style={{width:28,height:28,borderRadius:"50%",background:c,cursor:"pointer",border:form.color===c?"3px solid "+N:"3px solid transparent",boxSizing:"border-box"}}/>)}</div></Fld>
-        <div style={{display:"flex",gap:8}}>
-          <Btn onClick={save} v="success" style={{flex:1,justifyContent:"center"}}>Save</Btn>
-          <Btn onClick={()=>setEditModal(null)} v="ghost" style={{flex:1,justifyContent:"center"}}>Cancel</Btn>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))",gap:12}}>
+        {classrooms.map((cl:any)=>{const enrolled=getClChildren(cl).length;const todayCI=kidsCheckIns.filter((ci:any)=>ci.date===today&&ci.classroomId===cl.id&&!ci.checkedOut).length;const todaySch=teacherSchedule.find((t:any)=>t.date===today&&t.classroomId===cl.id);const leadU=todaySch?.leadId&&users.find((u:any)=>u.id===todaySch.leadId);const leadM=leadU&&members.find((m:any)=>m.id===leadU.memberId);return(<div key={cl.id} onClick={()=>setViewCl(cl)} style={{background:W,border:"1.5px solid "+cl.color+"33",borderRadius:12,overflow:"hidden",cursor:"pointer"}} onMouseEnter={e=>(e.currentTarget.style.boxShadow="0 2px 10px rgba(0,0,0,0.08)")} onMouseLeave={e=>(e.currentTarget.style.boxShadow="none")}><div style={{background:cl.color,color:"#fff",padding:"10px 14px",fontWeight:600,display:"flex",justifyContent:"space-between",alignItems:"center"}}><span>{cl.name}</span><div style={{display:"flex",gap:6}} onClick={e=>e.stopPropagation()}><button onClick={e=>{e.stopPropagation();openEdit(cl);}} style={{background:"rgba(255,255,255,0.2)",border:"none",color:"#fff",borderRadius:6,fontSize:11,padding:"3px 8px",cursor:"pointer",fontWeight:500}}>Edit</button><button onClick={e=>{e.stopPropagation();removeClassroom(cl);}} style={{background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",borderRadius:6,fontSize:11,padding:"3px 8px",cursor:"pointer",fontWeight:500}}>🗑</button></div></div><div style={{padding:14}}><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}><div><div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:0.4}}>Location</div><div style={{fontSize:12,fontWeight:500,marginTop:2}}>{cl.location||"—"}</div></div><div><div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:0.4}}>Enrolled</div><div style={{fontSize:12,fontWeight:500,marginTop:2,color:enrolled>=cl.capacity?RE:TX}}>{enrolled} / {cl.capacity}</div></div>{(cl.ageMin!==undefined&&cl.ageMax!==undefined)&&<div style={{gridColumn:"1/-1"}}><div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:0.4}}>Ages</div><div style={{fontSize:12,fontWeight:500,marginTop:2}}>{cl.ageMin}–{cl.ageMax===99?"18+":cl.ageMax}</div></div>}</div><div style={{paddingTop:10,borderTop:"0.5px solid "+BR}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}><span style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:0.4}}>Today</span><span style={{fontSize:12,fontWeight:600,color:todayCI>0?cl.color:MU}}>{todayCI} checked in</span></div><div style={{fontSize:11,color:MU}}>{leadM?"Lead: "+leadM.first+" "+leadM.last:"No teacher today"}</div><div style={{marginTop:8}} onClick={e=>e.stopPropagation()}><button onClick={e=>{e.stopPropagation();setKidsCIModal(cl);setKidsCISearch("");}} style={{width:"100%",padding:"6px 10px",borderRadius:6,border:"1.5px solid "+cl.color,background:cl.color+"12",color:cl.color,fontSize:11,fontWeight:500,cursor:"pointer"}}>✅ Check-In Children</button></div></div></div></div>);})}
+      </div>
+      <EditModalJsx/>
+      <Modal open={addModal} onClose={()=>setAddModal(false)} title="Add Classroom">
+        <Fld label="Classroom Name *"><Inp value={addForm.name} onChange={(v:string)=>setAddForm((f:any)=>({...f,name:v}))}/></Fld>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <Fld label="Age Min"><Inp type="number" value={addForm.ageMin} onChange={(v:string)=>setAddForm((f:any)=>({...f,ageMin:v}))} placeholder="e.g. 0"/></Fld>
+          <Fld label="Age Max"><Inp type="number" value={addForm.ageMax} onChange={(v:string)=>setAddForm((f:any)=>({...f,ageMax:v}))} placeholder="e.g. 12"/></Fld>
+        </div>
+        <Fld label="Location"><Inp value={addForm.location} onChange={(v:string)=>setAddForm((f:any)=>({...f,location:v}))} placeholder="e.g. Room 104"/></Fld>
+        <Fld label="Capacity"><Inp type="number" value={addForm.capacity} onChange={(v:string)=>setAddForm((f:any)=>({...f,capacity:v}))} placeholder="20"/></Fld>
+        <Fld label="Color"><ColorPicker val={addForm.color} onChange={(c:string)=>setAddForm((f:any)=>({...f,color:c}))}/></Fld>
+        <div style={{display:"flex",gap:8,marginTop:4}}>
+          <Btn onClick={saveAdd} style={{flex:1,justifyContent:"center"}}>Add Classroom</Btn>
+          <Btn onClick={()=>setAddModal(false)} v="ghost" style={{flex:1,justifyContent:"center"}}>Cancel</Btn>
         </div>
       </Modal>
+      {/* Kids Check-In Modal */}
+      {kidsCIModal&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.45)",zIndex:500,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+          <div style={{background:W,borderRadius:14,padding:24,width:"100%",maxWidth:520,maxHeight:"85vh",display:"flex",flexDirection:"column",boxShadow:"0 20px 60px rgba(0,0,0,0.25)"}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
+              <div>
+                <div style={{fontSize:15,fontWeight:600,color:kidsCIModal.color}}>Check-In — {kidsCIModal.name}</div>
+                <div style={{fontSize:12,color:MU}}>{_kciRoster.length} enrolled · {_kciAlreadyIn.size} checked in today</div>
+              </div>
+              <button onClick={()=>setKidsCIModal(null)} style={{background:"none",border:"none",fontSize:18,cursor:"pointer",color:MU}}>×</button>
+            </div>
+            <input value={kidsCISearch} onChange={e=>setKidsCISearch(e.target.value)} placeholder="Search by name…" style={{width:"100%",padding:"8px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",boxSizing:"border-box",margin:"10px 0"}}/>
+            {_kciRoster.length===0?(
+              <div style={{padding:"24px 0",textAlign:"center",color:MU,fontSize:13,fontStyle:"italic"}}>No children enrolled in this classroom yet.</div>
+            ):(
+              <div style={{flex:1,overflowY:"auto",border:"0.5px solid "+BR,borderRadius:10,minHeight:80}}>
+                {_kciFiltered.map((ch:any)=>{
+                  const inn=_kciAlreadyIn.has(ch.id);
+                  const hasMed=(ch.allergies?.length>0||ch.medical?.length>0);
+                  return(
+                    <div key={ch.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderBottom:"0.5px solid "+BR,background:inn?"#f0fdf4":W}}>
+                      <Av f={ch.first} l={ch.last} sz={30}/>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:13,fontWeight:500}}>{ch.first} {ch.last}
+                          {hasMed&&<span style={{fontSize:10,background:"#fee2e2",color:RE,borderRadius:4,padding:"1px 6px",fontWeight:600,marginLeft:6}}>⚠</span>}
+                        </div>
+                        <div style={{fontSize:11,color:MU}}>{ch.parentName||""}{ch.parentPhone?" · "+ch.parentPhone:""}</div>
+                      </div>
+                      {inn?(
+                        <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                          <span style={{fontSize:10,background:"#dcfce7",color:"#166534",borderRadius:10,padding:"2px 8px",fontWeight:600}}>✓ In</span>
+                          <button onClick={()=>doKidsOut(ch)} style={{fontSize:11,padding:"3px 8px",borderRadius:6,border:"0.5px solid "+BR,background:W,color:MU,cursor:"pointer"}}>Check Out</button>
+                        </div>
+                      ):(
+                        <button onClick={()=>doKidsCI(ch)} style={{padding:"5px 14px",borderRadius:6,border:"none",background:kidsCIModal.color,color:"#fff",fontSize:12,fontWeight:500,cursor:"pointer"}}>Check In</button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <button onClick={()=>setKidsCIModal(null)} style={{marginTop:12,width:"100%",padding:"9px",borderRadius:8,border:"0.5px solid "+BR,background:BG,color:TX,fontSize:13,cursor:"pointer"}}>Close</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-
 function TeacherScheduleMgr({classrooms,teacherSchedule,setTeacherSchedule,users,members,roles}){
   const getNextSundays=n=>{const t=new Date();const d=t.getDay();const days=d===0?0:7-d;const r=[];for(let i=-1;i<n;i++){const dt=new Date(t);dt.setDate(t.getDate()+days+(i*7));r.push(dt.toISOString().split("T")[0]);}return r;};
   const [selDate,setSelDate]=useState(td());
@@ -9535,7 +13018,22 @@ function ChildProgress({children,classrooms,rollCalls,progressNotes,setProgressN
   const [search,setSearch]=useState("");
   const [addNote,setAddNote]=useState(false);
   const [noteForm,setNoteForm]=useState({type:"spiritual",note:"",verse:"",lessonCompleted:false,date:td()});
-  const activeKids=(children as any[]).filter((c:any)=>c.status==="Active");
+  // Deduplicate by name — keep the record with the most complete grade; prefer "12th Grade" over "Young Adult" for same person
+  const seenNames=new Set<string>();
+  const activeKids=(children as any[])
+    .filter((c:any)=>c.status==="Active")
+    .sort((a:any,b:any)=>{
+      // prefer records that have a specific grade over generic "Young Adult"
+      const aIsGeneric=["Young Adult","High School","Middle School","Elementary"].includes(a.grade);
+      const bIsGeneric=["Young Adult","High School","Middle School","Elementary"].includes(b.grade);
+      return (aIsGeneric?1:0)-(bIsGeneric?1:0);
+    })
+    .filter((c:any)=>{
+      const key=(c.first+" "+c.last).toLowerCase().trim();
+      if(seenNames.has(key)) return false;
+      seenNames.add(key);
+      return true;
+    });
   const filtered=search?activeKids.filter((c:any)=>(c.first+" "+c.last).toLowerCase().includes(search.toLowerCase())):activeKids;
   const selChild=(children as any[]).find((c:any)=>c.id===selChildId);
   const childEntries=(rollCalls as any[]).flatMap((r:any)=>r.entries.filter((e:any)=>e.childId===selChildId).map((e:any)=>({...e,date:r.date})));
@@ -9984,7 +13482,7 @@ function PrinterSettings({printerConfig,setPrinterConfig}){
   );
 }
 
-function Education({members,setMembers,visitors,users,roles,children,setChildren,classrooms,setClassrooms,teacherSchedule,setTeacherSchedule,kidsCheckIns,setKidsCheckIns,checkIns,incidents,setIncidents,rollCalls,setRollCalls,progressNotes,setProgressNotes,cs,printerConfig,setPrinterConfig}:any){
+function Education({members,setMembers,visitors,users,roles,children,setChildren,classrooms,setClassrooms,teacherSchedule,setTeacherSchedule,kidsCheckIns,setKidsCheckIns,checkIns,incidents,setIncidents,rollCalls,setRollCalls,progressNotes,setProgressNotes,cs,printerConfig,setPrinterConfig,onAgeOut,groups=[]}:any){
   const [tab,setTab]=useState("dashboard");
   const today=td();
   const todayCI=(kidsCheckIns as any[]).filter((c:any)=>c.date===today);
@@ -10002,9 +13500,9 @@ function Education({members,setMembers,visitors,users,roles,children,setChildren
       {tab==="dashboard"&&<EdDashboard classrooms={classrooms} children={children} kidsCheckIns={kidsCheckIns} teacherSchedule={teacherSchedule} users={users} members={members} checkIns={checkIns} setTab={setTab}/>}
       {tab==="checkin"&&<CheckInPortal classrooms={classrooms} children={children} setChildren={setChildren} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckIns} members={members} printerConfig={printerConfig}/>}
       {tab==="rollcall"&&<ClassRollCall classrooms={classrooms} children={children} rollCalls={rollCalls} setRollCalls={setRollCalls} teacherSchedule={teacherSchedule} users={users} members={members} cs={cs}/>}
-      {tab==="children"&&<ChildrenRoster children={children} setChildren={setChildren} classrooms={classrooms} members={members} setMembers={setMembers} kidsCheckIns={kidsCheckIns} incidents={incidents}/>}
+      {tab==="children"&&<ChildrenRoster children={children} setChildren={setChildren} classrooms={classrooms} members={members} setMembers={setMembers} kidsCheckIns={kidsCheckIns} incidents={incidents} onAgeOut={onAgeOut}/>}
       {tab==="progress"&&<ChildProgress children={children} classrooms={classrooms} rollCalls={rollCalls} progressNotes={progressNotes} setProgressNotes={setProgressNotes} cs={cs}/>}
-      {tab==="classrooms"&&<ClassroomsManager classrooms={classrooms} setClassrooms={setClassrooms} teacherSchedule={teacherSchedule} users={users} members={members} kidsCheckIns={kidsCheckIns}/>}
+      {tab==="classrooms"&&<ClassroomsManager classrooms={classrooms} setClassrooms={setClassrooms} children={children} setChildren={setChildren} teacherSchedule={teacherSchedule} users={users} members={members} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckIns} groups={groups} checkIns={checkIns}/>}
       {tab==="teachers"&&<TeacherScheduleMgr classrooms={classrooms} teacherSchedule={teacherSchedule} setTeacherSchedule={setTeacherSchedule} users={users} members={members} roles={roles}/>}
       {tab==="incidents"&&<IncidentReports incidents={incidents} setIncidents={setIncidents} children={children} classrooms={classrooms} members={members} cs={cs}/>}
       {tab==="reports"&&<EdReports classrooms={classrooms} children={children} kidsCheckIns={kidsCheckIns} teacherSchedule={teacherSchedule} users={users} members={members} rollCalls={rollCalls}/>}
@@ -10019,7 +13517,7 @@ function Education({members,setMembers,visitors,users,roles,children,setChildren
 const ALLERGY_OPTIONS=["Peanuts","Tree Nuts","Milk/Dairy","Eggs","Wheat/Gluten","Soy","Fish","Shellfish","Latex","Bee Stings","Penicillin","Aspirin","Ibuprofen","Sulfa Drugs"];
 const MEDICAL_OPTIONS=["Diabetes","High Blood Pressure","Heart Condition","Asthma","Epilepsy/Seizures","Mobility Impairment","Vision Impairment","Hearing Impairment","Cancer","Kidney Disease","Thyroid Disorder","Depression/Anxiety","PTSD","Autism Spectrum"];
 
-function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,roles,permissions,setView,prospects,setProspects,children=[],setChildren=null}:any){
+function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,roles,permissions,setView,prospects,setProspects,children=[],setChildren=null,visitRecords=[],setVisitRecords=null}:any){
   const canAdd = checkPermission(currentUser,roles,permissions,"directory","create");
   const addedByName = (()=>{
     if(!currentUser) return "Unknown";
@@ -10035,7 +13533,7 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
   const knownCities = Array.from(new Set(allPeople.map((p:any)=>p.address?.city).filter(Boolean))).sort() as string[];
   const knownZips   = Array.from(new Set(allPeople.map((p:any)=>p.address?.zip).filter(Boolean))).sort() as string[];
 
-  const [pType,setPType] = useState<"member"|"visitor">("member");
+  const [pType,setPType] = useState<"member"|"visitor">(()=>{const d=(window as any).__addPersonDefault__||"visitor";(window as any).__addPersonDefault__=undefined;return d;});
   const [spouseSug,setSpouseSug] = useState<any[]>([]);
   const [spouseLinked,setSpouseLinked] = useState<any>(null);
   const blankForm=()=>({
@@ -10063,6 +13561,7 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
     notes:""
   });
   const [form,setForm] = useState(blankForm());
+  const [childSug,setChildSug] = useState<{[k:number]:any[]}>({});
   const [saved,setSaved] = useState<any>(null);
   const [dupWarning,setDupWarning] = useState<any>(null);
   const [pendingEduSync,setPendingEduSync] = useState<any>(null);
@@ -10075,17 +13574,28 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
     return {...f,[field]:arr.includes(item)?arr.filter((x:string)=>x!==item):[...arr,item]};
   });
   const addChild=()=>setForm((f:any)=>({...f,children:[...f.children,{first:"",last:"",birthday:"",grade:"",gender:"Male",memberId:null as any}]}));
-  const updChild=(i:number,k:string,v:string)=>setForm((f:any)=>{
-    const updated:any={...f.children[i],[k]:v};
-    const fn=(k==='first'?v:updated.first||'').trim().toLowerCase();
-    const ln=(k==='last'?v:updated.last||'').trim().toLowerCase();
-    if(fn&&ln&&!updated.memberId){
-      const match=[...members,...(visitors||[])].find((p:any)=>(p.first||'').trim().toLowerCase()===fn&&(p.last||'').trim().toLowerCase()===ln);
-      if(match) updated.memberId=match.id;
+  const updChild=(i:number,k:string,v:string)=>{
+    if(k==='first'||k==='last'){
+      setForm((f:any)=>({...f,children:f.children.map((c:any,idx:number)=>idx===i?{...c,[k]:v,memberId:null}:c)}));
+      const cur=form.children[i]||{};
+      const fn=(k==='first'?v:cur.first||'').trim().toLowerCase();
+      const ln=(k==='last'?v:cur.last||'').trim().toLowerCase();
+      const q=(fn+' '+ln).trim();
+      if(q.length>=2){
+        const mvSugs=allPeople.filter((p:any)=>(p.first+' '+p.last).toLowerCase().includes(q)).slice(0,4);
+        const eduSugs=(children as any[]).filter((ec:any)=>((ec.first||'')+' '+(ec.last||'')).toLowerCase().includes(q)&&!mvSugs.some((m:any)=>m.first===ec.first&&m.last===ec.last)).slice(0,3);
+        setChildSug((cs:any)=>({...cs,[i]:[...mvSugs,...eduSugs]}));
+      } else {
+        setChildSug((cs:any)=>({...cs,[i]:[]}));
+      }
+    } else {
+      setForm((f:any)=>({...f,children:f.children.map((c:any,idx:number)=>idx===i?{...c,[k]:v}:c)}));
     }
-    return {...f,children:f.children.map((c:any,idx:number)=>idx===i?updated:c)};
-  });
-  const remChild=(i:number)=>setForm((f:any)=>({...f,children:f.children.filter((_:any,idx:number)=>idx!==i)}));
+  };
+  const remChild=(i:number)=>{
+    setForm((f:any)=>({...f,children:f.children.filter((_:any,idx:number)=>idx!==i)}));
+    setChildSug((cs:any)=>{const n={...cs};delete n[i];return n;});
+  };
 
   const checkDups=()=>{
     const fn=(form.first||"").trim().toLowerCase();
@@ -10121,16 +13631,22 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
               newMs=[...newMs,spouseRec];
             }
           }
-          form.children.forEach((c:any)=>{
+          const childIdMap:Map<number,number>=new Map();
+          form.children.forEach((c:any,ci:number)=>{
             if(c.first&&c.last){
               if(c.memberId){
                 newMs=newMs.map((m:any)=>m.id===c.memberId?{...m,familyId,family:familyName}:m);
+                childIdMap.set(ci,c.memberId);
               } else {
                 const cid=nid.current++;
                 newMs=[...newMs,{id:cid,first:c.first,last:c.last,type:"Member",status:"Active",role:"",joined:td(),family:familyName,familyId,addedBy:addedByName,addedDate:td(),...EMPTY_PERSON_FIELDS,birthday:c.birthday||"",gender:c.gender||"",grade:c.grade||"",address:{...EMPTY_ADDR}}];
+                childIdMap.set(ci,cid);
               }
             }
           });
+          if(childIdMap.size>0){
+            newMs=newMs.map((m:any)=>m.id!==id?m:{...m,children:(m.children||[]).map((c:any,ci:number)=>childIdMap.has(ci)?{...c,memberId:childIdMap.get(ci)}:c)});
+          }
         }
         return newMs;
       });
@@ -10143,25 +13659,37 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
               newVs=newVs.map((v:any)=>v.id===form.spouseId?{...v,familyId,spouseName:form.first+" "+form.last,family:familyName}:v);
             } else {
               const sid=nid.current++;
-              const spouseRec:any={id:sid,first:form.spouseFirst,last:form.spouseLast,type:"Visitor",stage:form.stage||"First Visit",firstVisit:td(),sponsor:form.sponsor||"",...EMPTY_PERSON_FIELDS,family:familyName,familyId,addedBy:addedByName,addedDate:td(),spouseName:form.first+" "+form.last,address:{...form.address},phone:form.spousePhone||"" ,email:form.spouseEmail||"" ,gender:form.spouseGender||"" ,birthday:form.spouseBirthday||""};
+              const spouseRec:any={id:sid,first:form.spouseFirst,last:form.spouseLast,type:"Visitor",stage:form.stage||"First Visit",firstVisit:td(),sponsor:form.sponsor||"",...EMPTY_PERSON_FIELDS,family:familyName,familyId,addedBy:addedByName,addedDate:td(),spouseName:form.first+" "+form.last,address:{...form.address},phone:form.spousePhone||"" ,email:form.spouseEmail||"" ,gender:form.spouseGender||"" ,birthday:form.spouseBirthday||"",isSpouseOf:id};
               newVs=[...newVs,spouseRec];
             }
           }
-          form.children.forEach((c:any)=>{
+          const visChildIdMap:Map<number,number>=new Map();
+          form.children.forEach((c:any,ci:number)=>{
             if(c.first&&c.last){
               if(c.memberId){
                 newVs=newVs.map((v:any)=>v.id===c.memberId?{...v,familyId,family:familyName}:v);
+                visChildIdMap.set(ci,c.memberId);
               } else {
                 const cid=nid.current++;
-                newVs=[...newVs,{id:cid,first:c.first,last:c.last,type:"Visitor",stage:form.stage||"First Visit",firstVisit:td(),sponsor:"",...EMPTY_PERSON_FIELDS,family:familyName,familyId,addedBy:addedByName,addedDate:td(),birthday:c.birthday||"",gender:c.gender||"",grade:c.grade||"",address:{...EMPTY_ADDR}}];
+                newVs=[...newVs,{id:cid,first:c.first,last:c.last,type:"Visitor",stage:form.stage||"First Visit",firstVisit:td(),sponsor:"",...EMPTY_PERSON_FIELDS,family:familyName,familyId,addedBy:addedByName,addedDate:td(),birthday:c.birthday||"",gender:c.gender||"",grade:c.grade||"",address:{...EMPTY_ADDR},isChild:true}];
+                visChildIdMap.set(ci,cid);
               }
             }
           });
+          if(visChildIdMap.size>0){
+            newVs=newVs.map((v:any)=>v.id!==id?v:{...v,children:(v.children||[]).map((c:any,ci:number)=>visChildIdMap.has(ci)?{...c,memberId:visChildIdMap.get(ci)}:c)});
+          }
         }
         return newVs;
       });
       // Auto-remove any matching prospect (same first+last, case-insensitive)
       if(setProspects) setProspects((ps:any[])=>ps.filter((p:any)=>!(p.first.toLowerCase()===form.first.toLowerCase()&&p.last.toLowerCase()===form.last.toLowerCase())));
+      // Auto-create Pastor Visit card in Visitation pipeline
+      if(setVisitRecords) setVisitRecords((rs:any[])=>{
+        if(rs.find((r:any)=>r.visitorId===id)) return rs;
+        return [...rs,{id:Date.now(),visitorId:id,stage:"Pastor",createdDate:td(),contacts:[],teamSupervisorUserId:null,teamLeaderUserId:null,sponsorUserId:null}];
+      });
+      localStorage.setItem('ntcc_force_cloud_save','1');
     }
     if(setChildren){
       const _pName=form.first+" "+form.last;
@@ -10172,7 +13700,7 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
       if(_newKids.length>0){setChildren((cs:any[])=>[...cs,..._newKids.map((c:any,_i:number)=>({id:Date.now()+_i+1,first:c.first,last:c.last,dob:c.birthday||"",grade:c.grade||"",classroomId:null,parentName:_pName,parentPhone:_pPhone,parentMemberId:id,allergies:form.allergies||[],medical:form.medical||[],medicalNotes:form.medicalNotes||"",emergencyPickup:form.emergencyName||"",status:"Active"}))]);}      if(_edDups.length>0) setPendingEduSync({dups:_edDups,parentName:_pName,parentPhone:_pPhone,parentMemberId:id});
     }
     setSaved({name:form.first+" "+form.last,type:pType,familyName:hasFamily?familyName:null});
-    setSpouseLinked(null); setSpouseSug([]);
+    setSpouseLinked(null); setSpouseSug([]); setChildSug({});
     setForm(blankForm());
     setDupWarning(null);
   };
@@ -10218,7 +13746,7 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
         {saved.familyName&&<p style={{fontSize:13,color:N,fontWeight:500,marginBottom:24,background:N+"0d",borderRadius:8,padding:"8px 14px"}}>🏠 Family unit created: <strong>{saved.familyName}</strong> — all linked members saved.</p>}
         <div style={{display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"}}>
           <Btn onClick={()=>setSaved(null)} v="gold">+ Add Another Person</Btn>
-          <Btn onClick={()=>setView("people")} v="outline">Go to {saved.type==="member"?"Members":"Visitation"} →</Btn>
+          <Btn onClick={()=>{if(saved.type==="visitor")(window as any).__peopleTab__="visitors";setView("people");}} v="outline">Go to {saved.type==="member"?"Members":"Visitor List"} →</Btn>
           {saved.type==="visitor"&&<Btn onClick={()=>setView("visitation")} v="outline">Go to Visitation →</Btn>}
         </div>
       </div>
@@ -10311,7 +13839,6 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
             <SH label="Membership Details" icon="⛪"/>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
               <Fld label="Status"><Slt value={form.status} onChange={sf("status")} opts={["Active","Inactive","New Member","On Leave","Transferred"]}/></Fld>
-              <Fld label="Role / Ministry"><Inp value={form.role} onChange={sf("role")} placeholder="Deacon, Choir, Usher…"/></Fld>
               <Fld label="Join Date"><Inp type="date" value={form.joined} onChange={sf("joined")}/></Fld>
             </div>
           </>
@@ -10427,10 +13954,27 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
           </div>
           {form.children.map((c:any,i:number)=>(
             <div key={i} style={{background:BG,border:"0.5px solid "+BR,borderRadius:8,padding:"10px 12px",marginBottom:8}}>
+              {c.memberId&&<div style={{fontSize:11,color:GR,background:GR+"12",border:"0.5px solid "+GR+"44",borderRadius:6,padding:"3px 10px",marginBottom:6,display:"flex",justifyContent:"space-between",alignItems:"center"}}><span>✔ Linked to existing record</span><button onClick={()=>setForm((f:any)=>({...f,children:f.children.map((cc:any,ii:number)=>ii===i?{...cc,memberId:null}:cc)}))} style={{background:"none",border:"none",cursor:"pointer",fontSize:11,color:RE,fontWeight:600,padding:0}}>✕ Unlink</button></div>}
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
                 <Fld label={`Child ${i+1} First Name`}><Inp value={c.first} onChange={v=>updChild(i,"first",v)} placeholder="First name"/></Fld>
                 <Fld label="Last Name"><Inp value={c.last} onChange={v=>updChild(i,"last",v)} placeholder="Last name"/></Fld>
               </div>
+              {(childSug[i]||[]).length>0&&(
+                <div style={{border:"0.5px solid "+BR,borderRadius:8,background:W,boxShadow:"0 4px 12px rgba(0,0,0,0.1)",marginBottom:8}}>
+                  <div style={{fontSize:10,color:MU,padding:"4px 10px",borderBottom:"0.5px solid "+BR,fontWeight:600}}>Link to existing record?</div>
+                  {(childSug[i]||[]).map((m:any,mi:number)=>(
+                    <div key={mi} onClick={()=>{setForm((f:any)=>({...f,children:f.children.map((cc:any,ii:number)=>ii===i?{...cc,first:m.first,last:m.last,birthday:m.birthday||m.dob||cc.birthday,grade:m.grade||cc.grade,gender:m.gender||cc.gender,memberId:m.id||null}:cc)}));setChildSug((cs:any)=>({...cs,[i]:[]}))}}
+                      style={{padding:"7px 12px",cursor:"pointer",fontSize:13,borderBottom:"0.5px solid "+BR+"88",display:"flex",alignItems:"center",gap:8}}
+                      onMouseEnter={e=>(e.currentTarget.style.background=BG)}
+                      onMouseLeave={e=>(e.currentTarget.style.background=W)}>
+                      <Av f={m.first} l={m.last} sz={22}/>
+                      <span style={{flex:1}}>{m.first} {m.last}</span>
+                      <span style={{fontSize:11,color:MU}}>{m.role||m.stage||m.grade||"Education"}</span>
+                    </div>
+                  ))}
+                  <div onClick={()=>setChildSug((cs:any)=>({...cs,[i]:[]}))} style={{padding:"5px 12px",cursor:"pointer",fontSize:11,color:MU,textAlign:"center"}}>✕ Dismiss — create new</div>
+                </div>
+              )}
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
                 <Fld label="Birthday"><Inp type="date" value={c.birthday||""} onChange={v=>{updChild(i,"birthday",v);const ag=calcAge(v);if(typeof ag==="number"&&ag>=0)updChild(i,"grade",gradeFromAge(ag));}}/></Fld>
                 <Fld label="Grade Level"><Slt value={c.grade||""} onChange={v=>updChild(i,"grade",v)} opts={["", ...CHILD_GRADES]}/></Fld>
@@ -10500,7 +14044,7 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
 
         {/* Save Row */}
         <div style={{display:"flex",gap:10,marginTop:24,paddingTop:16,borderTop:"0.5px solid "+BR,justifyContent:"flex-end",flexWrap:"wrap"}}>
-          <Btn onClick={()=>setForm(blankForm())} v="ghost">Clear Form</Btn>
+          <Btn onClick={()=>{setForm(blankForm());setChildSug({});setSpouseSug([]);setSpouseLinked(null);}} v="ghost">Clear Form</Btn>
           <Btn onClick={handleSave} style={{minWidth:160,justifyContent:"center"}}>Save {pType==="member"?"Member":"Visitor"} to Database</Btn>
         </div>
       </div>
@@ -10536,7 +14080,7 @@ function AlertPage({members,visitors,giving,checkIns,kidsCheckIns,children,visit
     if(last4.length<1) return [];
     const presentPerDate:Record<string,Set<any>> = {};
     last4.forEach(d=>{ presentPerDate[d]=new Set(sunCIs.filter((c:any)=>c.date===d).map((c:any)=>c.pid)); });
-    return (members||[]).filter((m:any)=>m.status==="Active"&&last4.length>0&&last4.every(d=>!presentPerDate[d]?.has(m.id)));
+    return (members||[]).filter((m:any)=>m.status==="Active"&&last4.length>0&&sunCIs.some((c:any)=>c.pid===m.id)&&last4.every(d=>!presentPerDate[d]?.has(m.id)));
   })();
 
   // ── TAB 2: Members who gave exactly 2 times in the previous month ──
@@ -10575,7 +14119,8 @@ function AlertPage({members,visitors,giving,checkIns,kidsCheckIns,children,visit
     if(last4.length<1) return [];
     const presentPerDate:Record<string,Set<any>> = {};
     last4.forEach(d=>{ presentPerDate[d]=new Set(allKCI.filter((c:any)=>c.date===d).map((c:any)=>c.childId)); });
-    return (children||[]).filter((ch:any)=>ch.status==="Active"&&last4.every(d=>!presentPerDate[d]?.has(ch.id)));
+    const kidCIs=allKCI;
+    return (children||[]).filter((ch:any)=>ch.status==="Active"&&last4.length>0&&kidCIs.some((c:any)=>c.childId===ch.id)&&last4.every(d=>!presentPerDate[d]?.has(ch.id)));
   })();
 
   // ── TAB 5: Birthdays in the current month ──
@@ -10653,21 +14198,21 @@ function AlertPage({members,visitors,giving,checkIns,kidsCheckIns,children,visit
                 <div style={{fontSize:14,fontWeight:600,color:N}}>Absent Members — 4 Consecutive Sundays</div>
                 <div style={{fontSize:12,color:MU,marginTop:2}}>Active members not checked in to any of the last 4 Sunday Morning services</div>
               </div>
-              <Btn onClick={()=>exportCSV([["Name","Phone","Email","Role"],
-                ...absentMembers.map((m:any)=>[m.first+" "+m.last,m.phone||"",m.email||"",m.role||"Member"])],
+              <Btn onClick={()=>exportCSV([["Name","Phone","Email"],
+                ...absentMembers.map((m:any)=>[m.first+" "+m.last,m.phone||"",m.email||""]),
+              ],
                 "absent-members.csv")} v="outline" style={{fontSize:12}}>Export CSV</Btn>
             </div>
             {absentMembers.length===0
               ? <EmptyState msg="No absent members found — either no Sunday Morning check-in data yet, or all members attended within the last 4 Sundays."/>
               : <table style={{width:"100%",borderCollapse:"collapse"}}>
-                  <thead><tr>{TH("Name")}{TH("Phone")}{TH("Email")}{TH("Role")}{TH("Actions","120px")}</tr></thead>
+                  <thead><tr>{TH("Name")}{TH("Phone")}{TH("Email")}{TH("Actions","120px")}</tr></thead>
                   <tbody>
                     {absentMembers.map((m:any)=>(
                       <tr key={m.id} style={TR}>
                         <TD><div style={{fontWeight:500}}>{m.first} {m.last}</div></TD>
                         <TD>{m.phone||<span style={{color:MU}}>—</span>}</TD>
                         <TD>{m.email||<span style={{color:MU}}>—</span>}</TD>
-                        <TD>{m.role||"Member"}</TD>
                         <TD><ActBtns p={m}/></TD>
                       </tr>
                     ))}
@@ -10719,21 +14264,21 @@ function AlertPage({members,visitors,giving,checkIns,kidsCheckIns,children,visit
                 <div style={{fontSize:14,fontWeight:600,color:N}}>Phone Directory</div>
                 <div style={{fontSize:12,color:MU,marginTop:2}}>All active members with a phone number on file ({phoneList.length})</div>
               </div>
-              <Btn onClick={()=>exportCSV([["Name","Phone","Email","Role"],
-                ...phoneList.map((m:any)=>[m.first+" "+m.last,m.phone||"",m.email||"",m.role||"Member"])],
+              <Btn onClick={()=>exportCSV([["Name","Phone","Email"],
+                ...phoneList.map((m:any)=>[m.first+" "+m.last,m.phone||"",m.email||""]),
+              ],
                 "phone-directory.csv")} v="outline" style={{fontSize:12}}>Export CSV</Btn>
             </div>
             {phoneList.length===0
               ? <EmptyState msg="No active members have phone numbers on file."/>
               : <table style={{width:"100%",borderCollapse:"collapse"}}>
-                  <thead><tr>{TH("Name")}{TH("Phone")}{TH("Email")}{TH("Role")}{TH("Actions","120px")}</tr></thead>
+                  <thead><tr>{TH("Name")}{TH("Phone")}{TH("Email")}{TH("Actions","120px")}</tr></thead>
                   <tbody>
                     {phoneList.map((m:any)=>(
                       <tr key={m.id} style={TR}>
                         <TD><div style={{fontWeight:500}}>{m.first} {m.last}</div></TD>
                         <TD style={{fontWeight:500,color:N}}>{m.phone}</TD>
                         <TD>{m.email||<span style={{color:MU}}>—</span>}</TD>
-                        <TD>{m.role||"Member"}</TD>
                         <TD><ActBtns p={m}/></TD>
                       </tr>
                     ))}
@@ -10884,12 +14429,14 @@ function ManualPage(){
   const SECTIONS=[
     {id:'s1',label:'1. Getting Started'},{id:'s2',label:'2. Dashboard'},{id:'s3',label:'3. Adding People'},
     {id:'s21',label:'4. Prospects'},{id:'s4',label:'5. Members Profile'},{id:'s5',label:'6. Visitation & Follow-Up'},
-    {id:'s6',label:'7. Groups Ministry'},{id:'s7',label:'8. Education & Check-In'},{id:'s8',label:'9. Event Calendar'},
-    {id:'s9',label:'10. Attendance'},{id:'s10',label:'11. Giving & Pledges'},{id:'s11',label:'12. Prayer Wall'},
-    {id:'s12',label:'13. Email Center'},{id:'s13',label:'14. SMS Center'},{id:'s14',label:'15. Access Control'},
-    {id:'s15',label:'16. AI Assistant'},{id:'s23',label:'17. Alerts & Reports'},{id:'s22',label:'18. Appearance & Themes'},{id:'s16',label:'19. Settings'},
-    {id:'s17',label:'20. Backup & Restore'},{id:'s18',label:'21. Maintenance'},{id:'s19',label:'22. Printer Setup'},
-    {id:'s20',label:'23. Member Portal'},
+    {id:'s24',label:'7. Volunteer Scheduler'},{id:'s25',label:'8. Classes & Training'},
+    {id:'s26',label:'9. Hospital & Visits'},{id:'s27',label:'10. Benevolence Fund'},{id:'s29',label:'11. Hospitality Account'},{id:'s28',label:'12. Counseling Log'},
+    {id:'s6',label:'12. Groups Ministry'},{id:'s7',label:'13. Education & Check-In'},{id:'s8',label:'14. Event Calendar'},
+    {id:'s9',label:'15. Attendance'},{id:'s10',label:'16. Giving & Pledges'},{id:'s11',label:'17. Prayer Wall'},
+    {id:'s12',label:'18. Email Center'},{id:'s13',label:'19. SMS Center'},{id:'s14',label:'20. Access Control'},
+    {id:'s15',label:'21. AI Assistant'},{id:'s23',label:'22. Alerts & Reports'},{id:'s22',label:'23. Appearance & Themes'},{id:'s16',label:'24. Settings'},
+    {id:'s17',label:'25. Backup & Restore'},{id:'s18',label:'26. Maintenance'},{id:'s19',label:'27. Printer Setup'},
+    {id:'s20',label:'28. Member Portal'},
   ];
   const H=({id,children}:any)=><h2 ref={setRef(id)} style={{fontSize:17,fontWeight:600,color:N,margin:'0 0 14px',paddingBottom:10,borderBottom:'2px solid '+G}}>{children}</h2>;
   const H3=({children}:any)=><h3 style={{fontSize:13,fontWeight:600,color:N,margin:'18px 0 8px',textTransform:'uppercase',letterSpacing:0.4}}>{children}</h3>;
@@ -10916,7 +14463,7 @@ function ManualPage(){
         <div style={{background:N,borderRadius:12,padding:'20px 24px',marginBottom:20}}>
           <div style={{color:'#fff',fontSize:21,fontWeight:600,letterSpacing:0.3}}>ChurchOS Staff Manual</div>
           <div style={{color:G,fontSize:13,marginTop:4}}>New Testament Christian Church — Administrator Guide</div>
-          <div style={{color:'#7a9acc',fontSize:12,marginTop:6}}>Version 6.4 · May 2026 · For internal staff use</div>
+          <div style={{color:'#7a9acc',fontSize:12,marginTop:6}}>Version 6.7 · May 2026 · For internal staff use</div>
         </div>
 
         <Sec><H id="s1">1. Getting Started</H>
@@ -11042,6 +14589,22 @@ function ManualPage(){
           <Ol><Li>Open <B>Visitation</B> in the sidebar</Li><Li>On the <B>Pipeline</B> tab, click the <B>📄 Thank You Letter</B> button on any visitor's card. On the <B>Tracker</B> tab, click the <B>📄 Letter</B> button in the Actions column</Li><Li>The modal opens and AI immediately drafts a warm, personalized letter using the visitor's name, their first visit date, your church name, pastor name, address, and contact information</Li><Li>While the AI writes, a spinner shows <B>"AI is writing your letter…"</B></Li><Li>Once generated, you can <B>edit the letter directly</B> in the text area before downloading</Li><Li>Click <B>🔄 Regenerate</B> to get a fresh AI version if you prefer a different draft</Li><Li>Click <B>⬇ Download as Word (.doc)</B> to save the letter — it includes your church letterhead, logo (if configured), date, salutation, body, and pastor signature block</Li><Li>Open the downloaded file in Microsoft Word or Google Docs, add a handwritten signature, and mail it</Li></Ol>
           <Tip>The letter is pre-addressed with the visitor's name. For best results, ensure your <B>church name</B>, <B>pastor name</B>, <B>address</B>, and <B>logo</B> are configured in Settings first — these are embedded in the letterhead automatically.</Tip>
           <Note>The downloaded file uses the <B>.doc</B> format (Word-compatible HTML). If you need a true .docx, open the file in Word and use <B>Save As → Word Document (.docx)</B>.</Note>
+          <H3>Visitor Family Pipeline Cards</H3>
+          <P>When a visitor family is registered together via <B>Add Person → Visitor</B> (with spouse and/or children filled in on the same form), ChurchOS creates a <B>single unified pipeline card</B> for the family rather than separate cards for each person:</P>
+          <Ul>
+            <Li>The card header shows <B>both spouses' full names</B> — e.g. "John Smith &amp; Mary Smith"</Li>
+            <Li>A <B>Children</B> line below lists all children's names — e.g. "Children: Jake, Emma"</Li>
+            <Li>Children do not receive their own pipeline cards — follow-up is managed at the family unit level from the primary card</Li>
+          </Ul>
+          <Note>Only the primary visitor (Father or Mother) generates a pipeline card. The spouse and children are displayed on that same card and are excluded from the pipeline's automatic card-creation logic.</Note>
+          <H3>Pipeline Visibility by Role</H3>
+          <P>What visitation records you can see in the pipeline depends on your assigned role:</P>
+          <Ul>
+            <Li><B>Super Admin / Administrator / Staff</B> — full pipeline visibility: all visit records across all stages</Li>
+            <Li><B>Pastor</B> — full pipeline visibility plus access to the <B>Reassign</B> control on Ongoing Care cards</Li>
+            <Li><B>Team Supervisor / Team Leader / Sponsor</B> — limited to visits where they are directly assigned (as supervisor, leader, or sponsor)</Li>
+          </Ul>
+          <Tip>Staff members who need to oversee pastoral outreach across the congregation can now be assigned the <B>Staff</B> role without requiring a full Administrator login — they will see the complete pipeline automatically.</Tip>
         </Sec>
 
         <Sec><H id="s6">6. Groups Ministry</H>
@@ -11110,7 +14673,7 @@ function ManualPage(){
           <P>The <B>Giving</B> section records all financial contributions, manages pledge drives, and stores weekly financial reports.</P>
           <Note>Access to the Giving section is restricted to staff with the <B>Administrator</B>, <B>Office</B>, or <B>Pastor</B> role. Staff with other roles (Staff, Volunteer, Check-In, etc.) will not see Giving in the sidebar or on the Dashboard. Contact your Super Administrator to update a role's permissions if access is needed.</Note>
           <H3>Recording a Donation</H3>
-          <Ol><Li>Go to <B>Giving</B> in the sidebar and click <B>+ Record Gift</B></Li><Li>Select the donor (member or visitor), or enter a name manually for anonymous gifts</Li><Li>Enter the amount, date, fund (Tithe, Missions, Building, General, etc.), and payment method (Cash, Check, Card, Online)</Li><Li>Click <B>Save</B></Li></Ol>
+          <Ol><Li>Go to <B>Giving</B> in the sidebar and click <B>+ Record Gift</B></Li><Li>Select the donor (member or visitor), or enter a name manually for anonymous gifts</Li><Li>Enter the <B>amount</B> and <B>date</B></Li><Li>Select a <B>Fund / Category</B> — 16 categories are available: Tithe, Sunday Morning Offering, Sunday Night Offering, Thursday Night Offering, Budget Offering, Housing, Building Fund, Promo, Food, Special Gift, First Time Giver, First Time Tither, Spiritual Battle Buddy, My Sister's Keeper, Church Offering, World Mission</Li><Li>Select a <B>Payment Method</B> — defaults to <B>Online</B>; other options are Check, Cash, Card, and Bank Transfer</Li><Li>Click <B>Save</B></Li></Ol>
           <H3>Managing Pledge Drives</H3>
           <Ol><Li>Click the <B>Pledges</B> tab within Giving and click <B>+ New Drive</B></Li><Li>Enter the campaign name, goal amount, and deadline</Li><Li>Add individual pledge commitments by member and amount</Li><Li>Track fulfillment as donations are recorded against the drive</Li></Ol>
           <H3>Individual Giving Totals</H3>
@@ -11121,6 +14684,47 @@ function ManualPage(){
           <P>Each weekly report automatically calculates the <B>Pastor's Draw</B> — the pastor's portion of combined tithes and Sunday Morning Offering. The draw percentage can be set globally in Giving settings (default 60%) and overridden per individual report using the dropdown on the report card.</P>
           <Ul><Li><B>0% — No Draw</B> — the pastor receives nothing from that week's tithes ($0.00). Useful for special services, missions weeks, or weeks where the pastor waives their draw.</Li><Li><B>10%–60%</B> — standard percentage options. The current global default is marked <B>(default)</B> in the dropdown.</Li></Ul>
           <Tip>When a per-report override is set, the report card shows an <B>overridden</B> badge in amber so it is easy to identify reports that differ from the global default.</Tip>
+          <H3>Weekly Batches</H3>
+          <P>The <B>Weekly Batches</B> tab organizes giving records into Monday–Sunday batches, each saved under that week's Sunday date. Batches must be created manually so staff control when a new collection week opens.</P>
+          <H3>Starting a New Week Batch</H3>
+          <Ol>
+            <Li>Click the <B>Weekly Batches</B> tab inside Giving</Li>
+            <Li>Click <B>▶ Start New Week (Mon date – Sun date)</B> — this button only appears if no batch for the current week exists yet</Li>
+            <Li>Any previously open batch is automatically closed when a new week starts</Li>
+            <Li>The new batch appears at the top of the list with an <B>Open</B> green badge</Li>
+          </Ol>
+          <H3>Creating a Batch for a Past Week</H3>
+          <Ol>
+            <Li>Click the <B>+ Past Week Batch</B> button (top-right of the Weekly Batches tab)</Li>
+            <Li>A modal appears — pick the <B>Monday</B> of the week you want to create a batch for</Li>
+            <Li>The computed Sunday date is shown for confirmation</Li>
+            <Li>Click <B>Create Batch</B> — the batch is created with a <B>Closed</B> status (click Re-open inside the batch to add records)</Li>
+          </Ol>
+          <Tip>Use Past Week Batch to retroactively record giving from a week that was missed — for example, entering paper offering records after the fact.</Tip>
+          <H3>Viewing and Working Inside a Batch</H3>
+          <P>Click any batch card to open it. Inside the batch detail view you can:</P>
+          <Ul>
+            <Li><B>+ Add Record</B> — opens a form with the date constrained to the batch's Mon–Sun window; giver name autocompletes from members and visitors</Li>
+            <Li><B>By Category / By Method</B> — live breakdowns of totals for that week</Li>
+            <Li><B>⬇ Export CSV</B> — downloads all records in the batch as a spreadsheet</Li>
+            <Li><B>Close Batch</B> — marks it read-only; <B>Re-open</B> makes it editable again</Li>
+          </Ul>
+          <H3>Giving Records Tab — Active Batch View</H3>
+          <P>The <B>Giving Records</B> tab now shows only the records belonging to the <B>currently open batch</B>:</P>
+          <Ul>
+            <Li>If a batch is open, a green banner shows the active batch dates, record count, and running total. Only that week's records are listed below.</Li>
+            <Li>If no batch is open, an amber callout appears with a link to <B>Weekly Batches → Start New Week</B>.</Li>
+          </Ul>
+          <Note>To view or search all historical giving records across all weeks, use the <B>Giving History</B> tab which is not filtered by batch.</Note>
+          <H3>Importing from Onlinegiving.cc CSV</H3>
+          <Ol>
+            <Li>Export a CSV from your Onlinegiving.cc account (typically from the Transactions or Reports section)</Li>
+            <Li>In the <B>Giving Records</B> tab, click <B>⬆ Import Onlinegiving.cc CSV</B></Li>
+            <Li><B>Step 1 — Upload</B>: Click <B>Choose File</B> and select the exported CSV. ChurchOS reads the file and detects new vs. duplicate records (duplicates are matched by date + name + amount).</Li>
+            <Li><B>Step 2 — Review</B>: A summary shows how many records will be imported and how many duplicates will be skipped. Set a default category for the imported records.</Li>
+            <Li><B>Step 3 — Done</B>: Click <B>Confirm Import</B> — all new records are added to the giving list instantly.</Li>
+          </Ol>
+          <Tip>Run the import after downloading your weekly online giving report. Duplicate detection prevents double-counting if you import the same CSV twice.</Tip>
           <H3>Deleting a Giving Record</H3>
           <Ol>
             <Li>Locate the record in the <B>Giving Records</B> table on the Giving tab</Li>
@@ -11190,23 +14794,24 @@ function ManualPage(){
           <Ul><Li>Sidebar navigation items</Li><Li>Dashboard quick-action shortcuts</Li><Li>Dashboard stat cards (e.g. giving totals are hidden for non-finance roles)</Li></Ul>
           <Tip>To see what a staff member can access, open their role in the <B>Roles</B> tab and review the enabled permissions. Adjust as needed — changes take effect on their next sign-in.</Tip>
           <H3>Built-In Roles</H3>
-          <Ul><Li><B>Super Admin</B> — full unrestricted access including user management</Li><Li><B>Administrator</B> — full access to all features including Giving; excludes Access Control user management</Li><Li><B>Office</B> — full access to all features including Giving</Li><Li><B>Pastor</B> — directory, giving, prayer, visitation, email, AI</Li><Li><B>Staff</B> — directory, attendance, events, groups</Li><Li><B>Volunteer</B> — directory view and event calendar only</Li><Li><B>Check-In</B> — Education check-in portal only</Li><Li><B>Finance</B> — giving records and reports only</Li></Ul>
+          <Ul><Li><B>Super Admin</B> — full unrestricted access including user management</Li><Li><B>Administrator</B> — full access to all features including Giving; excludes Access Control user management</Li><Li><B>Office</B> — full access to all features including Giving</Li><Li><B>Pastor</B> — directory, giving, prayer, visitation, email, AI</Li><Li><B>Staff</B> — directory, attendance, events, groups, full Visitation pipeline</Li><Li><B>Volunteer</B> — directory view and event calendar only</Li><Li><B>Check-In</B> — Education check-in portal only</Li><Li><B>Finance</B> — giving records and reports only</Li></Ul>
           <Note>Access to the <B>Giving</B> section is limited to the <B>Administrator</B>, <B>Office</B>, and <B>Pastor</B> roles. All other roles cannot see Giving in the sidebar or on the Dashboard.</Note>
           <H3>Module-Level Permissions (Create / View / Edit / Delete)</H3>
           <P>Inside each role, permissions are set per module with four granular actions: <B>Create</B>, <B>View</B>, <B>Edit</B>, and <B>Delete</B>. Two modules use a single <B>Create</B> action only:</P>
           <Ul><Li><B>Add Person</B> — controls whether the staff member can add new members via the Add Person page. Restricted staff without this permission will not see the Add Person button.</Li><Li><B>Add Visitor</B> — controls whether the staff member can add new visitors via the Add Person page. Restricted staff without this permission will not see the Add Visitor button in the Visitation pipeline.</Li></Ul>
           <Tip>Use <B>Add Visitor</B> permission to give certain roles (e.g., Greeters or Ushers) the ability to register new visitors on Sunday morning without granting full member-creation rights.</Tip>
-          <H3>Team Leader Secondary Role</H3>
-          <P>A <B>Team Leader</B> user can be assigned a <B>Secondary Role</B> in addition to their primary role. This grants them the <B>combined permissions of both roles</B> — they can do everything their primary role allows plus everything the secondary role allows.</P>
+          <Note>Three Pastoral Care modules — <B>Hospital &amp; Visits</B>, <B>Benevolence Fund</B>, and <B>Counseling Log</B> — appear in the Permissions Matrix with the full View / Create / Edit / Delete action set. By default all three are <B>off for every role except Administrator</B>. Grant access per role as needed. Staff without View permission on any of these modules will not see the item in the sidebar.</Note>
+          <H3>Secondary Role (All Users)</H3>
+          <P>Any user can be assigned a <B>Secondary Role</B> in addition to their primary role. This grants them the <B>combined permissions of both roles</B> — they can do everything their primary role allows plus everything the secondary role allows.</P>
           <Ol>
-            <Li>Go to <B>Access Control → Users</B> and open the Team Leader's user record (click their row or click <B>Edit</B>)</Li>
-            <Li>When the <B>Role</B> is set to <B>Team Leader</B>, a <B>Secondary Role</B> dropdown appears below it</Li>
-            <Li>Select the additional role to grant (e.g. <B>Office</B> to give the Team Leader access to Giving)</Li>
+            <Li>Go to <B>Access Control → Users</B> and open the user's record (click their row or click <B>Edit</B>)</Li>
+            <Li>A <B>Secondary Role</B> dropdown is always shown below the primary <B>Role</B> field for every user</Li>
+            <Li>Select the additional role to grant (e.g. <B>Office</B> to give a Staff member access to Giving)</Li>
             <Li>Click <B>Save</B></Li>
           </Ol>
-          <P>After saving, the Users table displays both roles as <B>color-coded badges</B> on the user's row (e.g. a navy Team Leader badge + a gold Office badge). The same dual-role badges appear in the user detail panel.</P>
-          <Note>Secondary role assignment is only available when a user's primary role is <B>Team Leader</B>. For all other roles, only the primary role is used.</Note>
-          <Tip>Use this to give a Team Leader who also manages church finances access to the Giving section without promoting them to a full Administrator role.</Tip>
+          <P>After saving, the Users table displays both roles as <B>color-coded badges</B> on the user's row (e.g. a navy Staff badge + a gold Office badge). The same dual-role badges appear in the user detail panel.</P>
+          <Note>Secondary role permissions are <B>additive</B> — the user receives the union of all permissions from both their primary and secondary roles. There is no conflict resolution; access is granted if either role allows it.</Note>
+          <Tip>Use this to give any staff member who handles multiple responsibilities access to additional modules without promoting them to a full Administrator role — for example, a Staff member who also manages hospitality finances.</Tip>
           <H3>Creating Custom Roles</H3>
           <Ol><Li>Click the <B>Roles</B> tab within Access Control and click <B>+ New Role</B></Li><Li>Name the role and toggle individual permissions per module: view, create, edit, delete</Li><Li>Click <B>Save Role</B></Li><Li>Assign the new role to users from the Users tab</Li></Ol>
           <H3>Pending Accounts</H3>
@@ -11232,7 +14837,8 @@ function ManualPage(){
           <P>The <B>Alerts &amp; Reports</B> page is an automated action center that surfaces members and visitors who need attention — absent members, low givers, children not checked in, upcoming birthdays, outstanding visitation, and a full phone directory. A <B>red badge</B> on the Alerts sidebar item shows the total count of actionable items across all tabs.</P>
           <H3>Navigating the Page</H3>
           <P>Click <B>Alerts</B> in the sidebar to open the page. Six tabs are available at the top:</P>
-          <Ul><Li><B>Absent Members</B> — members who did not appear in any of the last 4 Sunday Morning check-in sessions</Li><Li><B>Low Giving</B> — members who gave only twice in the previous completed calendar month (flagged for pastoral encouragement)</Li><Li><B>Phone Directory</B> — all active members with a phone number on file, sorted A–Z by last name</Li><Li><B>Absent Children</B> — children who did not appear in any of the last 4 kids check-in sessions</Li><Li><B>Birthdays</B> — members with a birthday in the current calendar month, sorted by day</Li><Li><B>Outstanding Visits</B> — visitation records not yet marked Complete or Converted</Li></Ul>
+          <Ul><Li><B>Absent Members</B> — active members who missed all of the last 4 consecutive Sunday Morning check-in sessions <em>and</em> have at least one check-in on record (members who have never attended are excluded)</Li><Li><B>Low Giving</B> — members who gave only twice in the previous completed calendar month (flagged for pastoral encouragement)</Li><Li><B>Phone Directory</B> — all active members with a phone number on file, sorted A–Z by last name</Li><Li><B>Absent Children</B> — active children who missed all of the last 4 consecutive kids' ministry sessions <em>and</em> have at least one check-in on record (children who have never attended are excluded)</Li><Li><B>Birthdays</B> — members with a birthday in the current calendar month, sorted by day</Li><Li><B>Outstanding Visits</B> — visitation records not yet marked Complete or Converted</Li></Ul>
+          <Note>The "last 4 sessions" are the 4 most recent dates where any check-in was recorded — not the last 4 calendar Sundays. If fewer than 4 sessions exist in the database, no absent alert is generated until enough data has been collected.</Note>
           <H3>Exporting a Tab</H3>
           <Ol><Li>Click the desired tab (e.g. <B>Absent Members</B>)</Li><Li>Click the <B>Export CSV</B> button at the top-right of the list</Li><Li>A spreadsheet file is downloaded with the names, phone numbers, and relevant details for everyone on that tab</Li></Ol>
           <H3>Contacting People from Alerts</H3>
@@ -11367,8 +14973,121 @@ function ManualPage(){
           <Warn>Member Portal users cannot access any staff features — member lists, visitation records, giving reports, access control, or any administrative function. The portal is completely separated from the staff interface and shows only the logged-in member's own data.</Warn>
         </Sec>
 
+        <Sec><H id="s24">7. Volunteer &amp; Usher Scheduler</H>
+          <P>The <B>Volunteer Scheduler</B> (under Ministry) lets you assign members to specific volunteer or usher roles for each service, track who is serving when, and identify your most faithful servants over time.</P>
+          <H3>Adding a Slot</H3>
+          <Ol><Li>Go to <B>Ministry → Volunteer Scheduler</B> in the sidebar</Li><Li>Click <B>+ Add Slot</B></Li><Li>Select the <B>Date</B>, <B>Service</B> (Sunday Morning Worship, Sunday Evening, Wednesday Night, Special Service, etc.), and <B>Role</B> (Usher, Greeter, Audio/Visual, Door Monitor, Parking, etc.)</Li><Li>Select the <B>Member</B> being assigned and add optional <B>Notes</B> (e.g. "Back door", "Lead usher")</Li><Li>Click <B>Save</B></Li></Ol>
+          <H3>Filtering the Schedule</H3>
+          <Ul><Li>Use the <B>search bar</B> to find a specific member by name or role keyword</Li><Li>Filter by a specific <B>date</B> or <B>role</B> using the dropdowns</Li><Li>Switch tabs to view <B>Upcoming</B> slots, <B>Past</B> slots, <B>All</B> slots, or the <B>Top Volunteers</B> leaderboard</Li></Ul>
+          <H3>Top Volunteers Tab</H3>
+          <P>The <B>Top Volunteers</B> tab shows the 5 members most frequently assigned across all services — useful for recognizing faithful servants and identifying who may need a rotation rest.</P>
+          <H3>Printing and Exporting</H3>
+          <Ul><Li>Click <B>🖨 Print / PDF</B> to open a clean formatted schedule in a new browser tab — use the browser's Print dialog (Ctrl+P) to save as PDF or send to a printer</Li><Li>Click <B>📄 Download Word</B> to download a <B>Volunteer_Schedule.doc</B> file that opens in Microsoft Word or Google Docs for further editing</Li><Li>Both options export only the records currently visible — apply date or role filters first to narrow the view before exporting</Li></Ul>
+          <Tip>Set the date filter to the current week before printing so the exported schedule shows only this Sunday's volunteer assignments.</Tip>
+          <Note>The schedule stats bar at the top shows Total Slots, Upcoming count, Past count, and unique Volunteers assigned — all updating in real time as you apply filters.</Note>
+        </Sec>
+
+        <Sec><H id="s25">8. Classes &amp; Leadership Training</H>
+          <P>The <B>Classes &amp; Training</B> section (under Ministry) tracks class enrollments and records session-by-session attendance for all church training programs — New Member Class, Bible Study, Leadership Development, Baptism Prep, and more.</P>
+          <H3>Enrolling a Member</H3>
+          <Ol><Li>Go to <B>Ministry → Classes &amp; Training</B> in the sidebar</Li><Li>Click the <B>📋 Enrollments</B> tab, then <B>+ Enroll Member</B></Li><Li>Select the <B>Member</B>, <B>Class Name</B>, <B>Start Date</B>, and <B>Status</B> (Enrolled, In Progress, Completed, or Dropped)</Li><Li>Click <B>Enroll</B> to save the record</Li></Ol>
+          <H3>Taking Attendance for a Session</H3>
+          <Ol><Li>On the <B>Enrollments</B> tab, find any enrollment row for the class and click <B>📋 Attendance</B></Li><Li>An <B>Attendance History</B> modal opens showing all previous sessions for that class, with dates and attendee lists</Li><Li>Click <B>+ New Session</B> to record attendance</Li><Li>Set the <B>Session Date</B> (defaults to today)</Li><Li>A <B>checklist</B> automatically shows all members enrolled in that class — check the box for everyone present (all enrolled are pre-checked; uncheck absentees)</Li><Li>Use the <B>search bar</B> inside the session form to find and add visitors, prospects, or walk-in guests not formally enrolled</Li><Li>Click <B>Save Attendance</B></Li></Ol>
+          <Note>Saving a session automatically increments the <B>Sessions Attended</B> counter for each enrolled member marked present. The counter appears on each enrollment card.</Note>
+          <H3>Attendance Report Tab</H3>
+          <P>Click the <B>📊 Attendance Report</B> tab to see a full breakdown by class:</P>
+          <Ul><Li>Total sessions recorded per class</Li><Li>Total individual attendance entries</Li><Li>Each session's date and complete list of attendees by name</Li></Ul>
+          <Tip>Use the Attendance Report to confirm who has completed the New Member Class before moving them through membership steps. The session count next to each name shows exactly how many sessions they attended.</Tip>
+        </Sec>
+
+        <Sec><H id="s26">9. Hospital &amp; Visits</H>
+          <P>The <B>Hospital &amp; Visits</B> section (under Pastoral Care) is a log for tracking hospital calls, home visits, nursing home visits, phone check-ins, and prayer visits for members and visitors.</P>
+          <H3>Logging a Visit</H3>
+          <Ol><Li>Go to <B>Pastoral Care → Hospital &amp; Visits</B> in the sidebar</Li><Li>Click <B>+ Log Visit</B></Li><Li>Select the <B>Person</B> (members and visitors are listed in separate groups)</Li><Li>Choose a <B>Visit Type</B>: Hospital Visit, Home Visit, Nursing Home, Rehab Center, Phone Call, Prayer Visit, or Other</Li><Li>Enter the <B>Facility / Location</B> — previously used facility names appear in a dropdown for quick selection; click <B>+ Other</B> to type a new name</Li><Li>Set the <B>Status</B>: Scheduled, In Progress, Visited, or Cancelled</Li><Li>The <B>Date Created</B> auto-fills with today (when the need was identified); leave <B>Date Visited</B> blank until the actual visit occurs</Li><Li>Add notes and an optional <B>Next Follow-Up</B> date, then click <B>Save</B></Li></Ol>
+          <H3>Date Created vs. Date Visited</H3>
+          <Ul><Li><B>📋 Date Created</B> — auto-filled with today when the record is first saved. Tracks when the pastoral need was identified.</Li><Li><B>⏳ Date Visited</B> — left blank until the visit actually takes place. Cards show <B>⏳ Not yet visited</B> in amber until filled in. Once entered, the card shows <B>✅ Visited: [date]</B> in green.</Li></Ul>
+          <H3>Facility Memory</H3>
+          <P>Every facility name you use is saved automatically. The next time you log a visit, those names appear as a dropdown so you do not have to retype them. Select <B>+ Other</B> to enter a new facility not yet in the list.</P>
+          <H3>Statuses</H3>
+          <Ul><Li><B>Scheduled</B> — visit planned but not yet made (blue badge)</Li><Li><B>In Progress</B> — active pastoral engagement (amber badge)</Li><Li><B>Visited</B> — visit completed (green badge)</Li><Li><B>Cancelled</B> — visit no longer needed (gray badge)</Li></Ul>
+          <Note>Access to Hospital &amp; Visits is controlled per-role in the Permissions Matrix (Access Control). Staff without View permission will not see this item in the sidebar. By default only the Administrator role has access.</Note>
+        </Sec>
+
+        <Sec><H id="s27">10. Benevolence Fund</H>
+          <P>The <B>Benevolence Fund</B> section (under Pastoral Care) tracks financial assistance requests from members and visitors — from initial request through approval and disbursement.</P>
+          <H3>Recording a Request</H3>
+          <Ol><Li>Go to <B>Pastoral Care → Benevolence Fund</B> in the sidebar</Li><Li>Click <B>+ New Request</B></Li><Li>Select the <B>Person</B> making the request (members and visitors listed separately)</Li><Li>Enter the <B>Request Date</B>, <B>Category</B> (Food Assistance, Rent / Housing, Utility Bill, Medical, Transportation, Clothing, Emergency Cash, Condolence Meal, Flower Arrangement, or Other), and <B>Amount Requested</B> — amount is optional for Condolence Meal and Flower Arrangement</Li><Li>Add a description of the need and pastoral notes</Li><Li>Set the initial <B>Status</B> (default: Pending) and click <B>Save</B></Li></Ol>
+          <H3>Condolence Meal &amp; Flower Arrangement</H3>
+          <P>When <B>Condolence Meal</B> is selected as the Category, the form expands with bereavement-support fields:</P>
+          <Ul>
+            <Li>The person field changes to <B>Family Contact (Member)</B>. Selecting a person <B>automatically fills the Bereaved Family Name</B> from their family record (e.g. selecting John Smith auto-fills "The Smith Family"). Edit manually if needed.</Li>
+            <Li><B>Meal Providers</B> — click <B>+ Add Provider</B> to list which members will contribute dishes and what they will bring.</Li>
+            <Li><B>Service Date</B> and <B>Delivery / Pickup Time</B> — logistics for the condolence meal.</Li>
+            <Li><B>Estimated Cost</B> — optional; amount is not required for this category.</Li>
+          </Ul>
+          <P>When <B>Flower Arrangement</B> is selected the amount is also optional — enter an estimated cost if known.</P>
+          <Tip>Select the Family Contact <em>first</em> — the Bereaved Family Name auto-fills from their profile so you do not need to type it manually.</Tip>
+          <H3>Tracking Through to Disbursement</H3>
+          <Ol><Li>Find the request and click <B>Edit</B></Li><Li>Update the <B>Status</B> as the request progresses through review</Li><Li>Enter the <B>Amount Approved</B> when authorizing funds, and the <B>Disbursement Date</B> when funds are actually released</Li><Li>Click <B>Save</B></Li></Ol>
+          <H3>Request Statuses</H3>
+          <Ul><Li><B>Pending</B> — submitted, awaiting review (amber)</Li><Li><B>Under Review</B> — being evaluated by leadership (blue)</Li><Li><B>Approved</B> — authorized, funds to be disbursed (teal)</Li><Li><B>Disbursed</B> — funds delivered to the recipient (green)</Li><Li><B>Denied</B> — request declined (red)</Li></Ul>
+          <H3>Fund Summary Stats</H3>
+          <P>The top of the Benevolence page shows live totals: total requests on file, total pending with dollar amount, total disbursed with dollar amount paid out, and total denied.</P>
+          <Note>Access to Benevolence Fund is controlled per-role in the Permissions Matrix. By default only Administrator has access. Grant access per role as needed in Access Control.</Note>
+          <Tip>Set Status to <B>Disbursed</B> only after funds are physically delivered — not when they are approved. This keeps your records accurate for treasurer and board reporting.</Tip>
+        </Sec>
+
+        <Sec><H id="s29">11. Hospitality Account</H>
+          <P>The <B>Hospitality Account</B> (under Pastoral Care) is a double-entry ledger for tracking the church's hospitality fund — money received (<B>Credits</B>) and money spent (<B>Debits</B>) — with a live running balance per entry.</P>
+          <H3>How the Ledger Works</H3>
+          <Ul>
+            <Li><B>Credit (IN)</B> — money added to the fund: Donation, Offering, Reimbursement</Li>
+            <Li><B>Debit (OUT)</B> — money spent from the fund: Expense, Supply Purchase, Event Cost, Withdrawal</Li>
+            <Li>The <B>Running Balance</B> column shows the cumulative fund balance after each transaction, calculated from the configured Beginning Balance</Li>
+          </Ul>
+          <H3>Setting the Beginning Balance</H3>
+          <P>The existing fund balance before you began tracking in ChurchOS is the <B>Beginning Balance</B>. Set it once when you first open the page:</P>
+          <Ol>
+            <Li>Click the <B>✎ pencil icon</B> next to the Beginning Balance stat card at the top of the page</Li>
+            <Li>Type the current fund balance and press <B>Enter</B> or click <B>Set</B></Li>
+          </Ol>
+          <Note>The Beginning Balance is the starting point for all running balance calculations. Update it if you are migrating from a previous system with an existing fund balance on hand.</Note>
+          <H3>Adding an Entry</H3>
+          <Ol>
+            <Li>Go to <B>Pastoral Care → Hospitality Account</B> in the sidebar and click <B>+ Add Entry</B></Li>
+            <Li>Enter the <B>Date</B> and select a <B>Category</B>: Donation, Offering, Reimbursement, Expense, Supply Purchase, Event Cost, Withdrawal, or Other</Li>
+            <Li>Optionally link a <B>Member</B> — type to search, click a name to associate them with the entry (useful for donor tracking)</Li>
+            <Li>Enter a <B>Description</B>, optional <B>Check #</B> (for check transactions), and <B>Recorded By</B> (staff name for audit purposes)</Li>
+            <Li>Enter a <B>Credit (IN)</B> amount or a <B>Debit (OUT)</B> amount — at least one is required</Li>
+            <Li>Click <B>Save</B></Li>
+          </Ol>
+          <H3>Filtering by Month and Year</H3>
+          <P>Use the <B>Month</B> and <B>Year</B> dropdowns at the top of the ledger to view entries for a specific period. The stat cards (Total Credits, Total Debits, Ending Balance) update automatically to reflect the filtered period only.</P>
+          <Tip>The <B>Period Totals</B> row at the bottom of the table always matches the current filter — use it to quickly verify a month-end balance.</Tip>
+          <H3>Donor Summary</H3>
+          <P>Below the ledger table, a <B>Donor Summary</B> panel shows every linked member who has contributed to the fund, with their total amount given. It builds automatically from all credit entries that have a member linked.</P>
+          <H3>Editing and Deleting Entries</H3>
+          <Ul>
+            <Li>Click <B>✎</B> on any row to edit the entry details</Li>
+            <Li>Click <B>✕</B> on any row to permanently delete the entry after a confirmation prompt</Li>
+          </Ul>
+          <Note>Access to Hospitality Account is controlled per-role in the Permissions Matrix. By default only Administrator has access. Grant access per role as needed in Access Control → Roles.</Note>
+        </Sec>
+
+        <Sec><H id="s28">12. Counseling Log</H>
+          <P>The <B>Counseling Log</B> (under Pastoral Care) is a confidential record of pastoral counseling sessions. It is intended for the pastor and authorized administrators only and must be treated as sensitive private information.</P>
+          <H3>Logging a Session</H3>
+          <Ol><Li>Go to <B>Pastoral Care → Counseling Log</B> in the sidebar</Li><Li>Click <B>+ Log Session</B></Li><Li>Select the <B>Person</B> being counseled (member or visitor)</Li><Li>Enter the <B>Session Date</B>, <B>Session Type</B>, <B>Topics Discussed</B>, and confidential <B>Notes</B></Li><Li>Set a <B>Follow-Up Date</B> if a subsequent session is planned</Li><Li>Click <B>Save</B></Li></Ol>
+          <H3>Viewing Session History</H3>
+          <P>Each person's counseling card shows the date of their most recent session, the number of total sessions on record, and a summary of the last topic discussed. Click a card to expand full session notes.</P>
+          <H3>Confidentiality</H3>
+          <P>Counseling records are only visible to staff whose role has <B>View</B> permission for the Counseling Log module in the Permissions Matrix. By default only the <B>Administrator</B> role has access — all other roles are off unless explicitly granted by a Super Admin.</P>
+          <Warn>Counseling records contain sensitive information shared in pastoral confidence. Only grant access to this module on a strict need-to-know basis. Do not print or share these records without explicit authorization from the pastor.</Warn>
+          <Note>Staff without View permission on the Counseling Log will not see this item in the sidebar at all. Access is granted or removed in <B>Access Control → Roles</B>.</Note>
+        </Sec>
+
         <div style={{textAlign:'center',padding:'24px 0 8px',borderTop:'0.5px solid '+BR,marginTop:4}}>
-          <div style={{fontSize:12,color:MU}}>ChurchOS Staff Manual · New Testament Christian Church · Version 6.4 · May 2026</div>
+          <div style={{fontSize:12,color:MU}}>ChurchOS Staff Manual · New Testament Christian Church · Version 6.7 · May 2026</div>
           <div style={{fontSize:11,color:MU,marginTop:4}}>For technical support or feature requests, contact your system administrator.</div>
         </div>
       </div>
@@ -11411,7 +15130,7 @@ function MemberProfilePortal({member,setMembers,giving,onSignOut,staffMode=false
         <Av f={member.first} l={member.last} sz={56}/>
         <div style={{flex:1,minWidth:160}}>
           <div style={{fontSize:20,fontWeight:600,color:N}}>{member.first} {member.last}</div>
-          <div style={{fontSize:13,color:MU,marginTop:2}}>{member.role||"Member"} · {member.status||"Active"}</div>
+          <div style={{fontSize:13,color:MU,marginTop:2}}>{member.status||"Active"}</div>
           {member.email&&<div style={{fontSize:12,color:MU,marginTop:2}}>{member.email}</div>}
         </div>
         <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
@@ -11449,15 +15168,7 @@ function MemberProfilePortal({member,setMembers,giving,onSignOut,staffMode=false
                 <Fld label="Baptism Date"><Inp type="date" value={form.baptismDate||""} onChange={ef("baptismDate")}/></Fld>
                 <Fld label="Salvation Date"><Inp type="date" value={form.salvationDate||""} onChange={ef("salvationDate")}/></Fld>
               </div>
-              {/* Role / Title */}
-              <Fld label="Role / Title">
-                <select value={form.role||""} onChange={e=>ef("role")(e.target.value)} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",fontFamily:"inherit",color:TX,background:"#fff",boxSizing:"border-box" as any}}>
-                  <option value="">— Select Role / Title —</option>
-                  {(roles.length>0?roles:SEED_ROLES).map((r:any)=>(
-                    <option key={r.id} value={r.name}>{r.name}</option>
-                  ))}
-                </select>
-              </Fld>
+
               {/* Permission Level — only show if member has a linked login account */}
               {linkedUser && (
                 <Fld label="Permission Level (Access Control)">
@@ -11511,7 +15222,6 @@ function MemberProfilePortal({member,setMembers,giving,onSignOut,staffMode=false
                 <span style={{fontSize:11,color:MU,fontWeight:500}}>Children</span>
                 <div style={{marginTop:4}}>{(member.children||[]).map((c:any,i:number)=><div key={i} style={{fontSize:13,color:TX}}>{c.name}{c.birthday?" · "+fd(c.birthday):""}</div>)}</div>
               </div>}
-              <InfoRow label="Role / Title" value={member.role||"Member"}/>
               {linkedUser && (
                 <InfoRow label="Permission Level" value={(roles.length>0?roles:SEED_ROLES).find((r:any)=>r.id===linkedUser.roleId)?.name||""}/>
               )}
@@ -11564,6 +15274,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   const lastSyncAt = useRef(0);
   const suppressSave = useRef(false);
   const suppressSaveTimer = useRef<any>(null);
+  const cl35MigDone = useRef(false);
   const [isMobile,setIsMobile] = useState(window.innerWidth<768);
   const [navOpen,setNavOpen] = useState(false);
   const [theme,setTheme] = useState(()=>localStorage.getItem('ntcc_theme')||'classic');
@@ -11582,10 +15293,31 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   const [view,setView] = useState("dashboard");
   const [members,setMembers] = useState(lsGet('members') ?? _I.members ?? []);
   const [visitors,setVisitors] = useState(lsGet('visitors') ?? _I.visitors ?? []);
-  const [prospects,setProspects] = useState(lsGet('prospects') ?? []);
+  const [prospects,setProspects] = useState((lsGet('prospects') ?? []).map((p:any)=>p.last?.trim()?p:{...p,last:"N/A"}));
+  const [volunteerSlots,setVolunteerSlots] = useState(lsGet('volunteerSlots') ?? []);
+  const [classEnrollments,setClassEnrollments] = useState(lsGet('classEnrollments') ?? []);
+  const [classSessions,setClassSessions] = useState(lsGet('classSessions') ?? []);
+  const [sickVisits,setSickVisits] = useState(lsGet('sickVisits') ?? []);
+  const [benevolence,setBenevolence] = useState(lsGet('benevolence') ?? []);
+  const [hospitality,setHospitality] = useState(lsGet('hospitality') ?? {beginningBalance:0,entries:[]});
+  const [counselingLogs,setCounselingLogs] = useState(lsGet('counselingLogs') ?? []);
   const [attendance,setAttendance] = useState(lsGet('attendance') ?? _I.attendance ?? []);
-  const [giving,setGiving] = useState(lsGet('giving') ?? _I.giving ?? []);
-  const [prayers,setPrayers] = useState(lsGet('prayers') ?? _I.prayers ?? []);
+  const [giving,setGiving] = useState(()=>{
+    const _dedupGiving=(arr:any[])=>{const seen=new Set();return arr.filter((g:any)=>{const k=[g.date,(g.name||'').toLowerCase().trim(),String(g.amount),g.method||'',g.category||''].join('|');if(seen.has(k))return false;seen.add(k);return true;});};
+    const _normGivingIds=(arr:any[])=>{const usedIds=new Set();return arr.map((g:any,i:number)=>{if(g.id!=null&&!usedIds.has(g.id)){usedIds.add(g.id);return g;}const newId=Date.now()+i+1;usedIds.add(newId);return{...g,id:newId};});};
+    return _normGivingIds(_dedupGiving(lsGet('giving') ?? _I.giving ?? []));
+  });
+  const [prayers,setPrayers] = useState(()=>{
+    const raw = lsGet('prayers') ?? _I.prayers ?? [];
+    // Ensure every prayer has a unique numeric ID
+    const seen = new Set();
+    return raw.map((p:any,i:number)=>{
+      if(p.id!=null && !seen.has(p.id)){ seen.add(p.id); return p; }
+      const newId = Date.now() + i;
+      seen.add(newId);
+      return {...p, id:newId};
+    });
+  });
   const [aiChat,setAiChat] = useState([]);
   const [users,setUsers] = useState(()=>{ const saved=lsGet('users'); return (saved&&saved.length)?saved:[{id:1,memberId:5,roleId:"role_admin",password:"pastor2026",pin:"1234",status:"Active",superAdmin:true,overrides:{}}]; });
   const [roles,setRoles] = useState(()=>{
@@ -11682,9 +15414,12 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   const [servicePlans,setServicePlans] = useState(lsGet('servicePlans') ?? {});
   const [checkIns,setCheckIns] = useState(lsGet('checkIns') ?? []);
   const _storedCL=lsGet('classrooms')||_I.classrooms;const _hasOldCL=_storedCL&&(_storedCL.length>7||_storedCL.some((c:any)=>["","1st","2nd","3rd","4th","5th","6th","7th"].includes(c.grade)));
-  const [classrooms,setClassrooms] = useState(_hasOldCL?ICLASSROOMS:(_storedCL||ICLASSROOMS));
+  const _migratedCL=(_hasOldCL?ICLASSROOMS:(_storedCL||ICLASSROOMS)).filter((c:any)=>c.name!=="Elementary");
+  const [classrooms,setClassrooms] = useState(_migratedCL);
   const _storedKids=lsGet('children')||_I.children;const _migratedKids=_storedKids?_storedKids.map((c:any)=>({...c,grade:CHURCH_LEVELS.find((l:any)=>l.name===c.grade)?c.grade:levelFromAge(typeof calcAge(c.dob)==="number"?calcAge(c.dob) as number:6)})):[];
-  const [children,setChildren] = useState(_migratedKids);
+  // Deduplicate children by first+last name on load — keep the record with the most specific grade
+  const _dedupKids=(()=>{const seen=new Set<string>();return _migratedKids.sort((a:any,b:any)=>{const aG=["Young Adult","High School","Middle School","Elementary"].includes(a.grade);const bG=["Young Adult","High School","Middle School","Elementary"].includes(b.grade);return (aG?1:0)-(bG?1:0);}).filter((c:any)=>{const k=(c.first+" "+c.last).toLowerCase().trim();if(seen.has(k))return false;seen.add(k);return true;});})();
+  const [children,setChildren] = useState(_dedupKids);
   const [teacherSchedule,setTeacherSchedule] = useState(lsGet('teacherSchedule') ?? []);
   const [kidsCheckIns,setKidsCheckIns] = useState(lsGet('kidsCheckIns') ?? []);
   const [printerConfig,setPrinterConfig] = useState(lsGet('printerConfig') ?? DEFAULT_PRINTER_CFG);
@@ -11700,6 +15435,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   const [pledgeDrives,setPledgeDrives] = useState(lsGet('pledgeDrives') ?? _I.pledgeDrives ?? []);
   const [pledges,setPledges] = useState(lsGet('pledges') ?? _I.pledges ?? []);
   const [weeklyReports,setWeeklyReports] = useState(lsGet('weeklyReports') ?? _I.weeklyReports ?? []);
+  const [givingBatches,setGivingBatches] = useState(lsGet('givingBatches') ?? []);
   const [visitRecords,setVisitRecords] = useState(lsGet('visitRecords') ?? []);
 
   // Email system state
@@ -11713,6 +15449,33 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
 
   // ── Auto-save all data to localStorage on every change ──
   useEffect(()=>{lsSave('members',members);},[JSON.stringify(members)]);
+  // ── One-time CSV seed: load Adults List members if not already seeded ──
+  useEffect(()=>{
+    if(localStorage.getItem('ntcc_seed_adults_v1')) return;
+    const existing = lsGet('members') ?? [];
+    const nameSet = new Set(existing.map((m:any)=>`${(m.first||'').toLowerCase().trim()}|${(m.last||'').toLowerCase().trim()}`));
+    const toAdd = SEED_MEMBERS.filter(s=>!nameSet.has(`${s.first.toLowerCase().trim()}|${s.last.toLowerCase().trim()}`));
+    if(toAdd.length > 0) setMembers((ms:any[])=>[...ms,...toAdd]);
+    localStorage.setItem('ntcc_seed_adults_v1','1');
+    localStorage.setItem('ntcc_force_cloud_save','1');
+  },[]);
+  // ── One-time CSV seed: load Children List into Education module + Members directory ──
+  useEffect(()=>{
+    if(localStorage.getItem('ntcc_seed_children_v1')) return;
+    const nameKey=(f:string,l:string)=>`${(f||'').toLowerCase().trim()}|${(l||'').toLowerCase().trim()}`;
+    // Education/Kids module
+    const existKids = lsGet('children') ?? [];
+    const kidSet = new Set(existKids.map((c:any)=>nameKey(c.first,c.last)));
+    const kidsToAdd = SEED_CHILDREN.filter((s:any)=>!kidSet.has(nameKey(s.first,s.last)));
+    if(kidsToAdd.length > 0) setChildren((cs:any[])=>[...cs,...kidsToAdd]);
+    // Members directory
+    const existMs = lsGet('members') ?? [];
+    const mSet = new Set(existMs.map((m:any)=>nameKey(m.first,m.last)));
+    const msToAdd = SEED_CHILDREN_AS_MEMBERS.filter((s:any)=>!mSet.has(nameKey(s.first,s.last)));
+    if(msToAdd.length > 0) setMembers((ms:any[])=>[...ms,...msToAdd]);
+    localStorage.setItem('ntcc_seed_children_v1','1');
+    localStorage.setItem('ntcc_force_cloud_save','1');
+  },[]);
   useEffect(()=>{lsSave('visitors',visitors);},[JSON.stringify(visitors)]);
   useEffect(()=>{lsSave('attendance',attendance);},[JSON.stringify(attendance)]);
   useEffect(()=>{lsSave('giving',giving);},[JSON.stringify(giving)]);
@@ -11733,6 +15496,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   useEffect(()=>{lsSave('pledgeDrives',pledgeDrives);},[JSON.stringify(pledgeDrives)]);
   useEffect(()=>{lsSave('pledges',pledges);},[JSON.stringify(pledges)]);
   useEffect(()=>{lsSave('weeklyReports',weeklyReports);},[JSON.stringify(weeklyReports)]);
+  useEffect(()=>{lsSave('givingBatches',givingBatches);},[JSON.stringify(givingBatches)]);
   useEffect(()=>{lsSave('emailLog',emailLog);},[JSON.stringify(emailLog)]);
   useEffect(()=>{lsSave('emailTemplates',emailTemplates);},[JSON.stringify(emailTemplates)]);
   useEffect(()=>{lsSave('emailConfig',emailConfig);},[JSON.stringify(emailConfig)]);
@@ -11750,8 +15514,34 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   useEffect(()=>{lsSave('roles',roles);},[JSON.stringify(roles)]);
   useEffect(()=>{lsSave('permissions',permissions);},[JSON.stringify(permissions)]);
   useEffect(()=>{lsSave('prospects',prospects);},[JSON.stringify(prospects)]);
+  useEffect(()=>{lsSave('volunteerSlots',volunteerSlots);},[JSON.stringify(volunteerSlots)]);
+  useEffect(()=>{lsSave('classEnrollments',classEnrollments);},[JSON.stringify(classEnrollments)]);
+  useEffect(()=>{lsSave('classSessions',classSessions);},[JSON.stringify(classSessions)]);
+  useEffect(()=>{lsSave('sickVisits',sickVisits);},[JSON.stringify(sickVisits)]);
+  useEffect(()=>{lsSave('benevolence',benevolence);},[JSON.stringify(benevolence)]);
+  useEffect(()=>{lsSave('hospitality',hospitality);},[JSON.stringify(hospitality)]);
+  useEffect(()=>{lsSave('counselingLogs',counselingLogs);},[JSON.stringify(counselingLogs)]);
 
-  // ── Load from Supabase on mount — cloud is source of truth across devices ──
+  // ── Auto age-out: children 19+ silently become members on load and after cloud sync ──
+  const agingOutConversion=()=>{const aged=(children as any[]).filter(c=>{const age=calcAge(c.dob);return typeof age==="number"&&age>=19&&c.status!=="Graduated";});if(aged.length===0)return 0;const newMembers=aged.filter(c=>!(members as any[]).some((m:any)=>m.first?.toLowerCase()===c.first?.toLowerCase()&&m.last?.toLowerCase()===c.last?.toLowerCase())).map((c:any,i:number)=>({...EMPTY_PERSON_FIELDS,address:{...EMPTY_ADDR},id:Date.now()+i,first:c.first,last:c.last,type:"Member",status:"Active",role:"",joined:td(),birthday:c.dob||"",phone:c.parentPhone||"",email:"",allergies:c.allergies||[],medical:c.medical||[],medicalNotes:c.medicalNotes||"",emergencyName:c.emergencyPickup||"",emergencyPhone:"",emergencyRelation:"",addedBy:"Auto-Aged",addedDate:td()}));if(newMembers.length>0)setMembers((ms:any[])=>[...ms,...newMembers]);setChildren((cs:any[])=>cs.map(c=>{const age=calcAge(c.dob);return typeof age==="number"&&age>=19&&c.status!=="Graduated"?{...c,status:"Graduated"}:c;}));localStorage.setItem('ntcc_force_cloud_save','1');return aged.length;};
+  useEffect(()=>{agingOutConversion();},[JSON.stringify((children as any[]).filter(c=>{const age=calcAge(c.dob);return typeof age==="number"&&age>=19&&c.status!=="Graduated";}).map((c:any)=>c.id))]);
+
+  // Auto-promote disabled — admins convert visitors to members manually via the "Convert to Member" button.
+
+  // ── Auto-remove visitors who already exist in the members list (dedup by first+last name) ──
+  useEffect(()=>{
+    if(members.length===0||visitors.length===0) return;
+    const memberKeys=new Set((members as any[]).map((m:any)=>(m.first||"").trim().replace(/\s+/g," ").toLowerCase()+"|"+( m.last||"").trim().replace(/\s+/g," ").toLowerCase()));
+    const toRemove=(visitors as any[]).filter((v:any)=>{
+      const key=(v.first||"").trim().replace(/\s+/g," ").toLowerCase()+"|"+(v.last||"").trim().replace(/\s+/g," ").toLowerCase();
+      return key!=="|"&&memberKeys.has(key);
+    });
+    if(toRemove.length===0) return;
+    const removeIds=new Set(toRemove.map((v:any)=>v.id));
+    setVisitors((vs:any[])=>vs.filter((v:any)=>!removeIds.has(v.id)));
+    localStorage.setItem('ntcc_force_cloud_save','1');
+  },[syncTrigger]);
+
   useEffect(()=>{
     if(!churchId) return;
     setCloudSync('loading');
@@ -11772,16 +15562,36 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       const cloudHasData = (Array.isArray(d.members)&&d.members.length>0)||(Array.isArray(d.visitors)&&d.visitors.length>0)||(Array.isArray(d.giving)&&d.giving.length>0)||(Array.isArray(d.attendance)&&d.attendance.length>0);
       const localHasData = members.length>0||visitors.length>0||giving.length>0||attendance.length>0;
       if(!cloudHasData && localHasData) return; // cloud is empty but we have local data — don't overwrite
-      if(Array.isArray(d.members)&&d.members.length) setMembers(d.members);
+      if(Array.isArray(d.members)&&d.members.length){
+        // Dedup by normalized name — keep the record with the earliest joined date.
+        // This removes duplicates created by the now-disabled auto-promote effect.
+        const _seen=new Map<string,any>(); const _noKey:any[]=[];
+        d.members.forEach((m:any)=>{
+          const _k=(m.first||"").trim().replace(/\s+/g," ").toLowerCase()+"|"+( m.last||"").trim().replace(/\s+/g," ").toLowerCase();
+          if(_k==="|"){_noKey.push(m);return;}
+          if(!_seen.has(_k)){_seen.set(_k,m);return;}
+          const _ex=_seen.get(_k);
+          if((m.joined||"9999")<(_ex.joined||"9999")) _seen.set(_k,m);
+        });
+        const _deduped=[..._noKey,...Array.from(_seen.values())];
+        if(_deduped.length<d.members.length) localStorage.setItem('ntcc_force_cloud_save','1');
+        setMembers(_deduped);
+      }
       if(Array.isArray(d.visitors)&&d.visitors.length) setVisitors(d.visitors);
       if(Array.isArray(d.attendance)&&d.attendance.length) setAttendance(d.attendance);
-      if(Array.isArray(d.giving)&&d.giving.length) setGiving(d.giving);
+      if(Array.isArray(d.giving)&&d.giving.length){
+        const seenK=new Set(); const seenId=new Set(); let ctr=1;
+        setGiving(d.giving
+          .filter((g:any)=>{const k=[g.date,(g.name||'').toLowerCase().trim(),String(g.amount),g.method||'',g.category||''].join('|');if(seenK.has(k))return false;seenK.add(k);return true;})
+          .map((g:any)=>{if(g.id!=null&&!seenId.has(g.id)){seenId.add(g.id);return g;}const nid=Date.now()+ctr++;seenId.add(nid);return{...g,id:nid};})
+        );
+      }
       if(Array.isArray(d.prayers)&&d.prayers.length) setPrayers(d.prayers);
       if(Array.isArray(d.groups)&&d.groups.length) setGroups(d.groups);
       if(Array.isArray(d.grpMeetings)&&d.grpMeetings.length) setGrpMeetings(d.grpMeetings);
       if(Array.isArray(d.visitRecords)&&d.visitRecords.length) setVisitRecords(d.visitRecords);
       if(Array.isArray(d.children)&&d.children.length) setChildren(d.children);
-      if(Array.isArray(d.classrooms)&&d.classrooms.length) setClassrooms(d.classrooms);
+      if(Array.isArray(d.classrooms)&&d.classrooms.length){const _c35=CHURCH_LEVELS.find((l:any)=>l.name==="3rd-5th Grade");const _clMissing=_c35&&!d.classrooms.some((c:any)=>c.name==="3rd-5th Grade");const _clFinal=_clMissing?[...d.classrooms,_c35].sort((a:any,b:any)=>a.id-b.id):d.classrooms;setClassrooms(_clFinal);if(_clMissing)localStorage.setItem('ntcc_force_cloud_save','1');}else if(!d.classrooms||!d.classrooms.length){setClassrooms(ICLASSROOMS);}
       if(Array.isArray(d.equipment)&&d.equipment.length) setEquipment(d.equipment);
       if(Array.isArray(d.workOrders)&&d.workOrders.length) setWorkOrders(d.workOrders);
       if(Array.isArray(d.schedMaint)&&d.schedMaint.length) setSchedMaint(d.schedMaint);
@@ -11802,7 +15612,15 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       if(Array.isArray(d.roles)&&d.roles.length) setRoles(d.roles);
       if(d.permissions&&Object.keys(d.permissions).length) setPermissions(d.permissions);
       if(Array.isArray(d.users)&&d.users.length) setUsers(d.users);
-      if(Array.isArray(d.prospects)) setProspects(d.prospects); // trust empty array — removal on another device must propagate
+      if(Array.isArray(d.givingBatches)&&d.givingBatches.length) setGivingBatches(d.givingBatches);
+      if(Array.isArray(d.sickVisits)){
+        const seen=new Set(); setSickVisits(d.sickVisits.filter((x:any)=>!seen.has(x.id)&&seen.add(x.id)));
+      }
+      if(Array.isArray(d.benevolence)) setBenevolence(d.benevolence);
+      if(d.hospitality&&typeof d.hospitality==='object') setHospitality(d.hospitality);
+      if(Array.isArray(d.counselingLogs)) setCounselingLogs(d.counselingLogs);
+      if(Array.isArray(d.classSessions)) setClassSessions(d.classSessions);
+      if(Array.isArray(d.prospects)) setProspects(d.prospects.map((p:any)=>p.last?.trim()?p:{...p,last:"N/A"})); // trust empty array — removal on another device must propagate
       if(d.churchSettings?.name){setChurchSettings(d.churchSettings);try{localStorage.setItem(LS('church_settings'),JSON.stringify(d.churchSettings));}catch(e){}}
       lastSyncAt.current = Date.now();
       // Suppress the next auto-save triggered by these state changes — we just loaded from cloud,
@@ -11826,15 +15644,22 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     return()=>{ clearInterval(interval); document.removeEventListener('visibilitychange', onVisible); };
   },[churchId]);
 
-  // ── Debounced Supabase cloud-save (3 s after last change) ──
+  // ── Debounced Supabase cloud-save (3 s normally; 300 ms on force saves) ──
   useEffect(()=>{
     if(!churchId) return;
     if(sbSyncTimer.current) clearTimeout(sbSyncTimer.current);
     setCloudSync('saving');
+    const quickSave = !!localStorage.getItem('ntcc_force_cloud_save');
     sbSyncTimer.current = setTimeout(async()=>{
       // Cross-tab / cross-device guard: skip save if another tab ran Clear All Data in the last 5 minutes
       const clearedAt = parseInt(localStorage.getItem('ntcc_data_cleared')||'0');
       if(clearedAt && Date.now()-clearedAt < 300000){setCloudSync('idle');return;}
+      // If a data import/edit just happened, bypass the suppress window AND staleness guard
+      const forceSave = quickSave || !!localStorage.getItem('ntcc_force_cloud_save');
+      if(forceSave){
+        localStorage.removeItem('ntcc_force_cloud_save');
+        suppressSave.current = false;
+      }
       // Suppress save triggered by a cloud load (not a user change) — wait for the suppress window to expire
       if(suppressSave.current){setCloudSync('idle');return;}
       // Empty-state guard: don't overwrite Supabase with blank data unless THIS device intentionally cleared it.
@@ -11842,19 +15667,22 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       const hasAnyData = members.length>0||visitors.length>0||giving.length>0||attendance.length>0||children.length>0||users.length>0;
       if(!hasAnyData && !(clearedAt && Date.now()-clearedAt < 300000)){setCloudSync('idle');return;}
       // Staleness guard: check if Supabase was updated more recently than our last load.
-      // If so, another device saved after us — re-sync instead of overwriting their changes.
-      const {data:meta} = await supabase.from('church_data').select('updated_at').eq('church_id',churchId).maybeSingle();
-      const remoteTs = meta?.updated_at ? new Date(meta.updated_at).getTime() : 0;
-      if(remoteTs > lastSyncAt.current + 2000){
-        // Remote is newer than our last load — pull the latest data instead of overwriting
-        setSyncTrigger(t=>t+1);
-        setCloudSync('idle');
-        return;
+      // Skip this guard for force saves (user explicitly saved/deleted — their intent wins).
+      if(!forceSave){
+        const {data:meta} = await supabase.from('church_data').select('updated_at').eq('church_id',churchId).maybeSingle();
+        const remoteTs = meta?.updated_at ? new Date(meta.updated_at).getTime() : 0;
+        if(remoteTs > lastSyncAt.current + 2000){
+          // Remote is newer than our last load — pull the latest data instead of overwriting
+          setSyncTrigger(t=>t+1);
+          setCloudSync('idle');
+          return;
+        }
       }
       const blob = {members,visitors,attendance,giving,prayers,groups,grpMeetings,visitRecords,
         children,classrooms,equipment,workOrders,schedMaint,supplies,checkoutItems,checkouts,pledgeDrives,pledges,weeklyReports,
         emailLog,emailTemplates,emailConfig,recurring,custom,checkIns,incidents,rollCalls,
-        progressNotes,teacherSchedule,kidsCheckIns,roles,permissions,churchSettings,users,prospects};
+        progressNotes,teacherSchedule,kidsCheckIns,roles,permissions,churchSettings,users,prospects,givingBatches,
+        sickVisits,benevolence,hospitality,counselingLogs,classSessions};
       const {error} = await supabase.from('church_data').upsert(
         {church_id:churchId,data:blob,updated_at:new Date().toISOString()},
         {onConflict:'church_id'}
@@ -11862,11 +15690,12 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       if(!error) lastSyncAt.current = Date.now();
       setCloudSync(error?'error':'saved');
       setTimeout(()=>setCloudSync('idle'),2500);
-    },3000);
+    }, quickSave ? 300 : 3000);
   },[JSON.stringify({members,visitors,attendance,giving,prayers,groups,grpMeetings,visitRecords,
     children,classrooms,equipment,workOrders,schedMaint,supplies,checkoutItems,checkouts,pledgeDrives,pledges,weeklyReports,
     emailLog,emailTemplates,emailConfig,recurring,custom,checkIns,incidents,rollCalls,
-    progressNotes,teacherSchedule,kidsCheckIns,roles,permissions,churchSettings,users,prospects})]);
+    progressNotes,teacherSchedule,kidsCheckIns,roles,permissions,churchSettings,users,prospects,givingBatches,
+    sickVisits,benevolence,hospitality,counselingLogs,classSessions})]);  
 
   const nidEmail = useRef(8000);
   const logEmail = (data) => {
@@ -11905,9 +15734,12 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   window.__openBulkEmailComposer__ = openBulkEmailComposer;
 
   // SMS system state
-  const [smsLog,setSmsLog] = useState(_I.smsLog || []);
-  const [smsTemplates,setSmsTemplates] = useState(_I.smsTemplates || DEFAULT_SMS_TEMPLATES);
-  const [smsConfig,setSmsConfig] = useState(_I.smsConfig || {accountSid:"",authToken:"",fromPhone:""});
+  const [smsLog,setSmsLog] = useState(lsGet('smsLog') ?? _I.smsLog ?? []);
+  const [smsTemplates,setSmsTemplates] = useState(lsGet('smsTemplates') ?? _I.smsTemplates ?? DEFAULT_SMS_TEMPLATES);
+  const [smsConfig,setSmsConfig] = useState(lsGet('smsConfig') ?? _I.smsConfig ?? {accountSid:"",authToken:"",fromPhone:""});
+  useEffect(()=>{lsSave('smsLog',smsLog);},[JSON.stringify(smsLog)]);
+  useEffect(()=>{lsSave('smsTemplates',smsTemplates);},[JSON.stringify(smsTemplates)]);
+  useEffect(()=>{lsSave('smsConfig',smsConfig);},[JSON.stringify(smsConfig)]);
   const [smsComposerOpen,setSmsComposerOpen] = useState(false);
   const [smsComposerProps,setSmsComposerProps] = useState({});
   const [bulkSmsComposerOpen,setBulkSmsComposerOpen] = useState(false);
@@ -11927,6 +15759,12 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     {id:"addperson",label:"Add Person",icon:"➕"},
     {id:"people",label:"Members Profile",icon:"P"},
     {id:"prospects",label:"Prospects",icon:"🎯"},
+    {id:"volunteers",label:"Volunteer Scheduler",icon:"📋"},
+    {id:"classes",label:"Classes & Training",icon:"🎓"},
+    {id:"sickvisits",label:"Hospital & Visits",icon:"🏥"},
+    {id:"benevolence",label:"Benevolence Fund",icon:"🤝"},
+    {id:"hospitality",label:"Hospitality Account",icon:"🏦"},
+    {id:"counseling",label:"Counseling Log",icon:"📝"},
     {id:"visitation",label:"Visitation",icon:"V"},
     {id:"groups",label:"Groups Ministry",icon:"G2"},
     {id:"education",label:"Education",icon:"Ed"},
@@ -11946,7 +15784,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   // Map nav IDs to MODULES keys for permission checking (null = always visible)
   const NAV_MOD_MAP:Record<string,string|null> = {
     dashboard:null, addperson:"addperson", people:"directory",
-    prospects:null,
+    prospects:null, volunteers:null, classes:null, sickvisits:"sickvisits", benevolence:"benevolence", hospitality:"hospitality", counseling:"counseling",
     visitation:"visitation", groups:"groups", education:"education",
     maintenance:"maintenance", calendar:"events", attendance:"attendance",
     giving:"giving", prayer:"prayer", email:null, sms:null,
@@ -11973,12 +15811,12 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
         });
         return staffMemberRecord ? [...filtered, {id:"myprofile",label:"My Profile",icon:"👤"}] : filtered;
       })();
-  const TITLES:any = {dashboard:"Dashboard",addperson:"Add Person to Database",people:"Members Profile",prospects:"Prospects",visitation:"Visitation & Follow-Up",education:"Education Department",maintenance:"Maintenance & Equipment",attendance:"Attendance",giving:"Giving Records",prayer:"Prayer Wall",email:"Email Center",sms:"SMS Center",access:"Access Control",ai:"AI Assistant",settings:"Church Settings",alerts:"Alerts & Reports",manual:"Staff Manual",myprofile:"My Profile"};
+  const TITLES:any = {dashboard:"Dashboard",addperson:"Add Person to Database",people:"Members Profile",prospects:"Prospects",volunteers:"Volunteer & Usher Scheduler",classes:"Classes & Leadership Training",sickvisits:"Hospital & Sick Visit Log",benevolence:"Benevolence Fund",hospitality:"Hospitality Account",counseling:"Pastoral Counseling Log",visitation:"Visitation & Follow-Up",education:"Education Department",maintenance:"Maintenance & Equipment",attendance:"Attendance",giving:"Giving Records",prayer:"Prayer Wall",email:"Email Center",sms:"SMS Center",access:"Access Control",ai:"AI Assistant",settings:"Church Settings",alerts:"Alerts & Reports",manual:"Staff Manual",myprofile:"My Profile"};
   const pending = users.filter(u=>u.status==="Pending").length;
   const fu = visitors.filter(v=>v.stage==="Follow-Up Needed").length;
   const inVis = visitRecords.filter(r=>r.stage!=="Complete").length;
   const maintAlerts = computeMaintAlerts(equipment, schedMaint);
-  const todayStr=new Date().toISOString().split('T')[0];
+  const todayStr=new Date().toLocaleDateString('en-CA',{timeZone:'America/Phoenix'});
   const maintAlertCount = maintAlerts.overdue.length + maintAlerts.urgent.length + maintAlerts.warrantyExpired.length + maintAlerts.warrantyExpiringSoon.length + (supplies||[]).filter((s:any)=>s.maxQty>0&&s.quantity<=Math.round(s.maxQty*0.25)).length + (checkouts||[]).filter((c:any)=>c.status==='Out'&&c.expectedReturnDate&&c.expectedReturnDate<todayStr).length;
   // Alerts page badge counts
   const _sunCIs=(checkIns||[]).filter((c:any)=>c.ename&&c.ename.toLowerCase().includes("sunday morning")&&c.ptype==="member");
@@ -11986,7 +15824,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   const _last4sun=_sunDates.slice(0,4);
   const _sunPresent:Record<string,Set<any>>={};
   _last4sun.forEach((d:string)=>{_sunPresent[d]=new Set(_sunCIs.filter((c:any)=>c.date===d).map((c:any)=>c.pid));});
-  const absentMembers=(members||[]).filter((m:any)=>m.status==="Active"&&_last4sun.length>0&&_last4sun.every((d:string)=>!_sunPresent[d]?.has(m.id)));
+  const absentMembers=(members||[]).filter((m:any)=>m.status==="Active"&&_last4sun.length>0&&_sunCIs.some((c:any)=>c.pid===m.id)&&_last4sun.every((d:string)=>!_sunPresent[d]?.has(m.id)));
   const _pmNow=new Date(); const _prevMo=_pmNow.getMonth()===0?11:_pmNow.getMonth()-1; const _prevYr=_pmNow.getMonth()===0?_pmNow.getFullYear()-1:_pmNow.getFullYear();
   const _pmStart=new Date(_prevYr,_prevMo,1).toISOString().split("T")[0]; const _pmEnd=new Date(_prevYr,_prevMo+1,0).toISOString().split("T")[0];
   const _pmG=(giving||[]).filter((g:any)=>g.date>=_pmStart&&g.date<=_pmEnd);
@@ -11996,12 +15834,36 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   const _last4kid=_kidDates.slice(0,4);
   const _kidPresent:Record<string,Set<any>>={};
   _last4kid.forEach((d:string)=>{_kidPresent[d]=new Set((kidsCheckIns||[]).filter((c:any)=>c.date===d).map((c:any)=>c.childId));});
-  const absentChildren=(children||[]).filter((ch:any)=>ch.status==="Active"&&_last4kid.length>0&&_last4kid.every((d:string)=>!_kidPresent[d]?.has(ch.id)));
+  const absentChildren=(children||[]).filter((ch:any)=>ch.status==="Active"&&_last4kid.length>0&&(kidsCheckIns||[]).some((c:any)=>c.childId===ch.id)&&_last4kid.every((d:string)=>!_kidPresent[d]?.has(ch.id)));
   const outstandingVisits=(visitRecords||[]).filter((r:any)=>r.stage!=="Complete"&&r.stage!=="Converted"&&(visitors||[]).some((v:any)=>v.id===r.visitorId));
   const LogoEl=()=>churchSettings.logoUrl
     ?<img src={churchSettings.logoUrl} style={{width:36,height:36,borderRadius:8,objectFit:"cover",flexShrink:0,border:"1px solid #ffffff33"}} alt="logo" onError={e=>e.target.style.display="none"}/>
     :<div style={{width:36,height:36,borderRadius:8,background:G,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:"#fff",flexShrink:0}}>{logoInitials}</div>;
 
+  const NAV_GROUPS=[
+    {id:"congregation",label:"Congregation",ids:["addperson","people","prospects","groups"]},
+    {id:"pastoralcare",label:"Pastoral Care",ids:["sickvisits","benevolence","hospitality","counseling","visitation","prayer"]},
+    {id:"ministry",label:"Ministry",ids:["volunteers","classes","education"]},
+    {id:"services",label:"Services",ids:["calendar","attendance"]},
+    {id:"finance",label:"Finance",ids:["giving"]},
+    {id:"communications",label:"Communications",ids:["email","sms","ai"]},
+    {id:"administration",label:"Administration",ids:["access","maintenance","settings","manual"]},
+  ];
+  const NAV_TOP=["dashboard","alerts"];
+  const [openNavGroup,setOpenNavGroup]=useState(null);
+  const toggleNavGroup=(id)=>setOpenNavGroup(cur=>cur===id?null:id);
+  const renderSideNavBtn=(item,indent=false,groupId=null)=>(
+    <button key={item.id} onClick={()=>{if(item.id==="people"&&view==="visitation")(window as any).__peopleTab__="visitors";setView(item.id);setNavOpen(false);if(groupId)setOpenNavGroup(null);}} style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:indent?"9px 12px 9px 20px":"11px 12px",borderRadius:8,border:"none",cursor:"pointer",marginBottom:2,background:view===item.id?"#ffffff18":"transparent",color:view===item.id?"#fff":"#7a9acc",fontWeight:view===item.id?500:400,fontSize:13,textAlign:"left"}}>
+      <span style={{fontSize:13,minWidth:18}}>{item.icon}</span>
+      {item.label}
+      {item.id==="ai"&&<span style={{marginLeft:"auto",width:7,height:7,borderRadius:"50%",background:G,flexShrink:0}}></span>}
+      {item.id==="people"&&fu>0&&<span style={{marginLeft:"auto",background:RE,color:"#fff",borderRadius:10,fontSize:10,fontWeight:600,padding:"1px 6px"}}>{fu}</span>}
+      {item.id==="access"&&pending>0&&<span style={{marginLeft:"auto",background:AM,color:"#fff",borderRadius:10,fontSize:10,fontWeight:600,padding:"1px 6px"}}>{pending}</span>}
+      {item.id==="visitation"&&inVis>0&&<span style={{marginLeft:"auto",background:PU,color:"#fff",borderRadius:10,fontSize:10,fontWeight:600,padding:"1px 6px"}}>{inVis}</span>}
+      {item.id==="maintenance"&&maintAlertCount>0&&<span style={{marginLeft:"auto",background:RE,color:"#fff",borderRadius:10,fontSize:10,fontWeight:600,padding:"1px 6px"}}>{maintAlertCount}</span>}
+      {item.id==="alerts"&&(absentMembers.length+lowGivers.length+absentChildren.length+outstandingVisits.length)>0&&<span style={{marginLeft:"auto",background:RE,color:"#fff",borderRadius:10,fontSize:10,fontWeight:600,padding:"1px 6px"}}>{absentMembers.length+lowGivers.length+absentChildren.length+outstandingVisits.length}</span>}
+    </button>
+  );
   const NavContent=()=>(
     <>
       <div style={{padding:"18px 16px 14px",borderBottom:"1px solid #ffffff18"}}>
@@ -12014,18 +15876,27 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
         </div>
       </div>
       <div style={{flex:1,padding:"10px 8px",overflowY:"auto"}}>
-        {visibleNAV.map(item=>(
-          <button key={item.id} onClick={()=>{setView(item.id);setNavOpen(false);}} style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"11px 12px",borderRadius:8,border:"none",cursor:"pointer",marginBottom:2,background:view===item.id?"#ffffff18":"transparent",color:view===item.id?"#fff":"#7a9acc",fontWeight:view===item.id?500:400,fontSize:13,textAlign:"left"}}>
-            <span style={{fontSize:13,minWidth:18}}>{item.icon}</span>
-            {item.label}
-            {item.id==="ai"&&<span style={{marginLeft:"auto",width:7,height:7,borderRadius:"50%",background:G,flexShrink:0}}></span>}
-            {item.id==="people"&&fu>0&&<span style={{marginLeft:"auto",background:RE,color:"#fff",borderRadius:10,fontSize:10,fontWeight:600,padding:"1px 6px"}}>{fu}</span>}
-            {item.id==="access"&&pending>0&&<span style={{marginLeft:"auto",background:AM,color:"#fff",borderRadius:10,fontSize:10,fontWeight:600,padding:"1px 6px"}}>{pending}</span>}
-            {item.id==="visitation"&&inVis>0&&<span style={{marginLeft:"auto",background:PU,color:"#fff",borderRadius:10,fontSize:10,fontWeight:600,padding:"1px 6px"}}>{inVis}</span>}
-            {item.id==="maintenance"&&maintAlertCount>0&&<span style={{marginLeft:"auto",background:RE,color:"#fff",borderRadius:10,fontSize:10,fontWeight:600,padding:"1px 6px"}}>{maintAlertCount}</span>}
-            {item.id==="alerts"&&(absentMembers.length+lowGivers.length+absentChildren.length+outstandingVisits.length)>0&&<span style={{marginLeft:"auto",background:RE,color:"#fff",borderRadius:10,fontSize:10,fontWeight:600,padding:"1px 6px"}}>{absentMembers.length+lowGivers.length+absentChildren.length+outstandingVisits.length}</span>}
-          </button>
-        ))}
+        {isMemberPortal
+          ? visibleNAV.map((item)=>renderSideNavBtn(item,false))
+          : (<>
+              {visibleNAV.filter((n)=>NAV_TOP.includes(n.id)).map((item)=>renderSideNavBtn(item,false))}
+              {NAV_GROUPS.map(group=>{
+                const groupItems=group.ids.map(id=>visibleNAV.find(n=>n.id===id)).filter(Boolean);
+                if(!groupItems.length) return null;
+                const isOpen=openNavGroup===group.id;
+                return(
+                  <div key={group.id} style={{marginTop:4}}>
+                    <button onClick={()=>toggleNavGroup(group.id)} style={{display:"flex",alignItems:"center",width:"100%",padding:"8px 12px",border:"none",background:isOpen?"#ffffff12":"transparent",cursor:"pointer",color:isOpen?"#fff":"#7a9acc",fontSize:13,fontWeight:isOpen?500:400,textAlign:"left",borderRadius:8,marginBottom:2}}>
+                      <span style={{flex:1}}>{group.label}</span>
+                      <span style={{fontSize:9,transform:isOpen?"rotate(90deg)":"rotate(0deg)",transition:"transform 0.15s",display:"inline-block",opacity:0.6}}>▶</span>
+                    </button>
+                    {isOpen&&<div style={{borderLeft:"1px solid #ffffff18",marginLeft:16,marginBottom:4}}>{groupItems.map(item=>renderSideNavBtn(item,true,group.id))}</div>}
+                  </div>
+                );
+              })}
+              {(()=>{const mp=visibleNAV.find(n=>n.id==="myprofile");return mp?renderSideNavBtn(mp,false):null;})()}
+            </>)
+        }
       </div>
       <div style={{padding:"12px 14px",borderTop:"1px solid #ffffff18"}}>
         <div style={{color:"#7a9acc",fontSize:11,marginBottom:3}}>Signed in as</div>
@@ -12152,18 +16023,18 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
         {/* Page content */}
         <div style={{flex:1,padding:isMobile?12:24,overflow:"auto"}}>
           {showSetup && <SetupModal onSave={s=>{setChurchSettings(s);setShowSetup(false);}} initialName={churchName||''} initialPastorName={(adminFirst||adminLast)?`Pastor ${[adminFirst,adminLast].filter(Boolean).join(' ')}`:''}/>}
-          {!isMemberPortal && view==="settings" && <ChurchSettingsPage cs={churchSettings} setCs={setChurchSettings} churchId={churchId} members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} prayers={prayers} groups={groups} grpMeetings={grpMeetings} visitRecords={visitRecords} checkIns={checkIns} kidsCheckIns={kidsCheckIns} children={children} pledgeDrives={pledgeDrives} pledges={pledges} weeklyReports={weeklyReports} equipment={equipment} workOrders={workOrders} schedMaint={schedMaint}
-            backupData={{members,visitors,attendance,giving,prayers,groups,grpMeetings,visitRecords,checkIns,kidsCheckIns,children,pledgeDrives,pledges,weeklyReports,equipment,workOrders,schedMaint,supplies,checkoutItems,checkouts,users,roles,permissions,recurring,custom,emailLog,emailTemplates,emailConfig,incidents,rollCalls,progressNotes,teacherSchedule,churchSettings}}
+          {!isMemberPortal && view==="settings" && <ChurchSettingsPage cs={churchSettings} setCs={setChurchSettings} churchId={churchId} members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} prayers={prayers} groups={groups} grpMeetings={grpMeetings} visitRecords={visitRecords} checkIns={checkIns} kidsCheckIns={kidsCheckIns} children={children} setChildren={setChildren} pledgeDrives={pledgeDrives} pledges={pledges} weeklyReports={weeklyReports} equipment={equipment} workOrders={workOrders} schedMaint={schedMaint}
+            backupData={{members,visitors,attendance,giving,prayers,groups,grpMeetings,visitRecords,checkIns,kidsCheckIns,children,classrooms,pledgeDrives,pledges,weeklyReports,equipment,workOrders,schedMaint,supplies,checkoutItems,checkouts,users,roles,permissions,recurring,custom,emailLog,emailTemplates,emailConfig,incidents,rollCalls,progressNotes,teacherSchedule,classEnrollments,classSessions,sickVisits,benevolence,hospitality,counselingLogs,prospects,churchSettings}}
             onRestore={(d:any,mode:string)=>{
               const s=(setter:any,key:string,isArr=true)=>{if(d[key]===undefined)return;if(mode==='replace'){setter(d[key]);}else{if(isArr&&Array.isArray(d[key])){setter((cur:any[])=>[...cur,...d[key].filter((n:any)=>!cur.find(x=>String(x.id)===String(n.id)))]);}else{setter(d[key]);}}};
-              s(setMembers,'members');s(setVisitors,'visitors');s(setAttendance,'attendance');s(setGiving,'giving');s(setPrayers,'prayers');s(setGroups,'groups');s(setGrpMeetings,'grpMeetings');s(setVisitRecords,'visitRecords');s(setCheckIns,'checkIns');s(setKidsCheckIns,'kidsCheckIns');s(setChildren,'children');s(setPledgeDrives,'pledgeDrives');s(setPledges,'pledges');s(setWeeklyReports,'weeklyReports');s(setEquipment,'equipment');s(setWorkOrders,'workOrders');s(setSchedMaint,'schedMaint');s(setSupplies,'supplies');s(setCheckoutItems,'checkoutItems');s(setCheckouts,'checkouts');s(setUsers,'users');s(setRoles,'roles');s(setPermissions,'permissions',false);s(setRecurring,'recurring');s(setCustom,'custom');s(setEmailLog,'emailLog');s(setEmailTemplates,'emailTemplates',false);s(setEmailConfig,'emailConfig',false);s(setIncidents,'incidents');s(setRollCalls,'rollCalls');s(setProgressNotes,'progressNotes');s(setTeacherSchedule,'teacherSchedule');if(d.churchSettings&&mode==='replace')setChurchSettings(d.churchSettings);
+              s(setMembers,'members');s(setVisitors,'visitors');s(setAttendance,'attendance');s(setGiving,'giving');s(setPrayers,'prayers');s(setGroups,'groups');s(setGrpMeetings,'grpMeetings');s(setVisitRecords,'visitRecords');s(setCheckIns,'checkIns');s(setKidsCheckIns,'kidsCheckIns');s(setChildren,'children');s(setClassrooms,'classrooms');s(setPledgeDrives,'pledgeDrives');s(setPledges,'pledges');s(setWeeklyReports,'weeklyReports');s(setEquipment,'equipment');s(setWorkOrders,'workOrders');s(setSchedMaint,'schedMaint');s(setSupplies,'supplies');s(setCheckoutItems,'checkoutItems');s(setCheckouts,'checkouts');s(setUsers,'users');s(setRoles,'roles');s(setPermissions,'permissions',false);s(setRecurring,'recurring');s(setCustom,'custom');s(setEmailLog,'emailLog');s(setEmailTemplates,'emailTemplates',false);s(setEmailConfig,'emailConfig',false);s(setIncidents,'incidents');s(setRollCalls,'rollCalls');s(setProgressNotes,'progressNotes');s(setTeacherSchedule,'teacherSchedule');s(setClassEnrollments,'classEnrollments');s(setClassSessions,'classSessions');s(setSickVisits,'sickVisits');s(setBenevolence,'benevolence');if(d.hospitality!==undefined){if(mode==='replace'){setHospitality(d.hospitality);}else{setHospitality((cur:any)=>({beginningBalance:cur.beginningBalance,entries:[...(cur.entries||[]),...(d.hospitality?.entries||[]).filter((n:any)=>!(cur.entries||[]).find((x:any)=>String(x.id)===String(n.id)))]}));}}s(setCounselingLogs,'counselingLogs');s(setProspects,'prospects');if(d.churchSettings&&mode==='replace')setChurchSettings(d.churchSettings);
             }}
           />}
-          {!isMemberPortal && view==="dashboard" && <Dashboard members={members} visitors={visitors} attendance={attendance} giving={giving} prayers={prayers} setView={setView} canViewGiving={canViewGiving} isRestrictedUser={isRestrictedUser} canAddPerson={canAddPerson}/>}
-          {!isMemberPortal && view==="addperson" && <AddMemberPage members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} currentUser={currentUser} roles={roles} permissions={permissions} setView={setView} prospects={prospects} setProspects={setProspects} children={children} setChildren={setChildren}/>}
+          {!isMemberPortal && view==="dashboard" && <Dashboard members={members} visitors={visitors} attendance={attendance} giving={giving} prayers={prayers} setView={setView} canViewGiving={canViewGiving} isRestrictedUser={isRestrictedUser} canAddPerson={canAddPerson} groups={groups} grpMeetings={grpMeetings} visitRecords={visitRecords}/>}
+          {!isMemberPortal && view==="addperson" && <AddMemberPage members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} currentUser={currentUser} roles={roles} permissions={permissions} setView={setView} prospects={prospects} setProspects={setProspects} children={children} setChildren={setChildren} visitRecords={visitRecords} setVisitRecords={setVisitRecords}/>}
           {!isMemberPortal && view==="people" && <People members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} setGiving={setGiving} prayers={prayers} setPrayers={setPrayers} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings} visitRecords={visitRecords} setVisitRecords={setVisitRecords} checkIns={checkIns} setCheckIns={setCheckIns} setView={setView} canViewGiving={canViewGiving} currentUser={currentUser} roles={roles} children={children} setChildren={setChildren}/>}
           {!isMemberPortal && view==="groups" && <Groups members={members} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings} currentUser={currentUser} roles={roles}/>}
-          {!isMemberPortal && view==="education" && <Education members={members} setMembers={setMembers} visitors={visitors} users={users} roles={roles} children={children} setChildren={setChildren} classrooms={classrooms} setClassrooms={setClassrooms} teacherSchedule={teacherSchedule} setTeacherSchedule={setTeacherSchedule} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckIns} checkIns={checkIns} incidents={incidents} setIncidents={setIncidents} rollCalls={rollCalls} setRollCalls={setRollCalls} progressNotes={progressNotes} setProgressNotes={setProgressNotes} cs={churchSettings} printerConfig={printerConfig} setPrinterConfig={setPrinterConfig}/>}
+          {!isMemberPortal && view==="education" && <Education members={members} setMembers={setMembers} visitors={visitors} users={users} roles={roles} children={children} setChildren={setChildren} classrooms={classrooms} setClassrooms={setClassrooms} teacherSchedule={teacherSchedule} setTeacherSchedule={setTeacherSchedule} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckIns} checkIns={checkIns} incidents={incidents} setIncidents={setIncidents} rollCalls={rollCalls} setRollCalls={setRollCalls} progressNotes={progressNotes} setProgressNotes={setProgressNotes} cs={churchSettings} printerConfig={printerConfig} setPrinterConfig={setPrinterConfig} onAgeOut={agingOutConversion} groups={groups}/>}
           {!isMemberPortal && view==="maintenance" && <Maintenance users={users} members={members} currentUser={currentUser} roles={roles} permissions={permissions} equipment={equipment} setEquipment={setEquipment} workOrders={workOrders} setWorkOrders={setWorkOrders} schedMaint={schedMaint} setSchedMaint={setSchedMaint} supplies={supplies} setSupplies={setSupplies} checkoutItems={checkoutItems} setCheckoutItems={setCheckoutItems} checkouts={checkouts} setCheckouts={setCheckouts}/>}
           {!isMemberPortal && view==="calendar" && (
             <div style={{height:"calc(100vh - 110px)",display:"flex",flexDirection:"column",margin:-24,overflow:"hidden"}}>
@@ -12184,14 +16055,24 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
                 setProspects={setProspects}
                 servicePlans={servicePlans}
                 setServicePlans={setServicePlans}
+                classrooms={classrooms}
+                children={children}
+                kidsCheckIns={kidsCheckIns}
+                setKidsCheckIns={setKidsCheckIns}
               />
             </div>
           )}
           {!isMemberPortal && view==="prospects" && <ProspectsPage prospects={prospects} setProspects={setProspects} members={members}/>}
+          {!isMemberPortal && view==="volunteers" && <VolunteerScheduler members={members} volunteerSlots={volunteerSlots} setVolunteerSlots={setVolunteerSlots}/>}
+          {!isMemberPortal && view==="classes" && <ClassesTracker members={members} visitors={visitors} prospects={prospects} classEnrollments={classEnrollments} setClassEnrollments={setClassEnrollments} classSessions={classSessions} setClassSessions={setClassSessions}/>}
+          {!isMemberPortal && view==="sickvisits" && <SickVisitLog members={members} visitors={visitors} sickVisits={sickVisits} setSickVisits={setSickVisits} users={users} roles={roles}/>}
+          {!isMemberPortal && view==="benevolence" && <BenevolencePage members={members} visitors={visitors} benevolence={benevolence} setBenevolence={setBenevolence}/>}
+          {!isMemberPortal && view==="hospitality" && <HospitalityAccountPage members={members} hospitality={hospitality} setHospitality={setHospitality}/>}
+          {!isMemberPortal && view==="counseling" && <CounselingLog members={members} visitors={visitors} counselingLogs={counselingLogs} setCounselingLogs={setCounselingLogs}/>}
           {!isMemberPortal && view==="visitation" && <Visitation visitors={visitors} setVisitors={setVisitors} members={members} setMembers={setMembers} users={users} currentUser={currentUser} roles={roles} visitRecords={visitRecords} setVisitRecords={setVisitRecords} setView={setView} canAddVisitor={canAddVisitor}/>}
-          {!isMemberPortal && view==="attendance" && <Attendance attendance={attendance} setAttendance={setAttendance} setView={setView}/>}
-          {!isMemberPortal && view==="giving" && <Giving giving={giving} setGiving={setGiving} pledgeDrives={pledgeDrives} setPledgeDrives={setPledgeDrives} pledges={pledges} setPledges={setPledges} members={members} visitors={visitors} weeklyReports={weeklyReports} setWeeklyReports={setWeeklyReports} emailTemplates={emailTemplates} currentUser={currentUser} roles={roles}/>}
-          {!isMemberPortal && view==="prayer" && <Prayer prayers={prayers} setPrayers={setPrayers}/>}
+          {!isMemberPortal && view==="attendance" && <Attendance attendance={attendance} setAttendance={setAttendance} setView={setView} checkIns={checkIns} kidsCheckIns={kidsCheckIns} grpMeetings={grpMeetings} members={members} visitors={visitors} groups={groups}/>}
+          {!isMemberPortal && view==="giving" && <Giving giving={giving} setGiving={setGiving} pledgeDrives={pledgeDrives} setPledgeDrives={setPledgeDrives} pledges={pledges} setPledges={setPledges} members={members} visitors={visitors} weeklyReports={weeklyReports} setWeeklyReports={setWeeklyReports} givingBatches={givingBatches} setGivingBatches={setGivingBatches} emailTemplates={emailTemplates} currentUser={currentUser} roles={roles}/>}
+          {!isMemberPortal && view==="prayer" && <Prayer prayers={prayers} setPrayers={setPrayers} members={members} visitors={visitors}/>}
           {/* ── Member Portal hard-gate: only myprofile and prayer allowed ── */}
           {isMemberPortal && view!=="prayer" && <MemberProfilePortal member={portalMember} setMembers={setMembers} giving={giving} onSignOut={onSignOut} roles={roles} users={users} setUsers={setUsers}/>}
           {isMemberPortal && view==="prayer" && <Prayer prayers={prayers} setPrayers={setPrayers} portalMode={true} portalMember={portalMember}/>}
@@ -12250,6 +16131,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
         onSend={logSms}
         members={members}
         visitors={visitors}
+        smsConfig={smsConfig}
       />
       <BulkSmsComposer
         open={bulkSmsComposerOpen}

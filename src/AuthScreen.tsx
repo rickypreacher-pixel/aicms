@@ -54,7 +54,12 @@ function Input({ type = 'text', value, onChange, placeholder, autoComplete }: an
 }
 
 export default function AuthScreen({ onAuth }: AuthScreenProps) {
-  const [mode, setMode] = useState<AuthMode>('login');
+  // Read ?mode= from URL: "staff" → show only login+join, "new" → show only register
+  const _urlMode = new URLSearchParams(window.location.search).get('mode');
+  const _initialMode: AuthMode = _urlMode === 'new' ? 'register' : 'login';
+  const _hiddenTabs: AuthMode[] = _urlMode === 'staff' ? ['register'] : _urlMode === 'new' ? ['login', 'join'] : [];
+
+  const [mode, setMode] = useState<AuthMode>(_initialMode);
 
   // Login fields
   const [loginEmail, setLoginEmail] = useState('');
@@ -305,7 +310,7 @@ export default function AuthScreen({ onAuth }: AuthScreenProps) {
               display: 'flex', marginBottom: 24,
               background: BG, borderRadius: 10, padding: 3,
             }}>
-              {(['login', 'register', 'join'] as AuthMode[]).map((m) => (
+              {(['login', 'register', 'join'] as AuthMode[]).filter(m => !_hiddenTabs.includes(m)).map((m) => (
                 <button
                   key={m}
                   onClick={() => { setMode(m); setError(''); setSuccess(''); }}
