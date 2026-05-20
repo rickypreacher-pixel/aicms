@@ -3579,7 +3579,8 @@ function SmsComposer({open,onClose,initialPhone,initialName,initialBody,initialC
     const words=q.split(/\s+/).filter(Boolean);
     const fullName=((p.first||"")+" "+(p.last||"")).toLowerCase();
     const nameMatch=words.every((w:string)=>fullName.includes(w));
-    const phoneMatch=(p.phone||"").replace(/\D/g,"").includes(q.replace(/\D/g,""));
+    const digits=q.replace(/\D/g,"");
+    const phoneMatch=digits.length>0&&(p.phone||"").replace(/\D/g,"").includes(digits);
     return nameMatch||phoneMatch;
   }).slice(0,8):[];
 
