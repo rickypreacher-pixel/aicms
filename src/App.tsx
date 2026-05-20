@@ -3607,14 +3607,26 @@ function SmsComposer({open,onClose,initialPhone,initialName,initialBody,initialC
     setAiLoad(false);
   };
 
+  const isMobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   const doSmsLink=()=>{
     if(!phone.trim()){setErrorMsg("Phone number required.");return;}
     if(!body.trim()){setErrorMsg("Message required.");return;}
     setErrorMsg(""); setSendResult(null);
-    const clean=phone.replace(/\D/g,"");
-    window.open("sms:"+clean+"?body="+encodeURIComponent(body),"_blank");
-    if(onSend) onSend({to:phone,toName,body,category,method:"sms-link",status:"Opened in SMS App",relatedType,relatedId});
-    onClose();
+    if(isMobile){
+      const clean=phone.replace(/\D/g,"");
+      window.open("sms:"+clean+"?body="+encodeURIComponent(body),"_blank");
+      if(onSend) onSend({to:phone,toName,body,category,method:"sms-link",status:"Opened in SMS App",relatedType,relatedId});
+      onClose();
+    } else {
+      // Desktop: SMS links don't work — copy message and show instructions
+      const text=(toName?"To: "+toName+" ("+phone+")\n\n":"")+body;
+      navigator.clipboard.writeText(text).then(()=>{
+        setSendResult({ok:true,msg:"Message copied! Open your phone's messaging app and paste to "+( toName||phone)+"."});
+      }).catch(()=>{
+        setSendResult({ok:false,msg:"SMS links only work on mobile. Please copy the message manually and send from your phone."});
+      });
+      if(onSend) onSend({to:phone,toName,body,category,method:"copy",status:"Copied to clipboard",relatedType,relatedId});
+    }
   };
 
   const doSendNow=async()=>{
@@ -3753,14 +3765,14 @@ function SmsComposer({open,onClose,initialPhone,initialName,initialBody,initialC
               {sending?"Sending...":"📤 Send Now"}
             </Btn>
           )}
-          <Btn onClick={doSmsLink} v={hasTwilio?"ghost":"primary"} style={{flex:1,justifyContent:"center",minWidth:130}}>📱 Open SMS App</Btn>
+          <Btn onClick={doSmsLink} v={hasTwilio?"ghost":"primary"} style={{flex:1,justifyContent:"center",minWidth:130}}>{isMobile?"📱 Open SMS App":"📋 Copy & Send"}</Btn>
           <Btn onClick={doCopy} v={copied?"success":"outline"} style={{flex:1,justifyContent:"center",minWidth:110}}>{copied?"✓ Copied!":"Copy"}</Btn>
           <Btn onClick={onClose} v="ghost" style={{padding:"10px 16px"}}>Cancel</Btn>
         </div>
         <div style={{fontSize:10,color:MU,marginTop:10,lineHeight:1.5}}>{
           hasTwilio
-            ?"📤 \"Send Now\" sends directly via Twilio. \"Open SMS App\" opens your phone's messaging app."
-            :"\"Open SMS App\" works on phones. \"Copy\" works everywhere. To enable direct sending, configure Twilio in SMS Center → Service Config."
+            ?`📤 "Send Now" sends directly via Twilio. ${isMobile?'"Open SMS App" opens your phone\'s messaging app.':"\"Copy & Send\" copies the message — paste it in your phone's messaging app."}`
+            :(isMobile?"\"Open SMS App\" opens your phone's messaging app. \"Copy\" copies the text.":"On desktop: use \"Copy & Send\" to copy the message, then paste it on your phone. To enable direct sending, configure Twilio in SMS Center → Service Config.")
         }</div>
       </div>
     </div>
