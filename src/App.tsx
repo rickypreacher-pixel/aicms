@@ -1173,6 +1173,9 @@ function ChurchSettingsPage({cs,setCs,churchId,members,setMembers,visitors,setVi
         try{localStorage.setItem(csKey,JSON.stringify(savedSettings));}catch(e){}
         if(aiKey) try{localStorage.setItem("ntcc_ai_api_key",aiKey);}catch(e){}
         if(elKey) try{localStorage.setItem("ntcc_el_api_key",elKey);}catch(e){}
+        // Prevent seed effects from re-loading CSV data after reload
+        localStorage.setItem('ntcc_seed_adults_v1','1');
+        localStorage.setItem('ntcc_seed_children_v1','1');
         // Write empty blob to Supabase so data doesn't reload from cloud on next sign-in
         if(churchId){
           const emptyBlob = {members:[],visitors:[],attendance:[],giving:[],prayers:[],groups:[],grpMeetings:[],visitRecords:[],children:[],classrooms:[],equipment:[],workOrders:[],schedMaint:[],supplies:[],checkoutItems:[],checkouts:[],pledgeDrives:[],pledges:[],weeklyReports:[],emailLog:[],recurring:[],custom:[],checkIns:[],incidents:[],rollCalls:[],progressNotes:[],teacherSchedule:[],kidsCheckIns:[],roles:[],users:[],prospects:[],emailTemplates:null,emailConfig:{},permissions:{},churchSettings:savedSettings,_clearedAt:Date.now()};
