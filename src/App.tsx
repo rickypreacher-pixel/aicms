@@ -4723,7 +4723,7 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
                           <div style={{minWidth:0,flex:1}}>
                             <div style={{fontSize:13,fontWeight:500,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{v.first} {v.last}</div>
                             <div style={{fontSize:11,color:MU}}>{fd(v.firstVisit)}</div>
-                            {v.fromMemberId && <div title={v.followUpReason||"Returning member"} style={{fontSize:9.5,marginTop:3,display:"inline-block",background:"#fef3c7",color:"#92400e",borderRadius:10,padding:"1px 7px",fontWeight:600}}>↩ Returning member</div>}
+                            {v.fromMemberId && <div title={v.followUpReason||"Member Missed 4 Weeks"} style={{fontSize:9.5,marginTop:3,display:"inline-block",background:"#fef3c7",color:"#92400e",borderRadius:10,padding:"1px 7px",fontWeight:600}}>↩ Member Missed 4 Weeks</div>}
                           </div>
                         </div>
                         {(()=>{
