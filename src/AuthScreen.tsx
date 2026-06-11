@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from './lib/supabase';
 
 const N = "#1a2e5a";
@@ -12,7 +12,7 @@ const RE = "#dc2626";
 const GR = "#16a34a";
 const BG = "#f4f6fb";
 
-type AuthMode = 'login' | 'register' | 'join' | 'forgot';
+type AuthMode = 'login' | 'member' | 'register' | 'join' | 'forgot';
 
 interface AuthScreenProps {
   onAuth: (userId: string, meta: Record<string, any>) => void;
@@ -54,12 +54,7 @@ function Input({ type = 'text', value, onChange, placeholder, autoComplete }: an
 }
 
 export default function AuthScreen({ onAuth }: AuthScreenProps) {
-  // Read ?mode= from URL: "staff" → show only login+join, "new" → show only register
-  const _urlMode = new URLSearchParams(window.location.search).get('mode');
-  const _initialMode: AuthMode = _urlMode === 'new' ? 'register' : 'login';
-  const _hiddenTabs: AuthMode[] = _urlMode === 'staff' ? ['register'] : _urlMode === 'new' ? ['login', 'join'] : [];
-
-  const [mode, setMode] = useState<AuthMode>(_initialMode);
+  const [mode, setMode] = useState<AuthMode>('login');
 
   // Login fields
   const [loginEmail, setLoginEmail] = useState('');
@@ -84,6 +79,28 @@ export default function AuthScreen({ onAuth }: AuthScreenProps) {
   const [joinCode, setJoinCode] = useState('');
   const [joinPhone, setJoinPhone] = useState('');
 
+  // On mount: check URL params for pre-filled deep links
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const joinParam = params.get('join');
+    const memberParam = params.get('member');
+    const newParam = params.get('new');
+    if (joinParam) {
+      setJoinCode(joinParam);
+      setMode('join');
+    } else if (memberParam) {
+      // Per-member invite link: ?member=<churchCode>&email=&first=&last=
+      setJoinCode(memberParam);
+      const em = params.get('email'); const fn = params.get('first'); const ln = params.get('last');
+      if (em) setJoinEmail(em);
+      if (fn) setJoinFirst(fn);
+      if (ln) setJoinLast(ln);
+      setMode('member');
+    } else if (newParam === '1') {
+      setMode('register');
+    }
+  }, []);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -102,6 +119,18 @@ export default function AuthScreen({ onAuth }: AuthScreenProps) {
     setLoading(false);
     if (err) { setError(err.message); return; }
     if (data.user) onAuth(data.user.id, data.user.user_metadata || {});
+  };
+
+  const handleMagicLink = async () => {
+    if (!loginEmail.trim()) { setError('Enter your email above, then tap “Email me a sign-in link.”'); return; }
+    setLoading(true); setError(''); setSuccess('');
+    const { error: err } = await supabase.auth.signInWithOtp({
+      email: loginEmail.trim(),
+      options: { emailRedirectTo: window.location.origin, shouldCreateUser: false },
+    });
+    setLoading(false);
+    if (err) { setError(err.message); return; }
+    setSuccess('Check your email for a one-tap sign-in link — no password needed. (Your church account must already be set up.)');
   };
 
   const handleRegister = async () => {
@@ -310,7 +339,7 @@ export default function AuthScreen({ onAuth }: AuthScreenProps) {
               display: 'flex', marginBottom: 24,
               background: BG, borderRadius: 10, padding: 3,
             }}>
-              {(['login', 'register', 'join'] as AuthMode[]).filter(m => !_hiddenTabs.includes(m)).map((m) => (
+              {(['login', 'member', 'join', 'register'] as AuthMode[]).map((m) => (
                 <button
                   key={m}
                   onClick={() => { setMode(m); setError(''); setSuccess(''); }}
@@ -325,7 +354,7 @@ export default function AuthScreen({ onAuth }: AuthScreenProps) {
                     transition: 'all 0.15s',
                   }}
                 >
-                  {m === 'login' ? 'Sign In' : m === 'register' ? 'New Church' : 'Join as Staff'}
+                  {m === 'login' ? 'Sign In' : m === 'member' ? 'Member' : m === 'join' ? 'Staff' : 'New Church'}
                 </button>
               ))}
             </div>
@@ -361,6 +390,15 @@ export default function AuthScreen({ onAuth }: AuthScreenProps) {
                 </button>
               </div>
               <Btn onClick={handleLogin}>Sign In to Your Church</Btn>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '14px 0' }}>
+                <div style={{ flex: 1, height: 1, background: BR }} />
+                <span style={{ fontSize: 11, color: MU }}>or no password</span>
+                <div style={{ flex: 1, height: 1, background: BR }} />
+              </div>
+              <Btn onClick={handleMagicLink} variant="ghost">✉️ Email me a sign-in link</Btn>
+              <div style={{ fontSize: 11, color: MU, textAlign: 'center', marginTop: 8, lineHeight: 1.5 }}>
+                Enter your email above and we'll send a one-tap link — handy for members who don't want a password.
+              </div>
             </div>
           )}
 
@@ -395,6 +433,38 @@ export default function AuthScreen({ onAuth }: AuthScreenProps) {
           )}
 
           {/* JOIN AS STAFF */}
+          {mode === 'member' && (
+            <div>
+              <div style={{ background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 12, color: '#1e40af', lineHeight: 1.6 }}>
+                <strong>Member Sign-Up</strong> — Create your own login to view your profile and giving, share prayer requests, and RSVP for events. <strong>Use the email your church has on file for you</strong> so we can match your account. Your church will share the <strong>Access Code</strong> with you.
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <Field label="First Name">
+                  <Input value={joinFirst} onChange={setJoinFirst} placeholder="Jane" autoComplete="given-name" />
+                </Field>
+                <Field label="Last Name">
+                  <Input value={joinLast} onChange={setJoinLast} placeholder="Smith" autoComplete="family-name" />
+                </Field>
+              </div>
+              <Field label="Your Email (must match your church record)">
+                <Input type="email" value={joinEmail} onChange={setJoinEmail} placeholder="you@email.com" autoComplete="email" />
+              </Field>
+              <Field label="Phone Number (optional)">
+                <Input type="tel" value={joinPhone} onChange={setJoinPhone} placeholder="+1 (602) 555-0100" autoComplete="tel" />
+              </Field>
+              <Field label="Choose a Password (min. 8 characters)">
+                <Input type="password" value={joinPassword} onChange={setJoinPassword} placeholder="Min. 8 characters" autoComplete="new-password" />
+              </Field>
+              <Field label="Church Access Code">
+                <Input value={joinCode} onChange={setJoinCode} placeholder="Provided by your church" />
+              </Field>
+              <Btn onClick={handleJoin} variant="primary">Create My Member Account</Btn>
+              <div style={{ fontSize: 11, color: MU, textAlign: 'center', marginTop: 12, lineHeight: 1.5 }}>
+                After creating your account, sign in using the <strong>Sign In</strong> tab. Already have a login? Use <strong>Sign In</strong> or <strong>Forgot Password</strong>.
+              </div>
+            </div>
+          )}
+
           {mode === 'join' && (
             <div>
               <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 12, color: '#166534', lineHeight: 1.6 }}>

@@ -1,5 +1,7 @@
-// Vercel serverless function — proxies SMS sends to Twilio
-// Keeps Twilio credentials server-side on each request (passed from the app's smsConfig)
+// Vercel serverless function — proxies SMS sends to Twilio.
+// Credentials are read from the SERVER environment (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN,
+// TWILIO_FROM_NUMBER) so the auth token is never held in the browser. For backward
+// compatibility, values in the request body are used only if the env vars are absent.
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -10,10 +12,17 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { accountSid, authToken, fromPhone, to, body } = req.body || {};
+  const b = req.body || {};
+  const accountSid = process.env.TWILIO_ACCOUNT_SID || b.accountSid;
+  const authToken = process.env.TWILIO_AUTH_TOKEN || b.authToken;
+  const fromPhone = process.env.TWILIO_FROM_NUMBER || process.env.TWILIO_FROM || b.fromPhone;
+  const { to, body } = b;
 
-  if (!accountSid || !authToken || !fromPhone || !to || !body) {
-    return res.status(400).json({ error: "Missing required fields: accountSid, authToken, fromPhone, to, body" });
+  if (!accountSid || !authToken || !fromPhone) {
+    return res.status(400).json({ error: "SMS not configured. Add TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_FROM_NUMBER in your Vercel environment variables." });
+  }
+  if (!to || !body) {
+    return res.status(400).json({ error: "Missing required fields: to, body" });
   }
 
   // Validate phone number format
