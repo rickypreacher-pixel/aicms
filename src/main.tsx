@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { supabase } from './lib/supabase';
 import App from './App';
 import AuthScreen from './AuthScreen';
+import ErrorBoundary from './ErrorBoundary';
 
 function Root() {
   const [session, setSession] = useState<any>(null);
@@ -101,6 +102,8 @@ function Root() {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <Root />
+    <ErrorBoundary>
+      <Root />
+    </ErrorBoundary>
   </StrictMode>,
 );
