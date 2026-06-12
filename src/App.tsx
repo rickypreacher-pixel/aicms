@@ -3266,8 +3266,10 @@ async function sendDirectEmail(config, payload){
 async function sendDirectSms(config, to, body){
   if(!to) throw new Error("No recipient phone number.");
   if(!body) throw new Error("Message is empty.");
+  // Compliance: ensure every text carries opt-out language (added once, only if not already present).
+  const _body = /\bstop\b/i.test(body) ? body : (String(body).replace(/\s+$/,"") + "\nReply STOP to opt out");
   const res=await fetch("/api/send-sms",{method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({to,body,fromPhone:config?.fromPhone||undefined})});
+    body:JSON.stringify({to,body:_body,fromPhone:config?.fromPhone||undefined})});
   const data=await res.json().catch(()=>({}));
   if(!res.ok||!data.success) throw new Error(data.error||("SMS failed ("+res.status+")"));
   return data;
