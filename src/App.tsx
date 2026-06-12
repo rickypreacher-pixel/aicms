@@ -14280,6 +14280,14 @@ function Finances({expenses,setExpenses,budgets,setBudgets,giving=[],openingBala
       '</body></html>';
     const w=window.open("","_blank","width=800,height=1000"); if(w){ w.document.write(html); w.document.close(); w.focus(); setTimeout(()=>{ try{w.print();}catch(e){} },200); }
   };
+  // ── Daily & Weekly giving totals (Home, Budget Offering, Tithe/Tithes, Food, Sunday School, Offerings + auto Church Tithe) ──
+  const GT_COLS:[string,string[]][] = [["Home",["Home"]],["Budget Offering",["Budget Offering","Budget","budget"]],["Tithe/Tithes",["Tithe","Tithes"]],["Food",["Food"]],["Sunday School",["Sunday School"]],["Offerings",["Offering"]]];
+  const GT_LABELS = GT_COLS.map(c=>c[0]);
+  const gtCol:any = {}; GT_COLS.forEach(([lab,cats]:any)=>cats.forEach((c:string)=>{gtCol[c]=lab;}));
+  const gtSum = (recs:any[])=>{ const cols:any={}; GT_LABELS.forEach((l:string)=>{cols[l]=0;}); recs.forEach((g:any)=>{ const c=gtCol[g.category]; if(c) cols[c]+=Number(g.amount||0); }); const six=GT_LABELS.reduce((a:number,l:string)=>a+cols[l],0); const draw=calcTithes(recs).pastorDraw||0; const churchTithe=Math.round(Math.max(0,six-draw)*0.10*100)/100; return {cols,six,draw,churchTithe}; };
+  const gtMonthGiving = givingArr.filter((g:any)=>String(g.date||"").startsWith(month));
+  const gtDailyRows = Array.from(new Set(gtMonthGiving.map((g:any)=>String(g.date||"")).filter(Boolean))).sort().reverse().map((d:any)=>({label:fd(d),...gtSum(gtMonthGiving.filter((g:any)=>String(g.date||"")===d))}));
+  const gtWeeklyRows = Array.from(new Set(gtMonthGiving.map((g:any)=>getMondayOf(String(g.date||""))).filter(Boolean))).sort().reverse().map((m:any)=>{ const sun=getSundayOf(m); return {label:fd(m)+" – "+fd(sun),...gtSum(givingArr.filter((g:any)=>String(g.date||"")>=m && String(g.date||"")<=sun))}; });
   return (
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:10}}>
@@ -14299,12 +14307,45 @@ function Finances({expenses,setExpenses,budgets,setBudgets,giving=[],openingBala
         <Stat label="Current Balance" value={f$(totalCurrentBalance)} sub="all funds" color={totalCurrentBalance>=0?GR:RE}/>
       </div>
       <div style={{display:"flex",gap:8,marginBottom:16,alignItems:"center"}}>
-        {[["expenses","Expenses"],["budget","Budget vs Actual"],["balances","Fund Balances"]].map(([id,label]:any)=>(
+        {[["expenses","Expenses"],["budget","Budget vs Actual"],["balances","Fund Balances"],["givingtotals","Daily & Weekly Giving"]].map(([id,label]:any)=>(
           <button key={id} onClick={()=>setTab(id)} style={{padding:"8px 16px",borderRadius:8,border:"0.5px solid "+(tab===id?N:BR),background:tab===id?N:W,color:tab===id?"#fff":TX,fontSize:13,fontWeight:tab===id?600:400,cursor:"pointer"}}>{label}</button>
         ))}
         <div style={{flex:1}}/>
         {tab==="expenses"&&<Btn onClick={openAdd}>+ Add Expense</Btn>}
       </div>
+      {tab==="givingtotals"&&(
+        <div>
+          <div style={{fontSize:12,color:MU,marginBottom:12}}>Giving totals for <strong>{monthLabel}</strong> (from Record Giving). Weeks run Monday–Sunday. <strong>Church Tithe</strong> = 10% of the six category totals minus the pastor's draw.</div>
+          {gtDailyRows.length===0?(
+            <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:32,textAlign:"center",color:MU,fontSize:13}}>No giving recorded for {monthLabel}.</div>
+          ):(([["Daily totals","Date",gtDailyRows],["Weekly totals (Mon–Sun)","Week",gtWeeklyRows]] as any).map(([title,col1,rows]:any)=>(
+            <div key={title} style={{marginBottom:22}}>
+              <h4 style={{fontSize:13,fontWeight:600,color:N,margin:"0 0 8px"}}>{title}</h4>
+              <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,overflowX:"auto"}}>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:780}}>
+                  <thead><tr style={{background:BG}}>
+                    {[col1,...GT_LABELS,"Church Tithe (10%)"].map((h:string,i:number)=><th key={h} style={{textAlign:i===0?"left":"right",padding:"9px 12px",fontSize:11,color:MU,fontWeight:600,whiteSpace:"nowrap",borderBottom:"0.5px solid "+BR}}>{h}</th>)}
+                  </tr></thead>
+                  <tbody>
+                    {rows.map((r:any)=>(
+                      <tr key={r.label} style={{borderTop:"0.5px solid "+BR}}>
+                        <td style={{padding:"9px 12px",whiteSpace:"nowrap",fontWeight:500}}>{r.label}</td>
+                        {GT_LABELS.map((l:string)=><td key={l} style={{padding:"9px 12px",textAlign:"right",color:r.cols[l]?TX:MU}}>{r.cols[l]?f$(r.cols[l]):"—"}</td>)}
+                        <td style={{padding:"9px 12px",textAlign:"right",fontWeight:600,color:N}}>{f$(r.churchTithe)}</td>
+                      </tr>
+                    ))}
+                    <tr style={{borderTop:"1.5px solid "+BR,background:BG}}>
+                      <td style={{padding:"9px 12px",fontWeight:700}}>Total</td>
+                      {GT_LABELS.map((l:string)=><td key={l} style={{padding:"9px 12px",textAlign:"right",fontWeight:700}}>{f$(rows.reduce((a:number,r:any)=>a+r.cols[l],0))}</td>)}
+                      <td style={{padding:"9px 12px",textAlign:"right",fontWeight:700,color:N}}>{f$(rows.reduce((a:number,r:any)=>a+r.churchTithe,0))}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )))}
+        </div>
+      )}
       {tab==="expenses"&&(
         <div>
           <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10,flexWrap:"wrap"}}>
