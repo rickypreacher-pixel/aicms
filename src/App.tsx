@@ -9270,7 +9270,7 @@ function WeeklyReports({giving,weeklyReports,setWeeklyReports}){
 
   const updateGlobalDrawPct = pct => {
     setGlobalDrawPct(pct);
-    localStorage.setItem("ntcc_pastor_draw_pct", String(pct));
+    try{localStorage.setItem("ntcc_pastor_draw_pct", String(pct));}catch{}
   };
 
   const updateReportDrawPct = (report, pct) => {
@@ -10443,10 +10443,10 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
     return d.toLocaleString();
   };
 
-  useEffect(()=>{ localStorage.setItem("ntcc_giving_closed_batches",JSON.stringify(closedBatchStarts||[])); },[JSON.stringify(closedBatchStarts)]);
-  useEffect(()=>{ localStorage.setItem("ntcc_giving_batch_audit",JSON.stringify(batchAudit||{})); },[JSON.stringify(batchAudit)]);
-  useEffect(()=>{ localStorage.setItem("ntcc_giving_current_batch",currentBatchStart||""); },[currentBatchStart]);
-  useEffect(()=>{ localStorage.setItem("ntcc_giving_selected_batch",selectedBatchStart||""); },[selectedBatchStart]);
+  useEffect(()=>{ try{ localStorage.setItem("ntcc_giving_closed_batches",JSON.stringify(closedBatchStarts||[])); }catch{} },[JSON.stringify(closedBatchStarts)]);
+  useEffect(()=>{ try{ localStorage.setItem("ntcc_giving_batch_audit",JSON.stringify(batchAudit||{})); }catch{} },[JSON.stringify(batchAudit)]);
+  useEffect(()=>{ try{ localStorage.setItem("ntcc_giving_current_batch",currentBatchStart||""); }catch{} },[currentBatchStart]);
+  useEffect(()=>{ try{ localStorage.setItem("ntcc_giving_selected_batch",selectedBatchStart||""); }catch{} },[selectedBatchStart]);
   useEffect(()=>{
     if(!batchStarts.includes(selectedBatchStart)) setSelectedBatchStart(currentBatchStart);
   },[selectedBatchStart,currentBatchStart,JSON.stringify(batchStarts)]);
@@ -15988,7 +15988,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     window.addEventListener("resize",fn);
     return()=>window.removeEventListener("resize",fn);
   },[]);
-  useEffect(()=>{localStorage.setItem('ntcc_theme',theme);},[theme]);
+  useEffect(()=>{try{localStorage.setItem('ntcc_theme',theme);}catch{}},[theme]);
   const [churchSettings,setChurchSettings] = useState(_I.churchSettings || DEFAULT_CS);
   const [showSetup,setShowSetup] = useState(false);
   const [view,setView] = useState("dashboard");
