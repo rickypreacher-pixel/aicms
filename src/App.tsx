@@ -8732,7 +8732,8 @@ function Attendance({attendance,setAttendance,setView,checkIns=[],setCheckIns=()
   // A check-in stores the person's status at check-in time. If they checked in as a visitor
   // but have since been converted to a member, count them as a member now (current status).
   const visitorById = (()=>{const m:any={};(visitors||[]).forEach((v:any)=>{if(v&&v.id!=null)m[String(v.id)]=v;});return m;})();
-  const curPtype = (c:any)=>{if(c&&c.ptype==="visitor"){const v=visitorById[String(c.pid)];if(v&&(v.convertedMemberId||v.stage==="Member"||v.convertedFromVisitor))return "member";return "visitor";}return "member";};
+  const memberById = (()=>{const m:any={};(members||[]).forEach((mm:any)=>{if(mm&&mm.id!=null)m[String(mm.id)]=mm;});return m;})();
+  const curPtype = (c:any)=>{if(c&&c.ptype==="visitor"){if(memberById[String(c.pid)])return "member";const v=visitorById[String(c.pid)];if(v&&(v.convertedMemberId||v.stage==="Member"||v.convertedFromVisitor))return "member";return "visitor";}return "member";};
   const allPeople = [...(members||[]).map((m:any)=>({...m,ptype:"member"})),...(visitors||[]).map((v:any)=>({...v,ptype:"visitor"}))];
   const checkinAttendeesFor = (rec:any)=>{
     // All check-ins on that date; refine to the matching service only if any actually match
