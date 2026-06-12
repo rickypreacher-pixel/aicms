@@ -14194,6 +14194,7 @@ function Finances({expenses,setExpenses,budgets,setBudgets,giving=[],openingBala
   const [tab,setTab]=useState("expenses");
   const [regFund,setRegFund]=useState("General Fund");
   const [month,setMonth]=useState(td().slice(0,7));
+  const [drawPct,setDrawPct]=useState(()=>{ const s=localStorage.getItem("ntcc_pastor_draw_pct"); const v=s==null?40:Number(s); return (Number.isFinite(v)&&v>=0&&v<=60)?v:40; });
   const [modal,setModal]=useState(false);
   const [editing,setEditing]=useState<any>(null);
   const blank=()=>({date:td(),payee:"",category:EXPENSE_CATEGORIES[0],fund:EXPENSE_FUNDS[0],amount:"",method:"Check",notes:""});
@@ -14284,7 +14285,7 @@ function Finances({expenses,setExpenses,budgets,setBudgets,giving=[],openingBala
   const GT_COLS:[string,string[]][] = [["Home",["Home"]],["Budget Offering",["Budget Offering","Budget","budget"]],["Tithe/Tithes",["Tithe","Tithes"]],["Food",["Food"]],["Sunday School",["Sunday School"]],["Offerings",["Offering"]]];
   const GT_LABELS = GT_COLS.map(c=>c[0]);
   const gtCol:any = {}; GT_COLS.forEach(([lab,cats]:any)=>cats.forEach((c:string)=>{gtCol[c]=lab;}));
-  const gtSum = (recs:any[])=>{ const cols:any={}; GT_LABELS.forEach((l:string)=>{cols[l]=0;}); recs.forEach((g:any)=>{ const c=gtCol[g.category]; if(c) cols[c]+=Number(g.amount||0); }); const six=GT_LABELS.reduce((a:number,l:string)=>a+cols[l],0); const draw=calcTithes(recs).pastorDraw||0; const churchTithe=Math.round(Math.max(0,six-draw)*0.10*100)/100; return {cols,six,draw,churchTithe}; };
+  const gtSum = (recs:any[])=>{ const cols:any={}; GT_LABELS.forEach((l:string)=>{cols[l]=0;}); recs.forEach((g:any)=>{ const c=gtCol[g.category]; if(c) cols[c]+=Number(g.amount||0); }); const six=GT_LABELS.reduce((a:number,l:string)=>a+cols[l],0); const pastorBase=calcTithes(recs).pastorBase||0; const draw=Math.round(pastorBase*(drawPct/100)*100)/100; const churchTithe=Math.round(Math.max(0,six-draw)*0.10*100)/100; return {cols,six,draw,churchTithe}; };
   const gtMonthGiving = givingArr.filter((g:any)=>String(g.date||"").startsWith(month));
   const gtDailyRows = Array.from(new Set(gtMonthGiving.map((g:any)=>String(g.date||"")).filter(Boolean))).sort().reverse().map((d:any)=>({label:fd(d),...gtSum(gtMonthGiving.filter((g:any)=>String(g.date||"")===d))}));
   const gtWeeklyRows = Array.from(new Set(gtMonthGiving.map((g:any)=>getMondayOf(String(g.date||""))).filter(Boolean))).sort().reverse().map((m:any)=>{ const sun=getSundayOf(m); return {label:fd(m)+" – "+fd(sun),...gtSum(givingArr.filter((g:any)=>String(g.date||"")>=m && String(g.date||"")<=sun))}; });
@@ -14315,7 +14316,14 @@ function Finances({expenses,setExpenses,budgets,setBudgets,giving=[],openingBala
       </div>
       {tab==="givingtotals"&&(
         <div>
-          <div style={{fontSize:12,color:MU,marginBottom:12}}>Giving totals for <strong>{monthLabel}</strong> (from Record Giving). Weeks run Monday–Sunday. <strong>Church Tithe</strong> = 10% of the six category totals minus the pastor's draw.</div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,marginBottom:12,flexWrap:"wrap"}}>
+            <div style={{fontSize:12,color:MU,maxWidth:560}}>Giving totals for <strong>{monthLabel}</strong> (from Record Giving). Weeks run Monday–Sunday. <strong>Church Tithe</strong> = 10% of the six totals minus the pastor's draw.</div>
+            <label style={{fontSize:12,color:TX,display:"flex",alignItems:"center",gap:6,whiteSpace:"nowrap"}}>Pastor's Draw:
+              <select value={drawPct} onChange={e=>{const v=Number(e.target.value); setDrawPct(v); try{localStorage.setItem("ntcc_pastor_draw_pct",String(v));}catch{}}} style={{padding:"5px 8px",border:"0.5px solid "+BR,borderRadius:6,fontSize:12,outline:"none",background:W}}>
+                {Array.from({length:13},(_,i)=>i*5).map((p:number)=><option key={p} value={p}>{p}%</option>)}
+              </select>
+            </label>
+          </div>
           {gtDailyRows.length===0?(
             <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:32,textAlign:"center",color:MU,fontSize:13}}>No giving recorded for {monthLabel}.</div>
           ):(([["Daily totals","Date",gtDailyRows],["Weekly totals (Mon–Sun)","Week",gtWeeklyRows]] as any).map(([title,col1,rows]:any)=>(
