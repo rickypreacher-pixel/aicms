@@ -3871,6 +3871,7 @@ function SmsComposer({open,onClose,initialPhone,initialName,initialBody,initialC
   const [showTpl,setShowTpl]=useState(false);
   const [pickerMode,setPickerMode]=useState("manual");
   const [pickerId,setPickerId]=useState("");
+  const [pickSearch,setPickSearch]=useState("");
   const [aiLoad,setAiLoad]=useState(false);
   const [copied,setCopied]=useState(false);
   const [errorMsg,setErrorMsg]=useState("");
@@ -3885,7 +3886,7 @@ function SmsComposer({open,onClose,initialPhone,initialName,initialBody,initialC
       setBody(initialBody||"");
       setCategory(initialCategory||"General");
       setShowTpl(false);setCopied(false);setErrorMsg("");
-      setPickerMode("manual");setPickerId("");
+      setPickerMode("manual");setPickerId("");setPickSearch("");
     }
   },[open,initialPhone,initialName,initialBody,initialCategory]);
 
@@ -3973,11 +3974,21 @@ function SmsComposer({open,onClose,initialPhone,initialName,initialBody,initialC
               <Fld label="Name (optional)"><Inp value={toName} onChange={setToName} placeholder="First Last"/></Fld>
             </div>
           ):(
-            <Fld label="Select Member or Visitor">
-              <select value={pickerId} onChange={e=>pickPerson(e.target.value)} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}>
-                <option value="">— Choose person —</option>
-                {allPeople.map(p=><option key={p._type+p.id} value={String(p.id)}>{p.label} — {p.phone}</option>)}
-              </select>
+            <Fld label="Search Member or Visitor">
+              <input value={pickSearch} onChange={e=>setPickSearch(e.target.value)} autoFocus placeholder="Type a name or phone number…" style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}/>
+              <div style={{maxHeight:190,overflowY:"auto",border:"0.5px solid "+BR,borderRadius:8,marginTop:6}}>
+                {(()=>{
+                  const q=pickSearch.trim().toLowerCase();const qd=q.replace(/\D/g,"");
+                  const list=!q?allPeople:allPeople.filter(p=>{const nm=(p.first+" "+(p.last||"")).toLowerCase();return nm.includes(q)||(qd.length>=3&&String(p.phone||"").replace(/\D/g,"").includes(qd));});
+                  if(!allPeople.length) return <div style={{padding:"10px 12px",fontSize:12,color:MU}}>No members or visitors with a phone number yet.</div>;
+                  if(!list.length) return <div style={{padding:"10px 12px",fontSize:12,color:MU}}>No matches for "{pickSearch}".</div>;
+                  return list.slice(0,60).map(p=>(
+                    <div key={p._type+p.id} onClick={()=>pickPerson(String(p.id))} style={{padding:"8px 12px",cursor:"pointer",fontSize:13,borderBottom:"0.5px solid "+BR,background:String(p.id)===pickerId?N+"14":W,display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
+                      <span>{p.label}</span><span style={{color:MU,fontSize:12,whiteSpace:"nowrap"}}>{p.phone}</span>
+                    </div>
+                  ));
+                })()}
+              </div>
             </Fld>
           )}
           {phone&&<div style={{fontSize:11,color:MU,marginTop:4}}>📱 {phone}</div>}
