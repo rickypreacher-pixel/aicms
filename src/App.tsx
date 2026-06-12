@@ -4158,6 +4158,45 @@ function BulkSmsComposer({open,onClose,recipients,initialBody,initialCategory,re
 }
 
 // ── SMS CENTER PAGE ──
+// ── LOGIN ACTIVITY PAGE (admin only) ──
+function LoginActivity({churchId}:any){
+  const [rows,setRows]=useState<any[]>([]);
+  const [loading,setLoading]=useState(true);
+  const [err,setErr]=useState("");
+  const load=()=>{
+    setLoading(true);setErr("");
+    supabase.from('login_events').select('id,name,email,logged_in_at').eq('church_id',churchId).order('logged_in_at',{ascending:false}).limit(1000)
+      .then(({data,error}:any)=>{ if(error) setErr(error.message||"Could not load login activity."); setRows(data||[]); setLoading(false); });
+  };
+  useEffect(()=>{ if(churchId) load(); },[churchId]);
+  const fmt=(ts:string)=>{ try{ const d=new Date(ts); return d.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"})+" · "+d.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"}); }catch{ return ts; } };
+  const th:any={textAlign:"left",padding:"10px 14px",fontSize:11,color:MU,textTransform:"uppercase",letterSpacing:0.4,fontWeight:600};
+  const td:any={padding:"10px 14px",fontSize:13,borderTop:"0.5px solid "+BR};
+  return (
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:10}}>
+        <div>
+          <h3 style={{fontSize:15,fontWeight:500,color:N,margin:0}}>Login Activity</h3>
+          <div style={{fontSize:12,color:MU,marginTop:2}}>Every sign-in to the app, newest first. Visible to administrators only.</div>
+        </div>
+        <Btn onClick={load} v="ghost" style={{fontSize:12}}>↻ Refresh</Btn>
+      </div>
+      {loading ? <div style={{padding:24,color:MU,fontSize:13}}>Loading…</div>
+        : err ? <div style={{background:"#fef2f2",border:"0.5px solid "+RE+"44",borderRadius:8,padding:"12px 14px",color:RE,fontSize:13}}>{err}</div>
+        : rows.length===0 ? <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:32,textAlign:"center",color:MU,fontSize:13}}>No logins recorded yet. Entries appear here after users sign in.</div>
+        : (
+          <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,overflow:"hidden"}}>
+            <div style={{padding:"10px 14px",fontSize:12,color:MU,borderBottom:"0.5px solid "+BR,background:BG}}>{rows.length} login{rows.length!==1?"s":""} recorded</div>
+            <table style={{width:"100%",borderCollapse:"collapse"}}>
+              <thead><tr><th style={th}>Name</th><th style={th}>Email</th><th style={th}>Date &amp; Time</th></tr></thead>
+              <tbody>{rows.map((r:any)=>(<tr key={r.id}><td style={{...td,fontWeight:500}}>{r.name||"—"}</td><td style={{...td,color:MU}}>{r.email||"—"}</td><td style={td}>{fmt(r.logged_in_at)}</td></tr>))}</tbody>
+            </table>
+          </div>
+        )}
+    </div>
+  );
+}
+
 function SmsCenter({smsLog,setSmsLog,smsTemplates,setSmsTemplates,smsConfig,setSmsConfig,members,visitors,cs,onCompose,onBulkCompose}){
   const [tab,setTab]=useState("log");
   const [search,setSearch]=useState("");
@@ -16610,6 +16649,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   window.__openSmsComposer__ = openSmsComposer;
   window.__openBulkSmsComposer__ = openBulkSmsComposer;
 
+  const isAdminUser = !!(currentUser?.superAdmin || [currentUser?.roleId, currentUser?.secondaryRoleId].some((rid:any)=>roles.find((r:any)=>r.id===rid)?.name==="Administrator"));
   const NAV = [
     {id:"dashboard",label:"Dashboard",icon:"D",group:"Core"},
     {id:"addperson",label:"Add Person",icon:"➕",group:"Core"},
@@ -16636,6 +16676,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     {id:"settings",label:"Settings",icon:"⚙",group:"Tools"},
     {id:"alerts",label:"Alerts",icon:"🔔",group:"Tools"},
     {id:"manual",label:"Manual",icon:"📖",group:"Tools"},
+    ...(isAdminUser ? [{id:"loginactivity",label:"Login Activity",icon:"🔐",group:"Tools"}] : []),
   ];
   const NAV_GROUP_ORDER = [
     "Core",
@@ -16654,7 +16695,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     hospitalvisits:"hospitalVisits", benevolencefund:"benevolenceFund", counselinglog:"counselingLog", hospitalityfund:"hospitalityFund",
     maintenance:"maintenance", calendar:"events", attendance:"attendance",
     giving:"giving", prayer:"prayer", email:null, sms:null,
-    access:"settings", ai:null, settings:"settings", alerts:null, manual:null,
+    access:"settings", ai:null, settings:"settings", alerts:null, manual:null, loginactivity:null,
   };
   const PASTORAL_CARE_SIDEBAR_ROLE_ACCESS:Record<string,string[]> = {
     hospitalvisits:["Administrator","Pastor","Staff","Team Supervisor","Team Leader","Sponsor","Hospital & Visits"],
@@ -16715,7 +16756,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     group,
     items: visibleNAV.filter((item:any)=>item.group===group),
   })).filter((entry)=>entry.items.length>0);
-  const TITLES:any = {dashboard:"Dashboard",addperson:"Add Person to Database",people:"Members Profile",prospects:"Prospects",visitation:"Visitation & Follow-Up",hospitalvisits:"Hospital & Visits",benevolencefund:"Benevolence Fund",counselinglog:"Counseling Log",hospitalityfund:"Hospitality Fund",education:"Education Department",maintenance:"Maintenance & Equipment",attendance:"Attendance",giving:"Giving Records",prayer:"Prayer Wall",email:"Email Center",sms:"SMS Center",access:"Access Control",ai:"AI Assistant",settings:"Church Settings",alerts:"Alerts & Reports",manual:"Staff Manual",myprofile:"My Profile"};
+  const TITLES:any = {dashboard:"Dashboard",addperson:"Add Person to Database",people:"Members Profile",prospects:"Prospects",visitation:"Visitation & Follow-Up",hospitalvisits:"Hospital & Visits",benevolencefund:"Benevolence Fund",counselinglog:"Counseling Log",hospitalityfund:"Hospitality Fund",education:"Education Department",maintenance:"Maintenance & Equipment",attendance:"Attendance",giving:"Giving Records",prayer:"Prayer Wall",email:"Email Center",sms:"SMS Center",access:"Access Control",ai:"AI Assistant",settings:"Church Settings",alerts:"Alerts & Reports",manual:"Staff Manual",loginactivity:"Login Activity",myprofile:"My Profile"};
   const pending = users.filter(u=>u.status==="Pending").length;
   const fu = visitors.filter(v=>v.stage==="Follow-Up Needed").length;
   const inVis = visitRecords.filter(r=>r.stage!=="Complete").length;
@@ -16969,6 +17010,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           {!isMemberPortal && view==="sms" && <SmsCenter smsLog={smsLog} setSmsLog={setSmsLog} smsTemplates={smsTemplates} setSmsTemplates={setSmsTemplates} smsConfig={smsConfig} setSmsConfig={setSmsConfig} members={members} visitors={visitors} cs={churchSettings} onCompose={()=>openSmsComposer({})} onBulkCompose={()=>openBulkSmsComposer({recipients:[...members,...visitors].filter(p=>p.phone).map(p=>({...p,first:p.first,last:p.last,name:p.first+" "+p.last}))})}/>}
           {!isMemberPortal && view==="email" && <EmailCenter emailLog={emailLog} setEmailLog={setEmailLog} emailTemplates={emailTemplates} setEmailTemplates={setEmailTemplates} emailConfig={emailConfig} setEmailConfig={setEmailConfig} members={members} visitors={visitors} cs={churchSettings} onCompose={()=>openEmailComposer({})} onBulkCompose={()=>openBulkEmailComposer({recipients:members.filter(m=>m.email).map(m=>({name:m.first+" "+m.last,first:m.first,last:m.last,email:m.email}))})}/>}
           {!isMemberPortal && view==="access" && <Access members={members} users={users} setUsers={setUsers} roles={roles} setRoles={setRoles} permissions={permissions} setPermissions={setPermissions} portalMembers={portalMembers} setPortalMembers={setPortalMembers} currentUser={currentUser} churchId={churchId}/>}
+          {!isMemberPortal && isAdminUser && view==="loginactivity" && <LoginActivity churchId={churchId}/>}
           {!isMemberPortal && view==="ai" && <AIAssist aiChat={aiChat} setAiChat={setAiChat} members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} setAttendance={setAttendance} giving={giving} setGiving={setGiving} prayers={prayers} setView={setView} isMobile={isMobile}/>}
           {!isMemberPortal && view==="alerts" && <AlertPage members={members} visitors={visitors} giving={giving} checkIns={checkIns} kidsCheckIns={kidsCheckIns} rollCalls={rollCalls} children={children} visitRecords={visitRecords} cs={churchSettings} setCs={setChurchSettings} users={users} roles={roles} followupDismissedChildIds={followupDismissedChildIds}/>}
           {!isMemberPortal && view==="announcements" && <Announcements announcements={announcements} setAnnouncements={setAnnouncements} currentUser={currentUser} roles={roles} recurring={recurring} custom={custom} churchId={churchId}/>}

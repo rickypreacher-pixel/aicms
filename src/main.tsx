@@ -24,6 +24,22 @@ function Root() {
       if (event === 'SIGNED_IN' && s?.user) {
         const meta = s.user.user_metadata || {};
         const isStaff = !!(meta.church_id && meta.church_id !== s.user.id);
+        // Login Activity tracker: record each sign-in once per browser session (non-blocking).
+        try {
+          const _sessKey = `ntcc_login_logged_${s.user.id}`;
+          if (!sessionStorage.getItem(_sessKey)) {
+            sessionStorage.setItem(_sessKey, '1');
+            const _name = meta.full_name || meta.name || meta.display_name
+              || [meta.admin_first, meta.admin_last].filter(Boolean).join(' ').trim()
+              || (s.user.email || '').split('@')[0];
+            supabase.from('login_events').insert({
+              church_id: meta.church_id || s.user.id,
+              user_id: s.user.id,
+              name: _name,
+              email: s.user.email || null,
+            }).then(() => {}, () => {});
+          }
+        } catch { /* tracking must never block login */ }
         const firstKey = `ntcc_first_login_${s.user.id}`;
         if (isStaff && !localStorage.getItem(firstKey)) {
           localStorage.setItem(firstKey, '1');
