@@ -9450,9 +9450,10 @@ function WeeklyReports({giving,weeklyReports,setWeeklyReports}){
               const _EXCL = CHURCH_TITHE_EXCLUDE;
               const eligibleEntries = Object.entries(r.byCategory).filter(([cat])=>!_EXCL.includes(cat)).sort((a,b)=>b[1]-a[1]);
               const eligibleBase = eligibleEntries.reduce((s,[,v])=>s+v,0);
-              const churchWeeklyTithe = Math.round(eligibleBase*0.10*100)/100;
               const effectiveDrawPct = r.pastorDrawPct ?? globalDrawPct;
               const pastorDraw = r.tithes ? Math.round(((r.tithes.tithe||0)+(r.tithes.specialGift||0)+(r.tithes.sundayMorning||0))*(effectiveDrawPct/100)*100)/100 : 0;
+              const churchTitheBase = Math.max(0, eligibleBase - pastorDraw);
+              const churchWeeklyTithe = Math.round(churchTitheBase*0.10*100)/100;
               const titheCollected = r.tithes?.tithe||0;
               const specialGift = r.tithes?.specialGift||0;
               const sundayMorning = r.tithes?.sundayMorning||0;
@@ -9472,6 +9473,8 @@ function WeeklyReports({giving,weeklyReports,setWeeklyReports}){
                         <div key={cat} style={{display:"flex",justifyContent:"space-between"}}><span>{cat}:</span><strong>{f$(amt)}</strong></div>
                       ))}
                       <div style={{display:"flex",justifyContent:"space-between",borderTop:"0.5px solid "+G+"44",marginTop:4,paddingTop:4,fontWeight:600,color:N}}><span>Total eligible:</span><strong>{f$(eligibleBase)}</strong></div>
+                      <div style={{display:"flex",justifyContent:"space-between",color:MU}}><span>− Pastor's Draw ({effectiveDrawPct}%):</span><strong>{f$(pastorDraw)}</strong></div>
+                      <div style={{display:"flex",justifyContent:"space-between",fontWeight:600,color:N}}><span>= Adjusted base:</span><strong>{f$(churchTitheBase)}</strong></div>
                       <div style={{display:"flex",justifyContent:"space-between",color:GR,fontWeight:600}}><span>× 10% =</span><strong>{f$(churchWeeklyTithe)}</strong></div>
                     </div>
                   </div>
@@ -14285,7 +14288,7 @@ function Finances({expenses,setExpenses,budgets,setBudgets,giving=[],openingBala
   const GT_COLS:[string,string[]][] = [["Home",["Home"]],["Budget Offering",["Budget Offering","Budget","budget"]],["Tithe/Tithes",["Tithe","Tithes"]],["Food",["Food"]],["Sunday School",["Sunday School"]],["Offerings",["Offering"]]];
   const GT_LABELS = GT_COLS.map(c=>c[0]);
   const gtCol:any = {}; GT_COLS.forEach(([lab,cats]:any)=>cats.forEach((c:string)=>{gtCol[c]=lab;}));
-  const gtSum = (recs:any[])=>{ const cols:any={}; GT_LABELS.forEach((l:string)=>{cols[l]=0;}); recs.forEach((g:any)=>{ const c=gtCol[g.category]; if(c) cols[c]+=Number(g.amount||0); }); const six=GT_LABELS.reduce((a:number,l:string)=>a+cols[l],0); const pastorBase=calcTithes(recs).pastorBase||0; const draw=Math.round(pastorBase*(drawPct/100)*100)/100; const churchTithe=Math.round(Math.max(0,six-draw)*0.10*100)/100; return {cols,six,draw,churchTithe}; };
+  const gtSum = (recs:any[])=>{ const cols:any={}; GT_LABELS.forEach((l:string)=>{cols[l]=0;}); recs.forEach((g:any)=>{ const c=gtCol[g.category]; if(c) cols[c]+=Number(g.amount||0); }); const six=GT_LABELS.reduce((a:number,l:string)=>a+cols[l],0); const eligibleBase=recs.filter((g:any)=>!CHURCH_TITHE_EXCLUDE.includes(g.category)).reduce((a:number,g:any)=>a+Number(g.amount||0),0); const pastorBase=calcTithes(recs).pastorBase||0; const draw=Math.round(pastorBase*(drawPct/100)*100)/100; const churchTithe=Math.round(Math.max(0,eligibleBase-draw)*0.10*100)/100; return {cols,six,eligibleBase,draw,churchTithe}; };
   const gtMonthGiving = givingArr.filter((g:any)=>String(g.date||"").startsWith(month));
   const gtDailyRows = Array.from(new Set(gtMonthGiving.map((g:any)=>String(g.date||"")).filter(Boolean))).sort().reverse().map((d:any)=>({label:fd(d),...gtSum(gtMonthGiving.filter((g:any)=>String(g.date||"")===d))}));
   const gtWeeklyRows = Array.from(new Set(gtMonthGiving.map((g:any)=>getMondayOf(String(g.date||""))).filter(Boolean))).sort().reverse().map((m:any)=>{ const sun=getSundayOf(m); return {label:fd(m)+" – "+fd(sun),...gtSum(givingArr.filter((g:any)=>String(g.date||"")>=m && String(g.date||"")<=sun))}; });
@@ -14317,7 +14320,7 @@ function Finances({expenses,setExpenses,budgets,setBudgets,giving=[],openingBala
       {tab==="givingtotals"&&(
         <div>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,marginBottom:12,flexWrap:"wrap"}}>
-            <div style={{fontSize:12,color:MU,maxWidth:560}}>Giving totals for <strong>{monthLabel}</strong> (from Record Giving). Weeks run Monday–Sunday. <strong>Church Tithe</strong> = 10% of the six totals minus the pastor's draw.</div>
+            <div style={{fontSize:12,color:MU,maxWidth:560}}>Giving totals for <strong>{monthLabel}</strong> (from Record Giving). Weeks run Monday–Sunday. <strong>Church Tithe</strong> = 10% of all eligible offerings (excl. Tithe, Sunday Morning, Housing) minus the pastor's draw — same as the Weekly Batch.</div>
             <label style={{fontSize:12,color:TX,display:"flex",alignItems:"center",gap:6,whiteSpace:"nowrap"}}>Pastor's Draw:
               <select value={drawPct} onChange={e=>{const v=Number(e.target.value); setDrawPct(v); try{localStorage.setItem("ntcc_pastor_draw_pct",String(v));}catch{}}} style={{padding:"5px 8px",border:"0.5px solid "+BR,borderRadius:6,fontSize:12,outline:"none",background:W}}>
                 {Array.from({length:13},(_,i)=>i*5).map((p:number)=><option key={p} value={p}>{p}%</option>)}
