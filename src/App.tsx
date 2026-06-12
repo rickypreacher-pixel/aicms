@@ -8715,7 +8715,7 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
 }
 
 // ── ATTENDANCE ──
-function Attendance({attendance,setAttendance,setView,checkIns=[],members=[],visitors=[]}:any) {
+function Attendance({attendance,setAttendance,setView,checkIns=[],setCheckIns=()=>{},members=[],visitors=[]}:any) {
   const [modal,setModal] = useState(false);
   const [form,setForm] = useState({date:td(),service:"Sunday Morning Worship",count:"",members:"",visitors:"",notes:""});
   const [insight,setInsight] = useState("");
@@ -8748,7 +8748,7 @@ function Attendance({attendance,setAttendance,setView,checkIns=[],members=[],vis
   const openDetail = (rec:any)=>{const base=Array.isArray(rec.attendees)&&rec.attendees.length?rec.attendees:checkinAttendeesFor(rec);setDetail(rec);setDForm({date:rec.date,service:rec.service||"Sunday Morning Worship",notes:rec.notes||""});setRoster(base.map((a:any)=>({...a,ptype:curPtype(a)})));setPick("");};
   const addAtt = (p:any)=>{if(roster.some(x=>String(x.pid)===String(p.id)))return;setRoster([...roster,{pid:p.id,ptype:p.ptype,first:p.first,last:p.last}]);setPick("");};
   const remAtt = (pid:any)=>setRoster(roster.filter(x=>String(x.pid)!==String(pid)));
-  const saveDetail = ()=>{if(!dForm.date){alert("Date required.");return;}const c=rCount(roster);const cnt=roster.length?c:{count:detail.count||0,members:detail.members||0,visitors:detail.visitors||0};if(detail._virtual){setAttendance([{date:dForm.date,service:dForm.service,notes:dForm.notes,attendees:roster,count:cnt.count,members:cnt.members,visitors:cnt.visitors,id:nid.current++},...attendance]);}else{setAttendance(attendance.map((a:any)=>a.id===detail.id?{...a,date:dForm.date,service:dForm.service,notes:dForm.notes,attendees:roster,count:roster.length?c.count:a.count,members:roster.length?c.members:a.members,visitors:roster.length?c.visitors:a.visitors}:a));}setDetail(null);};
+  const saveDetail = ()=>{if(!dForm.date){alert("Date required.");return;}const c=rCount(roster);const cnt=roster.length?c:{count:detail.count||0,members:detail.members||0,visitors:detail.visitors||0};if(detail._virtual){setAttendance([{date:dForm.date,service:dForm.service,notes:dForm.notes,attendees:roster,count:cnt.count,members:cnt.members,visitors:cnt.visitors,id:nid.current++},...attendance]);}else{setAttendance(attendance.map((a:any)=>a.id===detail.id?{...a,date:dForm.date,service:dForm.service,notes:dForm.notes,attendees:roster,count:roster.length?c.count:a.count,members:roster.length?c.members:a.members,visitors:roster.length?c.visitors:a.visitors}:a));}const _rp=new Set(roster.map((x:any)=>String(x.pid)));const _dm=(checkIns||[]).filter((ci:any)=>nk(ci.date)===nk(detail.date));const _svc=_dm.some((ci:any)=>nk(ci.ename)===nk(detail.service));if(_svc){setCheckIns((cis:any[])=>(cis||[]).filter((ci:any)=>!(nk(ci.date)===nk(detail.date)&&nk(ci.ename)===nk(detail.service)&&ci.pid!=null&&!_rp.has(String(ci.pid)))));}setDetail(null);};
   const pickResults = pick.trim().length>0?allPeople.filter((p:any)=>!roster.some(x=>String(x.pid)===String(p.id))&&((p.first||"")+" "+(p.last||"")).toLowerCase().includes(pick.toLowerCase())).slice(0,6):[];
   const save = () => {
     if(!form.date||!form.count){alert("Date and count required.");return;}
@@ -16943,7 +16943,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           {!isMemberPortal && view==="benevolencefund" && <BenevolencePage members={members} visitors={visitors} benevolence={benevolence} setBenevolence={setBenevolence}/>}
           {!isMemberPortal && view==="counselinglog" && canAccessCounseling && <CounselingLog members={members} visitors={visitors} counselingLogs={counselingLogs} setCounselingLogs={setCounselingLogs}/>}
           {!isMemberPortal && view==="hospitalityfund" && <HospitalityFund members={members} hospitalityFund={hospitalityFund} setHospitalityFund={setHospitalityFund} hospStartBalance={hospStartBalance} setHospStartBalance={setHospStartBalance}/>}
-          {!isMemberPortal && view==="attendance" && <Attendance attendance={attendance} setAttendance={setAttendance} setView={setView} checkIns={checkIns} members={members} visitors={visitors}/>}
+          {!isMemberPortal && view==="attendance" && <Attendance attendance={attendance} setAttendance={setAttendance} setView={setView} checkIns={checkIns} setCheckIns={setCheckIns} members={members} visitors={visitors}/>}
           {!isMemberPortal && view==="giving" && canViewGiving && <Giving giving={giving} setGiving={setGiving} pledgeDrives={pledgeDrives} setPledgeDrives={setPledgeDrives} pledges={pledges} setPledges={setPledges} members={members} visitors={visitors} weeklyReports={weeklyReports} setWeeklyReports={setWeeklyReports} emailTemplates={emailTemplates} currentUser={currentUser} roles={roles}/>}
           {!isMemberPortal && view==="prayer" && <Prayer prayers={prayers} setPrayers={setPrayers}/>}
           {/* ── Member Portal hard-gate: only myprofile and prayer allowed ── */}
