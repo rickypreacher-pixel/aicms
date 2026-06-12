@@ -4163,6 +4163,8 @@ function LoginActivity({churchId}:any){
   const [rows,setRows]=useState<any[]>([]);
   const [loading,setLoading]=useState(true);
   const [err,setErr]=useState("");
+  const [fromDate,setFromDate]=useState("");
+  const [toDate,setToDate]=useState("");
   const load=()=>{
     setLoading(true);setErr("");
     supabase.from('login_events').select('id,name,email,logged_in_at').eq('church_id',churchId).order('logged_in_at',{ascending:false}).limit(1000)
@@ -4170,27 +4172,46 @@ function LoginActivity({churchId}:any){
   };
   useEffect(()=>{ if(churchId) load(); },[churchId]);
   const fmt=(ts:string)=>{ try{ const d=new Date(ts); return d.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"})+" · "+d.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"}); }catch{ return ts; } };
+  const localDay=(ts:string)=>{ try{ return new Date(ts).toLocaleDateString("en-CA"); }catch{ return (ts||"").slice(0,10); } };
+  const filtered=rows.filter((r:any)=>{ const d=localDay(r.logged_in_at); if(fromDate&&d<fromDate)return false; if(toDate&&d>toDate)return false; return true; });
+  const exportCsv=()=>{
+    const esc=(s:any)=>{ const v=String(s??""); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; };
+    const lines=[["Name","Email","Date & Time"].join(",")].concat(filtered.map((r:any)=>[esc(r.name||""),esc(r.email||""),esc(fmt(r.logged_in_at))].join(",")));
+    const blob=new Blob([lines.join("\n")],{type:"text/csv;charset=utf-8;"});
+    const url=URL.createObjectURL(blob); const a=document.createElement("a");
+    a.href=url; a.download="login-activity"+((fromDate||toDate)?"_"+(fromDate||"start")+"_to_"+(toDate||"now"):"")+".csv";
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000);
+  };
   const th:any={textAlign:"left",padding:"10px 14px",fontSize:11,color:MU,textTransform:"uppercase",letterSpacing:0.4,fontWeight:600};
   const td:any={padding:"10px 14px",fontSize:13,borderTop:"0.5px solid "+BR};
+  const dateInput:any={padding:"5px 8px",border:"0.5px solid "+BR,borderRadius:6,fontSize:12,outline:"none",background:W};
   return (
     <div>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:10}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14,flexWrap:"wrap",gap:12}}>
         <div>
           <h3 style={{fontSize:15,fontWeight:500,color:N,margin:0}}>Login Activity</h3>
           <div style={{fontSize:12,color:MU,marginTop:2}}>Every sign-in to the app, newest first. Visible to administrators only.</div>
         </div>
-        <Btn onClick={load} v="ghost" style={{fontSize:12}}>↻ Refresh</Btn>
+        <div style={{display:"flex",gap:8,alignItems:"flex-end",flexWrap:"wrap"}}>
+          <label style={{fontSize:10,color:MU,display:"flex",flexDirection:"column",gap:2}}>From<input type="date" value={fromDate} onChange={e=>setFromDate(e.target.value)} style={dateInput}/></label>
+          <label style={{fontSize:10,color:MU,display:"flex",flexDirection:"column",gap:2}}>To<input type="date" value={toDate} onChange={e=>setToDate(e.target.value)} style={dateInput}/></label>
+          {(fromDate||toDate)&&<button onClick={()=>{setFromDate("");setToDate("");}} style={{background:"none",border:"0.5px solid "+BR,borderRadius:6,padding:"6px 10px",fontSize:12,cursor:"pointer",color:MU}}>Clear</button>}
+          <Btn onClick={exportCsv} v="ghost" style={{fontSize:12}}>⬇ Export CSV</Btn>
+          <Btn onClick={load} v="ghost" style={{fontSize:12}}>↻ Refresh</Btn>
+        </div>
       </div>
       {loading ? <div style={{padding:24,color:MU,fontSize:13}}>Loading…</div>
         : err ? <div style={{background:"#fef2f2",border:"0.5px solid "+RE+"44",borderRadius:8,padding:"12px 14px",color:RE,fontSize:13}}>{err}</div>
         : rows.length===0 ? <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:32,textAlign:"center",color:MU,fontSize:13}}>No logins recorded yet. Entries appear here after users sign in.</div>
         : (
           <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,overflow:"hidden"}}>
-            <div style={{padding:"10px 14px",fontSize:12,color:MU,borderBottom:"0.5px solid "+BR,background:BG}}>{rows.length} login{rows.length!==1?"s":""} recorded</div>
-            <table style={{width:"100%",borderCollapse:"collapse"}}>
-              <thead><tr><th style={th}>Name</th><th style={th}>Email</th><th style={th}>Date &amp; Time</th></tr></thead>
-              <tbody>{rows.map((r:any)=>(<tr key={r.id}><td style={{...td,fontWeight:500}}>{r.name||"—"}</td><td style={{...td,color:MU}}>{r.email||"—"}</td><td style={td}>{fmt(r.logged_in_at)}</td></tr>))}</tbody>
-            </table>
+            <div style={{padding:"10px 14px",fontSize:12,color:MU,borderBottom:"0.5px solid "+BR,background:BG}}>{filtered.length} login{filtered.length!==1?"s":""}{(fromDate||toDate)?" in range · of "+rows.length+" total":" recorded"}</div>
+            {filtered.length===0
+              ? <div style={{padding:24,textAlign:"center",color:MU,fontSize:13}}>No logins in the selected date range.</div>
+              : <table style={{width:"100%",borderCollapse:"collapse"}}>
+                  <thead><tr><th style={th}>Name</th><th style={th}>Email</th><th style={th}>Date &amp; Time</th></tr></thead>
+                  <tbody>{filtered.map((r:any)=>(<tr key={r.id}><td style={{...td,fontWeight:500}}>{r.name||"—"}</td><td style={{...td,color:MU}}>{r.email||"—"}</td><td style={td}>{fmt(r.logged_in_at)}</td></tr>))}</tbody>
+                </table>}
           </div>
         )}
     </div>
