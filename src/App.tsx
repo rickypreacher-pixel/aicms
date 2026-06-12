@@ -893,17 +893,27 @@ function BigEventScheduler({eventSchedule,setEventSchedule,members,canEdit}:any)
   const [editSlot,setEditSlot]=useState<any>(null); // area name being edited
   const [search,setSearch]=useState("");
   const [newArea,setNewArea]=useState("");
+  const _today=new Date().toISOString().split('T')[0];
+  const shiftWk=(w:string,days:number)=>{const d=new Date(w+"T00:00:00");d.setDate(d.getDate()+days);return d.toISOString().split('T')[0];};
+  const [wk,setWk]=useState(()=>getMondayOf(new Date().toISOString().split('T')[0]));
+  const wkSunday=getSundayOf(wk);
   const ev=(eventSchedule||{})[sel]||{};
   const areas=[...DEFAULT_EVENT_AREAS, ...((ev.customAreas||[]).filter((a:string)=>!DEFAULT_EVENT_AREAS.includes(a)))];
-  const assigns=ev.assignments||{};
+  // Assignments are stored PER WEEK (Mon–Sun) under weeks[mondayKey].assignments.
+  // Legacy (pre-weeks) assignments show on the event's date-week so nothing is lost.
+  const legacyWk=(o:any)=>getMondayOf((o&&o.date)||_today);
+  const weekAssignsOf=(o:any,w:string)=>((o&&o.weeks&&o.weeks[w]&&o.weeks[w].assignments) ? o.weeks[w].assignments : ((o&&o.assignments&&Object.keys(o.assignments).length&&w===legacyWk(o))?o.assignments:{}));
+  const assigns=weekAssignsOf(ev,wk);
   const activeMembers=[...(members||[])].filter((m:any)=>(m.status||"Active")!=="Inactive").sort((a:any,b:any)=>((a.first||"")+(a.last||"")).localeCompare((b.first||"")+(b.last||"")));
   const q=search.trim().toLowerCase();
   const matches=q?activeMembers.filter((m:any)=>((m.first||"")+" "+(m.last||"")).toLowerCase().includes(q)).slice(0,8):[];
-  const setEv=(updater:any)=>setEventSchedule((es:any)=>{const next={...(es||{})};const cur={date:"",customAreas:[],assignments:{},...(next[sel]||{})};next[sel]=updater(cur);return next;});
-  const addPerson=(area:string,person:any)=>setEv((cur:any)=>{const a={...(cur.assignments||{})};const list=cleanSlotPeople(a[area]);if(!list.some((p:any)=>String(p.id)===String(person.id)))a[area]=[...list,{id:String(person.id),name:((person.first||"")+" "+(person.last||"")).trim()}];return {...cur,assignments:a};});
-  const removePerson=(area:string,pid:any)=>setEv((cur:any)=>{const a={...(cur.assignments||{})};const list=cleanSlotPeople(a[area]).filter((p:any)=>String(p.id)!==String(pid));if(list.length)a[area]=list;else delete a[area];return {...cur,assignments:a};});
+  const setEv=(updater:any)=>setEventSchedule((es:any)=>{const next={...(es||{})};const cur={date:"",customAreas:[],weeks:{},...(next[sel]||{})};next[sel]=updater(cur);return next;});
+  const setWeekAssigns=(updater:any)=>setEv((cur:any)=>{const weeks={...(cur.weeks||{})};const base=(weeks[wk]&&weeks[wk].assignments)?weeks[wk].assignments:((cur.assignments&&Object.keys(cur.assignments).length&&wk===legacyWk(cur))?cur.assignments:{});weeks[wk]={...(weeks[wk]||{}),assignments:updater({...base})};return {...cur,weeks};});
+  const addPerson=(area:string,person:any)=>setWeekAssigns((a:any)=>{const aa={...a};const list=cleanSlotPeople(aa[area]);if(!list.some((p:any)=>String(p.id)===String(person.id)))aa[area]=[...list,{id:String(person.id),name:((person.first||"")+" "+(person.last||"")).trim()}];return aa;});
+  const removePerson=(area:string,pid:any)=>setWeekAssigns((a:any)=>{const aa={...a};const list=cleanSlotPeople(aa[area]).filter((p:any)=>String(p.id)!==String(pid));if(list.length)aa[area]=list;else delete aa[area];return aa;});
+  const copyPrevWk=()=>{const src=weekAssignsOf(ev,shiftWk(wk,-7));if(Object.keys(src).length===0){alert("Last week has no assignments to copy.");return;}setWeekAssigns(()=>{const a:any={};Object.keys(src).forEach((ar:string)=>{const ppl=cleanSlotPeople(src[ar]);if(ppl.length)a[ar]=ppl.map((p:any)=>({...p}));});return a;});};
   const addArea=()=>{const name=newArea.trim();if(!name)return;setEv((cur:any)=>{const ca=Array.isArray(cur.customAreas)?cur.customAreas:[];if(DEFAULT_EVENT_AREAS.includes(name)||ca.includes(name))return cur;return {...cur,customAreas:[...ca,name]};});setNewArea("");};
-  const removeArea=(area:string)=>{if(!confirm('Remove the "'+area+'" area and its assignments for this event?'))return;setEv((cur:any)=>{const ca=(cur.customAreas||[]).filter((a:string)=>a!==area);const a={...(cur.assignments||{})};delete a[area];return {...cur,customAreas:ca,assignments:a};});};
+  const removeArea=(area:string)=>{if(!confirm('Remove the "'+area+'" area and its assignments for this event (all weeks)?'))return;setEv((cur:any)=>{const ca=(cur.customAreas||[]).filter((a:string)=>a!==area);const weeks={...(cur.weeks||{})};Object.keys(weeks).forEach((w:string)=>{if(weeks[w]&&weeks[w].assignments){const a={...weeks[w].assignments};delete a[area];weeks[w]={...weeks[w],assignments:a};}});const legacy={...(cur.assignments||{})};delete legacy[area];return {...cur,customAreas:ca,weeks,assignments:legacy};});};
   // Print the selected event's roster (areas → assigned members), bulletin-style.
   const printEventRoster=()=>{
     const cs:any=(window as any).__CS__||{};
@@ -911,21 +921,23 @@ function BigEventScheduler({eventSchedule,setEventSchedule,members,canEdit}:any)
     const rows=areas.map(area=>{const ppl=cleanSlotPeople(assigns[area]);return '<tr><td class="area">'+esc(area)+'</td><td>'+(ppl.length?ppl.map((p:any)=>esc(p.name)).join(', '):'<span class="muted">&mdash;</span>')+'</td></tr>';}).join('');
     const styles='@page{margin:16mm}body{font-family:Georgia,serif;color:#1f2937;font-size:13px}h1{font-size:22px;margin:0;color:#1e3a5f;text-align:center}.sub{font-size:13px;color:#6b7280;text-align:center;margin:2px 0 18px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #d8dee9;padding:7px 10px;text-align:left;vertical-align:top}th{background:#1e3a5f;color:#fff}td.area{font-weight:bold;background:#f6f8fb;white-space:nowrap;width:38%}.muted{color:#9ca3af}';
     const dateStr=ev.date?new Date(ev.date+"T00:00:00").toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric",year:"numeric"}):"";
-    const html='<!DOCTYPE html><html><head><meta charset="utf-8"><title>'+esc(sel)+' Roster</title><style>'+styles+'</style></head><body><h1>'+esc(cs.name||"Church")+'</h1><div class="sub">'+esc(sel)+(dateStr?' &middot; '+esc(dateStr):'')+'</div><table><thead><tr><th class="area">Area</th><th>Assigned</th></tr></thead><tbody>'+rows+'</tbody></table></body></html>';
+    const html='<!DOCTYPE html><html><head><meta charset="utf-8"><title>'+esc(sel)+' Roster</title><style>'+styles+'</style></head><body><h1>'+esc(cs.name||"Church")+'</h1><div class="sub">'+esc(sel)+' &middot; Week of '+esc(fd(wk))+' &ndash; '+esc(fd(wkSunday))+(dateStr?' &middot; '+esc(dateStr):'')+'</div><table><thead><tr><th class="area">Area</th><th>Assigned</th></tr></thead><tbody>'+rows+'</tbody></table></body></html>';
     const win=window.open("","_blank","width=850,height=900"); if(win){win.document.write(html);win.document.close();win.focus();setTimeout(()=>{try{win.print();}catch(e){}},250);}
   };
   // Copy this event's area setup + assignments onto another event — saves re-entering recurring teams.
   const copyEventTo=(target:string)=>{
     if(!target||target===sel)return;
-    if(!confirm('Copy "'+sel+'" assignments to "'+target+'"? This replaces the target event\'s current assignments.'))return;
+    if(!confirm('Copy "'+sel+'" assignments for the week of '+fd(wk)+' to "'+target+'"? This replaces "'+target+'" for that week.'))return;
     setEventSchedule((es:any)=>{
       const next={...(es||{})}; const cur=next[sel]||{};
+      const src=weekAssignsOf(cur,wk);
       const customAreas=Array.isArray(cur.customAreas)?[...cur.customAreas]:[];
-      const assignments:any={}; Object.keys(cur.assignments||{}).forEach(a=>{const ppl=cleanSlotPeople(cur.assignments[a]); if(ppl.length) assignments[a]=ppl.map((p:any)=>({...p}));});
-      next[target]={...(next[target]||{}),customAreas,assignments};
+      const assignments:any={}; Object.keys(src).forEach(a=>{const ppl=cleanSlotPeople(src[a]); if(ppl.length) assignments[a]=ppl.map((p:any)=>({...p}));});
+      const tgt={...(next[target]||{})}; const tw={...(tgt.weeks||{})}; tw[wk]={...(tw[wk]||{}),assignments};
+      next[target]={...tgt,customAreas:(tgt.customAreas&&tgt.customAreas.length)?tgt.customAreas:customAreas,weeks:tw};
       return next;
     });
-    alert('Copied to "'+target+'".');
+    alert('Copied to "'+target+'" for the week of '+fd(wk)+'.');
   };
   return (
     <div>
@@ -934,13 +946,22 @@ function BigEventScheduler({eventSchedule,setEventSchedule,members,canEdit}:any)
         <div style={{fontSize:12,color:MU,marginTop:2}}>Assign members (teams allowed) to areas for each big event. {canEdit?"Tap + Add to assign, or create new areas below.":"Read-only — contact an administrator to make changes."}</div>
       </div>
       <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:16}}>
-        {BIG_EVENTS.map(e=>{const cnt=(()=>{const a=((eventSchedule||{})[e]||{}).assignments||{};return Object.values(a).reduce((s:number,l:any)=>s+cleanSlotPeople(l).length,0);})();return (
+        {BIG_EVENTS.map(e=>{const cnt=(()=>{const a=weekAssignsOf((eventSchedule||{})[e]||{},wk);return Object.values(a).reduce((s:number,l:any)=>s+cleanSlotPeople(l).length,0);})();return (
           <button key={e} onClick={()=>{setSel(e);setEditSlot(null);}} style={{padding:"7px 14px",borderRadius:20,cursor:"pointer",fontSize:12.5,fontWeight:sel===e?600:400,border:"1px solid "+(sel===e?N:BR),background:sel===e?N:W,color:sel===e?"#fff":TX,display:"flex",alignItems:"center",gap:6}}>{e}{cnt>0&&<span style={{background:sel===e?"#ffffff33":N+"18",color:sel===e?"#fff":N,borderRadius:10,fontSize:10,padding:"0 6px",fontWeight:600}}>{cnt}</span>}</button>
         );})}
       </div>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:14,marginBottom:14,flexWrap:"wrap"}}>
+        <button onClick={()=>setWk(shiftWk(wk,-7))} style={{border:"0.5px solid "+BR,background:W,borderRadius:8,padding:"6px 14px",cursor:"pointer",fontSize:13,color:N,fontWeight:500}}>◀ Previous</button>
+        <div style={{textAlign:"center",minWidth:190}}>
+          <div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:0.5}}>Week of (Mon–Sun)</div>
+          <div style={{fontSize:14,fontWeight:600,color:N}}>{fd(wk)} – {fd(wkSunday)}</div>
+        </div>
+        <button onClick={()=>setWk(shiftWk(wk,7))} style={{border:"0.5px solid "+BR,background:W,borderRadius:8,padding:"6px 14px",cursor:"pointer",fontSize:13,color:N,fontWeight:500}}>Next ▶</button>
+        {canEdit&&<button onClick={copyPrevWk} title="Copy last week's team into this week" style={{border:"0.5px solid "+BR,background:W,borderRadius:8,padding:"6px 12px",cursor:"pointer",fontSize:12,color:N}}>⧉ Copy last week</button>}
+      </div>
       <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,overflow:"hidden"}}>
         <div style={{padding:"12px 16px",background:BG,borderBottom:"0.5px solid "+BR,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10}}>
-          <span style={{fontSize:14,fontWeight:600,color:N}}>{sel}</span>
+          <span style={{fontSize:14,fontWeight:600,color:N}}>{sel} <span style={{fontSize:12,fontWeight:400,color:MU}}>· week of {fd(wk)}</span></span>
           <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
             <div style={{display:"flex",alignItems:"center",gap:6,fontSize:12,color:MU}}>Event date {canEdit?<input type="date" value={ev.date||""} onChange={e=>setEv((cur:any)=>({...cur,date:e.target.value}))} style={{padding:"5px 8px",border:"0.5px solid "+BR,borderRadius:6,fontSize:12,outline:"none"}}/>:<span style={{color:N,fontWeight:500}}>{ev.date?fd(ev.date):"—"}</span>}</div>
             <Btn onClick={printEventRoster} v="outline" style={{fontSize:12}}>🖨 Print</Btn>

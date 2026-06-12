@@ -1,0 +1,43 @@
+{
+  "note": "Backup of the two Matthew Webster profiles + login users removed from the live aicms app (church b0114b36-00d3-4952-a4fa-bd512fe189c9) on 2026-06-08, so they can be re-entered. Full church_data blob snapshot also stored in Supabase _repair_backup id=3. Cindy Webster (member 1777918385350.348) was NOT removed.",
+  "members": [
+    {
+      "id": 1777918385350.6204,
+      "first": "Matthew",
+      "last": "Webster",
+      "email": "m-h-webster@hotmail.com",
+      "phone": "(480) 310-6539",
+      "gender": "Male",
+      "birthday": "1963-11-16",
+      "anniversary": "1991-08-17",
+      "role": "Staff",
+      "type": "Member",
+      "status": "Active",
+      "address": { "street": "10505 W Almeria Rd", "city": "Avondale", "state": "AZ", "zip": "85392" },
+      "familyId": "fam_1777918385350.6204",
+      "spouseId": 1777918385350.348,
+      "spouseName": "Cindy Webster"
+    },
+    {
+      "id": 1779125424536,
+      "first": "Matthew H",
+      "last": "Webster",
+      "email": "mattcindywebster@yahoo.com",
+      "gender": "Male",
+      "type": "Member",
+      "status": "Active",
+      "stage": "First Visit",
+      "joined": "2026-05-18",
+      "address": { "state": "AZ" },
+      "note": "Near-empty duplicate added 2026-05-18"
+    }
+  ],
+  "users": [
+    { "id": 300, "email": "mattcindywebster@yahoo.com", "roleId": "role_pastor", "secondaryRoleId": "role_team_supervisor", "status": "Active", "memberId": 1777918385350.6204 },
+    { "id": 349, "email": "mattcindywebster@yahoo.com", "roleId": "role_sponsor", "secondaryRoleId": "role_staff", "status": "Active", "memberId": 1779125424536 }
+  ],
+  "authAccounts": [
+    { "email": "m-h-webster@hotmail.com", "authId": "9dcbb1ee-18ac-405c-b1c4-2257de81a83a", "createdAt": "2026-04-30", "lastSignIn": "2026-05-11" },
+    { "email": "mattcindywebster@yahoo.com", "authId": "1e669e56-0cc2-4654-9a61-93c7955f65ac", "createdAt": "2026-05-18", "lastSignIn": "2026-06-08" }
+  ]
+}
