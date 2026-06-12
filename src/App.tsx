@@ -8827,7 +8827,7 @@ function Attendance({attendance,setAttendance,setView,checkIns=[],members=[],vis
       <Modal open={modal} onClose={()=>setModal(false)} title="Log New Service">
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <Fld label="Date *"><Inp type="date" value={form.date} onChange={sf("date")}/></Fld>
-          <Fld label="Service Type"><Slt value={form.service} onChange={sf("service")} opts={["Sunday Morning Worship","Sunday Evening Service","Wednesday Bible Study","Special Event","Youth Service","Prayer Meeting"]}/></Fld>
+          <Fld label="Service Type"><Slt value={form.service} onChange={sf("service")} opts={["Sunday Morning Worship","Sunday Evening Service","Wednesday Bible Study","Thursday Worship","Special Event","Youth Service","Prayer Meeting"]}/></Fld>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
           <Fld label="Total *"><Inp type="number" value={form.count} onChange={sf("count")} placeholder="0"/></Fld>
@@ -8844,7 +8844,7 @@ function Attendance({attendance,setAttendance,setView,checkIns=[],members=[],vis
         {detail && (<div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
             <Fld label="Date *"><Inp type="date" value={dForm.date} onChange={(v:string)=>setDForm((f:any)=>({...f,date:v}))}/></Fld>
-            <Fld label="Service Type"><Slt value={dForm.service} onChange={(v:string)=>setDForm((f:any)=>({...f,service:v}))} opts={["Sunday Morning Worship","Sunday Evening Service","Wednesday Bible Study","Special Event","Youth Service","Prayer Meeting"]}/></Fld>
+            <Fld label="Service Type"><Slt value={dForm.service} onChange={(v:string)=>setDForm((f:any)=>({...f,service:v}))} opts={["Sunday Morning Worship","Sunday Evening Service","Wednesday Bible Study","Thursday Worship","Special Event","Youth Service","Prayer Meeting"]}/></Fld>
           </div>
           <Fld label="Notes"><Inp value={dForm.notes} onChange={(v:string)=>setDForm((f:any)=>({...f,notes:v}))} placeholder="Any notable details..."/></Fld>
           <div style={{display:"flex",gap:10,margin:"6px 0 10px"}}>
