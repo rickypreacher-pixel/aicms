@@ -2050,6 +2050,7 @@ const MODULES=[
   {key:"benevolenceFund",label:"Benevolence Fund",icon:"Fin",desc:"Benevolence requests, approvals, and disbursement tracking",actions:["view","create","edit","delete"]},
   {key:"counselingLog",label:"Counseling Log",icon:"Rpt",desc:"Pastoral counseling notes and care-session records",actions:["view","create","edit","delete"]},
   {key:"hospitalityFund",label:"Hospitality Fund",icon:"Fin",desc:"Hospitality budget activity and related expense records",actions:["view","create","edit","delete"]},
+  {key:"announcements",label:"Announcements",icon:"Ann",desc:"Create and post church announcements members can see",actions:["create"]},
 ];
 const PORTAL_PERMS=[
   {key:"viewAttendance",label:"View own attendance"},
@@ -14542,9 +14543,11 @@ async function uploadImageToStorage(file:File, folder:string, churchId?:string):
 }
 
 // ── ANNOUNCEMENTS ──
-function Announcements({announcements,setAnnouncements,currentUser,roles=[],recurring=[],custom=[],churchId}:any){
-  const POST_ROLES=['Administrator','Pastor','Office'];
-  const canPost = !!(currentUser?.superAdmin || (currentUser?.roleId && POST_ROLES.includes((roles.find((r:any)=>r.id===currentUser.roleId)||{}).name||'')));
+function Announcements({announcements,setAnnouncements,currentUser,roles=[],permissions={},recurring=[],custom=[],churchId}:any){
+  // Posting access is controlled in Access Control → Permissions (Announcements → Create).
+  // Super Admin and the Administrator role can always post; everyone else is matrix-driven.
+  const _roleName = (roles.find((r:any)=>r.id===currentUser?.roleId)||{}).name||'';
+  const canPost = !!(currentUser?.superAdmin || _roleName==='Administrator' || checkPermission(currentUser,roles,permissions,"announcements","create"));
   const [modal,setModal]=useState(false);
   const [editing,setEditing]=useState<any>(null);
   const blank=()=>({title:"",body:"",pinned:false,expiresAt:"",image:""});
@@ -14633,7 +14636,7 @@ function Announcements({announcements,setAnnouncements,currentUser,roles=[],recu
           {canPost && <Btn onClick={openAdd}>+ New Announcement</Btn>}
         </div>
       </div>
-      {!canPost && <div style={{background:"#eff6ff",border:"0.5px solid #93c5fd",borderRadius:10,padding:"10px 14px",marginBottom:14,fontSize:12,color:"#1e40af"}}>Posting is limited to Administrators, Pastors, and Office staff. You can read announcements below.</div>}
+      {!canPost && <div style={{background:"#eff6ff",border:"0.5px solid #93c5fd",borderRadius:10,padding:"10px 14px",marginBottom:14,fontSize:12,color:"#1e40af"}}>Posting access is set by your administrator under Access Control → Permissions (Announcements). You can read announcements below.</div>}
       {active.length===0
         ? <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:40,textAlign:"center" as any,color:MU,fontSize:13}}>No announcements yet.{canPost?" Tap '+ New Announcement' to post one.":""}</div>
         : <div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -16176,6 +16179,23 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     SEED_ROLES.forEach(r=>{ if(!result[r.id]) result[r.id]=makeEmptyPerms(); });
     return result;
   });
+  // Seed the new "Announcements → Create" permission for roles that don't have it yet:
+  // the roles that could already post (Administrator/Pastor/Office) start ON so nobody loses
+  // access, everyone else starts OFF. Only fills the gap — never overwrites an admin's choice.
+  useEffect(()=>{
+    setPermissions((prev:any)=>{
+      let changed=false; const next={...prev};
+      (roles||[]).forEach((r:any)=>{
+        if(next[r.id] && !next[r.id].announcements){
+          const wasPoster = ['Administrator','Pastor','Office'].includes(r.name);
+          next[r.id]={...next[r.id], announcements:{create:wasPoster}};
+          changed=true;
+        }
+      });
+      return changed?next:prev;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[roles,permissions]);
   const currentUser = isStaff
     ? (users.find(u => u.email && u.email.toLowerCase() === (loggedInEmail||'').toLowerCase() && u.status === 'Active') || null)
     : (users.find(u=>u.superAdmin) || users[0]);
@@ -17139,7 +17159,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           {!isMemberPortal && isAdminUser && view==="loginactivity" && <LoginActivity churchId={churchId}/>}
           {!isMemberPortal && view==="ai" && <AIAssist aiChat={aiChat} setAiChat={setAiChat} members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} setAttendance={setAttendance} giving={giving} setGiving={setGiving} prayers={prayers} setView={setView} isMobile={isMobile}/>}
           {!isMemberPortal && view==="alerts" && <AlertPage members={members} visitors={visitors} giving={giving} checkIns={checkIns} kidsCheckIns={kidsCheckIns} rollCalls={rollCalls} children={children} visitRecords={visitRecords} cs={churchSettings} setCs={setChurchSettings} users={users} roles={roles} followupDismissedChildIds={followupDismissedChildIds}/>}
-          {!isMemberPortal && view==="announcements" && <Announcements announcements={announcements} setAnnouncements={setAnnouncements} currentUser={currentUser} roles={roles} recurring={recurring} custom={custom} churchId={churchId}/>}
+          {!isMemberPortal && view==="announcements" && <Announcements announcements={announcements} setAnnouncements={setAnnouncements} currentUser={currentUser} roles={roles} permissions={permissions} recurring={recurring} custom={custom} churchId={churchId}/>}
           {!isMemberPortal && view==="finances" && canViewGiving && <Finances expenses={expenses} setExpenses={setExpenses} budgets={budgets} setBudgets={setBudgets} giving={giving} openingBalances={openingBalances} setOpeningBalances={setOpeningBalances}/>}
           {!isMemberPortal && view==="manual" && <ManualPage/>}
         </div>
