@@ -16978,14 +16978,32 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       {/* Staff account not linked — show friendly error */}
       {isStaff && !currentUser && !isMemberPortal && cloudSync !== 'loading' && (
         <div style={{position:"fixed",inset:0,background:N,display:"flex",alignItems:"center",justifyContent:"center",padding:20,zIndex:9999}}>
-          <div style={{background:W,borderRadius:16,padding:36,maxWidth:440,width:"100%",textAlign:"center",boxShadow:"0 24px 60px rgba(0,0,0,0.4)"}}>
-            <div style={{fontSize:48,marginBottom:12}}>🔗</div>
-            <div style={{fontSize:18,fontWeight:600,color:N,marginBottom:8}}>Account Not Linked</div>
-            <div style={{fontSize:13,color:MU,lineHeight:1.7,marginBottom:20}}>
-              Your staff account <strong style={{color:N}}>{loggedInEmail}</strong> is not linked to any user record in this church.<br/><br/>
-              Ask your administrator to open <strong>Access Control → Users</strong>, edit your record, and enter your email address there.
+          <div style={{background:W,borderRadius:16,padding:32,maxWidth:480,width:"100%",maxHeight:"88vh",display:"flex",flexDirection:"column",boxShadow:"0 24px 60px rgba(0,0,0,0.4)"}}>
+            <div style={{textAlign:"center",flexShrink:0}}>
+              <div style={{fontSize:44,marginBottom:10}}>🔗</div>
+              <div style={{fontSize:18,fontWeight:600,color:N,marginBottom:8}}>Account Not Linked</div>
+              <div style={{fontSize:13,color:MU,lineHeight:1.7,marginBottom:18}}>
+                Your account <strong style={{color:N}}>{loggedInEmail}</strong> isn't linked to a profile in this church yet. Ask your administrator to link it under <strong>Access Control → Users</strong>. In the meantime, here are the latest church announcements:
+              </div>
             </div>
-            <button onClick={onSignOut} style={{padding:"10px 28px",background:N,color:"#fff",border:"none",borderRadius:8,fontSize:13,cursor:"pointer",fontWeight:500}}>Sign Out</button>
+            {(()=>{ const today=td(); const list=(announcements||[]).filter((a:any)=>!a.deleted&&(!a.expiresAt||a.expiresAt>=today)).sort((a:any,b:any)=>((b.pinned?1:0)-(a.pinned?1:0))||String(b.date||"").localeCompare(String(a.date||"")));
+              return (
+                <div style={{flex:1,overflowY:"auto",display:"flex",flexDirection:"column",gap:10,textAlign:"left",borderTop:"0.5px solid "+BR,paddingTop:16,marginBottom:16}}>
+                  <div style={{fontSize:11,fontWeight:700,color:N,textTransform:"uppercase",letterSpacing:0.5}}>📢 Church Announcements</div>
+                  {list.length===0
+                    ? <div style={{background:BG,border:"0.5px solid "+BR,borderRadius:12,padding:24,textAlign:"center" as any,color:MU,fontSize:13}}>No announcements right now. Check back soon!</div>
+                    : list.map((a:any)=>(
+                        <div key={a.id} style={{background:W,border:"0.5px solid "+(a.pinned?G:BR),borderRadius:12,padding:14}}>
+                          <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>{a.pinned&&<span style={{fontSize:10,background:G+"22",color:"#7a5c10",borderRadius:10,padding:"1px 8px",fontWeight:700}}>📌 Pinned</span>}<span style={{fontSize:14,fontWeight:600,color:N}}>{a.title}</span></div>
+                          <div style={{fontSize:13,color:TX,marginTop:6,whiteSpace:"pre-wrap" as any,lineHeight:1.6}}>{a.body}</div>
+                          {a.image&&<img src={a.image} alt="" style={{display:"block",maxWidth:"100%",maxHeight:300,borderRadius:8,border:"0.5px solid "+BR,marginTop:10}}/>}
+                          <div style={{fontSize:11,color:MU,marginTop:8}}>{fd(a.date)}</div>
+                        </div>
+                      ))}
+                </div>
+              );
+            })()}
+            <button onClick={onSignOut} style={{padding:"10px 28px",background:N,color:"#fff",border:"none",borderRadius:8,fontSize:13,cursor:"pointer",fontWeight:500,flexShrink:0}}>Sign Out</button>
           </div>
         </div>
       )}
