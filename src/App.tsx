@@ -2060,6 +2060,10 @@ const PORTAL_PERMS=[
   {key:"submitPrayer",label:"Submit prayer requests"},
 ];
 const ROLE_COLORS=["#1a2e5a","#c9a84c","#16a34a","#2563eb","#7c3aed","#dc2626","#d97706","#0891b2","#be185d","#065f46"];
+// Secret token that gates new-church registration. The login page only opens the
+// "New Church" form when the URL carries ?new=<this token>, so only people the owner
+// sends the link to can register a brand-new church. Keep in sync with AuthScreen.tsx.
+const NEW_CHURCH_KEY="founder-2026-x7k9qm4t";
 const blankPerms=()=>Object.fromEntries(MODULES.map(m=>[m.key,Object.fromEntries(m.actions.map(a=>[a,false]))]));
 const VS={Pastor:"Pastor Visit",TeamSupervisor:"Team Supervisor",TeamLeader:"Team Leader",Sponsor:"Sponsor",OngoingCare:"Ongoing Care",Complete:"Complete"};
 const VC={Pastor:N,TeamSupervisor:"#f97316",TeamLeader:PU,Sponsor:GR,OngoingCare:G,Complete:TE};
@@ -2491,16 +2495,19 @@ function UsersTab({members,users,setUsers,roles,permissions,currentUser,churchId
               {staffLinkCopied?"✓ Copied!":"Copy Link"}
             </button>
           </div>
-            {/* ─ New church link ─ */}
+            {/* ─ New church link (owner only; invite-only via secret token) ─ */}
+          {currentUser?.superAdmin && (()=>{ const newChurchUrl=window.location.origin+"?new="+NEW_CHURCH_KEY; return (
           <div style={{display:"flex",alignItems:"center",gap:10,background:"#dcfce7",borderRadius:8,padding:"8px 12px"}}>
             <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:11,fontWeight:600,color:"#14532d",marginBottom:1}}>New Church Link — opens New Church registration</div>
-              <div style={{fontFamily:"monospace",fontSize:11,color:"#15803d",wordBreak:"break-all",opacity:0.8}}>{window.location.origin}{"?new=1"}</div>
+              <div style={{fontSize:11,fontWeight:600,color:"#14532d",marginBottom:1}}>New Church Link — opens New Church registration (owner only)</div>
+              <div style={{fontFamily:"monospace",fontSize:11,color:"#15803d",wordBreak:"break-all",opacity:0.8}}>{newChurchUrl}</div>
+              <div style={{fontSize:10,color:"#15803d",marginTop:2,opacity:0.85}}>Private link — only people you send this exact link to can register a new church.</div>
             </div>
-            <button onClick={()=>{navigator.clipboard.writeText(window.location.origin+"?new=1");setNewChurchLinkCopied(true);setTimeout(()=>setNewChurchLinkCopied(false),2500);}} style={{padding:"6px 12px",background:newChurchLinkCopied?GR:"#15803d",color:"#fff",border:"none",borderRadius:7,fontSize:12,cursor:"pointer",fontWeight:500,whiteSpace:"nowrap",flexShrink:0}}>
+            <button onClick={()=>{navigator.clipboard.writeText(newChurchUrl);setNewChurchLinkCopied(true);setTimeout(()=>setNewChurchLinkCopied(false),2500);}} style={{padding:"6px 12px",background:newChurchLinkCopied?GR:"#15803d",color:"#fff",border:"none",borderRadius:7,fontSize:12,cursor:"pointer",fontWeight:500,whiteSpace:"nowrap",flexShrink:0}}>
               {newChurchLinkCopied?"✓ Copied!":"Copy Link"}
             </button>
           </div>
+          );})()}
         </div>
         </>
       )}

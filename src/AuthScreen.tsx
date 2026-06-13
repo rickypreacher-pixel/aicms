@@ -12,6 +12,11 @@ const RE = "#dc2626";
 const GR = "#16a34a";
 const BG = "#f4f6fb";
 
+// Secret token that unlocks new-church registration. The "New Church" tab is hidden on
+// the login page; the registration form only appears when the URL carries
+// ?new=<this token>, which the owner shares privately. Keep in sync with App.tsx.
+const NEW_CHURCH_KEY = "founder-2026-x7k9qm4t";
+
 type AuthMode = 'login' | 'member' | 'register' | 'join' | 'forgot';
 
 interface AuthScreenProps {
@@ -96,7 +101,8 @@ export default function AuthScreen({ onAuth }: AuthScreenProps) {
       if (fn) setJoinFirst(fn);
       if (ln) setJoinLast(ln);
       setMode('member');
-    } else if (newParam === '1') {
+    } else if (newParam && newParam === NEW_CHURCH_KEY) {
+      // Only the private invite link (carrying the secret token) opens new-church registration.
       setMode('register');
     }
   }, []);
@@ -333,13 +339,15 @@ export default function AuthScreen({ onAuth }: AuthScreenProps) {
           boxShadow: '0 24px 60px rgba(0,0,0,0.35)',
         }}>
 
-          {/* Tab switcher — only for login/register/join */}
-          {mode !== 'forgot' && (
+          {/* Tab switcher — hidden for forgot-password and the invite-only New Church flow.
+              The "New Church" (register) tab is intentionally NOT listed: registration is
+              reachable only via the owner's private ?new=<token> link. */}
+          {mode !== 'forgot' && mode !== 'register' && (
             <div style={{
               display: 'flex', marginBottom: 24,
               background: BG, borderRadius: 10, padding: 3,
             }}>
-              {(['login', 'member', 'join', 'register'] as AuthMode[]).map((m) => (
+              {(['login', 'member', 'join'] as AuthMode[]).map((m) => (
                 <button
                   key={m}
                   onClick={() => { setMode(m); setError(''); setSuccess(''); }}
@@ -405,6 +413,10 @@ export default function AuthScreen({ onAuth }: AuthScreenProps) {
           {/* REGISTER */}
           {mode === 'register' && (
             <div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: N, marginBottom: 4 }}>Register a New Church</div>
+              <div style={{ fontSize: 12, color: MU, marginBottom: 18, lineHeight: 1.5 }}>
+                You're using a private invitation link. This creates a brand-new church with its own Super Administrator account.
+              </div>
               <Field label="Church Name">
                 <Input value={churchName} onChange={setChurchName} placeholder="New Testament Church" />
               </Field>
@@ -428,6 +440,11 @@ export default function AuthScreen({ onAuth }: AuthScreenProps) {
               <Btn onClick={handleRegister} variant="gold">Create Church Account</Btn>
               <div style={{ fontSize: 11, color: MU, textAlign: 'center', marginTop: 12, lineHeight: 1.5 }}>
                 By registering you agree to our Terms of Service and Privacy Policy.
+              </div>
+              <div style={{ textAlign: 'center', marginTop: 12 }}>
+                <button onClick={() => { setMode('login'); setError(''); setSuccess(''); }} style={{ background: 'none', border: 'none', color: N, fontSize: 12, cursor: 'pointer', textDecoration: 'underline', fontFamily: 'inherit' }}>
+                  Back to Sign In
+                </button>
               </div>
             </div>
           )}
