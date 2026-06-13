@@ -7293,7 +7293,7 @@ const PROSPECT_STATUSES = [
   {id:"Confirmed",    label:"Confirmed Coming",color:"#16a34a"},
 ];
 
-function ProspectsPage({prospects,setProspects,members,setView,onOpenSms}:any) {
+function ProspectsPage({prospects,setProspects,members,setView,onOpenSms,isAdmin=true,currentUserId=null,currentUserMemberId=null,currentUserName=""}:any) {
   const blank = () => ({first:"",last:"",phone:"",street:"",city:"",state:"",zip:"",invitedBy:"",invitedById:null,status:"Not Contacted",notes:""});
   const [form,setForm] = useState(blank());
   const [modal,setModal] = useState(false);
@@ -7324,7 +7324,7 @@ function ProspectsPage({prospects,setProspects,members,setView,onOpenSms}:any) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[prospects]);
 
-  const openAdd = () => { setEditing(null); setForm(blank()); setInvSug([]); setModal(true); };
+  const openAdd = () => { setEditing(null); setForm({...blank(), ...(isAdmin?{}:{invitedBy:currentUserName||"",invitedById:currentUserMemberId||null})}); setInvSug([]); setModal(true); };
   const openEdit = (p:any) => {
     setEditing(p);
     setForm({first:p.first,last:p.last,phone:p.phone||"",street:p.address?.street||"",city:p.address?.city||"",state:p.address?.state||"",zip:p.address?.zip||"",invitedBy:p.invitedBy||"",invitedById:p.invitedById||null,status:p.status||"Not Contacted",notes:p.notes||""});
@@ -7336,7 +7336,7 @@ function ProspectsPage({prospects,setProspects,members,setView,onOpenSms}:any) {
     if(editing){
       setProspects((ps:any[])=>ps.map((p:any)=>String(p.id)===String(editing.id)?{...p,...rec}:p));
     } else {
-      setProspects((ps:any[])=>[{...rec,id:nextProspectId(ps)},...ps]);
+      setProspects((ps:any[])=>[{...rec,id:nextProspectId(ps),ownerUserId:currentUserId??null},...ps]);
     }
     setModal(false);
   };
@@ -7366,14 +7366,24 @@ function ProspectsPage({prospects,setProspects,members,setView,onOpenSms}:any) {
     }
   };
 
-  const shown = prospects.filter((p:any)=>{
+  // Admins see every prospect; everyone else sees only the ones they invited.
+  const myName = (currentUserName||"").trim().toLowerCase();
+  const isMine = (p:any) => {
+    if(currentUserId && p.ownerUserId) return String(p.ownerUserId)===String(currentUserId);
+    if(currentUserMemberId && p.invitedById) return String(p.invitedById)===String(currentUserMemberId);
+    if(myName && p.invitedBy) return String(p.invitedBy).trim().toLowerCase()===myName;
+    return false;
+  };
+  const visible = isAdmin ? prospects : prospects.filter(isMine);
+
+  const shown = visible.filter((p:any)=>{
     const nameMatch = (p.first+" "+p.last).toLowerCase().includes(search.toLowerCase());
     const statusMatch = filter==="All" || p.status===filter;
     return nameMatch && statusMatch;
   });
 
-  const statCounts:any = {All:prospects.length};
-  PROSPECT_STATUSES.forEach(s=>{ statCounts[s.id]=prospects.filter((p:any)=>p.status===s.id).length; });
+  const statCounts:any = {All:visible.length};
+  PROSPECT_STATUSES.forEach(s=>{ statCounts[s.id]=visible.filter((p:any)=>p.status===s.id).length; });
 
   const getStatusStyle = (sid:string) => {
     const s = PROSPECT_STATUSES.find(x=>x.id===sid)||PROSPECT_STATUSES[0];
@@ -7391,13 +7401,14 @@ function ProspectsPage({prospects,setProspects,members,setView,onOpenSms}:any) {
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16,flexWrap:"wrap",gap:10}}>
         <div>
           <div style={{fontSize:11,color:MU,marginBottom:2}}>People who have been invited but not yet visited</div>
+          {!isAdmin && <div style={{fontSize:11,color:MU,marginTop:1}}>👤 Showing only prospects you invited</div>}
         </div>
         <Btn onClick={openAdd} v="gold">+ Add Prospect</Btn>
       </div>
 
       {/* Stats row */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(110px,1fr))",gap:8,marginBottom:16}}>
-        {[{label:"Total",val:prospects.length,color:N},{label:"Confirmed",val:statCounts["Confirmed"]||0,color:"#16a34a"},{label:"No Response",val:statCounts["No Response"]||0,color:"#d97706"},{label:"Not Contacted",val:statCounts["Not Contacted"]||0,color:MU}].map(s=>(
+        {[{label:"Total",val:visible.length,color:N},{label:"Confirmed",val:statCounts["Confirmed"]||0,color:"#16a34a"},{label:"No Response",val:statCounts["No Response"]||0,color:"#d97706"},{label:"Not Contacted",val:statCounts["Not Contacted"]||0,color:MU}].map(s=>(
           <div key={s.label} style={{background:W,border:"0.5px solid "+BR,borderRadius:10,padding:"10px 14px"}}>
             <div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:0.4}}>{s.label}</div>
             <div style={{fontSize:22,fontWeight:600,color:s.color}}>{s.val}</div>
@@ -17086,7 +17097,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
               />
             </div>
           )}
-          {!isMemberPortal && view==="prospects" && <ProspectsPage prospects={prospects} setProspects={setProspects} members={members} setView={setView} onOpenSms={(data:any)=>openSmsComposer(data)}/>}
+          {!isMemberPortal && view==="prospects" && <ProspectsPage prospects={prospects} setProspects={setProspects} members={members} setView={setView} onOpenSms={(data:any)=>openSmsComposer(data)} isAdmin={!isStaff || isAdminUser} currentUserId={currentUser?.id ?? null} currentUserMemberId={staffMemberRecord?.id ?? null} currentUserName={staffMemberRecord ? (staffMemberRecord.first+" "+staffMemberRecord.last).trim() : (displayName || loggedInEmail || "")}/>}
           {!isMemberPortal && view==="visitation" && <Visitation visitors={visitors} setVisitors={setVisitors} members={members} setMembers={setMembers} users={users} currentUser={currentUser} roles={roles} visitRecords={visitRecords} setVisitRecords={setVisitRecords} setView={setView} canAddVisitor={canAddVisitor} onOpenVisitationSms={openVisitationSmsComposer}/>}
           {!isMemberPortal && view==="hospitalvisits" && <SickVisitLog members={members} visitors={visitors} sickVisits={sickVisits} setSickVisits={setSickVisits} users={users}/>}
           {!isMemberPortal && view==="benevolencefund" && <BenevolencePage members={members} visitors={visitors} benevolence={benevolence} setBenevolence={setBenevolence}/>}
