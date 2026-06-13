@@ -1,0 +1,11 @@
+{
+  "removed_on": "2026-06-13",
+  "church_id": "b0114b36-00d3-4952-a4fa-bd512fe189c9",
+  "church_name": "New Testament Christian Church of Glendale",
+  "reason": "Admin requested removal of Pete Lopez member record, email, and login. Attendance & giving intentionally LEFT in place.",
+  "member_obj": {"id":1777918385350.6924,"last":"Lopez","role":"Head of Household","type":"Member","email":"pete@pposcs.com","first":"Pete","grade":"FALSE","notes":"","phone":"(602) 290-3856","gender":"Male","joined":"","status":"Active","address":{"zip":"85301","city":"Glendale","state":"AZ","street":"5033 N 66th Ave"},"medical":[],"birthday":"","children":[],"fatherId":null,"motherId":null,"spouseId":null,"allergies":[],"fatherLast":"","motherLast":"","spouseLast":"","spouseName":"","anniversary":"","fatherFirst":"","motherFirst":"","spouseFirst":""},
+  "user_obj": {"id":358,"email":"pepe@pposcs.com","roleId":"role_musician","status":"Active","memberId":1777918385350.6924,"overrides":{},"secondaryRoleId":"role_sponsor"},
+  "auth_user_id": "7530d1b9-51eb-458c-9a12-15bc331b3a9a",
+  "auth_email": "pete@pposcs.com",
+  "login_event_id": 5
+}

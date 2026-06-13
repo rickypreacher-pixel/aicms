@@ -15720,8 +15720,10 @@ function ManualPage(){
 }
 
 // ── MEMBER PORTAL — self-service profile + giving view for email/password members ──
-function MemberProfilePortal({member,setMembers,giving,onSignOut,staffMode=false,roles=[],users=[],setUsers,recurring=[],custom=[],eventRsvps=[],setEventRsvps=null,members=[],children=[],announcements=[],cleaningSchedule={},eventSchedule={}}:any) {
-  const [tab,setTab] = useState("profile");
+function MemberProfilePortal({member,setMembers,giving,onSignOut,staffMode=false,roles=[],users=[],setUsers,recurring=[],custom=[],eventRsvps=[],setEventRsvps=null,members=[],children=[],announcements=[],cleaningSchedule={},eventSchedule={},initialTab="profile"}:any) {
+  const [tab,setTab] = useState(initialTab);
+  // Let the sidebar open the portal directly to a given tab (e.g. 📢 Announcements → News).
+  useEffect(()=>{ setTab(initialTab); },[initialTab]);
   const [cleanView,setCleanView] = useState("mine");
   const [bigView,setBigView] = useState("mine");
   const [expandedRsvp,setExpandedRsvp] = useState<any>(null);
@@ -16813,6 +16815,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   const RESTRICTED_NAV_HIDDEN = ['ai','email','sms'];
   const PORTAL_NAV = [
     {id:"myprofile",label:"My Profile",icon:"👤",group:"Core"},
+    {id:"news",label:"Announcements",icon:"📢",group:"Core"},
     {id:"prayer",label:"Prayer Wall",icon:"Pr",group:"Pastoral Care"},
   ];
   const visibleNAV = isMemberPortal
@@ -17107,7 +17110,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           {!isMemberPortal && view==="giving" && canViewGiving && <Giving giving={giving} setGiving={setGiving} pledgeDrives={pledgeDrives} setPledgeDrives={setPledgeDrives} pledges={pledges} setPledges={setPledges} members={members} visitors={visitors} weeklyReports={weeklyReports} setWeeklyReports={setWeeklyReports} emailTemplates={emailTemplates} currentUser={currentUser} roles={roles}/>}
           {!isMemberPortal && view==="prayer" && <Prayer prayers={prayers} setPrayers={setPrayers}/>}
           {/* ── Member Portal hard-gate: only myprofile and prayer allowed ── */}
-          {isMemberPortal && view!=="prayer" && <MemberProfilePortal member={portalMember} setMembers={setMembers} giving={giving} onSignOut={onSignOut} roles={roles} users={users} setUsers={setUsers} recurring={recurring} custom={custom} eventRsvps={eventRsvps} setEventRsvps={setEventRsvps} members={members} children={children} announcements={announcements} cleaningSchedule={cleaningSchedule} eventSchedule={eventSchedule}/>}
+          {isMemberPortal && view!=="prayer" && <MemberProfilePortal member={portalMember} setMembers={setMembers} giving={giving} onSignOut={onSignOut} roles={roles} users={users} setUsers={setUsers} recurring={recurring} custom={custom} eventRsvps={eventRsvps} setEventRsvps={setEventRsvps} members={members} children={children} announcements={announcements} cleaningSchedule={cleaningSchedule} eventSchedule={eventSchedule} initialTab={view==="news"?"news":"profile"}/>}
           {isMemberPortal && view==="prayer" && <Prayer prayers={prayers} setPrayers={setPrayers} portalMode={true} portalMember={portalMember}/>}
           {/* ── Staff My Profile: staff user whose login matches a member record ── */}
           {!isMemberPortal && view==="myprofile" && staffMemberRecord && <MemberProfilePortal member={staffMemberRecord} setMembers={setMembers} giving={giving} onSignOut={()=>setView("dashboard")} staffMode={true} roles={roles} users={users} setUsers={setUsers} recurring={recurring} custom={custom} eventRsvps={eventRsvps} setEventRsvps={setEventRsvps} members={members} children={children} announcements={announcements} cleaningSchedule={cleaningSchedule} eventSchedule={eventSchedule}/>}
