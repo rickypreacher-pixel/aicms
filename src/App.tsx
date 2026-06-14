@@ -3634,14 +3634,9 @@ function EmailComposer({open,onClose,initialTo,initialToName,initialSubject,init
         {/* Send Method Toggle */}
         <div style={{display:"flex",gap:0,background:BG,borderRadius:8,padding:3,marginBottom:14}}>
           <button onClick={()=>setMode("mailto")} style={{flex:1,padding:"8px 12px",border:"none",borderRadius:6,background:mode==="mailto"?W:"transparent",color:mode==="mailto"?N:MU,fontSize:12,fontWeight:mode==="mailto"?500:400,cursor:"pointer",boxShadow:mode==="mailto"?"0 1px 3px #00000010":"none"}}>Open in My Email App</button>
-          <button onClick={()=>setMode("direct")} style={{flex:1,padding:"8px 12px",border:"none",borderRadius:6,background:mode==="direct"?W:"transparent",color:mode==="direct"?N:MU,fontSize:12,fontWeight:mode==="direct"?500:400,cursor:"pointer",boxShadow:mode==="direct"?"0 1px 3px #00000010":"none"}}>Send Directly from App{!emailConfig?.apiKey && " (not configured)"}</button>
+          <button onClick={()=>setMode("direct")} style={{flex:1,padding:"8px 12px",border:"none",borderRadius:6,background:mode==="direct"?W:"transparent",color:mode==="direct"?N:MU,fontSize:12,fontWeight:mode==="direct"?500:400,cursor:"pointer",boxShadow:mode==="direct"?"0 1px 3px #00000010":"none"}}>Send Directly from App</button>
         </div>
 
-        {mode==="direct" && !emailConfig?.apiKey && (
-          <div style={{background:"#fef9c3",border:"0.5px solid "+AM+"66",borderRadius:8,padding:"10px 12px",marginBottom:12,fontSize:11,color:"#713f12",lineHeight:1.6}}>
-            <strong>Direct send not configured.</strong> Go to Settings → Email Service to set up Resend, SendGrid, or another provider. You can still send via "Open in My Email App".
-          </div>
-        )}
 
         {/* Template picker */}
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
@@ -3801,7 +3796,7 @@ function BulkEmailComposer({open,onClose,recipients,initialSubject,initialBody,i
         {/* Send method */}
         <div style={{display:"flex",gap:0,background:BG,borderRadius:8,padding:3,marginBottom:10}}>
           <button onClick={()=>setMode("mailto")} style={{flex:1,padding:"8px 12px",border:"none",borderRadius:6,background:mode==="mailto"?W:"transparent",color:mode==="mailto"?N:MU,fontSize:12,fontWeight:mode==="mailto"?500:400,cursor:"pointer",boxShadow:mode==="mailto"?"0 1px 3px #00000010":"none"}}>Open in My Email App</button>
-          <button onClick={()=>setMode("direct")} style={{flex:1,padding:"8px 12px",border:"none",borderRadius:6,background:mode==="direct"?W:"transparent",color:mode==="direct"?N:MU,fontSize:12,fontWeight:mode==="direct"?500:400,cursor:"pointer",boxShadow:mode==="direct"?"0 1px 3px #00000010":"none"}}>Send Directly{!emailConfig?.apiKey && " (not configured)"}</button>
+          <button onClick={()=>setMode("direct")} style={{flex:1,padding:"8px 12px",border:"none",borderRadius:6,background:mode==="direct"?W:"transparent",color:mode==="direct"?N:MU,fontSize:12,fontWeight:mode==="direct"?500:400,cursor:"pointer",boxShadow:mode==="direct"?"0 1px 3px #00000010":"none"}}>Send Directly</button>
         </div>
 
         {mode==="mailto" && (
@@ -3814,11 +3809,6 @@ function BulkEmailComposer({open,onClose,recipients,initialSubject,initialBody,i
           </div>
         )}
 
-        {mode==="direct" && !emailConfig?.apiKey && (
-          <div style={{background:"#fef9c3",border:"0.5px solid "+AM+"66",borderRadius:8,padding:"10px 12px",marginBottom:10,fontSize:11,color:"#713f12",lineHeight:1.6}}>
-            <strong>Direct send not configured.</strong> Set up an email provider in Settings → Email Service.
-          </div>
-        )}
 
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
           <button onClick={()=>setShowTemplates(v=>!v)} style={{background:N+"14",border:"0.5px solid "+N+"44",borderRadius:7,padding:"6px 12px",fontSize:12,color:N,cursor:"pointer",fontWeight:500}}>{showTemplates?"Hide":"Choose"} Template</button>
