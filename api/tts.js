@@ -2,13 +2,30 @@
 // Keeps the API key server-side (process.env.ELEVENLABS_API_KEY) so it is never
 // shipped to the browser. A user may still supply their own key in the request
 // body (their own key, not a shared secret); otherwise the server key is used.
+// Verifies the request carries a valid Supabase session token (a signed-in user), to block
+// anonymous abuse of this relay (TTS costs money). Uses SUPABASE_URL + SUPABASE_ANON_KEY.
+async function getAuthedUser(req) {
+  const h = req.headers.authorization || req.headers.Authorization || "";
+  const token = typeof h === "string" && h.startsWith("Bearer ") ? h.slice(7) : null;
+  if (!token) return null;
+  const url = process.env.SUPABASE_URL, anon = process.env.SUPABASE_ANON_KEY;
+  if (!url || !anon) return null;
+  try {
+    const r = await fetch(url.replace(/\/$/, "") + "/auth/v1/user", { headers: { Authorization: "Bearer " + token, apikey: anon } });
+    if (!r.ok) return null;
+    const u = await r.json();
+    return u && u.id ? u : null;
+  } catch { return null; }
+}
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  if (!(await getAuthedUser(req))) return res.status(401).json({ error: "Unauthorized. Please sign in to the app and try again." });
 
   const { text, voiceId, apiKey } = req.body || {};
   // Accept the correctly-spelled name or the common misspelling without the "S".

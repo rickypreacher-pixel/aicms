@@ -2,14 +2,35 @@
 // Credentials are read from the SERVER environment (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN,
 // TWILIO_FROM_NUMBER) so the auth token is never held in the browser. For backward
 // compatibility, values in the request body are used only if the env vars are absent.
+// Verifies the request carries a valid Supabase session token (a signed-in user), to block
+// anonymous abuse of this relay (SMS costs money per message). Uses SUPABASE_URL +
+// SUPABASE_ANON_KEY (both public) env vars.
+async function getAuthedUser(req) {
+  const h = req.headers.authorization || req.headers.Authorization || "";
+  const token = typeof h === "string" && h.startsWith("Bearer ") ? h.slice(7) : null;
+  if (!token) return null;
+  const url = process.env.SUPABASE_URL, anon = process.env.SUPABASE_ANON_KEY;
+  if (!url || !anon) return null;
+  try {
+    const r = await fetch(url.replace(/\/$/, "") + "/auth/v1/user", { headers: { Authorization: "Bearer " + token, apikey: anon } });
+    if (!r.ok) return null;
+    const u = await r.json();
+    return u && u.id ? u : null;
+  } catch { return null; }
+}
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   if (req.method === "OPTIONS") return res.status(200).end();
 
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  if (!(await getAuthedUser(req))) {
+    return res.status(401).json({ error: "Unauthorized. Please sign in to the app and try again." });
   }
 
   const b = req.body || {};

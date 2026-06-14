@@ -2159,6 +2159,13 @@ const BDGE={
   Inactive:{bg:"#f5f5f5",c:"#616161"},Answered:{bg:"#e8f5e9",c:"#1b5e20"},
 };
 
+// Attaches the signed-in user's Supabase token so the server /api/* proxies can verify the
+// caller is a real, logged-in user — prevents anonymous abuse of the email/SMS/AI/TTS relays.
+async function _authHeaders(): Promise<Record<string,string>> {
+  try { const { data } = await supabase.auth.getSession(); const t = data?.session?.access_token; return t ? { Authorization: "Bearer " + t } : {}; }
+  catch { return {}; }
+}
+
 // ── ElevenLabs TTS ──
 async function speakEL(text, voiceId, apiKey?) {
   if (!text || !voiceId || !_elAudio) return {ok:false,err:"Audio not ready"};
@@ -2169,7 +2176,7 @@ async function speakEL(text, voiceId, apiKey?) {
   try {
     const res = await fetch("/api/tts", {
       method:"POST",
-      headers:{"Content-Type":"application/json"},
+      headers:{"Content-Type":"application/json", ...(await _authHeaders())},
       body:JSON.stringify({text:clean, voiceId, apiKey: userKey || undefined})
     });
     if (!res.ok) {
@@ -2229,7 +2236,7 @@ async function callAI(messages, members, visitors, attend, giving, prayers, mem)
         .map(m => ({role:m.role, content:m.content}));
   const res = await fetch("/api/ai", {
     method: "POST",
-    headers: {"Content-Type": "application/json"},
+    headers: {"Content-Type": "application/json", ...(await _authHeaders())},
     body: JSON.stringify({messages: msgList, system: systemPrompt, apiKey: AI_KEY})
   });
   const text = await res.text();
@@ -3283,7 +3290,7 @@ async function sendDirectEmail(config, payload){
   // only in the server env (RESEND_API_KEY) — never in the browser. `config` is unused now.
   const {to,cc,bcc,subject,body,html,fromName,from}=payload||{};
   if(!to) throw new Error("No recipient email address.");
-  const res=await fetch("/api/send-email",{method:"POST",headers:{"Content-Type":"application/json"},
+  const res=await fetch("/api/send-email",{method:"POST",headers:{"Content-Type":"application/json", ...(await _authHeaders())},
     body:JSON.stringify({to,cc:cc||undefined,bcc:bcc||undefined,subject:subject||"",html:html||undefined,text:html?undefined:(body||""),fromName:fromName||undefined,replyTo:from||undefined})});
   const data=await res.json().catch(()=>({}));
   if(!res.ok||!data.success) throw new Error(data.error||("Email failed ("+res.status+")"));
@@ -3297,7 +3304,7 @@ async function sendDirectSms(config, to, body){
   if(!body) throw new Error("Message is empty.");
   // Compliance: ensure every text carries opt-out language (added once, only if not already present).
   const _body = /\bstop\b/i.test(body) ? body : (String(body).replace(/\s+$/,"") + "\nReply STOP to opt out");
-  const res=await fetch("/api/send-sms",{method:"POST",headers:{"Content-Type":"application/json"},
+  const res=await fetch("/api/send-sms",{method:"POST",headers:{"Content-Type":"application/json", ...(await _authHeaders())},
     body:JSON.stringify({to,body:_body,fromPhone:config?.fromPhone||undefined})});
   const data=await res.json().catch(()=>({}));
   if(!res.ok||!data.success) throw new Error(data.error||("SMS failed ("+res.status+")"));

@@ -1,0 +1,19 @@
+{
+  "removed_on": "2026-06-13",
+  "church_id": "b0114b36-00d3-4952-a4fa-bd512fe189c9",
+  "church_name": "New Testament Christian Church of Glendale",
+  "reason": "Admin requested removal of Mark & Lisa Spears member records, emails, and login registrations. Giving, attendance, and anyone linked to them intentionally LEFT in place. Will re-enter later.",
+  "members": [
+    {"id":1777918385350.234,"last":"Spears","role":"Helper","type":"Member","email":"mommabearlissa@gmail.com","first":"Lisa","grade":"Graduated","notes":"","phone":"(480) 486-2649","gender":"Female","joined":"","status":"Active","address":{"zip":"85031","city":"Phoenix","state":"AZ","street":"5620 W Glenrosa Ave"},"medical":[],"birthday":"1970-11-06","children":[],"familyId":"fam_1777918385350.6392","fatherId":null,"motherId":null,"spouseId":1777918385350.6392,"allergies":[],"fatherLast":"","motherLast":"","spouseLast":"Spears","spouseName":"Mark Spears","anniversary":"","fatherFirst":"","motherFirst":"","spouseFirst":"Mark"},
+    {"id":1777918385350.6392,"last":"Spears","role":"Helper","type":"Member","email":"markspears559@gmail.com","first":"Mark","grade":"FALSE","notes":"","phone":"(480) 486-2841","gender":"Male","joined":"","status":"Active","address":{"zip":"85031","city":"Phoenix","state":"AZ","street":"5620 W Glenrosa Ave"},"medical":[],"birthday":"1974-05-09","children":[],"familyId":"fam_1777918385350.6392","fatherId":null,"motherId":null,"spouseId":1777918385350.234,"allergies":[],"fatherLast":"","motherLast":"","spouseLast":"Spears","spouseName":"Lisa Spears","anniversary":"","fatherFirst":"","motherFirst":"","spouseFirst":"Lisa"}
+  ],
+  "users": [
+    {"id":364,"email":"markspears559@gmail.com","roleId":"role_sponsor","status":"Active","memberId":1777918385350.6392,"overrides":{},"secondaryRoleId":"role_usher"},
+    {"id":366,"email":"mommabearlissa@gmail.com","roleId":"role_helper","status":"Active","memberId":1777918385350.234,"overrides":{},"secondaryRoleId":"role_sponsor"}
+  ],
+  "auth_users": [
+    {"id":"223d64e1-6530-427d-844c-fecf7474957b","email":"mommabearlissa@gmail.com"},
+    {"id":"d11ad1f4-87ed-4e3b-bd07-35695827b023","email":"markspears559@gmail.com"}
+  ],
+  "login_event_ids": [15,16,17,18,19]
+}

@@ -2,12 +2,29 @@
 // The API key stays server-side in RESEND_API_KEY and is never shipped to the browser.
 // The sender must be a Resend-verified address: set RESEND_FROM to your verified sender
 // (e.g. "noreply@yourchurch.org"); it falls back to Resend's onboarding sender for testing.
+// Verifies the request carries a valid Supabase session token (a signed-in user), to block
+// anonymous abuse of this relay. Uses SUPABASE_URL + SUPABASE_ANON_KEY (both public) env vars.
+async function getAuthedUser(req) {
+  const h = req.headers.authorization || req.headers.Authorization || "";
+  const token = typeof h === "string" && h.startsWith("Bearer ") ? h.slice(7) : null;
+  if (!token) return null;
+  const url = process.env.SUPABASE_URL, anon = process.env.SUPABASE_ANON_KEY;
+  if (!url || !anon) return null;
+  try {
+    const r = await fetch(url.replace(/\/$/, "") + "/auth/v1/user", { headers: { Authorization: "Bearer " + token, apikey: anon } });
+    if (!r.ok) return null;
+    const u = await r.json();
+    return u && u.id ? u : null;
+  } catch { return null; }
+}
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   if (req.method === "OPTIONS") return res.status(200).end();
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  if (!(await getAuthedUser(req))) return res.status(401).json({ error: "Unauthorized. Please sign in to the app and try again." });
 
   const key = process.env.RESEND_API_KEY;
   if (!key) {
