@@ -17005,8 +17005,11 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   window.__openBulkSmsComposer__ = openBulkSmsComposer;
 
   const isAdminUser = !!(currentUser?.superAdmin || [currentUser?.roleId, currentUser?.secondaryRoleId].some((rid:any)=>roles.find((r:any)=>r.id===rid)?.name==="Administrator"));
+  // Child follow-ups assigned to the signed-in user (teacher) — drives the "My Follow-Ups" nav item.
+  const myFollowupCount = (teacherFollowups||[]).filter((r:any)=>String(r?.assignedToUserId||"")===String(currentUser?.id||"")).length;
   const NAV = [
     {id:"dashboard",label:"Dashboard",icon:"D",group:"Core"},
+    ...((currentUser && myFollowupCount>0) ? [{id:"myfollowups",label:"My Follow-Ups"+(myFollowupCount?` (${myFollowupCount})`:""),icon:"🧒",group:"Core"}] : []),
     {id:"addperson",label:"Add Person",icon:"➕",group:"Core"},
     {id:"people",label:"Members Profile",icon:"P",group:"Core"},
     {id:"prospects",label:"Prospects",icon:"🎯",group:"Core"},
@@ -17051,7 +17054,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     hospitalvisits:"hospitalVisits", benevolencefund:"benevolenceFund", counselinglog:"counselingLog", hospitalityfund:"hospitalityFund",
     maintenance:"maintenance", calendar:"events", attendance:"attendance",
     giving:"giving", prayer:"prayer", email:null, sms:null,
-    access:"settings", ai:null, settings:"settings", alerts:null, manual:null, loginactivity:null, auditlog:null,
+    access:"settings", ai:null, settings:"settings", alerts:null, manual:null, loginactivity:null, auditlog:null, myfollowups:null,
   };
   const PASTORAL_CARE_SIDEBAR_ROLE_ACCESS:Record<string,string[]> = {
     hospitalvisits:["Administrator","Pastor","Staff","Team Supervisor","Team Leader","Sponsor","Hospital & Visits"],
@@ -17388,6 +17391,15 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           {!isMemberPortal && view==="access" && <Access members={members} users={users} setUsers={setUsers} roles={roles} setRoles={setRoles} permissions={permissions} setPermissions={setPermissions} portalMembers={portalMembers} setPortalMembers={setPortalMembers} currentUser={currentUser} churchId={churchId}/>}
           {!isMemberPortal && isAdminUser && view==="loginactivity" && <LoginActivity churchId={churchId}/>}
           {!isMemberPortal && isAdminUser && view==="auditlog" && <AuditLog churchId={churchId}/>}
+          {!isMemberPortal && view==="myfollowups" && (
+            <div>
+              <div style={{marginBottom:14}}>
+                <h3 style={{fontSize:15,fontWeight:500,color:N,margin:0}}>🧒 My Child Follow-Ups</h3>
+                <div style={{fontSize:12,color:MU,marginTop:2}}>Children assigned to you for follow-up. Log a Call, Text, or Visit to complete each one.</div>
+              </div>
+              <TeacherFollowPipeline children={children} kidsCheckIns={kidsCheckIns} rollCalls={rollCalls} users={users} members={members} currentUser={currentUser} roles={roles} pipeline={teacherFollowups} setPipeline={setTeacherFollowups} dismissedChildIds={followupDismissedChildIds} setDismissedChildIds={setFollowupDismissedChildIds} cs={churchSettings} setCs={setChurchSettings}/>
+            </div>
+          )}
           {!isMemberPortal && view==="ai" && <AIAssist aiChat={aiChat} setAiChat={setAiChat} members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} setAttendance={setAttendance} giving={giving} setGiving={setGiving} prayers={prayers} setView={setView} isMobile={isMobile}/>}
           {!isMemberPortal && view==="alerts" && <AlertPage members={members} visitors={visitors} giving={giving} checkIns={checkIns} kidsCheckIns={kidsCheckIns} rollCalls={rollCalls} children={children} visitRecords={visitRecords} cs={churchSettings} setCs={setChurchSettings} users={users} roles={roles} followupDismissedChildIds={followupDismissedChildIds}/>}
           {!isMemberPortal && view==="announcements" && <Announcements announcements={announcements} setAnnouncements={setAnnouncements} currentUser={currentUser} roles={roles} permissions={permissions} recurring={recurring} custom={custom} churchId={churchId}/>}
