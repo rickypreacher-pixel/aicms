@@ -15816,7 +15816,7 @@ function ManualPage(){
 }
 
 // ── MEMBER PORTAL — self-service profile + giving view for email/password members ──
-function MemberProfilePortal({member,setMembers,giving,onSignOut,staffMode=false,roles=[],users=[],setUsers,recurring=[],custom=[],eventRsvps=[],setEventRsvps=null,members=[],children=[],announcements=[],cleaningSchedule={},eventSchedule={},initialTab="profile"}:any) {
+function MemberProfilePortal({member,setMembers,giving,onSignOut,staffMode=false,roles=[],users=[],setUsers,recurring=[],custom=[],eventRsvps=[],setEventRsvps=null,members=[],children=[],announcements=[],cleaningSchedule={},eventSchedule={},initialTab="profile",givingUrl=""}:any) {
   const [tab,setTab] = useState(initialTab);
   // Let the sidebar open the portal directly to a given tab (e.g. 📢 Announcements → News).
   useEffect(()=>{ setTab(initialTab); },[initialTab]);
@@ -15908,7 +15908,7 @@ function MemberProfilePortal({member,setMembers,giving,onSignOut,staffMode=false
     const rows=Object.keys(assigns).map(area=>({area,people:cleanSlotPeople(assigns[area])})).filter(r=>r.people.length>0);
     return {event:ename,date:d.date||"",rows};
   }).filter(e=>e.rows.length>0);
-  const TABS = staffMode ? [{id:"profile",label:"Personal Info"},{id:"events",label:"📅 Events"},{id:"news",label:"📢 News"},{id:"cleaning",label:"🧹 Cleaning"},{id:"bigevents",label:"🎉 Big Events"}] : [{id:"profile",label:"Personal Info"},{id:"giving",label:"My Giving"},{id:"events",label:"📅 Events"},{id:"news",label:"📢 News"},{id:"cleaning",label:"🧹 Cleaning"},{id:"bigevents",label:"🎉 Big Events"}];
+  const TABS = staffMode ? [{id:"profile",label:"Personal Info"},{id:"give",label:"💝 Give"},{id:"events",label:"📅 Events"},{id:"news",label:"📢 News"},{id:"cleaning",label:"🧹 Cleaning"},{id:"bigevents",label:"🎉 Big Events"}] : [{id:"profile",label:"Personal Info"},{id:"give",label:"💝 Give"},{id:"giving",label:"My Giving"},{id:"events",label:"📅 Events"},{id:"news",label:"📢 News"},{id:"cleaning",label:"🧹 Cleaning"},{id:"bigevents",label:"🎉 Big Events"}];
 
   return (
     <div style={{maxWidth:700,margin:"0 auto",padding:"0 4px"}}>
@@ -16107,6 +16107,21 @@ function MemberProfilePortal({member,setMembers,giving,onSignOut,staffMode=false
       )}
 
       {/* News / Announcements Tab */}
+      {tab==="give"&&(
+        <div>
+          {givingUrl ? (
+            <div style={{background:W,border:"0.5px solid "+BR,borderRadius:14,padding:"28px 24px",textAlign:"center" as any,maxWidth:520,margin:"0 auto"}}>
+              <div style={{fontSize:40,marginBottom:10}}>💝</div>
+              <div style={{fontSize:19,fontWeight:600,color:N,marginBottom:6}}>Give to {(window as any).__CS__?.name||"our church"}</div>
+              <div style={{fontSize:13,color:MU,lineHeight:1.7,marginBottom:20}}>Support the ministry with a secure online gift — tithes, offerings, and special funds. You can give once or set up recurring giving. Payments are handled securely by our church's giving provider.</div>
+              <a href={givingUrl} target="_blank" rel="noopener noreferrer" style={{display:"inline-block",background:G,color:N,fontWeight:700,fontSize:15,padding:"13px 32px",borderRadius:10,textDecoration:"none"}}>Give Now →</a>
+              <div style={{fontSize:11,color:MU,marginTop:14}}>Opens our secure giving page in a new tab. 🔒</div>
+            </div>
+          ) : (
+            <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:40,textAlign:"center" as any,color:MU,fontSize:13}}>Online giving isn't set up yet. Please contact the church office.</div>
+          )}
+        </div>
+      )}
       {tab==="news"&&(
         <div>
           {(()=>{ const today=td(); const list=(announcements||[]).filter((a:any)=>!a.deleted&&(!a.expiresAt||a.expiresAt>=today)).sort((a:any,b:any)=>((b.pinned?1:0)-(a.pinned?1:0))||String(b.date||"").localeCompare(String(a.date||"")));
@@ -16327,7 +16342,31 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     if(!churchId || !canViewGiving) return; // non-finance users never load/touch giving
     let cancelled = false;
     supabase.from('church_giving').select('giving').eq('church_id',churchId).maybeSingle()
-      .then(({data}:any)=>{ if(cancelled) return; if(data && Array.isArray(data.giving)) setGiving(data.giving); givingLoaded.current = true; })
+      .then(async ({data}:any)=>{
+        if(cancelled) return;
+        let base = (data && Array.isArray(data.giving)) ? data.giving : null;
+        // Auto-import any new Online Giving donations into Record Giving (deduped by txnId).
+        try {
+          const {data:inc} = await supabase.from('online_giving_incoming')
+            .select('txn_id,donor_first,donor_last,donor_email,amount,category,gift_date')
+            .eq('church_id',churchId).order('created_at',{ascending:false}).limit(2000);
+          if(inc && inc.length){
+            const cur = base || [];
+            const have = new Set(cur.map((g:any)=>g.txnId).filter(Boolean));
+            let n = Date.now();
+            const adds = inc.filter((d:any)=>!have.has(d.txn_id)).map((d:any)=>({
+              id: n++, date: d.gift_date || td(),
+              name: ((d.donor_first||'')+' '+(d.donor_last||'')).trim() || d.donor_email || 'Online Gift',
+              category: d.category || 'Offering', amount: Number(d.amount)||0,
+              method: 'Online', notes: 'Imported from Online Giving', txnId: d.txn_id, source: 'onlinegiving',
+            }));
+            if(adds.length) base = [...adds, ...cur];
+          }
+        } catch {}
+        if(cancelled) return;
+        if(base!==null) setGiving(base);
+        givingLoaded.current = true;
+      })
       .catch(()=>{}); // on error, leave givingLoaded false so we never overwrite with empty state
     return ()=>{ cancelled = true; };
   },[churchId, canViewGiving, syncTrigger]);
@@ -16965,6 +17004,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   const RESTRICTED_NAV_HIDDEN = ['ai','email','sms'];
   const PORTAL_NAV = [
     {id:"myprofile",label:"My Profile",icon:"👤",group:"Core"},
+    {id:"give",label:"Give",icon:"💝",group:"Core"},
     {id:"news",label:"Announcements",icon:"📢",group:"Core"},
     {id:"prayer",label:"Prayer Wall",icon:"Pr",group:"Pastoral Care"},
   ];
@@ -17278,10 +17318,10 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           {!isMemberPortal && view==="giving" && canViewGiving && <Giving giving={giving} setGiving={setGiving} pledgeDrives={pledgeDrives} setPledgeDrives={setPledgeDrives} pledges={pledges} setPledges={setPledges} members={members} visitors={visitors} weeklyReports={weeklyReports} setWeeklyReports={setWeeklyReports} emailTemplates={emailTemplates} currentUser={currentUser} roles={roles}/>}
           {!isMemberPortal && view==="prayer" && <Prayer prayers={prayers} setPrayers={setPrayers}/>}
           {/* ── Member Portal hard-gate: only myprofile and prayer allowed ── */}
-          {isMemberPortal && view!=="prayer" && <MemberProfilePortal member={portalMember} setMembers={setMembers} giving={giving} onSignOut={onSignOut} roles={roles} users={users} setUsers={setUsers} recurring={recurring} custom={custom} eventRsvps={eventRsvps} setEventRsvps={setEventRsvps} members={members} children={children} announcements={announcements} cleaningSchedule={cleaningSchedule} eventSchedule={eventSchedule} initialTab={view==="news"?"news":"profile"}/>}
+          {isMemberPortal && view!=="prayer" && <MemberProfilePortal member={portalMember} setMembers={setMembers} giving={giving} onSignOut={onSignOut} roles={roles} users={users} setUsers={setUsers} recurring={recurring} custom={custom} eventRsvps={eventRsvps} setEventRsvps={setEventRsvps} members={members} children={children} announcements={announcements} cleaningSchedule={cleaningSchedule} eventSchedule={eventSchedule} givingUrl={churchSettings?.onlineGivingUrl||"https://myntccglendaleaz.onlinegiving.cc/"} initialTab={view==="give"?"give":view==="news"?"news":"profile"}/>}
           {isMemberPortal && view==="prayer" && <Prayer prayers={prayers} setPrayers={setPrayers} portalMode={true} portalMember={portalMember}/>}
           {/* ── Staff My Profile: staff user whose login matches a member record ── */}
-          {!isMemberPortal && view==="myprofile" && staffMemberRecord && <MemberProfilePortal member={staffMemberRecord} setMembers={setMembers} giving={giving} onSignOut={()=>setView("dashboard")} staffMode={true} roles={roles} users={users} setUsers={setUsers} recurring={recurring} custom={custom} eventRsvps={eventRsvps} setEventRsvps={setEventRsvps} members={members} children={children} announcements={announcements} cleaningSchedule={cleaningSchedule} eventSchedule={eventSchedule}/>}
+          {!isMemberPortal && view==="myprofile" && staffMemberRecord && <MemberProfilePortal member={staffMemberRecord} setMembers={setMembers} giving={giving} onSignOut={()=>setView("dashboard")} staffMode={true} roles={roles} users={users} setUsers={setUsers} recurring={recurring} custom={custom} eventRsvps={eventRsvps} setEventRsvps={setEventRsvps} members={members} children={children} announcements={announcements} cleaningSchedule={cleaningSchedule} eventSchedule={eventSchedule} givingUrl={churchSettings?.onlineGivingUrl||"https://myntccglendaleaz.onlinegiving.cc/"}/>}
           {/* ── Staff / Admin views (never rendered for portal users) ── */}
           {!isMemberPortal && view==="sms" && <SmsCenter smsLog={smsLog} setSmsLog={setSmsLog} smsTemplates={smsTemplates} setSmsTemplates={setSmsTemplates} smsConfig={smsConfig} setSmsConfig={setSmsConfig} members={members} visitors={visitors} cs={churchSettings} onCompose={()=>openSmsComposer({})} onBulkCompose={()=>openBulkSmsComposer({recipients:[...members,...visitors].filter(p=>p.phone).map(p=>({...p,first:p.first,last:p.last,name:p.first+" "+p.last}))})}/>}
           {!isMemberPortal && view==="email" && <EmailCenter emailLog={emailLog} setEmailLog={setEmailLog} emailTemplates={emailTemplates} setEmailTemplates={setEmailTemplates} emailConfig={emailConfig} setEmailConfig={setEmailConfig} members={members} visitors={visitors} cs={churchSettings} onCompose={()=>openEmailComposer({})} onBulkCompose={()=>openBulkEmailComposer({recipients:members.filter(m=>m.email).map(m=>({name:m.first+" "+m.last,first:m.first,last:m.last,email:m.email}))})}/>}
