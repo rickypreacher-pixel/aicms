@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, useMemo, useDeferredValue } from 'react';
 import { supabase } from './lib/supabase';
 import { mergeChurchData } from './lib/mergeBlob.js';
+import { diffAudit, collapseAudit } from './lib/auditDiff.js';
 
 // ── MAINTENANCE & EQUIPMENT ──
 const MAINT_CATS=["Audio","Video","HVAC","Vehicles","Electrical","Plumbing","Kitchen","Office","Musical Instruments","Grounds/Landscaping","Other"];
@@ -4238,6 +4239,81 @@ function LoginActivity({churchId}:any){
               : <table style={{width:"100%",borderCollapse:"collapse"}}>
                   <thead><tr><th style={th}>Name</th><th style={th}>Email</th><th style={th}>Date &amp; Time</th></tr></thead>
                   <tbody>{filtered.map((r:any)=>(<tr key={r.id}><td style={{...td,fontWeight:500}}>{r.name||"—"}</td><td style={{...td,color:MU}}>{r.email||"—"}</td><td style={td}>{fmt(r.logged_in_at)}</td></tr>))}</tbody>
+                </table>}
+          </div>
+        )}
+    </div>
+  );
+}
+
+function AuditLog({churchId}:any){
+  const [rows,setRows]=useState<any[]>([]);
+  const [loading,setLoading]=useState(true);
+  const [err,setErr]=useState("");
+  const [fromDate,setFromDate]=useState("");
+  const [toDate,setToDate]=useState("");
+  const [actFilter,setActFilter]=useState("all");
+  const [search,setSearch]=useState("");
+  const load=()=>{
+    setLoading(true);setErr("");
+    supabase.from('audit_log').select('id,user_name,user_email,action,entity,entity_label,at').eq('church_id',churchId).order('at',{ascending:false}).limit(2000)
+      .then(({data,error}:any)=>{ if(error) setErr(error.message||"Could not load the audit log."); setRows(data||[]); setLoading(false); });
+  };
+  useEffect(()=>{ if(churchId) load(); },[churchId]);
+  const fmt=(ts:string)=>{ try{ const d=new Date(ts); return d.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"})+" · "+d.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"}); }catch{ return ts; } };
+  const localDay=(ts:string)=>{ try{ return new Date(ts).toLocaleDateString("en-CA"); }catch{ return (ts||"").slice(0,10); } };
+  const filtered=rows.filter((r:any)=>{
+    const d=localDay(r.at); if(fromDate&&d<fromDate)return false; if(toDate&&d>toDate)return false;
+    if(actFilter!=="all" && r.action!==actFilter) return false;
+    if(search){ const q=search.toLowerCase(); if(!((r.user_name||"")+" "+(r.user_email||"")+" "+(r.entity||"")+" "+(r.entity_label||"")).toLowerCase().includes(q)) return false; }
+    return true;
+  });
+  const exportCsv=()=>{
+    const esc=(s:any)=>{ const v=String(s??""); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; };
+    const lines=[["User","Email","Action","Type","Item","Date & Time"].join(",")].concat(filtered.map((r:any)=>[esc(r.user_name||""),esc(r.user_email||""),esc(r.action||""),esc(r.entity||""),esc(r.entity_label||""),esc(fmt(r.at))].join(",")));
+    const blob=new Blob([lines.join("\n")],{type:"text/csv;charset=utf-8;"});
+    const url=URL.createObjectURL(blob); const a=document.createElement("a");
+    a.href=url; a.download="audit-log"+((fromDate||toDate)?"_"+(fromDate||"start")+"_to_"+(toDate||"now"):"")+".csv";
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000);
+  };
+  const ACT:any={created:{bg:"#dcfce7",c:GR,label:"Created"},updated:{bg:"#dbeafe",c:"#1d4ed8",label:"Updated"},deleted:{bg:"#fee2e2",c:RE,label:"Deleted"}};
+  const th:any={textAlign:"left",padding:"10px 14px",fontSize:11,color:MU,textTransform:"uppercase",letterSpacing:0.4,fontWeight:600};
+  const td:any={padding:"10px 14px",fontSize:13,borderTop:"0.5px solid "+BR,verticalAlign:"top"};
+  const dateInput:any={padding:"5px 8px",border:"0.5px solid "+BR,borderRadius:6,fontSize:12,outline:"none",background:W};
+  return (
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14,flexWrap:"wrap",gap:12}}>
+        <div>
+          <h3 style={{fontSize:15,fontWeight:500,color:N,margin:0}}>Audit Log</h3>
+          <div style={{fontSize:12,color:MU,marginTop:2}}>Who added, edited, or deleted records — newest first. Visible to administrators only.</div>
+        </div>
+        <div style={{display:"flex",gap:8,alignItems:"flex-end",flexWrap:"wrap"}}>
+          <label style={{fontSize:10,color:MU,display:"flex",flexDirection:"column",gap:2}}>From<input type="date" value={fromDate} onChange={e=>setFromDate(e.target.value)} style={dateInput}/></label>
+          <label style={{fontSize:10,color:MU,display:"flex",flexDirection:"column",gap:2}}>To<input type="date" value={toDate} onChange={e=>setToDate(e.target.value)} style={dateInput}/></label>
+          <label style={{fontSize:10,color:MU,display:"flex",flexDirection:"column",gap:2}}>Action<select value={actFilter} onChange={e=>setActFilter(e.target.value)} style={dateInput}><option value="all">All</option><option value="created">Created</option><option value="updated">Updated</option><option value="deleted">Deleted</option></select></label>
+          {(fromDate||toDate||actFilter!=="all")&&<button onClick={()=>{setFromDate("");setToDate("");setActFilter("all");}} style={{background:"none",border:"0.5px solid "+BR,borderRadius:6,padding:"6px 10px",fontSize:12,cursor:"pointer",color:MU}}>Clear</button>}
+          <Btn onClick={exportCsv} v="ghost" style={{fontSize:12}}>⬇ Export CSV</Btn>
+          <Btn onClick={load} v="ghost" style={{fontSize:12}}>↻ Refresh</Btn>
+        </div>
+      </div>
+      <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search by user, type, or item..." style={{width:"100%",maxWidth:360,padding:"7px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",marginBottom:12}}/>
+      {loading ? <div style={{padding:24,color:MU,fontSize:13}}>Loading…</div>
+        : err ? <div style={{background:"#fef2f2",border:"0.5px solid "+RE+"44",borderRadius:8,padding:"12px 14px",color:RE,fontSize:13}}>{err}</div>
+        : rows.length===0 ? <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:32,textAlign:"center",color:MU,fontSize:13}}>No changes recorded yet. Adds, edits, and deletes will appear here.</div>
+        : (
+          <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,overflow:"hidden"}}>
+            <div style={{padding:"10px 14px",fontSize:12,color:MU,borderBottom:"0.5px solid "+BR,background:BG}}>{filtered.length} change{filtered.length!==1?"s":""}{(fromDate||toDate||actFilter!=="all"||search)?" matching · of "+rows.length+" total":" recorded"}</div>
+            {filtered.length===0
+              ? <div style={{padding:24,textAlign:"center",color:MU,fontSize:13}}>No changes match your filters.</div>
+              : <table style={{width:"100%",borderCollapse:"collapse"}}>
+                  <thead><tr><th style={th}>User</th><th style={th}>Action</th><th style={th}>What</th><th style={th}>Date &amp; Time</th></tr></thead>
+                  <tbody>{filtered.map((r:any)=>{const a=ACT[r.action]||{bg:BG,c:MU,label:r.action};return(
+                    <tr key={r.id}>
+                      <td style={{...td,fontWeight:500}}>{r.user_name||"—"}{r.user_email?<div style={{fontSize:11,color:MU,fontWeight:400}}>{r.user_email}</div>:null}</td>
+                      <td style={td}><span style={{fontSize:11,fontWeight:600,background:a.bg,color:a.c,borderRadius:10,padding:"2px 9px"}}>{a.label}</span></td>
+                      <td style={td}><span style={{color:MU,textTransform:"capitalize"}}>{r.entity}</span> · <span style={{fontWeight:500}}>{r.entity_label||"—"}</span></td>
+                      <td style={{...td,whiteSpace:"nowrap"}}>{fmt(r.at)}</td>
+                    </tr>);})}</tbody>
                 </table>}
           </div>
         )}
@@ -16143,6 +16219,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   const [syncTrigger,setSyncTrigger] = useState(0);
   const lastSyncAt = useRef(0);
   const lastSyncedBlob = useRef<any>(null); // the cloud blob this device last loaded/saved — baseline for 3-way merge on conflict
+  const authUid = useRef<any>(null); // current Supabase auth user id, for audit-log attribution
   const suppressSave = useRef(false);
   // Warn before closing/reloading while a save is still pending or has failed,
   // so a church doesn't lose unsaved work on a flaky connection.
@@ -16673,6 +16750,26 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     return()=>{ clearInterval(interval); document.removeEventListener('visibilitychange', onVisible); };
   },[churchId]);
 
+  // Capture the signed-in user's id once, for audit-log attribution.
+  useEffect(()=>{ supabase.auth.getSession().then(({data}:any)=>{ authUid.current = data?.session?.user?.id || null; }).catch(()=>{}); },[]);
+
+  // Audit log: diff what this device changed (base → next) and record who-did-what.
+  // Fire-and-forget; must never block or break the save. Skips when there's no baseline
+  // (first load) so a fresh cloud load isn't logged as a flood of "created".
+  const recordAudit = (base:any, next:any) => {
+    try {
+      if(!base || !authUid.current || !churchId) return;
+      const changes = collapseAudit(diffAudit(base, next));
+      if(!changes.length) return;
+      const uname = [adminFirst,adminLast].filter(Boolean).join(' ').trim() || displayName || loggedInEmail || 'Unknown';
+      const rows = changes.slice(0,100).map((c:any)=>({
+        church_id:churchId, user_id:authUid.current, user_name:uname, user_email:loggedInEmail||null,
+        action:c.action, entity:c.entity, entity_id:c.entity_id??null, entity_label:c.entity_label??null,
+      }));
+      supabase.from('audit_log').insert(rows).then(()=>{},()=>{});
+    } catch {}
+  };
+
   // ── Debounced Supabase cloud-save (3 s after last change) ──
   useEffect(()=>{
     if(!churchId) return;
@@ -16713,7 +16810,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
             {church_id:churchId,data:merged,updated_at:new Date().toISOString()},
             {onConflict:'church_id'}
           );
-          if(!mErr){ lastSyncAt.current = Date.now(); lastSyncedBlob.current = merged; setSyncTrigger(t=>t+1); }
+          if(!mErr){ recordAudit(lastSyncedBlob.current, blob); lastSyncAt.current = Date.now(); lastSyncedBlob.current = merged; setSyncTrigger(t=>t+1); }
           setCloudSync(mErr?'error':'saved');
           if(!mErr) setTimeout(()=>setCloudSync('idle'),2500);
           return;
@@ -16725,7 +16822,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
         {church_id:churchId,data:blob,updated_at:new Date().toISOString()},
         {onConflict:'church_id'}
       );
-      if(!error){ lastSyncAt.current = Date.now(); lastSyncedBlob.current = blob; }
+      if(!error){ recordAudit(lastSyncedBlob.current, blob); lastSyncAt.current = Date.now(); lastSyncedBlob.current = blob; }
       setCloudSync(error?'error':'saved');
       // Keep sync errors visible (don't auto-hide) so a failed save isn't silently lost.
       // Only the success state auto-clears; the next data change retries the save.
@@ -16836,6 +16933,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     {id:"alerts",label:"Alerts",icon:"🔔",group:"Tools"},
     {id:"manual",label:"Manual",icon:"📖",group:"Tools"},
     ...(isAdminUser ? [{id:"loginactivity",label:"Login Activity",icon:"🔐",group:"Tools"}] : []),
+    ...(isAdminUser ? [{id:"auditlog",label:"Audit Log",icon:"📋",group:"Tools"}] : []),
   ];
   const NAV_GROUP_ORDER = [
     "Core",
@@ -16854,7 +16952,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     hospitalvisits:"hospitalVisits", benevolencefund:"benevolenceFund", counselinglog:"counselingLog", hospitalityfund:"hospitalityFund",
     maintenance:"maintenance", calendar:"events", attendance:"attendance",
     giving:"giving", prayer:"prayer", email:null, sms:null,
-    access:"settings", ai:null, settings:"settings", alerts:null, manual:null, loginactivity:null,
+    access:"settings", ai:null, settings:"settings", alerts:null, manual:null, loginactivity:null, auditlog:null,
   };
   const PASTORAL_CARE_SIDEBAR_ROLE_ACCESS:Record<string,string[]> = {
     hospitalvisits:["Administrator","Pastor","Staff","Team Supervisor","Team Leader","Sponsor","Hospital & Visits"],
@@ -17189,6 +17287,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           {!isMemberPortal && view==="email" && <EmailCenter emailLog={emailLog} setEmailLog={setEmailLog} emailTemplates={emailTemplates} setEmailTemplates={setEmailTemplates} emailConfig={emailConfig} setEmailConfig={setEmailConfig} members={members} visitors={visitors} cs={churchSettings} onCompose={()=>openEmailComposer({})} onBulkCompose={()=>openBulkEmailComposer({recipients:members.filter(m=>m.email).map(m=>({name:m.first+" "+m.last,first:m.first,last:m.last,email:m.email}))})}/>}
           {!isMemberPortal && view==="access" && <Access members={members} users={users} setUsers={setUsers} roles={roles} setRoles={setRoles} permissions={permissions} setPermissions={setPermissions} portalMembers={portalMembers} setPortalMembers={setPortalMembers} currentUser={currentUser} churchId={churchId}/>}
           {!isMemberPortal && isAdminUser && view==="loginactivity" && <LoginActivity churchId={churchId}/>}
+          {!isMemberPortal && isAdminUser && view==="auditlog" && <AuditLog churchId={churchId}/>}
           {!isMemberPortal && view==="ai" && <AIAssist aiChat={aiChat} setAiChat={setAiChat} members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} setAttendance={setAttendance} giving={giving} setGiving={setGiving} prayers={prayers} setView={setView} isMobile={isMobile}/>}
           {!isMemberPortal && view==="alerts" && <AlertPage members={members} visitors={visitors} giving={giving} checkIns={checkIns} kidsCheckIns={kidsCheckIns} rollCalls={rollCalls} children={children} visitRecords={visitRecords} cs={churchSettings} setCs={setChurchSettings} users={users} roles={roles} followupDismissedChildIds={followupDismissedChildIds}/>}
           {!isMemberPortal && view==="announcements" && <Announcements announcements={announcements} setAnnouncements={setAnnouncements} currentUser={currentUser} roles={roles} permissions={permissions} recurring={recurring} custom={custom} churchId={churchId}/>}
