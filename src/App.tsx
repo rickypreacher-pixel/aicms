@@ -9391,6 +9391,13 @@ function WeeklyReports({giving,weeklyReports,setWeeklyReports}){
     setViewReport(updated);
   };
 
+  // Budget offering subtracted from the pastor's draw for this week (entered by the user, persisted per report).
+  const updateReportBudgetOffering = (report, amount) => {
+    const updated = {...report, pastorBudgetOffering: Math.max(0, Number(amount)||0)};
+    setWeeklyReports(rs => rs.map(r => r.id===report.id ? updated : r));
+    setViewReport(updated);
+  };
+
   // Auto-save: generate reports for all Mondays with giving activity that aren't yet saved
   useEffect(()=>{
     if(giving.length===0) return;
@@ -9495,6 +9502,8 @@ function WeeklyReports({giving,weeklyReports,setWeeklyReports}){
               const titheCollected = r.tithes?.tithe||0;
               const specialGift = r.tithes?.specialGift||0;
               const sundayMorning = r.tithes?.sundayMorning||0;
+              const budgetOffering = Math.max(0, Number(r.pastorBudgetOffering)||0);
+              const netPastorDraw = Math.max(0, pastorDraw - budgetOffering);
               if(eligibleBase===0 && pastorDraw===0) return null;
               return (
               <div style={{background:"#f8f4e8",border:"1.5px solid "+G,borderRadius:10,padding:"16px 20px",marginBottom:20}}>
@@ -9535,12 +9544,14 @@ function WeeklyReports({giving,weeklyReports,setWeeklyReports}){
                         </select>
                       </div>
                     </div>
-                    <div style={{fontSize:26,fontWeight:700,color:N,marginBottom:8}}>{f$(pastorDraw)}</div>
+                    <div style={{fontSize:26,fontWeight:700,color:N,marginBottom:8}}>{f$(netPastorDraw)}</div>
                     <div style={{fontSize:11,color:MU,lineHeight:1.6}}>
                       <div style={{display:"flex",justifyContent:"space-between"}}><span>Tithe collected:</span><strong>{f$(titheCollected)}</strong></div>
                       <div style={{display:"flex",justifyContent:"space-between"}}><span>Special Gift:</span><strong>{f$(specialGift)}</strong></div>
                       <div style={{display:"flex",justifyContent:"space-between"}}><span>Sunday Morning Offering:</span><strong>{f$(sundayMorning)}</strong></div>
                       <div style={{display:"flex",justifyContent:"space-between",borderTop:"0.5px solid "+G+"44",marginTop:4,paddingTop:4,fontWeight:600,color:GR}}><span>{effectiveDrawPct}% of combined:</span><strong>{f$(pastorDraw)}</strong></div>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:4}}><span>− Budget Offering:</span><span style={{display:"flex",alignItems:"center",gap:3}}><span style={{color:MU}}>$</span><input type="number" min="0" step="0.01" value={budgetOffering||""} placeholder="0" onClick={e=>e.stopPropagation()} onChange={e=>updateReportBudgetOffering(r,e.target.value)} style={{width:78,fontSize:12,fontWeight:600,color:N,border:"1.5px solid "+G,borderRadius:6,padding:"3px 6px",background:GL+"44",textAlign:"right",outline:"none"}}/></span></div>
+                      <div style={{display:"flex",justifyContent:"space-between",borderTop:"0.5px solid "+G+"44",marginTop:4,paddingTop:4,fontWeight:700,color:N}}><span>= Net Pastor's Draw:</span><strong>{f$(netPastorDraw)}</strong></div>
                     </div>
                   </div>
                 </div>
