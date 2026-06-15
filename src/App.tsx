@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { useState, useEffect, useRef, useMemo, useDeferredValue } from 'react';
 import { supabase } from './lib/supabase';
+import { mergeChurchData } from './lib/mergeBlob.js';
 
 // ── MAINTENANCE & EQUIPMENT ──
 const MAINT_CATS=["Audio","Video","HVAC","Vehicles","Electrical","Plumbing","Kitchen","Office","Musical Instruments","Grounds/Landscaping","Other"];
@@ -16141,6 +16142,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   const sbSyncTimer = useRef<any>(null);
   const [syncTrigger,setSyncTrigger] = useState(0);
   const lastSyncAt = useRef(0);
+  const lastSyncedBlob = useRef<any>(null); // the cloud blob this device last loaded/saved — baseline for 3-way merge on conflict
   const suppressSave = useRef(false);
   // Warn before closing/reloading while a save is still pending or has failed,
   // so a church doesn't lose unsaved work on a flaky connection.
@@ -16606,6 +16608,8 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       // counselingLogs load from the role-gated church_confidential table, not the blob
       if(d.churchSettings?.name){setChurchSettings(d.churchSettings);try{localStorage.setItem(LS('church_settings'),JSON.stringify(d.churchSettings));}catch(e){}}
       lastSyncAt.current = Date.now();
+      lastSyncedBlob.current = d; // baseline for the next 3-way merge on a concurrent save
+
       // Suppress the next auto-save triggered by these state changes — we just loaded from cloud,
       // no need to immediately write back what we just read
       suppressSave.current = true;
@@ -16684,16 +16688,6 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       // This prevents a phone/tab that loaded empty state from wiping the live database.
       const hasAnyData = members.length>0||visitors.length>0||giving.length>0||attendance.length>0||children.length>0||users.length>0;
       if(!hasAnyData && !(clearedAt && Date.now()-clearedAt < 300000)){setCloudSync('idle');return;}
-      // Staleness guard: check if Supabase was updated more recently than our last load.
-      // If so, another device saved after us — re-sync instead of overwriting their changes.
-      const {data:meta} = await supabase.from('church_data').select('updated_at').eq('church_id',churchId).maybeSingle();
-      const remoteTs = meta?.updated_at ? new Date(meta.updated_at).getTime() : 0;
-      if(remoteTs > lastSyncAt.current + 2000){
-        // Remote is newer than our last load — pull the latest data instead of overwriting
-        setSyncTrigger(t=>t+1);
-        setCloudSync('idle');
-        return;
-      }
       // Never persist secrets to the cloud blob: app-user passwords/PINs are unused
       // for auth (login is Supabase), and the email provider key is unused (sending
       // is a stub). Strip them so they aren't synced/exposed in church_data.
@@ -16705,11 +16699,33 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
         teacherSchedule,kidsCheckIns,teacherFollowups,eventRsvps,announcements,roles,permissions,churchSettings,users:safeUsers,prospects,
         followupDismissedChildIds,
         sickVisits,benevolence,hospitalityFund,hospStartBalance,cleaningSchedule,eventSchedule};
+      // Staleness guard: did another device save after our last load?
+      const {data:meta} = await supabase.from('church_data').select('updated_at').eq('church_id',churchId).maybeSingle();
+      const remoteTs = meta?.updated_at ? new Date(meta.updated_at).getTime() : 0;
+      if(remoteTs > lastSyncAt.current + 2000){
+        // Another device saved meanwhile. Old behavior threw away OUR changes (re-pull).
+        // Instead, 3-way merge our changes with theirs (base = the blob we last loaded) so
+        // concurrent adds from both sides survive and deletes are honored — see lib/mergeBlob.js.
+        const {data:remoteRow} = await supabase.from('church_data').select('data').eq('church_id',churchId).maybeSingle();
+        if(remoteRow?.data){
+          const merged = mergeChurchData(lastSyncedBlob.current||{}, blob, remoteRow.data);
+          const {error:mErr} = await supabase.from('church_data').upsert(
+            {church_id:churchId,data:merged,updated_at:new Date().toISOString()},
+            {onConflict:'church_id'}
+          );
+          if(!mErr){ lastSyncAt.current = Date.now(); lastSyncedBlob.current = merged; setSyncTrigger(t=>t+1); }
+          setCloudSync(mErr?'error':'saved');
+          if(!mErr) setTimeout(()=>setCloudSync('idle'),2500);
+          return;
+        }
+        // Couldn't read remote — fall back to the old safe behavior (pull latest, don't overwrite).
+        setSyncTrigger(t=>t+1); setCloudSync('idle'); return;
+      }
       const {error} = await supabase.from('church_data').upsert(
         {church_id:churchId,data:blob,updated_at:new Date().toISOString()},
         {onConflict:'church_id'}
       );
-      if(!error) lastSyncAt.current = Date.now();
+      if(!error){ lastSyncAt.current = Date.now(); lastSyncedBlob.current = blob; }
       setCloudSync(error?'error':'saved');
       // Keep sync errors visible (don't auto-hide) so a failed save isn't silently lost.
       // Only the success state auto-clears; the next data change retries the save.
