@@ -9308,9 +9308,10 @@ function PledgeDrives({pledgeDrives,setPledgeDrives,pledges,setPledges,giving,me
 
 // Tithe calculation helpers
 // Church Tithe = 10% of all offerings EXCEPT the CHURCH_TITHE_EXCLUDE categories below
-// (Tithe, Sunday Morning Offering, Housing Payment, and fundraiser categories).
+// (Housing Payment and fundraiser categories). Tithe and Sunday Morning Offering are
+// now INCLUDED in the church weekly tithe base per admin request.
 // Pastor's Draw = 60% of Tithe + Special Gift + Sunday Morning Offering (weekly)
-const CHURCH_TITHE_EXCLUDE = ["Tithe","Sunday Morning Offering","Housing Payment","Petting Zoo","Resurrection Sunday","T-Shirts","Special Dinner","MSK Promotion","SBB Promotion","VBS"];
+const CHURCH_TITHE_EXCLUDE = ["Housing Payment","Petting Zoo","Resurrection Sunday","T-Shirts","Special Dinner","MSK Promotion","SBB Promotion","VBS"];
 const isTitheCategory = (cat:any) => {
   const v = String(cat||"").trim().toLowerCase();
   return v==="tithe" || v==="tithes";
@@ -9324,7 +9325,7 @@ function calcTithes(givingRecords:any){
   const specialGift = givingRecords.filter((g:any)=>isSpecialGiftCategory(g.category)).reduce((a:number,g:any)=>a+(+g.amount),0);
   const sundayMorning = givingRecords.filter((g:any)=>g.category==="Sunday Morning Offering").reduce((a:number,g:any)=>a+(+g.amount),0);
   const otherOfferings = givingRecords.filter((g:any)=>!CHURCH_TITHE_EXCLUDE.includes(g.category)).reduce((a:number,g:any)=>a+(+g.amount),0);
-  const churchBase = otherOfferings; // excludes Tithe, Sunday Morning Offering, Housing Payment
+  const churchBase = otherOfferings; // excludes only Housing Payment + fundraiser categories (Tithe & Sunday Morning Offering now included)
   const pastorBase = tithe + specialGift + sundayMorning;
   return {
     tithe,
