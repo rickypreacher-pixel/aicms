@@ -10556,7 +10556,7 @@ function GivingStatements({giving,members,visitors}:any){
   );
 }
 
-function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledges,members,visitors,weeklyReports,setWeeklyReports,emailTemplates,currentUser=null,roles=[]}:any) {
+function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledges,members,visitors,weeklyReports,setWeeklyReports,emailTemplates,currentUser=null,roles=[],churchId=""}:any) {
   const [tab,setTab] = useState("giving");
   const [modal,setModal] = useState(false);
   const [form,setForm] = useState({date:td(),name:"",category:"Tithe",amount:"",method:"Cash",notes:""});
@@ -10585,6 +10585,37 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
   const BASE_CATS = ["Tithe","Sunday Morning Offering","Offering","Building Fund","Missions","Special Gift","Petting Zoo","Resurrection Sunday","T-Shirts","Special Dinner","MSK Promotion","SBB Promotion","VBS"];
   const BASE_METHODS = ["Cash","Check","Online","Zelle","Other"];
   const allCats = [...BASE_CATS,...customCats];
+  // ── Online Giving fund → Record Giving category mapping (admin) ──
+  const [ogMapOpen,setOgMapOpen] = useState(false);
+  const [ogMap,setOgMap] = useState<any>({});      // { lowercaseFund: category }
+  const [ogFunds,setOgFunds] = useState<any[]>([]); // [{key, display}]
+  const [ogBusy,setOgBusy] = useState(false);
+  const [ogSaved,setOgSaved] = useState(false);
+  const openOgMap = async () => {
+    setOgMapOpen(true); setOgBusy(true); setOgSaved(false);
+    try {
+      const [m, f] = await Promise.all([
+        supabase.rpc('get_giving_category_map',{p_church_id:churchId}),
+        supabase.from('online_giving_incoming').select('fund').eq('church_id',churchId),
+      ]);
+      const map = (m && m.data && typeof m.data==='object') ? m.data : {};
+      const seen = new Map<string,string>();
+      (f && f.data || []).forEach((r:any)=>{ const d=String(r.fund||'').trim(); if(d && !seen.has(d.toLowerCase())) seen.set(d.toLowerCase(), d); });
+      Object.keys(map).forEach((k:string)=>{ if(!seen.has(k.toLowerCase())) seen.set(k.toLowerCase(), k); });
+      setOgMap(map);
+      setOgFunds(Array.from(seen.entries()).map(([key,display])=>({key,display})).sort((a,b)=>a.display.localeCompare(b.display)));
+    } catch {}
+    setOgBusy(false);
+  };
+  const saveOgMap = async () => {
+    setOgBusy(true); setOgSaved(false);
+    try {
+      const { error } = await supabase.rpc('set_giving_category_map',{p_church_id:churchId, p_map:ogMap});
+      if(!error){ setOgSaved(true); setTimeout(()=>setOgSaved(false),2500); }
+      else alert("Could not save mapping: "+(error.message||"unknown error"));
+    } catch(e:any){ alert("Could not save mapping: "+(e?.message||e)); }
+    setOgBusy(false);
+  };
   const allMethods = [...BASE_METHODS,...customMethods];
   const saveCustomCat = () => {
     const v = newCat.trim();
@@ -11224,6 +11255,7 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
             onChange={e=>{const f=(e.target as any).files?.[0]; if(f) importBlackbaudCsv(f); (e.target as any).value='';}}
           />
           <Btn v="ghost" onClick={()=>blackbaudFileRef.current?.click?.()} style={{fontSize:12,opacity:selectedBatchStart===currentBatchStart?1:0.5,pointerEvents:selectedBatchStart===currentBatchStart?"auto":"none"}}>Import Blackbaud CSV</Btn>
+          <Btn v="ghost" onClick={openOgMap} style={{fontSize:12}}>🔗 Online Giving Funds</Btn>
           <Btn onClick={()=>setModal(true)} style={{opacity:canEditSelectedBatch?1:0.5,pointerEvents:canEditSelectedBatch?"auto":"none"}}>+ Record Giving</Btn>
         </div>
       </div>
@@ -11277,6 +11309,34 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
           </tbody>
         </table>
       </div>
+      <Modal open={ogMapOpen} onClose={()=>setOgMapOpen(false)} title="Online Giving — Fund Categories" width={560}>
+        <div style={{fontSize:12,color:MU,lineHeight:1.6,marginBottom:14}}>
+          Match each fund from your Online Giving account to the matching Record Giving category, so gifts post under the right category and your tithe math stays correct. Leave one as <strong>"use fund name as-is"</strong> to keep its original name. Saving also re-categorizes gifts already received.
+        </div>
+        {ogBusy && ogFunds.length===0 ? <div style={{padding:16,color:MU,fontSize:13}}>Loading…</div> :
+         ogFunds.length===0 ? <div style={{background:BG,border:"0.5px solid "+BR,borderRadius:8,padding:20,textAlign:"center" as any,color:MU,fontSize:13}}>No Online Giving funds have come in yet. Once a gift arrives, its fund appears here to map — or add one below.</div> :
+         <div style={{display:"flex",flexDirection:"column",gap:8,maxHeight:320,overflowY:"auto"}}>
+           {ogFunds.map((f:any)=>(
+             <div key={f.key} style={{display:"flex",alignItems:"center",gap:10}}>
+               <div style={{flex:1,fontSize:13,fontWeight:500,color:N,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{f.display}</div>
+               <span style={{color:MU,fontSize:12}}>→</span>
+               <select value={ogMap[f.key]||""} onChange={e=>{const v=e.target.value; setOgMap((prev:any)=>{const n={...prev}; if(v) n[f.key]=v; else delete n[f.key]; return n;});}} style={{flex:1,padding:"7px 10px",border:"0.5px solid "+BR,borderRadius:7,fontSize:13,background:W,outline:"none"}}>
+                 <option value="">— use fund name as-is —</option>
+                 {allCats.map((c:string)=><option key={c} value={c}>{c}</option>)}
+               </select>
+             </div>
+           ))}
+         </div>}
+        <div style={{display:"flex",gap:8,marginTop:12,alignItems:"center"}}>
+          <input placeholder="Add a fund name (if not listed yet)" style={{flex:1,padding:"7px 10px",border:"0.5px solid "+BR,borderRadius:7,fontSize:13,outline:"none"}} onKeyDown={(e:any)=>{ if(e.key==='Enter'){ const v=e.target.value.trim(); if(v){ const k=v.toLowerCase(); setOgFunds((prev:any)=> prev.some((x:any)=>x.key===k)?prev:[...prev,{key:k,display:v}].sort((a:any,b:any)=>a.display.localeCompare(b.display))); e.target.value=''; } } }}/>
+          <span style={{fontSize:11,color:MU}}>press Enter</span>
+        </div>
+        <div style={{display:"flex",gap:8,marginTop:16,alignItems:"center"}}>
+          <Btn onClick={saveOgMap} style={{flex:1,justifyContent:"center"}}>{ogBusy?"Saving…":"Save Mapping"}</Btn>
+          <Btn v="ghost" onClick={()=>setOgMapOpen(false)} style={{flex:1,justifyContent:"center"}}>Close</Btn>
+          {ogSaved && <span style={{color:GR,fontSize:12,fontWeight:600,whiteSpace:"nowrap"}}>✓ Saved</span>}
+        </div>
+      </Modal>
       <Modal open={modal} onClose={()=>{setModal(false);setEditingId(null);setForm({date:td(),name:"",category:"Tithe",amount:"",method:"Cash",notes:""}); }} title={editingId?"Edit Giving Record":"Record Giving"}>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <Fld label="Date">{editingId ? <div style={{padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,background:BG,color:MU}}>{fd(form.date)}</div> : <Inp type="date" value={form.date} onChange={sf("date")}/>}</Fld>
@@ -17315,7 +17375,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           {!isMemberPortal && view==="counselinglog" && canAccessCounseling && <CounselingLog members={members} visitors={visitors} counselingLogs={counselingLogs} setCounselingLogs={setCounselingLogs}/>}
           {!isMemberPortal && view==="hospitalityfund" && <HospitalityFund members={members} hospitalityFund={hospitalityFund} setHospitalityFund={setHospitalityFund} hospStartBalance={hospStartBalance} setHospStartBalance={setHospStartBalance}/>}
           {!isMemberPortal && view==="attendance" && <Attendance attendance={attendance} setAttendance={setAttendance} setView={setView} checkIns={checkIns} setCheckIns={setCheckIns} members={members} visitors={visitors}/>}
-          {!isMemberPortal && view==="giving" && canViewGiving && <Giving giving={giving} setGiving={setGiving} pledgeDrives={pledgeDrives} setPledgeDrives={setPledgeDrives} pledges={pledges} setPledges={setPledges} members={members} visitors={visitors} weeklyReports={weeklyReports} setWeeklyReports={setWeeklyReports} emailTemplates={emailTemplates} currentUser={currentUser} roles={roles}/>}
+          {!isMemberPortal && view==="giving" && canViewGiving && <Giving giving={giving} setGiving={setGiving} pledgeDrives={pledgeDrives} setPledgeDrives={setPledgeDrives} pledges={pledges} setPledges={setPledges} members={members} visitors={visitors} weeklyReports={weeklyReports} setWeeklyReports={setWeeklyReports} emailTemplates={emailTemplates} currentUser={currentUser} roles={roles} churchId={churchId}/>}
           {!isMemberPortal && view==="prayer" && <Prayer prayers={prayers} setPrayers={setPrayers}/>}
           {/* ── Member Portal hard-gate: only myprofile and prayer allowed ── */}
           {isMemberPortal && view!=="prayer" && <MemberProfilePortal member={portalMember} setMembers={setMembers} giving={giving} onSignOut={onSignOut} roles={roles} users={users} setUsers={setUsers} recurring={recurring} custom={custom} eventRsvps={eventRsvps} setEventRsvps={setEventRsvps} members={members} children={children} announcements={announcements} cleaningSchedule={cleaningSchedule} eventSchedule={eventSchedule} givingUrl={churchSettings?.onlineGivingUrl||"https://myntccglendaleaz.onlinegiving.cc/"} initialTab={view==="give"?"give":view==="news"?"news":"profile"}/>}
