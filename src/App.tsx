@@ -5477,6 +5477,8 @@ function Groups({members,groups,setGroups,grpMeetings,setGrpMeetings,currentUser
   const [expandedId,setExpandedId]=useState(null);
   const [groupSearch,setGroupSearch]=useState("");
   const [rosterSearch,setRosterSearch]=useState("");
+  const [leaderSearch,setLeaderSearch]=useState("");
+  const [leaderOpen,setLeaderOpen]=useState(false);
   const [aiSum,setAiSum]=useState("");const[aiSumLoad,setAiSumLoad]=useState(false);
   const [bulkMsg,setBulkMsg]=useState("");const[bulkLoad,setBulkLoad]=useState(false);
   const [indivMsgs,setIndivMsgs]=useState({});const[indivLoad,setIndivLoad]=useState({});
@@ -5489,8 +5491,8 @@ function Groups({members,groups,setGroups,grpMeetings,setGrpMeetings,currentUser
   const grpMeets=group?[...grpMeetings].filter(m=>m.groupId===selId).sort((a,b)=>b.date.localeCompare(a.date)):[];
   const leader=group?members.find(m=>m.id===group.leaderId):null;
 
-  const openAdd=()=>{setEditG(null);setForm({name:"",type:"Bible Study",description:"",color:GROUP_COLORS[0],day:"Wednesday",time:"7:00 PM",location:"",leaderId:"",showOnCalendar:true});setModal(true);};
-  const openEdit=g=>{setEditG(g);setForm({name:g.name,type:g.type,description:g.description,color:g.color,day:g.day,time:g.time,location:g.location,leaderId:g.leaderId||""});setModal(true);};
+  const openAdd=()=>{setEditG(null);setForm({name:"",type:"Bible Study",description:"",color:GROUP_COLORS[0],day:"Wednesday",time:"7:00 PM",location:"",leaderId:"",showOnCalendar:true});setLeaderOpen(false);setLeaderSearch("");setModal(true);};
+  const openEdit=g=>{setEditG(g);setForm({name:g.name,type:g.type,description:g.description,color:g.color,day:g.day,time:g.time,location:g.location,leaderId:g.leaderId||""});setLeaderOpen(false);setLeaderSearch("");setModal(true);};
   const saveGroup=()=>{
     if(!form.name.trim()){alert("Group name required.");return;}
     if(editG)setGroups(gs=>gs.map(g=>g.id===editG.id?{...g,...form,leaderId:+form.leaderId||null}:g));
@@ -5816,10 +5818,41 @@ function Groups({members,groups,setGroups,grpMeetings,setGrpMeetings,currentUser
           <Fld label="Location"><Inp value={form.location} onChange={sf("location")} placeholder="Fellowship Hall"/></Fld>
         </div>
         <Fld label="Group Leader">
-          <select value={form.leaderId||""} onChange={e=>sf("leaderId")(e.target.value)} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}>
-            <option value="">No leader assigned</option>
-            {members.map(m=><option key={m.id} value={m.id}>{m.first} {m.last}{m.role?" ("+m.role+")":""}</option>)}
-          </select>
+          {(()=>{
+            const selLeader = members.find((m:any)=>String(m.id)===String(form.leaderId));
+            const lq = leaderSearch.trim().toLowerCase().split(/\s+/).filter(Boolean);
+            const leaderMatches = lq.length
+              ? members.filter((m:any)=>{ const hay=((m.first||"")+" "+(m.last||"")+" "+(m.role||"")+" "+(m.phone||"")+" "+(m.email||"")).toLowerCase(); return lq.every((t:string)=>hay.includes(t)); })
+                  .sort((a:any,b:any)=>((a.last||"")+" "+(a.first||"")).toLowerCase().localeCompare(((b.last||"")+" "+(b.first||"")).toLowerCase()))
+                  .slice(0,40)
+              : [];
+            if(selLeader && !leaderOpen) return (
+              <div style={{display:"flex",alignItems:"center",gap:10,padding:"7px 10px",border:"0.5px solid "+BR,borderRadius:8,background:W}}>
+                <Av f={selLeader.first} l={selLeader.last} sz={26}/>
+                <div style={{flex:1,minWidth:0,fontSize:13,fontWeight:500}}>{selLeader.first} {selLeader.last}{selLeader.role?<span style={{color:MU,fontWeight:400}}> · {selLeader.role}</span>:null}</div>
+                <button onClick={()=>{setLeaderOpen(true);setLeaderSearch("");}} style={{background:N+"12",border:"none",borderRadius:6,padding:"4px 9px",cursor:"pointer",color:N,fontSize:11,fontWeight:500}}>Change</button>
+                <button onClick={()=>sf("leaderId")("")} style={{background:"#fee2e2",border:"none",borderRadius:6,padding:"4px 9px",cursor:"pointer",color:RE,fontSize:11}}>Clear</button>
+              </div>
+            );
+            return (
+              <div style={{position:"relative"}}>
+                <input autoFocus={leaderOpen} value={leaderSearch} onChange={e=>{setLeaderSearch(e.target.value);setLeaderOpen(true);}} onFocus={()=>setLeaderOpen(true)} placeholder="🔍 Type a name to find the leader…" autoComplete="off" style={{width:"100%",boxSizing:"border-box",padding:"9px 12px",border:"1px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}/>
+                {lq.length>0 && (
+                  <div style={{border:"0.5px solid "+BR,borderRadius:8,marginTop:4,maxHeight:230,overflowY:"auto",background:W,boxShadow:"0 6px 16px #00000018"}}>
+                    {leaderMatches.length===0
+                      ? <div style={{padding:"10px 12px",fontSize:12,color:MU}}>No members match “{leaderSearch}”.</div>
+                      : leaderMatches.map((m:any)=>(
+                        <div key={m.id} onClick={()=>{sf("leaderId")(String(m.id));setLeaderOpen(false);setLeaderSearch("");}} style={{display:"flex",alignItems:"center",gap:9,padding:"8px 12px",cursor:"pointer",borderBottom:"0.5px solid "+BR+"88"}} onMouseEnter={e=>(e.currentTarget.style.background=BG)} onMouseLeave={e=>(e.currentTarget.style.background=W)}>
+                          <Av f={m.first} l={m.last} sz={24}/>
+                          <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:500}}>{m.first} {m.last}</div><div style={{fontSize:11,color:MU}}>{m.role||"Member"}{m.phone?" · "+m.phone:""}</div></div>
+                        </div>
+                      ))}
+                  </div>
+                )}
+                <div style={{fontSize:11,color:MU,marginTop:4}}>Leave blank for no leader{selLeader?" · currently: "+selLeader.first+" "+selLeader.last:""}</div>
+              </div>
+            );
+          })()}
         </Fld>
         <Fld label="Show on Event Calendar">
           <div onClick={()=>sf("showOnCalendar")(!form.showOnCalendar)} style={{display:"flex",alignItems:"center",gap:12,padding:"11px 14px",borderRadius:9,border:"0.5px solid "+(form.showOnCalendar?GR+"88":BR),background:form.showOnCalendar?"#f0fdf4":BG,cursor:"pointer",userSelect:"none"}}>
