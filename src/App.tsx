@@ -4717,22 +4717,30 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
     setLogForm({method:"Call",date:td(),notes:"",completed:false});
   };
 
+  // Opens the SMS Center for this visitor (the actual text step).
+  const reallyOpenText = (rec:any) => {
+    const v = getV(rec?.visitorId);
+    if(!v?.phone){ alert("This visitor does not have a phone number on file."); return; }
+    if(onOpenVisitationSms){ onOpenVisitationSms({visitor:v,record:rec}); }
+  };
+  // "Text" first lets you assign this follow-up to a sponsor/user, THEN opens the SMS Center.
   const openTextFromLog = (rec:any) => {
     const v = getV(rec?.visitorId);
     if(!v?.phone){
       alert("This visitor does not have a phone number on file.");
       return;
     }
-    if(onOpenVisitationSms){
-      onOpenVisitationSms({visitor:v,record:rec});
-      setLogModal(null);
-    }
+    setLogModal(null);
+    setAssignModal({rec, type:"Sponsor", thenText:true});
+    setAssignUid(String(rec?.sponsorUserId||""));
   };
 
   const submitAssign = () => {
     if(!assignUid){alert("Please select a user.");return;}
     const id = assignModal.rec.id;
     const type = assignModal.type;
+    const thenText = assignModal.thenText;     // came from the "Text" flow → open SMS after assigning
+    const rec = assignModal.rec;
     const nowIso = new Date().toISOString();
     setVisitRecords(rs=>rs.map(r=>{
       if(r.id!==id) return r;
@@ -4747,6 +4755,7 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
       return {...r,sponsorUserId:+assignUid,contacts};
     }));
     setAssignModal(null); setAssignUid("");
+    if(thenText) reallyOpenText(rec);
   };
 
   // Manually stop ongoing care (e.g., when visitor becomes member — happens automatically too via People page)
@@ -5357,7 +5366,7 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
         })()}
       </Modal>
 
-      <Modal open={!!assignModal} onClose={()=>setAssignModal(null)} title={assignModal?((assignModal.type==="Sponsor"&&assignModal.rec?.sponsorUserId)?"Change Sponsor":"Assign "+(assignModal.type==="TeamLeader"?"Team Leader":assignModal.type==="TeamSupervisor"?"Team Supervisor":"Sponsor")):""} width={420}>
+      <Modal open={!!assignModal} onClose={()=>setAssignModal(null)} title={assignModal?(assignModal.thenText?"Assign Follow-Up, then Text":((assignModal.type==="Sponsor"&&assignModal.rec?.sponsorUserId)?"Change Sponsor":"Assign "+(assignModal.type==="TeamLeader"?"Team Leader":assignModal.type==="TeamSupervisor"?"Team Supervisor":"Sponsor"))):""} width={420}>
         {assignModal && (()=>{
           const v = getV(assignModal.rec.visitorId);
           const isTS = assignModal.type==="TeamSupervisor";
@@ -5366,27 +5375,34 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
           return (
             <div>
               <div style={{background:GL,border:"0.5px solid "+G,borderRadius:8,padding:"10px 14px",marginBottom:16,fontSize:13,color:"#7a5c10",lineHeight:1.6}}>
-                {isChange
+                {assignModal.thenText
+                  ? <>Assign this follow-up for <strong>{v?.first} {v?.last}</strong> to a user, then continue to the SMS Center. You can also skip and just send the text.</>
+                  : isChange
                   ? <>Reassign the sponsor for <strong>{v?.first} {v?.last}</strong>. The change is recorded in their visit history.</>
                   : <>{isTS?pastorDisplayName+" completed the first visit for ":isTL?"The Team Supervisor handed off ":"The Team Leader completed follow-up for "}<strong>{v?.first} {v?.last}</strong>. Assign a {isTS?"Team Supervisor":isTL?"Team Leader":"Sponsor"} to continue.</>}
               </div>
-              <Fld label={"Select "+(isTS?"Team Supervisor":isTL?"Team Leader":"Sponsor")+" *"}>
+              <Fld label={assignModal.thenText?"Assign follow-up to *":("Select "+(isTS?"Team Supervisor":isTL?"Team Leader":"Sponsor")+" *")}>
                 <select value={assignUid} onChange={e=>setAssignUid(e.target.value)} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}>
                   <option value="">Select a user</option>
                   {activeUsers.filter(u=>{
+                    if(assignModal.thenText) return true;
                     const r=roles.find((x:any)=>x.id===u.roleId);
                     if(isTS) return r?.name==="Team Supervisor";
                     if(isTL) return r?.name==="Team Leader";
                     return r?.name==="Sponsor";
                   }).map(u=>{
                     const m = members.find(x=>x.id===u.memberId);
-                    return m ? <option key={u.id} value={u.id}>{m.first} {m.last}</option> : null;
+                    if(!m && !assignModal.thenText) return null;
+                    const label = m ? (m.first+" "+m.last) : (u.email||("User "+u.id));
+                    return <option key={u.id} value={u.id}>{label}</option>;
                   })}
                 </select>
               </Fld>
               <div style={{display:"flex",gap:8}}>
-                <Btn onClick={submitAssign} style={{flex:1,justifyContent:"center"}}>{isChange?"Save New Sponsor":"Assign and Continue"}</Btn>
-                <Btn onClick={()=>setAssignModal(null)} v="ghost" style={{flex:1,justifyContent:"center"}}>Cancel</Btn>
+                <Btn onClick={submitAssign} style={{flex:1,justifyContent:"center"}}>{assignModal.thenText?"Assign & Text":(isChange?"Save New Sponsor":"Assign and Continue")}</Btn>
+                {assignModal.thenText
+                  ? <Btn onClick={()=>{const rc=assignModal.rec; setAssignModal(null); setAssignUid(""); reallyOpenText(rc);}} v="ghost" style={{flex:1,justifyContent:"center"}}>Skip → Text</Btn>
+                  : <Btn onClick={()=>setAssignModal(null)} v="ghost" style={{flex:1,justifyContent:"center"}}>Cancel</Btn>}
               </div>
             </div>
           );
