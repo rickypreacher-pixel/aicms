@@ -15,8 +15,6 @@ export default async function handler(req, res) {
   let payload = req.body;
   if (typeof payload === "string") { try { payload = JSON.parse(payload); } catch { payload = {}; } }
   if (!payload || typeof payload !== "object") payload = {};
-  // Diagnostic: log the field NAMES only (no donor values) so we can confirm the payload shape.
-  try { console.log("og-webhook keys:", Object.keys(payload).join(",")); } catch {}
 
   try {
     const r = await fetch(url.replace(/\/$/, "") + "/rest/v1/rpc/ingest_online_gift", {

@@ -1,0 +1,22 @@
+{
+  "removed_on": "2026-06-15",
+  "church_id": "b0114b36-00d3-4952-a4fa-bd512fe189c9",
+  "church_name": "New Testament Christian Church of Glendale",
+  "reason": "Admin requested removal of Jennifer Bender member record, email, and login registration. Spouse (Anthony Bender) and children LEFT intact. Will re-enter.",
+  "member_obj": {
+    "id": 1777918385350.8005, "first": "Jennifer", "last": "Bender", "role": "Teacher", "type": "Member",
+    "email": "ntccdatabase@gmail.com", "phone": "(480) 553-0722", "gender": "Female", "status": "Active",
+    "family": "Bender Family", "familyId": "fam_1777918385350.0586",
+    "address": {"street": "3318 N 126th Dr", "city": "Avondale", "state": "AZ", "zip": "85392"},
+    "spouseId": 1777918385350.0586, "spouseName": "Anthony Bender",
+    "children": [{"first": "Kaire", "last": "Bender", "birthday": "2019-03-15", "memberId": 801452}],
+    "notes_truncated": "2016-11-26 Auto - Updated Volunteer Roster for Upstairs Tuesday Vacuum Team (repeated many times)"
+  },
+  "user_obj": {"id": 309, "email": "ntccdatabase@gmail.com", "roleId": "role_500", "status": "Active", "memberId": 1777918385350.8005, "secondaryRoleId": "role_sponsor"},
+  "auth_account": "none (no Supabase auth user existed for ntccdatabase@gmail.com)",
+  "login_events": "none",
+  "LEFT_INTACT": {
+    "spouse": "Anthony Bender member 1777918385350.0586 + his app-user id 310 (tony.w.bender@gmail.com)",
+    "children_kids_array": ["Genesis 801454", "Kehlani 800166", "Kaire 801452", "Shawn 1780676978417.1592", "Joseph 1780676978417.1997"]
+  }
+}
