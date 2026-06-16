@@ -14963,23 +14963,26 @@ function AlertPage({members,visitors,giving,checkIns,kidsCheckIns,rollCalls=[],c
   const sms  = (p:any) => { if(p.phone)(window as any).__openSmsComposer__?.({to:p.phone, toName:p.first+" "+p.last}); else alert("No phone on file."); };
   const email= (p:any) => { if(p.email)(window as any).__openEmailComposer__?.({to:p.email, toName:p.first+" "+p.last}); else alert("No email on file."); };
 
-  // ── TAB 1: Members who've missed N consecutive Sunday Morning services SINCE their own last check-in ──
-  // The clock is per-person and resets when they check in to a Sunday Morning service. Members who have
-  // never checked in to a Sunday Morning service are NOT flagged (no check-in = no clock to start).
+  // ── TAB 1: Members who've gone N+ weeks with no check-in to ANY monitored service SINCE their own
+  // last check-in ── monitors Sunday Morning, Sunday Night, and Thursday Worship. The clock is
+  // per-person and resets when they check in to any of the three. Members who have never checked in
+  // are NOT flagged (no check-in = no clock). Those already in the Visitation pipeline (inFollowUp)
+  // are excluded — they've been auto-sent to "Pastor Visit" by the Stopped-Attending trigger.
   const absentTH = Math.max(1, Number(cs?.absentMembersThreshold)||4);
   const absentMembers = (() => {
-    const sunCIs = (checkIns||[]).filter((c:any)=>c.ename&&c.ename.toLowerCase().includes("sunday morning")&&c.ptype==="member");
-    const sunDates = [...new Set(sunCIs.map((c:any)=>c.date))].sort(); // every recorded Sunday Morning service date, ascending
-    if(sunDates.length===0) return [];
-    // Each member's most-recent Sunday Morning check-in date (their clock's start point).
+    const isMon = (en:any)=>{ const s=String(en||"").toLowerCase(); return s.includes("sunday morning")||s.includes("sunday night")||s.includes("sunday evening")||s.includes("thursday"); };
+    const monCIs = (checkIns||[]).filter((c:any)=>c.ptype==="member"&&isMon(c.ename));
+    if(monCIs.length===0) return [];
+    // Each member's most-recent monitored check-in date (their clock's start point).
     const lastByMember:Record<string,string> = {};
-    sunCIs.forEach((c:any)=>{ const k=String(c.pid); if(!lastByMember[k] || c.date>lastByMember[k]) lastByMember[k]=c.date; });
+    monCIs.forEach((c:any)=>{ const k=String(c.pid); const d=String(c.date||""); if(!d) return; if(!lastByMember[k] || d>lastByMember[k]) lastByMember[k]=d; });
+    const cutoffMs = absentTH*7*24*60*60*1000;
     return (members||[]).filter((m:any)=>{
       if(m.status!=="Active") return false;
+      if(m.inFollowUp) return false; // already moved to Visitation → Pastor Visit
       const last = lastByMember[String(m.id)];
-      if(!last) return false; // never attended a Sunday Morning service → don't flag
-      const missedSince = sunDates.filter((d:string)=>d>last).length; // Sunday services held since they last came
-      return missedSince >= absentTH;
+      if(!last) return false; // never attended → don't flag
+      return (Date.now()-new Date(last+"T00:00:00").getTime()) >= cutoffMs;
     });
   })();
 
@@ -16910,6 +16913,64 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       return (result.length===prevArr.length && adds.length===0) ? prevArr : result;
     });
   },[JSON.stringify((kidsCheckIns||[]).map((c:any)=>c.childId+":"+c.date)),JSON.stringify((rollCalls||[]).map((rc:any)=>rc.date+":"+(Array.isArray(rc.entries)?rc.entries.length:0))),JSON.stringify((children||[]).map((c:any)=>c.id)),JSON.stringify(followupDismissedChildIds||[]),churchSettings?.missedWeeksThreshold]);
+
+  // ── Always-on "Stopped Attending" trigger for MEMBERS ── auto-sends a member (and their whole
+  //    household) to the Visitation pipeline at "Pastor Visit" — exactly like the manual
+  //    "Send to Follow-up (Stopped Attending)" button — once they've gone 4+ weeks (28 days) with
+  //    NO check-in to ANY of the three monitored services (Sunday Morning, Sunday Night, Thursday
+  //    Worship) after having previously checked in. The clock starts only after a check-in and
+  //    resets the moment they check in to any of the three again. Runs once per session, and ONLY
+  //    after a real cloud load (lastSyncedBlob) so stale local data can never move anyone.
+  //    Idempotent: a member with any existing fromMemberId follow-up entry is never re-sent (also
+  //    prevents a re-flag loop after the pastor returns them to the directory).
+  const stoppedAttendingRan = useRef(false);
+  useEffect(()=>{
+    if(stoppedAttendingRan.current) return;          // once per session
+    if(!lastSyncedBlob.current) return;               // wait for a genuine cloud load
+    if(!Array.isArray(members)||!members.length) return;
+    if(!Array.isArray(checkIns)) return;
+    const thWeeks = Math.max(1, Number(churchSettings?.absentMembersThreshold)||4);
+    const cutoffMs = thWeeks*7*24*60*60*1000;         // 4 weeks = 28 days
+    const isMonitored = (en:any)=>{ const s=String(en||"").toLowerCase(); return s.includes("sunday morning")||s.includes("sunday night")||s.includes("sunday evening")||s.includes("thursday"); };
+    // Each member's most-recent check-in date to any of the three monitored services.
+    const lastByMember:Record<string,string> = {};
+    checkIns.forEach((c:any)=>{ if(c?.ptype!=="member") return; if(!isMonitored(c?.ename)) return; const k=String(c?.pid); const d=String(c?.date||""); if(!k||!d) return; if(!lastByMember[k]||d>lastByMember[k]) lastByMember[k]=d; });
+    const alreadyInFU = new Set((visitors||[]).filter((v:any)=>v?.fromMemberId!=null).map((v:any)=>String(v.fromMemberId)));
+    const overdue = members.filter((m:any)=>{
+      if(m?.status!=="Active") return false;
+      if(m?.inFollowUp) return false;
+      if(alreadyInFU.has(String(m.id))) return false;
+      const last = lastByMember[String(m.id)];
+      if(!last) return false;                          // never checked in → no clock to start
+      return (Date.now()-new Date(last+"T00:00:00").getTime()) >= cutoffMs;
+    });
+    stoppedAttendingRan.current = true;                // evaluated this session — don't re-run
+    if(!overdue.length) return;
+    // Expand each overdue member to their whole household; dedupe so a household moves once.
+    const hhKey = (p:any)=> p.familyId?("fid:"+p.familyId) : (p.family&&String(p.family).trim()!==""?("fam:"+String(p.family).trim().toLowerCase()) : ("id:"+p.id));
+    const moveIds = new Set<string>();
+    const moves:any[] = [];
+    const seenHH = new Set<string>();
+    overdue.forEach((m:any)=>{
+      const key=hhKey(m); if(seenHH.has(key)) return; seenHH.add(key);
+      const household = members.filter((x:any)=> String(x.id)===String(m.id) || (m.familyId&&x.familyId===m.familyId) || (m.family&&String(m.family).trim()!==""&&x.family===m.family));
+      household.forEach((p:any)=>{ if(p.inFollowUp||alreadyInFU.has(String(p.id))||moveIds.has(String(p.id))) return; moveIds.add(String(p.id)); moves.push({p, last:lastByMember[String(m.id)]}); });
+    });
+    if(!moves.length) return;
+    const baseId = Date.now();
+    const newVisitors:any[] = []; const newRecs:any[] = [];
+    moves.forEach((mv:any,i:number)=>{
+      const p=mv.p; const vid=baseId+i;
+      const rsn = "Stopped attending — auto: "+thWeeks+"+ weeks since last check-in"+(mv.last?(" (last attended "+mv.last+")"):"");
+      const {status,role,joined,type,_type,inFollowUp,followUpVisitorId,...rest} = p;
+      newVisitors.push({...rest, id:vid, stage:"Returning", firstVisit:td(), fromMemberId:p.id, followUpReason:rsn,
+        notes:((p.notes?p.notes+" · ":"") + "Returning member · auto follow-up "+td()+": "+rsn)});
+      newRecs.push({id:baseId+5000+i, visitorId:vid, stage:"Pastor", createdDate:td(), contacts:[], teamSupervisorUserId:null, teamLeaderUserId:null, sponsorUserId:null, fromMemberId:p.id, followUpReason:rsn});
+    });
+    setVisitors((vs:any[])=>[...(Array.isArray(vs)?vs:[]), ...newVisitors]);
+    setVisitRecords((rs:any[])=>[...(Array.isArray(rs)?rs:[]), ...newRecs]);
+    setMembers((ms:any[])=>ms.map((x:any)=> moveIds.has(String(x.id)) ? {...x, inFollowUp:true, followUpVisitorId:baseId} : x));
+  },[members, checkIns, visitors, churchSettings?.absentMembersThreshold, syncTrigger]);
 
   // ── Keep all devices in sync: poll every 60 s + re-sync when tab becomes visible ──
   useEffect(()=>{
