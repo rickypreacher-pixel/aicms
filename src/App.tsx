@@ -4731,8 +4731,12 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
       return;
     }
     setLogModal(null);
-    setAssignModal({rec, type:"Sponsor", thenText:true});
-    setAssignUid(String(rec?.sponsorUserId||""));
+    // Assign to the field that matches the visitor's CURRENT stage, so the person shows as assigned.
+    const st = String(rec?.stage||"");
+    const stageType = st==="TeamSupervisor" ? "TeamSupervisor" : st==="TeamLeader" ? "TeamLeader" : "Sponsor";
+    const curUid = stageType==="TeamSupervisor" ? rec?.teamSupervisorUserId : stageType==="TeamLeader" ? rec?.teamLeaderUserId : rec?.sponsorUserId;
+    setAssignModal({rec, type:stageType, thenText:true});
+    setAssignUid(String(curUid||""));
   };
 
   const submitAssign = () => {
