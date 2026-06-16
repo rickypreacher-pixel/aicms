@@ -4731,11 +4731,17 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
       return;
     }
     setLogModal(null);
-    // Assign to the field that matches the visitor's CURRENT stage, so the person shows as assigned.
-    const st = String(rec?.stage||"");
-    const stageType = st==="TeamSupervisor" ? "TeamSupervisor" : st==="TeamLeader" ? "TeamLeader" : "Sponsor";
-    const curUid = stageType==="TeamSupervisor" ? rec?.teamSupervisorUserId : stageType==="TeamLeader" ? rec?.teamLeaderUserId : rec?.sponsorUserId;
-    setAssignModal({rec, type:stageType, thenText:true});
+    // Assigning a follow-up is a hand-off: it moves the visitor to the NEXT stage and assigns
+    // that stage's role (e.g. a Team Leader assigning → moves to the Sponsor stage + assigns the sponsor).
+    const handoff:any = {
+      Pastor:{stage:"TeamSupervisor",type:"TeamSupervisor"},
+      TeamSupervisor:{stage:"TeamLeader",type:"TeamLeader"},
+      TeamLeader:{stage:"Sponsor",type:"Sponsor"},
+      Sponsor:{stage:"Sponsor",type:"Sponsor"},
+      OngoingCare:{stage:"OngoingCare",type:"Sponsor"},
+    }[String(rec?.stage||"")] || {stage:"Sponsor",type:"Sponsor"};
+    const curUid = handoff.type==="TeamSupervisor" ? rec?.teamSupervisorUserId : handoff.type==="TeamLeader" ? rec?.teamLeaderUserId : rec?.sponsorUserId;
+    setAssignModal({rec, type:handoff.type, thenText:true, targetStage:handoff.stage});
     setAssignUid(String(curUid||""));
   };
 
@@ -4745,18 +4751,25 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
     const type = assignModal.type;
     const thenText = assignModal.thenText;     // came from the "Text" flow → open SMS after assigning
     const rec = assignModal.rec;
+    const targetStage = assignModal.targetStage;
     const nowIso = new Date().toISOString();
     setVisitRecords(rs=>rs.map(r=>{
       if(r.id!==id) return r;
-      if(type==="TeamLeader") return {...r,teamLeaderUserId:+assignUid};
-      if(type==="TeamSupervisor") return {...r,teamSupervisorUserId:+assignUid};
-      // Sponsor: if replacing a DIFFERENT existing sponsor, log the change to the contact history (audit trail).
-      const prev = r.sponsorUserId;
-      let contacts = Array.isArray(r.contacts)?r.contacts:[];
-      if(prev && String(prev)!==String(+assignUid)){
-        contacts = [...contacts,{id:Date.now(),method:"Note",date:td(),notes:`Sponsor changed from ${getUName(prev)} to ${getUName(+assignUid)} (by ${getUName(currentUser?.id)})`,completed:true,completedAt:nowIso,loggedAt:nowIso,stage:r.stage,sponsorChange:true}];
+      let upd:any;
+      if(type==="TeamLeader") upd = {...r,teamLeaderUserId:+assignUid};
+      else if(type==="TeamSupervisor") upd = {...r,teamSupervisorUserId:+assignUid};
+      else {
+        // Sponsor: if replacing a DIFFERENT existing sponsor, log the change to the contact history (audit trail).
+        const prev = r.sponsorUserId;
+        let contacts = Array.isArray(r.contacts)?r.contacts:[];
+        if(prev && String(prev)!==String(+assignUid)){
+          contacts = [...contacts,{id:Date.now(),method:"Note",date:td(),notes:`Sponsor changed from ${getUName(prev)} to ${getUName(+assignUid)} (by ${getUName(currentUser?.id)})`,completed:true,completedAt:nowIso,loggedAt:nowIso,stage:r.stage,sponsorChange:true}];
+        }
+        upd = {...r,sponsorUserId:+assignUid,contacts};
       }
-      return {...r,sponsorUserId:+assignUid,contacts};
+      // From the "Text" flow, assigning hands the visitor off to the next stage.
+      if(thenText && targetStage) upd = {...upd, stage:targetStage};
+      return upd;
     }));
     setAssignModal(null); setAssignUid("");
     if(thenText) reallyOpenText(rec);
@@ -5380,25 +5393,22 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
             <div>
               <div style={{background:GL,border:"0.5px solid "+G,borderRadius:8,padding:"10px 14px",marginBottom:16,fontSize:13,color:"#7a5c10",lineHeight:1.6}}>
                 {assignModal.thenText
-                  ? <>Assign this follow-up for <strong>{v?.first} {v?.last}</strong> to a user, then continue to the SMS Center. You can also skip and just send the text.</>
+                  ? <>Hand this follow-up for <strong>{v?.first} {v?.last}</strong> to a {isTS?"Team Supervisor":isTL?"Team Leader":"Sponsor"} — this moves them to the {isTS?"Team Supervisor":isTL?"Team Leader":"Sponsor"} stage — then continue to the SMS Center. Or skip and just text.</>
                   : isChange
                   ? <>Reassign the sponsor for <strong>{v?.first} {v?.last}</strong>. The change is recorded in their visit history.</>
                   : <>{isTS?pastorDisplayName+" completed the first visit for ":isTL?"The Team Supervisor handed off ":"The Team Leader completed follow-up for "}<strong>{v?.first} {v?.last}</strong>. Assign a {isTS?"Team Supervisor":isTL?"Team Leader":"Sponsor"} to continue.</>}
               </div>
-              <Fld label={assignModal.thenText?"Assign follow-up to *":("Select "+(isTS?"Team Supervisor":isTL?"Team Leader":"Sponsor")+" *")}>
+              <Fld label={(assignModal.thenText?"Assign to ":"Select ")+(isTS?"Team Supervisor":isTL?"Team Leader":"Sponsor")+" *"}>
                 <select value={assignUid} onChange={e=>setAssignUid(e.target.value)} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}>
                   <option value="">Select a user</option>
                   {activeUsers.filter(u=>{
-                    if(assignModal.thenText) return true;
                     const r=roles.find((x:any)=>x.id===u.roleId);
                     if(isTS) return r?.name==="Team Supervisor";
                     if(isTL) return r?.name==="Team Leader";
                     return r?.name==="Sponsor";
                   }).map(u=>{
                     const m = members.find(x=>x.id===u.memberId);
-                    if(!m && !assignModal.thenText) return null;
-                    const label = m ? (m.first+" "+m.last) : (u.email||("User "+u.id));
-                    return <option key={u.id} value={u.id}>{label}</option>;
+                    return m ? <option key={u.id} value={u.id}>{m.first} {m.last}</option> : null;
                   })}
                 </select>
               </Fld>
