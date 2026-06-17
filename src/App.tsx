@@ -12524,7 +12524,7 @@ function ChildrenRoster({children,setChildren,classrooms,members,setMembers,kids
     const datesFor=(id:any)=>{ const ds=(kidsCheckIns||[]).filter((c:any)=>String(c.childId)===String(id)).map((c:any)=>c.date).filter(Boolean).sort(); return {first:ds[0]||"",last:ds[ds.length-1]||""}; };
     const ts=Math.floor(Date.now());
     const recs = toAdd.map((c:any,i:number)=>{ const d=datesFor(c.id); return {
-      id:"tf_"+c.id+"_"+(ts+i),
+      id:"tf_"+c.id,
       childId:c.id, childFirst:c.first||"", childLast:c.last||"",
       parentPhone:c.parentPhone||"", parentName:c.parentName||"",
       stage:"stage1", createdAt:new Date().toISOString(),
@@ -13576,7 +13576,10 @@ function TeacherFollowPipeline({children,kidsCheckIns,rollCalls,users,members,cu
       if(!cur){ byKey.set(key,r); return; }
       const curTs = new Date(cur?.movedToOngoingAt||cur?.assignedAt||cur?.lastStatusAt||cur?.createdAt||0).getTime() || 0;
       const newTs = new Date(r?.movedToOngoingAt||r?.assignedAt||r?.lastStatusAt||r?.createdAt||0).getTime() || 0;
-      if(newTs>curTs || (newTs===curTs && stageRank(r?.stage)>=stageRank(cur?.stage))) byKey.set(key,r);
+      // Prefer the MOST-ADVANCED record for a child (so a freshly auto-created Stage-1 can never
+      // shadow an existing assignment); break ties on the same stage by recency.
+      const rRank = stageRank(r?.stage), cRank = stageRank(cur?.stage);
+      if(rRank>cRank || (rRank===cRank && newTs>curTs)) byKey.set(key,r);
     });
     return Array.from(byKey.values());
   };
@@ -16901,7 +16904,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       const pruned=prevArr.filter((r:any)=>!(stageNorm(r?.stage)==="stage1" && reAttended.has(String(r?.childId))));
       const existing=new Set(pruned.map((r:any)=>String(r.childId)));
       const adds=eligible.filter((c:any)=>!existing.has(String(c.id))).map((c:any)=>({
-        id:"tf_"+c.id+"_"+Math.floor(Date.now()),
+        id:"tf_"+c.id,
         childId:c.id,childFirst:c.first||"",childLast:c.last||"",
         parentPhone:c.parentPhone||"",parentName:c.parentName||"",
         stage:"stage1",createdAt:new Date().toISOString(),
