@@ -17172,7 +17172,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     {id:"ai",label:"AI Assistant",icon:"AI",group:"Communication"},
     {id:"access",label:"Access Control",icon:"Ac",group:"Tools"},
     {id:"settings",label:"Settings",icon:"⚙",group:"Tools"},
-    {id:"alerts",label:"Alerts",icon:"🔔",group:"Tools"},
+    ...(isAdminUser ? [{id:"alerts",label:"Alerts",icon:"🔔",group:"Tools"}] : []),
     {id:"manual",label:"Manual",icon:"📖",group:"Tools"},
     ...(isAdminUser ? [{id:"loginactivity",label:"Login Activity",icon:"🔐",group:"Tools"}] : []),
     ...(isAdminUser ? [{id:"auditlog",label:"Audit Log",icon:"📋",group:"Tools"}] : []),
@@ -17541,7 +17541,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
             </div>
           )}
           {!isMemberPortal && view==="ai" && <AIAssist aiChat={aiChat} setAiChat={setAiChat} members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} setAttendance={setAttendance} giving={giving} setGiving={setGiving} prayers={prayers} setView={setView} isMobile={isMobile}/>}
-          {!isMemberPortal && view==="alerts" && <AlertPage members={members} visitors={visitors} giving={giving} checkIns={checkIns} kidsCheckIns={kidsCheckIns} rollCalls={rollCalls} children={children} visitRecords={visitRecords} cs={churchSettings} setCs={setChurchSettings} users={users} roles={roles} followupDismissedChildIds={followupDismissedChildIds}/>}
+          {!isMemberPortal && isAdminUser && view==="alerts" && <AlertPage members={members} visitors={visitors} giving={giving} checkIns={checkIns} kidsCheckIns={kidsCheckIns} rollCalls={rollCalls} children={children} visitRecords={visitRecords} cs={churchSettings} setCs={setChurchSettings} users={users} roles={roles} followupDismissedChildIds={followupDismissedChildIds}/>}
           {!isMemberPortal && view==="announcements" && <Announcements announcements={announcements} setAnnouncements={setAnnouncements} currentUser={currentUser} roles={roles} permissions={permissions} recurring={recurring} custom={custom} churchId={churchId}/>}
           {!isMemberPortal && view==="finances" && canViewGiving && <Finances expenses={expenses} setExpenses={setExpenses} budgets={budgets} setBudgets={setBudgets} giving={giving} openingBalances={openingBalances} setOpeningBalances={setOpeningBalances}/>}
           {!isMemberPortal && view==="manual" && <ManualPage/>}
