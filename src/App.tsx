@@ -15471,6 +15471,9 @@ function ManualPage(){
     {id:'s20',label:'23. Member Portal'},
     {id:'s24',label:'24. Events & RSVP'},{id:'s25',label:'25. Announcements & Bulletin'},{id:'s26',label:'26. Finances (Expenses & Budget)'},
     {id:'s27',label:'27. Cleaning Schedule'},{id:'s28',label:'28. Big Event Scheduler'},
+    {id:'s29',label:'29. Admin Notes'},{id:'s30',label:'30. Auto Follow-Up (Stopped Attending)'},
+    {id:'s31',label:'31. Youth Ministry Roll Call'},{id:'s32',label:'32. Online Giving Auto-Import'},
+    {id:'s33',label:'33. Audit Log'},{id:'s34',label:'34. Automated Daily Backups'},
   ];
   const H=({id,children}:any)=><h2 ref={setRef(id)} style={{fontSize:17,fontWeight:600,color:N,margin:'0 0 14px',paddingBottom:10,borderBottom:'2px solid '+G}}>{children}</h2>;
   const H3=({children}:any)=><h3 style={{fontSize:13,fontWeight:600,color:N,margin:'18px 0 8px',textTransform:'uppercase',letterSpacing:0.4}}>{children}</h3>;
@@ -15497,7 +15500,7 @@ function ManualPage(){
         <div style={{background:N,borderRadius:12,padding:'20px 24px',marginBottom:20}}>
           <div style={{color:'#fff',fontSize:21,fontWeight:600,letterSpacing:0.3}}>ChurchOS Staff Manual</div>
           <div style={{color:G,fontSize:13,marginTop:4}}>New Testament Christian Church — Administrator Guide</div>
-          <div style={{color:'#7a9acc',fontSize:12,marginTop:6}}>Version 6.5 · June 2026 · For internal staff use</div>
+          <div style={{color:'#7a9acc',fontSize:12,marginTop:6}}>Version 6.6 · June 2026 · For internal staff use</div>
         </div>
 
         <Sec><H id="s1">1. Getting Started</H>
@@ -15826,9 +15829,10 @@ function ManualPage(){
 
         <Sec><H id="s23">17. Alerts &amp; Reports</H>
           <P>The <B>Alerts &amp; Reports</B> page is an automated action center that surfaces members and visitors who need attention — absent members, low givers, children not checked in, upcoming birthdays, outstanding visitation, and a full phone directory. A <B>red badge</B> on the Alerts sidebar item shows the total count of actionable items across all tabs.</P>
+          <Warn>The Alerts page is restricted to the <B>Super Admin</B> and the <B>Administrator</B> role only.</Warn>
           <H3>Navigating the Page</H3>
           <P>Click <B>Alerts</B> in the sidebar to open the page. Six tabs are available at the top:</P>
-          <Ul><Li><B>Absent Members</B> — active members who have missed a set number of consecutive Sunday Morning services <B>since their own last check-in</B> (a per-person clock). Adjust it with the <B>"Flag after N missed Sundays"</B> box in the tab header. Members who have never checked in are not flagged.</Li><Li><B>Steward Alert</B> — users (members with an assigned role) who have not given (any category) in over 30 days (flagged for pastoral encouragement)</Li><Li><B>Phone Directory</B> — all active members with a phone number on file, sorted A–Z by last name</Li><Li><B>Absent Children</B> — children who attended before but have missed the recent kids check-in sessions (never-attended children are excluded)</Li><Li><B>Birthdays</B> — members with a birthday in the current calendar month, sorted by day</Li><Li><B>Outstanding Visits</B> — visitation records not yet marked Complete or Converted</Li></Ul>
+          <Ul><Li><B>Absent Members</B> — active members who have gone a set number of weeks with no check-in to <B>any</B> of the three monitored services (Sunday Morning, Sunday Night, Thursday Worship) <B>since their own last check-in</B> (a per-person clock). Adjust it with the <B>"Flag after N missed Sundays"</B> box in the tab header. Members who have never checked in are not flagged.</Li><Li><B>Steward Alert</B> — users (members with an assigned role) who have not given (any category) in over 30 days (flagged for pastoral encouragement)</Li><Li><B>Phone Directory</B> — all active members with a phone number on file, sorted A–Z by last name</Li><Li><B>Absent Children</B> — children who attended before but have missed the recent kids check-in sessions (never-attended children are excluded)</Li><Li><B>Birthdays</B> — members with a birthday in the current calendar month, sorted by day</Li><Li><B>Outstanding Visits</B> — visitation records not yet marked Complete or Converted</Li></Ul>
           <H3>Exporting a Tab</H3>
           <Ol><Li>Click the desired tab (e.g. <B>Absent Members</B>)</Li><Li>Click the <B>Export CSV</B> button at the top-right of the list</Li><Li>A spreadsheet file is downloaded with the names, phone numbers, and relevant details for everyone on that tab</Li></Ol>
           <H3>Contacting People from Alerts</H3>
@@ -16031,8 +16035,67 @@ function ManualPage(){
           <Note>Anyone who can open the <B>Event Calendar</B> page can edit big events (the same access as adding or editing events).</Note>
         </Sec>
 
+        <Sec><H id="s29">29. Admin Notes</H>
+          <P>The <B>Admin Notes</B> page gathers <B>every free-text note from across the entire system</B> into one place, so nothing written anywhere gets missed. Find it under <B>Tools → 📝 Admin Notes</B>. A <B>red badge</B> on the sidebar item shows how many notes are still unread.</P>
+          <Warn>Admin Notes is restricted to the <B>Super Admin</B> and the <B>Administrator</B> role only. No other staff role can see it.</Warn>
+          <H3>What Shows Up Here</H3>
+          <P>Notes are pulled in automatically from everywhere they can be entered:</P>
+          <Ul><Li><B>Member &amp; visitor profile notes</B></Li><Li><B>Visitation contact logs</B> (every call/text/visit note)</Li><Li><B>Sick &amp; hospital visit notes</B></Li><Li><B>Group meeting notes</B></Li><Li><B>Prayer requests</B></Li><Li><B>Education progress notes</B> and <B>teacher follow-up logs</B></Li><Li><B>Confidential counseling notes</B> (visible here only to admins who already have counseling access)</Li></Ul>
+          <H3>Reading &amp; Checking Off Notes</H3>
+          <Ol><Li>Each note shows a <B>colored source tag</B> (Member, Visitation, Prayer, etc.), the person it relates to, the date, and the full text — newest first</Li><Li>When you have read a note, click its <B>checkbox</B>. The note is marked read and <B>disappears</B> from the list</Li><Li>Checking a note <B>never deletes or changes the original note</B> in its record — it only clears it from this page</Li><Li>Use the <B>source filter pills</B> at the top to view just one type of note; each pill shows its own unread count</Li></Ol>
+          <H3>Reviewing Notes You Already Checked</H3>
+          <P>Click <B>Show read</B> to bring back the notes you have already checked off. From there you can <B>un-check</B> any note to send it back to the unread list.</P>
+          <Note>The read/unread state is <B>shared</B> — if you check a note read, it is read for every admin — and it <B>syncs across all your devices</B>. If a note is later <B>edited</B>, it automatically reappears as unread so you catch the change.</Note>
+          <Tip>Auto-generated system entries (old-system profile/email logs, calendar auto check-in logs, "Checked in to…" attendance notes) are filtered out automatically, so the page shows only real, human-written notes.</Tip>
+        </Sec>
+
+        <Sec><H id="s30">30. Auto Follow-Up (Stopped Attending)</H>
+          <P>ChurchOS automatically watches attendance and moves members who have stopped coming into the Visitation pipeline — no manual tracking required.</P>
+          <H3>How It Works</H3>
+          <Ul><Li>The system monitors check-ins to your three main services: <B>Sunday Morning Worship</B>, <B>Sunday Night Service</B>, and <B>Thursday Worship</B></Li><Li>When an active member who has previously checked in goes <B>4 weeks (28 days) with no check-in to any of the three</B>, they are automatically sent — <B>along with their whole household</B> — to <B>Visitation → Pastor Visit</B></Li><Li>This is exactly the same as clicking the <B>"Send to Follow-up (Stopped Attending)"</B> button on a member's profile, done for you</Li><Li>The clock <B>resets</B> the moment they check in to any of the three services again</Li></Ol>
+          <H3>What You'll See</H3>
+          <P>Moved members appear in the <B>Visitation</B> pipeline at the <B>Pastor Visit</B> stage with a reason like "Stopped attending — auto: 4+ weeks since last check-in." They are temporarily moved out of the Members directory until they re-engage (you can always return them from Visitation). Every auto-move is recorded in the <B>Audit Log</B> (Section 33).</P>
+          <H3>Related: Absent Members Alert</H3>
+          <P>The <B>Alerts → Absent Members</B> tab (Section 17) uses the same logic — it now flags members across all three services, not just Sunday Morning. Adjust the threshold with the <B>"Flag after N missed"</B> box on that tab.</P>
+          <Note>The check runs when an admin opens the app. Members are only ever moved <B>once</B> — a member already in follow-up is never re-sent, even after you return them to the directory.</Note>
+        </Sec>
+
+        <Sec><H id="s31">31. Youth Ministry Roll Call</H>
+          <P>The <B>Education → Roll Call</B> page has a <B>Youth Ministry</B> tab (beside the classroom tabs) for taking attendance of your young adults.</P>
+          <H3>Who Appears</H3>
+          <Ul><Li>The Youth Ministry roster is drawn from your main <B>Members directory</B> — every <B>active member age 19–22</B>, by their real birthdate</Li><Li>Attendance you take here is recorded against the <B>Young Adult classroom</B>, so it flows into the Education reports alongside the children's classes</Li><Li>The list is <B>self-maintaining</B> — as members have birthdays and move into or out of the 19–22 range, the roster updates on its own</Li></Ul>
+          <H3>Taking Roll</H3>
+          <Ol><Li>Go to <B>Education → Roll Call</B> and click the <B>Youth Ministry</B> tab</Li><Li>Mark each person <B>Present</B>, <B>Absent</B>, or <B>Excused</B>, just like a classroom roll call</Li><Li>Use the search box to find a specific young adult</Li></Ol>
+          <Note>Only members who have a <B>birthday on file</B> can appear here, since the 19–22 range is calculated from their date of birth. If someone is missing, add their birthday to their member profile.</Note>
+        </Sec>
+
+        <Sec><H id="s32">32. Online Giving Auto-Import</H>
+          <P>ChurchOS can connect to your <B>Online Giving</B> account so online donations post into <B>Record Giving</B> automatically — no manual entry.</P>
+          <H3>How It Works</H3>
+          <Ul><Li>When a member gives online, the donation flows into ChurchOS and appears in <B>Giving → Record Giving</B> with a method of <B>Online</B>, in the correct week</Li><Li>Imports are <B>de-duplicated</B>, so the same gift is never counted twice</Li><Li>Manual gift entry is unchanged — online gifts simply post alongside them</Li></Ul>
+          <H3>Mapping Funds</H3>
+          <Ol><Li>In <B>Giving</B>, click <B>🔗 Online Giving Funds</B></Li><Li>For each fund received from your Online Giving account, pick the matching <B>Record Giving category</B> (or leave it "use fund name as-is")</Li><Li>Saving also re-categorizes gifts already received, and keeps your tithe/Pastor's Draw math correct</Li></Ol>
+          <H3>For Members</H3>
+          <P>Members with a portal login see a <B>💝 Give</B> button that opens your online giving page in a new tab.</P>
+        </Sec>
+
+        <Sec><H id="s33">33. Audit Log</H>
+          <P>The <B>Audit Log</B> records <B>who changed what</B> across ChurchOS — a running history for accountability. Find it under <B>Tools → 📋 Audit Log</B>.</P>
+          <Warn>The Audit Log is restricted to the <B>Super Admin</B> and the <B>Administrator</B> role only.</Warn>
+          <H3>What It Captures</H3>
+          <Ul><Li>Creates, updates, and deletes across records (members, visitors, giving, follow-ups, and more)</Li><Li>The <B>acting user</B>, the <B>action</B>, the <B>record</B> affected, and the <B>time</B></Li><Li>Automated actions too — for example, the auto "Stopped Attending" moves (Section 30)</Li></Ul>
+          <H3>Using It</H3>
+          <Ol><Li>Filter by <B>date</B> or <B>action type</B>, or use the <B>search</B> box to find a specific person or record</Li><Li>Click <B>Export CSV</B> to download the log for board records or review</Li></Ol>
+        </Sec>
+
+        <Sec><H id="s34">34. Automated Daily Backups</H>
+          <P>In addition to the manual Backup &amp; Restore tools (Section 20), ChurchOS automatically backs up your entire database to the cloud <B>every day</B>.</P>
+          <Ul><Li>A full snapshot is taken automatically each night (about <B>2:00 AM Arizona time</B>)</Li><Li>Backups are kept on a rolling <B>30-day</B> history, stored privately and not visible to staff</Li><Li>If data is ever lost or corrupted, your system administrator can restore any day from the last 30 days</Li></Ul>
+          <Note>This runs entirely on its own — there is nothing to turn on or maintain. To request a restore to a specific day, contact your system administrator.</Note>
+        </Sec>
+
         <div style={{textAlign:'center',padding:'24px 0 8px',borderTop:'0.5px solid '+BR,marginTop:4}}>
-          <div style={{fontSize:12,color:MU}}>ChurchOS Staff Manual · New Testament Christian Church · Version 6.5 · June 2026</div>
+          <div style={{fontSize:12,color:MU}}>ChurchOS Staff Manual · New Testament Christian Church · Version 6.6 · June 2026</div>
           <div style={{fontSize:11,color:MU,marginTop:4}}>For technical support or feature requests, contact your system administrator.</div>
         </div>
       </div>
