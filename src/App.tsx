@@ -14947,6 +14947,95 @@ function stewardAlertMembers(members:any[], users:any[], giving:any[], todayMs:n
     .filter((m:any)=> !m.lastGiftDate || m.lastGiftDate < cutoff);
 }
 
+// ── ADMIN NOTES ──────────────────────────────────────────────────────────────
+// Aggregates every free-text note across the database into one admin-only feed.
+// A note's id embeds a content hash, so editing a note's text yields a new id →
+// it resurfaces as unread. "Read" ids are stored in the shared blob (adminNotesRead).
+const _NOTE_AUTO_RE = /(Profile updated|Email Assimilations|Updated Volunteer Roster|Auto-logged|Auto - |sent on \d{4}|Checked in to )/i;
+function _noteHash(s:any){ let h=2166136261>>>0; const str=String(s||""); for(let i=0;i<str.length;i++){ h^=str.charCodeAt(i); h=Math.imul(h,16777619); } return (h>>>0).toString(36); }
+function collectAdminNotes(ctx:any){
+  const { members=[], visitors=[], visitRecords=[], sickVisits=[], groups=[], grpMeetings=[], prayers=[], teacherFollowups=[], counselingLogs=[], progressNotes=[], children=[], users=[] } = ctx||{};
+  const out:any[] = [];
+  const arr = (x:any)=>Array.isArray(x)?x:[];
+  const find = (list:any[], id:any)=>list.find((x:any)=>String(x.id)===String(id));
+  const nm = (list:any[], id:any)=>{ const r=find(list,id); return r?((r.first||"")+" "+(r.last||"")).trim():""; };
+  const grpName = (id:any)=>{ const g=find(groups,id); return g?(g.name||""):""; };
+  const personName = (id:any,type:any)=> type==='visitor'?nm(visitors,id):nm(members,id);
+  const push = (source:string, recordId:any, sub:any, text:any, who:any, date:any, meta:any)=>{
+    const t=String(text||"").trim(); if(!t) return;
+    out.push({ id:source+":"+String(recordId)+":"+(sub??"")+":"+_noteHash(t), source, recordId:String(recordId), who:who||"", date:(date||"").slice(0,10), text:t, meta:meta||"" });
+  };
+  arr(members).forEach((m:any)=>{ const n=String(m?.notes||"").trim(); if(n && !_NOTE_AUTO_RE.test(n)) push("Member", m.id, "", n, ((m.first||"")+" "+(m.last||"")).trim(), "", ""); });
+  arr(visitors).forEach((v:any)=>{ const n=String(v?.notes||"").trim(); if(n && !_NOTE_AUTO_RE.test(n)) push("Visitor", v.id, "", n, ((v.first||"")+" "+(v.last||"")).trim(), v.firstVisit, ""); });
+  arr(visitRecords).forEach((r:any)=>{ arr(r?.contacts).forEach((c:any,i:number)=>{ const n=String(c?.notes||"").trim(); if(n) push("Visitation", r.id, "c"+(c.id??i), n, nm(visitors,r.visitorId), c.date, c.method); }); });
+  arr(sickVisits).forEach((s:any)=>{ const n=String(s?.notes||"").trim(); if(n) push("Sick/Hospital", s.id, "", n, personName(s.personId,s.personType), s.visitDate, s.visitType); });
+  arr(grpMeetings).forEach((g:any)=>{ const n=String(g?.notes||"").trim(); if(n && !_NOTE_AUTO_RE.test(n)) push("Group", g.id, "", n, grpName(g.groupId), g.date, ""); });
+  arr(prayers).forEach((p:any)=>{ const n=String(p?.request||p?.text||"").trim(); if(n) push("Prayer", p.id, "", n, p.name||p.requester||"", p.date, p.status); });
+  arr(progressNotes).forEach((p:any)=>{ if(p?.auto || p?.source==='checkin') return; const n=String(p?.note||p?.notes||"").trim(); if(n) push("Progress", p.id, "", n, nm(children,p.childId), p.date, p.type); });
+  arr(teacherFollowups).forEach((f:any)=>{ arr(f?.followUps).forEach((l:any,i:number)=>{ const n=String(l?.notes||"").trim(); if(n) push("Follow-Up", f.id, "l"+(l.id??i), n, ((f.childFirst||"")+" "+(f.childLast||"")).trim()||nm(children,f.childId), l.at, l.status); }); });
+  arr(counselingLogs).forEach((l:any)=>{ const sn=String(l?.sessionNotes||l?.notes||"").trim(); const ai=String(l?.actionItems||"").trim(); const combined=[sn, ai?("Action items: "+ai):""].filter(Boolean).join(" — "); if(combined) push("Counseling", l.id, "", combined, personName(l.personId,l.personType), l.sessionDate, l.category); });
+  out.sort((a:any,b:any)=> (b.date||"").localeCompare(a.date||""));
+  return out;
+}
+
+const _NOTE_SRC_COLOR:any = {Member:N, Visitor:AM, Visitation:BL, "Sick/Hospital":RE, Group:PU, Prayer:TE, Progress:GR, "Follow-Up":"#0e7490", Counseling:"#be123c"};
+function AdminNotes({notes=[], readIds=[], setReadIds, cs}:any){
+  const [showRead,setShowRead] = useState(false);
+  const [srcFilter,setSrcFilter] = useState("all");
+  const readSet = new Set((Array.isArray(readIds)?readIds:[]).map(String));
+  const allSources = Array.from(new Set((notes||[]).map((n:any)=>n.source)));
+  const unread = (notes||[]).filter((n:any)=>!readSet.has(String(n.id)));
+  const visible = (notes||[]).filter((n:any)=> (showRead || !readSet.has(String(n.id))) && (srcFilter==="all"||n.source===srcFilter));
+  const setRead = (id:any, read:boolean)=>{
+    if(typeof setReadIds!=="function") return;
+    setReadIds((prev:any)=>{ const a=Array.isArray(prev)?prev:[]; const s=new Set(a.map(String)); if(read) s.add(String(id)); else s.delete(String(id)); return Array.from(s); });
+  };
+  const fd2 = (d:string)=> d ? (()=>{ try{ const x=new Date(d+"T00:00:00"); return x.toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"}); }catch{ return d; } })() : "";
+  return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10,marginBottom:14}}>
+        <div>
+          <div style={{fontSize:18,fontWeight:600,color:N}}>📝 Admin Notes</div>
+          <div style={{fontSize:12,color:MU,marginTop:2}}>Every note across the system in one place. Check a note to mark it read — it disappears. Checking never deletes the original note.</div>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <span style={{background:unread.length?RE:GR,color:"#fff",borderRadius:20,fontSize:12,fontWeight:600,padding:"3px 10px"}}>{unread.length} unread</span>
+          <button onClick={()=>setShowRead(s=>!s)} style={{padding:"6px 12px",borderRadius:8,border:"1px solid "+BR,background:showRead?N:W,color:showRead?"#fff":TX,fontSize:12,fontWeight:500,cursor:"pointer"}}>{showRead?"Hiding read ✓":"Show read"}</button>
+        </div>
+      </div>
+      <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}}>
+        {["all",...allSources].map((s:any)=>(
+          <button key={s} onClick={()=>setSrcFilter(s)} style={{padding:"5px 11px",borderRadius:20,border:"1px solid "+(srcFilter===s?(s==="all"?N:(_NOTE_SRC_COLOR[s]||N)):BR),background:srcFilter===s?(s==="all"?N+"14":(_NOTE_SRC_COLOR[s]||N)+"14"):W,color:srcFilter===s?(s==="all"?N:(_NOTE_SRC_COLOR[s]||N)):MU,fontSize:12,fontWeight:srcFilter===s?600:400,cursor:"pointer"}}>{s==="all"?"All":s}{s!=="all"?" ("+(notes||[]).filter((n:any)=>n.source===s&&!readSet.has(String(n.id))).length+")":""}</button>
+        ))}
+      </div>
+      {visible.length===0?(
+        <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:40,textAlign:"center" as any}}>
+          <div style={{fontSize:32,marginBottom:8}}>✓</div>
+          <div style={{fontSize:14,fontWeight:500,color:N}}>{showRead?"No notes match this filter.":"All caught up — no unread notes."}</div>
+          {!showRead && unread.length===0 && <div style={{fontSize:12,color:MU,marginTop:4}}>New or edited notes will appear here automatically.</div>}
+        </div>
+      ):(
+        <div style={{display:"flex",flexDirection:"column" as any,gap:8}}>
+          {visible.map((n:any)=>{ const isRead=readSet.has(String(n.id)); const col=_NOTE_SRC_COLOR[n.source]||N; return (
+            <div key={n.id} style={{display:"flex",gap:12,alignItems:"flex-start",background:W,border:"0.5px solid "+BR,borderRadius:12,padding:"12px 14px",opacity:isRead?0.6:1}}>
+              <button onClick={()=>setRead(n.id,!isRead)} title={isRead?"Mark unread":"Mark read"} style={{flexShrink:0,marginTop:1,width:22,height:22,borderRadius:6,border:"2px solid "+(isRead?GR:BR),background:isRead?GR:W,color:"#fff",cursor:"pointer",fontSize:14,fontWeight:700,lineHeight:1,display:"flex",alignItems:"center",justifyContent:"center"}}>{isRead?"✓":""}</button>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:4}}>
+                  <span style={{background:col+"18",color:col,borderRadius:6,fontSize:10,fontWeight:700,padding:"2px 7px",textTransform:"uppercase" as any,letterSpacing:0.4}}>{n.source}</span>
+                  {n.who && <span style={{fontSize:13,fontWeight:600,color:N}}>{n.who}</span>}
+                  {n.meta && <span style={{fontSize:11,color:MU}}>· {n.meta}</span>}
+                  {n.date && <span style={{fontSize:11,color:MU,marginLeft:"auto"}}>{fd2(n.date)}</span>}
+                </div>
+                <div style={{fontSize:13,color:TX,lineHeight:1.5,whiteSpace:"pre-wrap" as any,wordBreak:"break-word" as any}}>{n.text}</div>
+              </div>
+            </div>
+          );})}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AlertPage({members,visitors,giving,checkIns,kidsCheckIns,rollCalls=[],children,visitRecords,cs,setCs,users=[],roles=[],followupDismissedChildIds=[]}:any){
   const [tab,setTab] = useState(0);
   const TABS = ["Absent Members","Steward Alert","Phone Directory","Absent Children","Birthdays","Outstanding Visits"];
@@ -16614,6 +16703,8 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   const [hospitalityFund,setHospitalityFund] = useState(lsGet('hospitalityFund') ?? []);
   const [hospStartBalance,setHospStartBalance] = useState(lsGet('hospStartBalance') ?? 0);
   const hospStartReady = useRef(false); // true once the cloud value is loaded — guards against a fresh device saving its default 0 over a real balance
+  // Admin Notes "read" tracking — a shared set of note ids the admin has checked off. Synced in the blob.
+  const [adminNotesRead,setAdminNotesRead] = useState(lsGet('adminNotesRead') ?? []);
   // Confidential — loaded from the role-gated church_confidential table, never the blob/localStorage.
   const [counselingLogs,setCounselingLogs] = useState([]);
 
@@ -16693,6 +16784,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   useEffect(()=>{lsSave('event_schedule',eventSchedule);},[eventSchedule]);
   useEffect(()=>{lsSave('hospitalityFund',hospitalityFund);},[hospitalityFund]);
   useEffect(()=>{lsSave('hospStartBalance',hospStartBalance);},[hospStartBalance]);
+  useEffect(()=>{lsSave('adminNotesRead',adminNotesRead);},[adminNotesRead]);
   // Counseling logs are confidential — stored in the role-gated church_confidential table (NOT the
   // shared blob or localStorage); loaded/saved only for owner + Pastor/Administrator.
   // ── Counseling logs: church_counseling table (Pastor/Admin only) ──
@@ -16856,6 +16948,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       if(Array.isArray(d.benevolence)) setBenevolence(d.benevolence);
       if(d.cleaningSchedule && typeof d.cleaningSchedule==='object') setCleaningSchedule(d.cleaningSchedule);
       if(d.eventSchedule && typeof d.eventSchedule==='object') setEventSchedule(d.eventSchedule);
+      if(Array.isArray(d.adminNotesRead)) setAdminNotesRead(d.adminNotesRead);
       if(Array.isArray(d.hospitalityFund)) setHospitalityFund(d.hospitalityFund);
       if(typeof d.hospStartBalance === 'number'){
         // Don't let a stale cloud 0 wipe a real local starting balance (it self-heals on the next save).
@@ -17037,7 +17130,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
         emailLog,emailTemplates,emailConfig:safeEmailConfig,recurring,custom,checkIns,rollCalls,
         teacherSchedule,kidsCheckIns,teacherFollowups,eventRsvps,announcements,roles,permissions,churchSettings,users:safeUsers,prospects,
         followupDismissedChildIds,
-        sickVisits,benevolence,hospitalityFund,hospStartBalance:_hospBal,cleaningSchedule,eventSchedule};
+        sickVisits,benevolence,hospitalityFund,hospStartBalance:_hospBal,cleaningSchedule,eventSchedule,adminNotesRead};
       // Staleness guard: did another device save after our last load?
       const {data:meta} = await supabase.from('church_data').select('updated_at').eq('church_id',churchId).maybeSingle();
       const remoteTs = meta?.updated_at ? new Date(meta.updated_at).getTime() : 0;
@@ -17077,7 +17170,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     emailLog,emailTemplates,emailConfig,recurring,custom,checkIns,rollCalls,
     teacherSchedule,kidsCheckIns,teacherFollowups,eventRsvps,announcements,roles,permissions,churchSettings,users,prospects,
     followupDismissedChildIds,
-    sickVisits,benevolence,hospitalityFund,hospStartBalance,cleaningSchedule,eventSchedule]);
+    sickVisits,benevolence,hospitalityFund,hospStartBalance,cleaningSchedule,eventSchedule,adminNotesRead]);
 
   const nidEmail = useRef(8000);
   const logEmail = (data) => {
@@ -17148,6 +17241,10 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   window.__openBulkSmsComposer__ = openBulkSmsComposer;
 
   const isAdminUser = !!(currentUser?.superAdmin || [currentUser?.roleId, currentUser?.secondaryRoleId].some((rid:any)=>roles.find((r:any)=>r.id===rid)?.name==="Administrator"));
+  // Admin Notes — aggregate every note in the system (admins only); drives the page + the nav badge.
+  const adminNotesAll = useMemo(()=> isAdminUser ? collectAdminNotes({members,visitors,visitRecords,sickVisits,groups,grpMeetings,prayers,teacherFollowups,counselingLogs,progressNotes,children,users}) : [],
+    [isAdminUser,members,visitors,visitRecords,sickVisits,groups,grpMeetings,prayers,teacherFollowups,counselingLogs,progressNotes,children,users]);
+  const adminNotesUnread = useMemo(()=>{ const r=new Set((adminNotesRead||[]).map(String)); return adminNotesAll.filter((n:any)=>!r.has(String(n.id))).length; },[adminNotesAll,adminNotesRead]);
   // Child follow-ups assigned to the signed-in user (teacher) — drives the "My Follow-Ups" nav item.
   const myFollowupCount = (teacherFollowups||[]).filter((r:any)=>String(r?.assignedToUserId||"")===String(currentUser?.id||"")).length;
   const NAV = [
@@ -17176,6 +17273,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     {id:"access",label:"Access Control",icon:"Ac",group:"Tools"},
     {id:"settings",label:"Settings",icon:"⚙",group:"Tools"},
     ...(isAdminUser ? [{id:"alerts",label:"Alerts",icon:"🔔",group:"Tools"}] : []),
+    ...(isAdminUser ? [{id:"adminnotes",label:"Admin Notes",icon:"📝",group:"Tools"}] : []),
     {id:"manual",label:"Manual",icon:"📖",group:"Tools"},
     ...(isAdminUser ? [{id:"loginactivity",label:"Login Activity",icon:"🔐",group:"Tools"}] : []),
     ...(isAdminUser ? [{id:"auditlog",label:"Audit Log",icon:"📋",group:"Tools"}] : []),
@@ -17197,7 +17295,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     hospitalvisits:"hospitalVisits", benevolencefund:"benevolenceFund", counselinglog:"counselingLog", hospitalityfund:"hospitalityFund",
     maintenance:"maintenance", calendar:"events", attendance:"attendance",
     giving:"giving", prayer:"prayer", email:null, sms:null,
-    access:"settings", ai:null, settings:"settings", alerts:null, manual:null, loginactivity:null, auditlog:null, myfollowups:null,
+    access:"settings", ai:null, settings:"settings", alerts:null, adminnotes:null, manual:null, loginactivity:null, auditlog:null, myfollowups:null,
   };
   const PASTORAL_CARE_SIDEBAR_ROLE_ACCESS:Record<string,string[]> = {
     hospitalvisits:["Administrator","Pastor","Staff","Team Supervisor","Team Leader","Sponsor","Hospital & Visits"],
@@ -17326,6 +17424,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
                   {item.id==="visitation"&&inVis>0&&<span style={{marginLeft:"auto",background:PU,color:"#fff",borderRadius:10,fontSize:10,fontWeight:600,padding:"1px 6px"}}>{inVis}</span>}
                   {item.id==="maintenance"&&maintAlertCount>0&&<span style={{marginLeft:"auto",background:RE,color:"#fff",borderRadius:10,fontSize:10,fontWeight:600,padding:"1px 6px"}}>{maintAlertCount}</span>}
                   {item.id==="alerts"&&(absentMembers.length+lowGivers.length+absentChildren.length+outstandingVisits.length)>0&&<span style={{marginLeft:"auto",background:RE,color:"#fff",borderRadius:10,fontSize:10,fontWeight:600,padding:"1px 6px"}}>{absentMembers.length+lowGivers.length+absentChildren.length+outstandingVisits.length}</span>}
+                  {item.id==="adminnotes"&&adminNotesUnread>0&&<span style={{marginLeft:"auto",background:RE,color:"#fff",borderRadius:10,fontSize:10,fontWeight:600,padding:"1px 6px"}}>{adminNotesUnread}</span>}
                 </button>
               ))}
             </div>
@@ -17545,6 +17644,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           )}
           {!isMemberPortal && view==="ai" && <AIAssist aiChat={aiChat} setAiChat={setAiChat} members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} setAttendance={setAttendance} giving={giving} setGiving={setGiving} prayers={prayers} setView={setView} isMobile={isMobile}/>}
           {!isMemberPortal && isAdminUser && view==="alerts" && <AlertPage members={members} visitors={visitors} giving={giving} checkIns={checkIns} kidsCheckIns={kidsCheckIns} rollCalls={rollCalls} children={children} visitRecords={visitRecords} cs={churchSettings} setCs={setChurchSettings} users={users} roles={roles} followupDismissedChildIds={followupDismissedChildIds}/>}
+          {!isMemberPortal && isAdminUser && view==="adminnotes" && <AdminNotes notes={adminNotesAll} readIds={adminNotesRead} setReadIds={setAdminNotesRead} cs={churchSettings}/>}
           {!isMemberPortal && view==="announcements" && <Announcements announcements={announcements} setAnnouncements={setAnnouncements} currentUser={currentUser} roles={roles} permissions={permissions} recurring={recurring} custom={custom} churchId={churchId}/>}
           {!isMemberPortal && view==="finances" && canViewGiving && <Finances expenses={expenses} setExpenses={setExpenses} budgets={budgets} setBudgets={setBudgets} giving={giving} openingBalances={openingBalances} setOpeningBalances={setOpeningBalances}/>}
           {!isMemberPortal && view==="manual" && <ManualPage/>}

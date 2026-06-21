@@ -32,7 +32,7 @@ const ID_ARRAYS = [
   'sickVisits','benevolence','hospitalityFund',
 ];
 // Arrays of bare scalar values (e.g. ids), merged as a set.
-const SCALAR_ARRAYS = ['followupDismissedChildIds'];
+const SCALAR_ARRAYS = ['followupDismissedChildIds', 'adminNotesRead'];
 // Objects merged per top-level key (additive — keys are never dropped).
 const OBJECT_FIELDS = ['permissions','churchSettings','emailConfig','cleaningSchedule','eventSchedule'];
 // Single scalar values.
