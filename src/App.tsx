@@ -10619,7 +10619,7 @@ function GivingStatements({giving,members,visitors}:any){
   );
 }
 
-function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledges,members,visitors,weeklyReports,setWeeklyReports,emailTemplates,currentUser=null,roles=[],churchId=""}:any) {
+function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledges,members,visitors,weeklyReports,setWeeklyReports,emailTemplates,currentUser=null,roles=[],churchId="",onTxnDeleted=null}:any) {
   const [tab,setTab] = useState("giving");
   const [modal,setModal] = useState(false);
   const [form,setForm] = useState({date:td(),name:"",category:"Tithe",amount:"",method:"Cash",notes:""});
@@ -11479,7 +11479,7 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
               {confirmDelete.notes&&<div style={{fontSize:12,color:"#7f1d1d",marginTop:2,fontStyle:"italic"}}>{confirmDelete.notes}</div>}
             </div>
             <div style={{display:"flex",gap:10}}>
-              <button onClick={()=>{setGiving(giving.filter((r:any)=>r.id!==confirmDelete.id));setConfirmDelete(null);}} style={{flex:1,padding:"10px 0",background:"#dc2626",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer"}}>Yes, Delete</button>
+              <button onClick={()=>{if(confirmDelete.txnId&&onTxnDeleted)onTxnDeleted(confirmDelete);setGiving(giving.filter((r:any)=>r.id!==confirmDelete.id));setConfirmDelete(null);}} style={{flex:1,padding:"10px 0",background:"#dc2626",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:600,cursor:"pointer"}}>Yes, Delete</button>
               <button onClick={()=>setConfirmDelete(null)} style={{flex:1,padding:"10px 0",background:"none",border:"1px solid "+BR,borderRadius:8,fontSize:13,fontWeight:500,color:TX,cursor:"pointer"}}>Cancel</button>
             </div>
           </div>
@@ -16626,36 +16626,51 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   //    blob — so only the owner and finance/admin roles can read or write it (enforced by RLS).
   const givingLoaded = useRef(false);
   const givingSaveTimer = useRef<any>(null);
+  // Txn ids of Online Giving gifts the user has deleted — so the auto-import never re-adds them.
+  const givingDeletedTxns = useRef<Set<string>>(new Set());
+  // Fetch Online Giving inbox gifts not already recorded (by txnId) and not user-deleted.
+  const fetchOnlineGiftAdds = async (existingTxnIds:Set<string>)=>{
+    try {
+      const {data:inc} = await supabase.from('online_giving_incoming')
+        .select('txn_id,donor_first,donor_last,donor_email,amount,category,gift_date')
+        .eq('church_id',churchId).order('created_at',{ascending:false}).limit(2000);
+      if(!inc || !inc.length) return [];
+      let n = Date.now();
+      return inc.filter((d:any)=>d.txn_id && !existingTxnIds.has(String(d.txn_id)) && !givingDeletedTxns.current.has(String(d.txn_id)))
+        .map((d:any)=>({
+          id: n++, date: d.gift_date || td(),
+          name: ((d.donor_first||'')+' '+(d.donor_last||'')).trim() || d.donor_email || 'Online Gift',
+          category: d.category || 'Offering', amount: Number(d.amount)||0,
+          method: 'Online', notes: 'Imported from Online Giving', txnId: d.txn_id, source: 'onlinegiving',
+        }));
+    } catch { return []; }
+  };
   useEffect(()=>{
     if(!churchId || !canViewGiving) return; // non-finance users never load/touch giving
     let cancelled = false;
-    supabase.from('church_giving').select('giving').eq('church_id',churchId).maybeSingle()
-      .then(async ({data}:any)=>{
-        if(cancelled) return;
-        let base = (data && Array.isArray(data.giving)) ? data.giving : null;
-        // Auto-import any new Online Giving donations into Record Giving (deduped by txnId).
+    (async()=>{
+      if(!givingLoaded.current){
+        // First load this session: pull the saved giving + deleted-txn list, then import online gifts.
+        let base:any[] = [];
         try {
-          const {data:inc} = await supabase.from('online_giving_incoming')
-            .select('txn_id,donor_first,donor_last,donor_email,amount,category,gift_date')
-            .eq('church_id',churchId).order('created_at',{ascending:false}).limit(2000);
-          if(inc && inc.length){
-            const cur = base || [];
-            const have = new Set(cur.map((g:any)=>g.txnId).filter(Boolean));
-            let n = Date.now();
-            const adds = inc.filter((d:any)=>!have.has(d.txn_id)).map((d:any)=>({
-              id: n++, date: d.gift_date || td(),
-              name: ((d.donor_first||'')+' '+(d.donor_last||'')).trim() || d.donor_email || 'Online Gift',
-              category: d.category || 'Offering', amount: Number(d.amount)||0,
-              method: 'Online', notes: 'Imported from Online Giving', txnId: d.txn_id, source: 'onlinegiving',
-            }));
-            if(adds.length) base = [...adds, ...cur];
-          }
-        } catch {}
+          const {data} = await supabase.from('church_giving').select('giving,deleted_txns').eq('church_id',churchId).maybeSingle();
+          if(cancelled) return;
+          base = (data && Array.isArray(data.giving)) ? data.giving : [];
+          givingDeletedTxns.current = new Set((data && Array.isArray(data.deleted_txns) ? data.deleted_txns : []).map((x:any)=>String(x)));
+        } catch { return; } // on error, leave givingLoaded false so empty state can't clobber real data
+        const adds = await fetchOnlineGiftAdds(new Set(base.map((g:any)=>g.txnId).filter(Boolean).map((x:any)=>String(x))));
         if(cancelled) return;
-        if(base!==null) setGiving(base);
+        setGiving(adds.length ? [...adds, ...base] : base);
         givingLoaded.current = true;
-      })
-      .catch(()=>{}); // on error, leave givingLoaded false so we never overwrite with empty state
+      } else {
+        // Already loaded: only APPEND brand-new online gifts against the CURRENT in-memory list.
+        // We never reload/replace the whole array, so a record you just added or deleted is never
+        // reverted by a background refresh (the cause of "deleted records come back" / duplicates).
+        const adds = await fetchOnlineGiftAdds(new Set());
+        if(cancelled || !adds.length) return;
+        setGiving((g:any[])=>{ const have=new Set((g||[]).map((x:any)=>x.txnId).filter(Boolean).map((x:any)=>String(x))); const fresh=adds.filter((a:any)=>!have.has(String(a.txnId))); return fresh.length ? [...fresh, ...g] : g; });
+      }
+    })();
     return ()=>{ cancelled = true; };
   },[churchId, canViewGiving, syncTrigger]);
   useEffect(()=>{
@@ -16663,7 +16678,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     if(!churchId || !canViewGiving || !givingLoaded.current) return;
     if(givingSaveTimer.current) clearTimeout(givingSaveTimer.current);
     givingSaveTimer.current = setTimeout(()=>{
-      supabase.from('church_giving').upsert({church_id:churchId, giving, updated_at:new Date().toISOString()},{onConflict:'church_id'}).then(()=>{}).catch(()=>{});
+      supabase.from('church_giving').upsert({church_id:churchId, giving, deleted_txns:Array.from(givingDeletedTxns.current), updated_at:new Date().toISOString()},{onConflict:'church_id'}).then(()=>{}).catch(()=>{});
     },3000);
     return ()=>{ if(givingSaveTimer.current) clearTimeout(givingSaveTimer.current); };
   },[giving, churchId, canViewGiving]);
@@ -17683,7 +17698,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           {!isMemberPortal && view==="counselinglog" && canAccessCounseling && <CounselingLog members={members} visitors={visitors} counselingLogs={counselingLogs} setCounselingLogs={setCounselingLogs}/>}
           {!isMemberPortal && view==="hospitalityfund" && <HospitalityFund members={members} hospitalityFund={hospitalityFund} setHospitalityFund={setHospitalityFund} hospStartBalance={hospStartBalance} setHospStartBalance={(v:any)=>{hospStartReady.current=true;setHospStartBalance(v);}}/>}
           {!isMemberPortal && view==="attendance" && <Attendance attendance={attendance} setAttendance={setAttendance} setView={setView} checkIns={checkIns} setCheckIns={setCheckIns} members={members} visitors={visitors}/>}
-          {!isMemberPortal && view==="giving" && canViewGiving && <Giving giving={giving} setGiving={setGiving} pledgeDrives={pledgeDrives} setPledgeDrives={setPledgeDrives} pledges={pledges} setPledges={setPledges} members={members} visitors={visitors} weeklyReports={weeklyReports} setWeeklyReports={setWeeklyReports} emailTemplates={emailTemplates} currentUser={currentUser} roles={roles} churchId={churchId}/>}
+          {!isMemberPortal && view==="giving" && canViewGiving && <Giving giving={giving} setGiving={setGiving} pledgeDrives={pledgeDrives} setPledgeDrives={setPledgeDrives} pledges={pledges} setPledges={setPledges} members={members} visitors={visitors} weeklyReports={weeklyReports} setWeeklyReports={setWeeklyReports} emailTemplates={emailTemplates} currentUser={currentUser} roles={roles} churchId={churchId} onTxnDeleted={(rec:any)=>{ if(rec&&rec.txnId) givingDeletedTxns.current.add(String(rec.txnId)); }}/>}
           {!isMemberPortal && view==="prayer" && <Prayer prayers={prayers} setPrayers={setPrayers}/>}
           {/* ── Member Portal hard-gate: only myprofile and prayer allowed ── */}
           {isMemberPortal && view!=="prayer" && <MemberProfilePortal member={portalMember} setMembers={setMembers} giving={giving} onSignOut={onSignOut} roles={roles} users={users} setUsers={setUsers} recurring={recurring} custom={custom} eventRsvps={eventRsvps} setEventRsvps={setEventRsvps} members={members} children={children} announcements={announcements} cleaningSchedule={cleaningSchedule} eventSchedule={eventSchedule} givingUrl={churchSettings?.onlineGivingUrl||"https://myntccglendaleaz.onlinegiving.cc/"} initialTab={view==="give"?"give":view==="news"?"news":"profile"}/>}
