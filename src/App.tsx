@@ -11134,6 +11134,10 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
     reader.readAsText(file);
   };
   const closeCurrentBatch = () => {
+    if(!_isAdmin){
+      alert("Only an administrator can close a weekly batch. Please have an administrator clear it.");
+      return;
+    }
     if(td()<=currentBatchEnd){
       alert("You can close this batch only after Sunday ends.");
       return;
@@ -11236,7 +11240,9 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
           : <span style={{fontSize:11,background:MU+"22",color:MU,borderRadius:20,padding:"3px 9px",fontWeight:600}}>CLOSED</span>
         }
         <div style={{marginLeft:"auto"}}>
-          <Btn onClick={closeCurrentBatch} v="gold" style={{fontSize:12,padding:"6px 10px"}}>Close Current Batch</Btn>
+          {_isAdmin
+            ? <Btn onClick={closeCurrentBatch} v="gold" style={{fontSize:12,padding:"6px 10px"}}>Close Current Batch</Btn>
+            : <span style={{fontSize:11,color:MU,fontStyle:"italic"}}>🔒 Only an administrator can close this batch</span>}
         </div>
         {selectedBatchStart!==currentBatchStart && selectedBatchAudit && (
           <div style={{width:"100%",fontSize:11,color:MU,paddingTop:6,borderTop:"0.5px solid "+BR}}>
