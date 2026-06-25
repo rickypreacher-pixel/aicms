@@ -16286,6 +16286,28 @@ function ManualPage(){
 }
 
 // ── MEMBER PORTAL — self-service profile + giving view for email/password members ──
+// Shown for a logged-in staff/user whose login isn't linked to a member record yet, so "My Profile"
+// is never blank — read-only account info, no data created.
+function MyAccountFallback({currentUser,roles=[],loggedInEmail="",displayName="",onBack}:any){
+  const roleName = (roles||[]).find((r:any)=>r.id===currentUser?.roleId)?.name || (currentUser?.superAdmin?"Super Admin":"");
+  const name = displayName || currentUser?.name || loggedInEmail || "My Account";
+  const email = currentUser?.email || loggedInEmail || "";
+  const Row=({label,value}:any)=> value ? <div style={{display:"flex",justifyContent:"space-between",padding:"10px 0",borderTop:"0.5px solid "+BR}}><span style={{color:MU,fontSize:13}}>{label}</span><span style={{fontSize:13,fontWeight:500,color:TX}}>{value}</span></div> : null;
+  return (
+    <div style={{maxWidth:560,margin:"0 auto"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+        <h2 style={{fontSize:18,fontWeight:600,color:N,margin:0}}>My Profile</h2>
+        {onBack && <button onClick={onBack} style={{padding:"7px 14px",background:"#f0f4ff",border:"0.5px solid #bfcbff",borderRadius:8,fontSize:12,fontWeight:600,color:"#2563eb",cursor:"pointer"}}>← Back</button>}
+      </div>
+      <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:18}}>
+        <div style={{fontSize:16,fontWeight:600,color:TX,marginBottom:4}}>{name}</div>
+        <Row label="Email" value={email}/>
+        <Row label="Role" value={roleName}/>
+        <div style={{marginTop:14,fontSize:12,color:MU,background:BG,borderRadius:8,padding:"10px 12px"}}>This is your account information. Your full member profile isn’t linked to your login yet — an administrator can link it from <strong>Access → Users</strong> so your personal details show here.</div>
+      </div>
+    </div>
+  );
+}
 function MemberProfilePortal({member,setMembers,giving,onSignOut,staffMode=false,roles=[],users=[],setUsers,recurring=[],custom=[],eventRsvps=[],setEventRsvps=null,members=[],children=[],announcements=[],cleaningSchedule={},eventSchedule={},initialTab="profile",givingUrl=""}:any) {
   const [tab,setTab] = useState(initialTab);
   // Let the sidebar open the portal directly to a given tab (e.g. 📢 Announcements → News).
@@ -16890,8 +16912,13 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     : null;
   const isMemberPortal = !!portalMember;
   // Staff member record: staff user who also has a record in the members list
-  const staffMemberRecord = (isStaff && currentUser)
-    ? (members.find((m:any) => m.email && m.email.toLowerCase() === (loggedInEmail||'').toLowerCase()) || _matchMemberByName(members))
+  // Find the logged-in user's own member record so they can see "My Profile". Match by the
+  // explicit user→member link first (most reliable), then login email, then name.
+  const staffMemberRecord = currentUser
+    ? ((currentUser.memberId!=null && members.find((m:any) => String(m.id) === String(currentUser.memberId)))
+       || (loggedInEmail && members.find((m:any) => m.email && m.email.toLowerCase() === (loggedInEmail||'').toLowerCase()))
+       || (isStaff ? _matchMemberByName(members) : null)
+       || null)
     : null;
   window.__CS__ = churchSettings;
   useEffect(()=>{
@@ -17577,7 +17604,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   const visibleNAV = isMemberPortal
     ? PORTAL_NAV
     : (!isStaff || !currentUser || currentUser.superAdmin)
-    ? (staffMemberRecord ? [...NAV, {id:"myprofile",label:"My Profile",icon:"👤",group:"Core"}] : NAV)
+    ? [...NAV, {id:"myprofile",label:"My Profile",icon:"👤",group:"Core"}]
     : (() => {
         const filtered = NAV.filter(item => {
           if(isRestrictedUser && RESTRICTED_NAV_HIDDEN.includes(item.id)) return false;
@@ -17597,7 +17624,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           const allowedByPermission = checkPermission(currentUser, roles, permissions, mod, action);
           return allowedByPastoralRole || allowedByPermission;
         });
-        return staffMemberRecord ? [...filtered, {id:"myprofile",label:"My Profile",icon:"👤",group:"Core"}] : filtered;
+        return [...filtered, {id:"myprofile",label:"My Profile",icon:"👤",group:"Core"}];
       })();
   const navGroupStorageKey = LS(`nav_groups_${isMemberPortal ? `portal_${portalMember?.id || 'anon'}` : (currentUser ? `user_${currentUser.id}` : 'global')}`);
   const [openNavGroups,setOpenNavGroups] = useState<Record<string,boolean>>({});
@@ -17887,8 +17914,10 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           {/* ── Member Portal hard-gate: only myprofile and prayer allowed ── */}
           {isMemberPortal && view!=="prayer" && <MemberProfilePortal member={portalMember} setMembers={setMembers} giving={giving} onSignOut={onSignOut} roles={roles} users={users} setUsers={setUsers} recurring={recurring} custom={custom} eventRsvps={eventRsvps} setEventRsvps={setEventRsvps} members={members} children={children} announcements={announcements} cleaningSchedule={cleaningSchedule} eventSchedule={eventSchedule} givingUrl={churchSettings?.onlineGivingUrl||"https://myntccglendaleaz.onlinegiving.cc/"} initialTab={view==="give"?"give":view==="news"?"news":"profile"}/>}
           {isMemberPortal && view==="prayer" && <Prayer prayers={prayers} setPrayers={setPrayers} portalMode={true} portalMember={portalMember}/>}
-          {/* ── Staff My Profile: staff user whose login matches a member record ── */}
-          {!isMemberPortal && view==="myprofile" && staffMemberRecord && <MemberProfilePortal member={staffMemberRecord} setMembers={setMembers} giving={giving} onSignOut={()=>setView("dashboard")} staffMode={true} roles={roles} users={users} setUsers={setUsers} recurring={recurring} custom={custom} eventRsvps={eventRsvps} setEventRsvps={setEventRsvps} members={members} children={children} announcements={announcements} cleaningSchedule={cleaningSchedule} eventSchedule={eventSchedule} givingUrl={churchSettings?.onlineGivingUrl||"https://myntccglendaleaz.onlinegiving.cc/"}/>}
+          {/* ── My Profile: every logged-in staff/user. Shows their member record if linked, else a read-only account card. ── */}
+          {!isMemberPortal && view==="myprofile" && (staffMemberRecord
+            ? <MemberProfilePortal member={staffMemberRecord} setMembers={setMembers} giving={giving} onSignOut={()=>setView("dashboard")} staffMode={true} roles={roles} users={users} setUsers={setUsers} recurring={recurring} custom={custom} eventRsvps={eventRsvps} setEventRsvps={setEventRsvps} members={members} children={children} announcements={announcements} cleaningSchedule={cleaningSchedule} eventSchedule={eventSchedule} givingUrl={churchSettings?.onlineGivingUrl||"https://myntccglendaleaz.onlinegiving.cc/"}/>
+            : <MyAccountFallback currentUser={currentUser} roles={roles} loggedInEmail={loggedInEmail} displayName={displayName} onBack={()=>setView("dashboard")}/>)}
           {/* ── Staff / Admin views (never rendered for portal users) ── */}
           {!isMemberPortal && view==="sms" && <SmsCenter smsLog={smsLog} setSmsLog={setSmsLog} smsTemplates={smsTemplates} setSmsTemplates={setSmsTemplates} smsConfig={smsConfig} setSmsConfig={setSmsConfig} members={members} visitors={visitors} cs={churchSettings} onCompose={()=>openSmsComposer({})} onBulkCompose={()=>openBulkSmsComposer({recipients:[...members,...visitors].filter(p=>p.phone).map(p=>({...p,first:p.first,last:p.last,name:p.first+" "+p.last}))})}/>}
           {!isMemberPortal && view==="email" && <EmailCenter emailLog={emailLog} setEmailLog={setEmailLog} emailTemplates={emailTemplates} setEmailTemplates={setEmailTemplates} emailConfig={emailConfig} setEmailConfig={setEmailConfig} members={members} visitors={visitors} cs={churchSettings} onCompose={()=>openEmailComposer({})} onBulkCompose={()=>openBulkEmailComposer({recipients:members.filter(m=>m.email).map(m=>({name:m.first+" "+m.last,first:m.first,last:m.last,email:m.email}))})}/>}
