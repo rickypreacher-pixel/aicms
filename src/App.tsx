@@ -9051,7 +9051,7 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
 }
 
 // ── ATTENDANCE ──
-function Attendance({attendance,setAttendance,setView,checkIns=[],setCheckIns=()=>{},members=[],visitors=[]}:any) {
+function Attendance({attendance,setAttendance,setView,checkIns=[],setCheckIns=()=>{},members=[],visitors=[],kidsCheckIns=[]}:any) {
   const [modal,setModal] = useState(false);
   const [form,setForm] = useState({date:td(),service:"Sunday Morning Worship",count:"",members:"",visitors:"",notes:""});
   const [insight,setInsight] = useState("");
@@ -9085,11 +9085,12 @@ function Attendance({attendance,setAttendance,setView,checkIns=[],setCheckIns=()
   const openDetail = (rec:any)=>{const _saved=Array.isArray(rec.attendees)?rec.attendees:[];const _ci=checkinAttendeesFor(rec);const _sp=new Set(_saved.map((a:any)=>String(a.pid)));const base=[..._saved,..._ci.filter((a:any)=>!_sp.has(String(a.pid)))];setDetail(rec);setDForm({date:rec.date,service:rec.service||"Sunday Morning Worship",notes:rec.notes||""});setRoster(base.map((a:any)=>({...a,ptype:curPtype(a)})));setPick("");};
   const addAtt = (p:any)=>{if(roster.some(x=>String(x.pid)===String(p.id)))return;setRoster([...roster,{pid:p.id,ptype:p.ptype,first:p.first,last:p.last}]);setPick("");};
   const remAtt = (pid:any)=>setRoster(roster.filter(x=>String(x.pid)!==String(pid)));
-  const saveDetail = ()=>{if(!dForm.date){alert("Date required.");return;}const c=rCount(roster);const cnt=roster.length?c:{count:detail.count||0,members:detail.members||0,visitors:detail.visitors||0};if(detail._virtual){setAttendance([{date:dForm.date,service:dForm.service,notes:dForm.notes,attendees:roster,count:cnt.count,members:cnt.members,visitors:cnt.visitors,id:nid.current++},...attendance]);}else{setAttendance(attendance.map((a:any)=>a.id===detail.id?{...a,date:dForm.date,service:dForm.service,notes:dForm.notes,attendees:roster,count:roster.length?c.count:a.count,members:roster.length?c.members:a.members,visitors:roster.length?c.visitors:a.visitors}:a));}const _rp=new Set(roster.map((x:any)=>String(x.pid)));const _dm=(checkIns||[]).filter((ci:any)=>nk(ci.date)===nk(detail.date));const _svc=_dm.some((ci:any)=>nk(ci.ename)===nk(detail.service));if(_svc){setCheckIns((cis:any[])=>(cis||[]).filter((ci:any)=>!(nk(ci.date)===nk(detail.date)&&nk(ci.ename)===nk(detail.service)&&ci.pid!=null&&!_rp.has(String(ci.pid)))));}setDetail(null);};
+  const saveDetail = ()=>{if(!dForm.date){alert("Date required.");return;}const c=rCount(roster);const dk=nk(dForm.date),sk=nk(dForm.service);setAttendance((arr:any[])=>{const all=Array.isArray(arr)?arr:[];const matches=(a:any)=>(detail&&detail.id!=null&&!detail._virtual&&a.id===detail.id)||(nk(a.date)===dk&&nk(a.service)===sk);const prev=all.find(matches)||detail||{};const cnt=roster.length?c:{count:prev.count||0,members:prev.members||0,visitors:prev.visitors||0};const id=(prev&&prev.id!=null&&!prev._virtual)?prev.id:(Date.now()+Math.random());const rest=all.filter((a:any)=>!matches(a));return [{date:dForm.date,service:dForm.service,notes:dForm.notes,attendees:roster,count:cnt.count,members:cnt.members,visitors:cnt.visitors,id},...rest];});const _rp=new Set(roster.map((x:any)=>String(x.pid)));const _dm=(checkIns||[]).filter((ci:any)=>nk(ci.date)===nk(dForm.date));const _svc=_dm.some((ci:any)=>nk(ci.ename)===nk(dForm.service));if(_svc){setCheckIns((cis:any[])=>(cis||[]).filter((ci:any)=>!(nk(ci.date)===nk(dForm.date)&&nk(ci.ename)===nk(dForm.service)&&ci.pid!=null&&!_rp.has(String(ci.pid)))));}setDetail(null);};
   const pickResults = pick.trim().length>0?allPeople.filter((p:any)=>!roster.some(x=>String(x.pid)===String(p.id))&&((p.first||"")+" "+(p.last||"")).toLowerCase().includes(pick.toLowerCase())).slice(0,6):[];
   const save = () => {
     if(!form.date||!form.count){alert("Date and count required.");return;}
-    setAttendance([{...form,count:+form.count,members:+form.members||0,visitors:+form.visitors||0,id:nid.current++},...attendance]);
+    const dk=nk(form.date),sk=nk(form.service);
+    setAttendance((arr:any[])=>{const all=Array.isArray(arr)?arr:[];const ex=all.find((a:any)=>nk(a.date)===dk&&nk(a.service)===sk);const row={...form,count:+form.count,members:+form.members||0,visitors:+form.visitors||0,id:ex?ex.id:(Date.now()+Math.random())};return ex?all.map((a:any)=>a===ex?{...a,...row}:a):[row,...all];});
     setModal(false);
     setForm({date:td(),service:"Sunday Morning Worship",count:"",members:"",visitors:"",notes:""});
   };
@@ -9099,10 +9100,35 @@ function Attendance({attendance,setAttendance,setView,checkIns=[],setCheckIns=()
     const txt = await callAI([{role:"user",content:"Analyze NTCC attendance for Pastor Hall in 2-3 sentences: "+data}],[],[],[],[],[],{});
     setInsight(txt); setLoad(false);
   };
+  // Sunday School (Children) attendance is derived LIVE from kids check-ins as the count of
+  // DISTINCT CHILDREN checked in that date (not raw records). Multi-device cloud sync can leave
+  // duplicate check-in rows for the same child+date (e.g. May 31 had 101 rows for 55 children),
+  // so counting distinct child ids makes those duplicates harmless. A stored snapshot count can't
+  // survive the union-by-id sync either, so we always recompute from the check-ins.
+  const SS_SVC = "Sunday School (Children)";
+  const kidsByDate:any = (()=>{
+    const m:any={};
+    (kidsCheckIns||[]).forEach((c:any)=>{if(!c||c.date==null||c.childId==null)return;const k=nk(c.date);(m[k]||(m[k]=new Set())).add(String(c.childId));});
+    const o:any={};Object.keys(m).forEach(k=>o[k]=(m[k] as Set<string>).size);return o;
+  })();
   // Merge manually-logged services with an auto-row for every check-in event (grouped by
   // date + event name) that isn't already logged, so all check-in events show in the log.
   const mergedLog = (()=>{
-    const manual = attendance||[];
+    // Dedupe stored Sunday School rows per date (sync can leave several) and override their count
+    // with the live kids-check-in total.
+    const manual:any[] = [];
+    const seenSS = new Set();
+    (attendance||[]).forEach((a:any)=>{
+      if(nk(a.service)===nk(SS_SVC)){
+        const dk=nk(a.date);
+        if(seenSS.has(dk)) return;
+        seenSS.add(dk);
+        const live=kidsByDate[dk];
+        manual.push(live!=null?{...a,count:live,members:0,visitors:0}:a);
+      } else {
+        manual.push(a);
+      }
+    });
     const manualKeys = new Set(manual.map((a:any)=>nk(a.date)+"||"+nk(a.service)));
     const groups:any = {};
     (checkIns||[]).forEach((c:any)=>{
@@ -9113,12 +9139,64 @@ function Attendance({attendance,setAttendance,setView,checkIns=[],setCheckIns=()
       if(!g.seen.has(pk)){g.seen.add(pk);const pt=curPtype(c);g.attendees.push({pid:c.pid,ptype:pt,first:c.first||"",last:c.last||""});if(pt==="visitor")g.visitors++;else g.members++;}
     });
     const virtual = Object.keys(groups).filter(k=>!manualKeys.has(k)).map(k=>{const g=groups[k];return {id:"ci_"+k,date:g.date,service:g.service,count:g.attendees.length,members:g.members,visitors:g.visitors,notes:"",attendees:g.attendees,_virtual:true};});
-    return [...manual,...virtual].sort((a:any,b:any)=>String(b.date||"").localeCompare(String(a.date||"")));
+    // Show a Sunday School (Children) row for any date that has kids check-ins but no stored row.
+    const ssVirtual = Object.keys(kidsByDate).filter(dk=>!manualKeys.has(dk+"||"+nk(SS_SVC))).map(dk=>{const ex=(kidsCheckIns||[]).find((c:any)=>nk(c.date)===dk);return {id:"ssci_"+dk,date:ex?ex.date:dk,service:SS_SVC,count:kidsByDate[dk],members:0,visitors:0,notes:"From kids check-in",attendees:[] as any[],_virtual:true};});
+    return [...manual,...virtual,...ssVirtual].sort((a:any,b:any)=>String(b.date||"").localeCompare(String(a.date||"")));
   })();
   const avg = mergedLog.length ? Math.round(mergedLog.reduce((a:number,s:any)=>a+(+s.count||0),0)/mergedLog.length) : 0;
   const best = [...mergedLog].sort((a:any,b:any)=>(+b.count||0)-(+a.count||0))[0]||{count:0,service:""};
+  const [attTab,setAttTab]=useState("weekly");
+  // ── Weekly summary: per Sunday, Sunday Morning Worship attendance + Education Department count +
+  // combined total. The Education count UNIFIES both check-in systems so it's right no matter where
+  // the check-in was done: the children check-in portal (kidsCheckIns / "Sunday School (Children)")
+  // AND Education-type event check-ins (e.g. the "Education Department" event, which otherwise lands
+  // in the general check-ins). We take the MAX of the two per Sunday rather than summing, because a
+  // class is normally recorded in ONE system and the other holds only strays — summing would
+  // double-count the same kids. ──
+  const isEduSvc=(svc:any)=>{const s=nk(svc);return s===nk(SS_SVC)||s.includes("education");};
+  const weeklySummary=(()=>{
+    const isSunday=(ds:any)=>{const d=new Date(String(ds)+"T00:00:00");return !isNaN(d.getTime())&&d.getDay()===0;};
+    // Every Sunday that has either a logged/checked-in service or kids check-ins.
+    const sundays = new Set<string>();
+    mergedLog.forEach((r:any)=>{if(r&&r.date!=null&&isSunday(r.date))sundays.add(String(r.date));});
+    (kidsCheckIns||[]).forEach((c:any)=>{if(c&&c.date!=null&&isSunday(c.date))sundays.add(String(c.date));});
+    return Array.from(sundays).map((d:string)=>{
+      const worship = mergedLog.filter((r:any)=>String(r.date)===d&&nk(r.service)===nk("Sunday Morning Worship")).reduce((a:number,r:any)=>a+(+r.count||0),0);
+      // Fullest Education-department record for that Sunday, from the portal OR an Education event.
+      const eduRows = mergedLog.filter((r:any)=>String(r.date)===d&&isEduSvc(r.service)).map((r:any)=>+r.count||0);
+      const education = Math.max(0, kidsByDate[nk(d)]||0, ...eduRows);
+      return {week:d,worship,education,total:worship+education};
+    }).sort((a:any,b:any)=>String(b.week).localeCompare(String(a.week)));
+  })();
   return (
     <div>
+      <div style={{display:"flex",gap:8,marginBottom:16,borderBottom:"0.5px solid "+BR}}>
+        {[["weekly","Weekly Summary"],["log","Service Log"]].map(([k,label]:any)=>(
+          <button key={k} onClick={()=>setAttTab(k)} style={{padding:"8px 14px",border:"none",background:"transparent",borderBottom:"2px solid "+(attTab===k?N:"transparent"),color:attTab===k?N:MU,fontSize:13,fontWeight:attTab===k?600:400,cursor:"pointer"}}>{label}</button>
+        ))}
+      </div>
+      {attTab==="weekly"&&(<div>
+        <div style={{fontSize:12,color:MU,marginBottom:10}}>Per Sunday: Sunday Morning Worship + Education Department, and the combined total for that Sunday.</div>
+        <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,overflow:"hidden",marginBottom:16}}>
+          <table style={{width:"100%",borderCollapse:"collapse"}}>
+            <thead><tr style={{background:BG}}>
+              {["Sunday","Sunday AM Worship","Education Dept","Total (Worship + Education)"].map(h=><th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:11,fontWeight:500,color:MU,textTransform:"uppercase",letterSpacing:0.5,borderBottom:"0.5px solid "+BR}}>{h}</th>)}
+            </tr></thead>
+            <tbody>
+              {weeklySummary.length===0&&(<tr><td colSpan={4} style={{padding:"16px 14px",fontSize:13,color:MU}}>No Sunday attendance or check-ins recorded yet.</td></tr>)}
+              {weeklySummary.map((w:any)=>(
+                <tr key={w.week} style={{borderBottom:"0.5px solid "+BR}}>
+                  <td style={{padding:"10px 14px",fontSize:13,fontWeight:500}}>{fd(w.week)}</td>
+                  <td style={{padding:"10px 14px",fontSize:15,fontWeight:500,color:N}}>{w.worship}</td>
+                  <td style={{padding:"10px 14px",fontSize:15,fontWeight:500,color:GR}}>{w.education}</td>
+                  <td style={{padding:"10px 14px",fontSize:16,fontWeight:700,color:BL}}>{w.total}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>)}
+      {attTab==="log"&&(<>
       <div style={{display:"flex",gap:12,marginBottom:20}}>
         <Stat label="Services" value={mergedLog.length}/>
         <Stat label="Avg Attendance" value={avg} color={BL}/>
@@ -9161,6 +9239,7 @@ function Attendance({attendance,setAttendance,setView,checkIns=[],setCheckIns=()
           </tbody>
         </table>
       </div>
+      </>)}
       <Modal open={modal} onClose={()=>setModal(false)} title="Log New Service">
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
           <Fld label="Date *"><Inp type="date" value={form.date} onChange={sf("date")}/></Fld>
@@ -12113,7 +12192,18 @@ function EdDashboard({classrooms,children,kidsCheckIns,teacherSchedule,users,mem
   const todayCI=kidsCheckIns.filter(c=>c.date===today);
   const activeCI=todayCI.filter(c=>!c.checkedOut);
   const todaySch=teacherSchedule.filter(t=>t.date===today);
-  const chapel=checkIns.filter(c=>c.date===today).length;
+  // Unified, duplicate-proof Education counting (mirrors the Attendance → Weekly Summary tab):
+  // count DISTINCT children from the kids portal and DISTINCT attendees from Education-type EVENT
+  // check-ins (which otherwise fall into the general check-ins / "chapel"), taking the larger.
+  // Multi-device sync can leave duplicate kid rows for the same child+date, so distinct keeps it
+  // honest. Education-event check-ins are pulled OUT of the chapel count so they aren't double-fed.
+  const lcE=(s:any)=>String(s||"").trim().toLowerCase();
+  const isEduEvent=(c:any)=>lcE(c?.ename).includes("education")||lcE(c?.ename).includes("sunday school");
+  const eduCountFor=(d:any)=>{const p=new Set((kidsCheckIns||[]).filter((c:any)=>c.date===d&&c.childId!=null).map((c:any)=>String(c.childId)));const e=new Set((checkIns||[]).filter((c:any)=>c.date===d&&isEduEvent(c)&&c.pid!=null).map((c:any)=>String(c.pid)));return Math.max(p.size,e.size);};
+  const chapelCountFor=(d:any)=>new Set((checkIns||[]).filter((c:any)=>c.date===d&&!isEduEvent(c)&&c.pid!=null).map((c:any)=>String(c.pid))).size;
+  const chapel=chapelCountFor(today);
+  const eduToday=eduCountFor(today);
+  const activeKidsToday=new Set(activeCI.filter((c:any)=>c.childId!=null).map((c:any)=>String(c.childId))).size;
   const [breakHover,setBreakHover] = useState<number|null>(null);
   const [trendHover,setTrendHover] = useState<number|null>(null);
   const getRecentSundays = (n:number) => {
@@ -12131,8 +12221,8 @@ function EdDashboard({classrooms,children,kidsCheckIns,teacherSchedule,users,mem
     return out;
   };
   const recentSundays = getRecentSundays(4);
-  const kidsBySunday = recentSundays.map((d)=>kidsCheckIns.filter((c:any)=>c.date===d).length);
-  const chapelBySunday = recentSundays.map((d)=>checkIns.filter((c:any)=>c.date===d).length);
+  const kidsBySunday = recentSundays.map((d)=>eduCountFor(d));
+  const chapelBySunday = recentSundays.map((d)=>chapelCountFor(d));
   const totalBySunday = recentSundays.map((d,idx)=>kidsBySunday[idx]+chapelBySunday[idx]);
   const maxSundayTotal = Math.max(1,...totalBySunday);
   const totalPoints = totalBySunday.map((v:number,i:number)=>{
@@ -12143,10 +12233,10 @@ function EdDashboard({classrooms,children,kidsCheckIns,teacherSchedule,users,mem
   return(
     <div>
       <div style={{display:"flex",gap:12,marginBottom:20,flexWrap:"wrap"}}>
-        <Stat label="Kids Checked In" value={activeCI.length} color={GR} sub={todayCI.filter(c=>c.checkedOut).length+" checked out"}/>
+        <Stat label="Kids Checked In" value={activeKidsToday} color={GR} sub={todayCI.filter(c=>c.checkedOut).length+" checked out"}/>
         <Stat label="Classrooms Staffed" value={todaySch.filter(t=>t.leadId).length+"/"+classrooms.length} color={N}/>
         <Stat label="Active Children" value={children.filter(c=>c.status==="Active").length} color={BL}/>
-        <Stat label="Total Sunday Count" value={activeCI.length+chapel} color={G} sub={chapel+" chapel + "+activeCI.length+" kids"}/>
+        <Stat label="Total Sunday Count" value={eduToday+chapel} color={G} sub={chapel+" chapel + "+eduToday+" Sunday School"}/>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
         <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:18}}>
@@ -17791,7 +17881,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           {!isMemberPortal && view==="benevolencefund" && <BenevolencePage members={members} visitors={visitors} benevolence={benevolence} setBenevolence={setBenevolence}/>}
           {!isMemberPortal && view==="counselinglog" && canAccessCounseling && <CounselingLog members={members} visitors={visitors} counselingLogs={counselingLogs} setCounselingLogs={setCounselingLogs}/>}
           {!isMemberPortal && view==="hospitalityfund" && <HospitalityFund members={members} hospitalityFund={hospitalityFund} setHospitalityFund={setHospitalityFund} hospStartBalance={hospStartBalance} setHospStartBalance={(v:any)=>{hospStartReady.current=true;setHospStartBalance(v);}}/>}
-          {!isMemberPortal && view==="attendance" && <Attendance attendance={attendance} setAttendance={setAttendance} setView={setView} checkIns={checkIns} setCheckIns={setCheckIns} members={members} visitors={visitors}/>}
+          {!isMemberPortal && view==="attendance" && <Attendance attendance={attendance} setAttendance={setAttendance} setView={setView} checkIns={checkIns} setCheckIns={setCheckIns} members={members} visitors={visitors} kidsCheckIns={kidsCheckIns}/>}
           {!isMemberPortal && view==="giving" && canViewGiving && <Giving giving={giving} setGiving={setGiving} pledgeDrives={pledgeDrives} setPledgeDrives={setPledgeDrives} pledges={pledges} setPledges={setPledges} members={members} visitors={visitors} weeklyReports={weeklyReports} setWeeklyReports={setWeeklyReports} emailTemplates={emailTemplates} currentUser={currentUser} roles={roles} churchId={churchId} onTxnDeleted={(rec:any)=>{ if(rec&&rec.txnId) givingDeletedTxns.current.add(String(rec.txnId)); }}/>}
           {!isMemberPortal && view==="prayer" && <Prayer prayers={prayers} setPrayers={setPrayers}/>}
           {/* ── Member Portal hard-gate: only myprofile and prayer allowed ── */}
