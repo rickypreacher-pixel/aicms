@@ -6600,7 +6600,7 @@ function CareRow({row,onContacted}:any){
   );
 }
 
-function Dashboard({members,visitors,attendance,giving,prayers,setView,canViewGiving,isRestrictedUser,canAddPerson,checkIns=[],careContacted={},setCareContacted}:any) {
+function Dashboard({members,visitors,attendance,giving,prayers,setView,canViewGiving,isRestrictedUser,canAddPerson,checkIns=[],careContacted={},setCareContacted,isAdmin=false}:any) {
   const [insight,setInsight] = useState("");
   const [iLoad,setILoad] = useState(false);
   const [alerts,setAlerts] = useState([]);
@@ -6736,7 +6736,7 @@ function Dashboard({members,visitors,attendance,giving,prayers,setView,canViewGi
         {canViewGiving && <Stat label={monthLabel+" Giving"} value={f$(totalG)} sub="Tithes and offerings" color={GR}/>}
         <Stat label="Prayer Requests" value={prayers.filter((p:any)=>p.status==="Active").length} sub="Active" color={PU}/>
       </div>
-      {!isRestrictedUser && <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:18,marginBottom:16,borderLeft:"3px solid "+(carePulse.length?RE:GR)}}>
+      {isAdmin && <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:18,marginBottom:16,borderLeft:"3px solid "+(carePulse.length?RE:GR)}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
           <h3 style={{fontSize:14,fontWeight:500,color:N,margin:0}}>💗 Care Pulse — Haven't Seen Them Lately</h3>
           <span style={{fontSize:12,color:carePulse.length?RE:GR,fontWeight:600}}>{carePulse.length} {carePulse.length===1?"person":"people"}</span>
@@ -17753,7 +17753,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
               s(setMembers,'members');s(setVisitors,'visitors');s(setAttendance,'attendance');s(setGiving,'giving');s(setPrayers,'prayers');s(setGroups,'groups');s(setGrpMeetings,'grpMeetings');s(setVisitRecords,'visitRecords');s(setCheckIns,'checkIns');s(setKidsCheckIns,'kidsCheckIns');s(setTeacherFollowups,'teacherFollowups');s(setFollowupDismissedChildIds,'followupDismissedChildIds');s(setEventRsvps,'eventRsvps');s(setAnnouncements,'announcements');s(setChildren,'children');s(setPledgeDrives,'pledgeDrives');s(setPledges,'pledges');s(setWeeklyReports,'weeklyReports');s(setEquipment,'equipment');s(setWorkOrders,'workOrders');s(setSchedMaint,'schedMaint');s(setSupplies,'supplies');s(setCheckoutItems,'checkoutItems');s(setCheckouts,'checkouts');s(setUsers,'users');s(setRoles,'roles');s(setPermissions,'permissions',false);s(setRecurring,'recurring');s(setCustom,'custom');s(setEmailLog,'emailLog');s(setEmailTemplates,'emailTemplates',false);s(setEmailConfig,'emailConfig',false);s(setIncidents,'incidents');s(setRollCalls,'rollCalls');s(setProgressNotes,'progressNotes');s(setTeacherSchedule,'teacherSchedule');s(setSickVisits,'sickVisits');s(setBenevolence,'benevolence');s(setHospitalityFund,'hospitalityFund');s(setHospStartBalance,'hospStartBalance',false);s(setCounselingLogs,'counselingLogs');if(d.churchSettings&&mode==='replace')setChurchSettings(d.churchSettings);
             }}
           />}
-          {!isMemberPortal && view==="dashboard" && <Dashboard members={members} visitors={visitors} attendance={attendance} giving={giving} prayers={prayers} setView={setView} canViewGiving={canViewGiving} isRestrictedUser={isRestrictedUser} canAddPerson={canAddPerson} checkIns={checkIns} careContacted={careContacted} setCareContacted={setCareContacted}/>}
+          {!isMemberPortal && view==="dashboard" && <Dashboard members={members} visitors={visitors} attendance={attendance} giving={giving} prayers={prayers} setView={setView} canViewGiving={canViewGiving} isRestrictedUser={isRestrictedUser} canAddPerson={canAddPerson} checkIns={checkIns} careContacted={careContacted} setCareContacted={setCareContacted} isAdmin={isAdminUser}/>}
           {!isMemberPortal && view==="addperson" && <AddMemberPage members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} currentUser={currentUser} roles={roles} permissions={permissions} setView={setView} prospects={prospects} setProspects={setProspects} children={children} setChildren={setChildren} classrooms={classrooms}/>}
           {!isMemberPortal && view==="people" && <People members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} setGiving={setGiving} prayers={prayers} setPrayers={setPrayers} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings} visitRecords={visitRecords} setVisitRecords={setVisitRecords} checkIns={checkIns} setCheckIns={setCheckIns} setView={setView} canViewGiving={canViewGiving} currentUser={currentUser} roles={roles} children={children} setChildren={setChildren} churchId={churchId} classrooms={classrooms}/>}
           {!isMemberPortal && view==="groups" && <Groups members={members} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings} currentUser={currentUser} roles={roles}/>}
