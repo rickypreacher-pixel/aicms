@@ -6551,7 +6551,56 @@ const exportChartSvgAsPng = (svgId:string,fileName:string) => {
   img.src = src;
 };
 
-function Dashboard({members,visitors,attendance,giving,prayers,setView,canViewGiving,isRestrictedUser,canAddPerson}:any) {
+// --- Care Pulse: "haven't seen them lately" attendance-dropoff helpers ---
+const careBtn:any = {fontSize:11,padding:"4px 9px",borderRadius:7,border:"0.5px solid "+BR,background:W,color:TX,textDecoration:"none",display:"inline-block",lineHeight:1.4};
+function careAgo(weeks:number){ return weeks>=9 ? Math.round(weeks/4.345)+" months ago" : weeks+" week"+(weeks===1?"":"s")+" ago"; }
+function careTier(t:string){ return t==="gone"?{l:"Gone quiet",c:RE}:t==="drift"?{l:"Drifting",c:AM}:{l:"Visited once",c:BL}; }
+
+function CareRow({row,onContacted}:any){
+  const {m,tier,agoLabel}=row;
+  const ti=careTier(tier);
+  const [draft,setDraft]=useState("");
+  const [load,setLoad]=useState(false);
+  const [err,setErr]=useState("");
+  const gen=async()=>{
+    setLoad(true); setErr("");
+    try{
+      const prompt="Write a short, warm, personal text message (2 to 3 sentences) to "+m.first+" from their church family. We have not seen them at service in about "+agoLabel+". Gently let them know they were missed and are loved, and warmly invite them back — no guilt, no pressure. Plain text only, no subject line.";
+      const txt=await callAI(prompt,[],[],[],[],[],{} as any);
+      setDraft(String(txt).trim());
+    }catch(e:any){
+      setErr(String(e?.message||"").includes("API key") ? "Add an AI API key in Settings to draft messages." : "AI drafting needs the /api/ai function (unavailable on the local dev server).");
+    }
+    setLoad(false);
+  };
+  return (
+    <div style={{padding:"10px 0",borderBottom:"0.5px solid "+BR}}>
+      <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+        <span style={{width:9,height:9,borderRadius:"50%",background:ti.c,flexShrink:0}}></span>
+        <div style={{flex:1,minWidth:150}}>
+          <div style={{fontSize:13,fontWeight:600,color:TX}}>{m.first} {m.last}{m.family?<span style={{color:MU,fontWeight:400}}> · {m.family}</span>:null}</div>
+          <div style={{fontSize:11,color:MU}}><span style={{color:ti.c,fontWeight:600}}>{ti.l}</span> · last seen {agoLabel}{m.phone?" · "+m.phone:""}</div>
+        </div>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          {m.phone&&<a href={"sms:"+m.phone} style={careBtn}>Text</a>}
+          {m.email&&<a href={"mailto:"+m.email+"?subject="+encodeURIComponent("Thinking of you")+(draft?"&body="+encodeURIComponent(draft):"")} style={careBtn}>Email</a>}
+          <button onClick={gen} style={{...careBtn,cursor:"pointer"}}>{load?"Drafting…":"✨ Draft"}</button>
+          <button onClick={()=>onContacted(m.id)} style={{...careBtn,background:GR,color:"#fff",borderColor:GR,cursor:"pointer"}}>✓ Contacted</button>
+        </div>
+      </div>
+      {err&&<div style={{fontSize:11,color:RE,marginTop:6}}>{err}</div>}
+      {draft&&<div style={{marginTop:8,background:BG,border:"0.5px solid "+BR,borderRadius:8,padding:10}}>
+        <textarea value={draft} onChange={e=>setDraft(e.target.value)} style={{width:"100%",minHeight:64,border:"none",background:"transparent",resize:"vertical",fontSize:12,color:TX,fontFamily:"inherit",outline:"none"}}/>
+        <div style={{display:"flex",gap:8,marginTop:4,alignItems:"center"}}>
+          <button onClick={()=>{try{navigator.clipboard?.writeText(draft);}catch(e){}}} style={{...careBtn,cursor:"pointer"}}>Copy</button>
+          <span style={{fontSize:10,color:MU}}>Review &amp; edit before sending</span>
+        </div>
+      </div>}
+    </div>
+  );
+}
+
+function Dashboard({members,visitors,attendance,giving,prayers,setView,canViewGiving,isRestrictedUser,canAddPerson,checkIns=[],careContacted={},setCareContacted}:any) {
   const [insight,setInsight] = useState("");
   const [iLoad,setILoad] = useState(false);
   const [alerts,setAlerts] = useState([]);
@@ -6642,6 +6691,33 @@ function Dashboard({members,visitors,attendance,giving,prayers,setView,canViewGi
   const qnav=[['Directory','people'],['Visitation','visitation'],['Attendance','attendance'],['Prayer Wall','prayer'],['Access Control','access'],['AI Assistant','ai'],['Settings','settings']];
   if(canViewGiving) qnav.splice(3,0,['Giving','giving']);
 
+  // --- Care Pulse: active members whose check-in attendance has dropped off ---
+  const carePulse = useMemo(()=>{
+    const now=Date.now(), wkMs=7*86400000, dayMs=86400000;
+    const t=(s:string)=>new Date(s+"T00:00:00").getTime();
+    const cm=careContacted||{};
+    const out:any[]=[];
+    (members||[]).forEach((m:any)=>{
+      if(m.status!=="Active") return;
+      const ct=cm[m.id];
+      if(ct && (now-t(ct))<30*dayMs) return; // recently contacted → snoozed 30 days
+      const cis=(checkIns||[]).filter((c:any)=>c.ptype==="member" && String(c.pid)===String(m.id) && c.date);
+      if(!cis.length) return; // no check-in history → ambiguous, excluded from v1 signal
+      let last=cis[0].date; for(const c of cis) if(c.date>last) last=c.date;
+      const weeks=Math.floor((now-t(last))/wkMs);
+      let tier:string|null=null;
+      if(cis.length===1 && weeks>=2) tier="once";
+      else if(weeks>=6) tier="gone";
+      else if(weeks>=3) tier="drift";
+      if(!tier) return;
+      out.push({m,weeks,tier,agoLabel:careAgo(weeks)});
+    });
+    const rank:any={gone:0,drift:1,once:2};
+    out.sort((a:any,b:any)=> (rank[a.tier]-rank[b.tier]) || (b.weeks-a.weeks));
+    return out;
+  },[members,checkIns,careContacted]);
+  const markContacted=(id:any)=>{ if(setCareContacted) setCareContacted((p:any)=>({...(p||{}),[id]:new Date().toISOString().slice(0,10)})); };
+
   return (
     <div>
       {/* Add Person Banner — shown only when canAddPerson permission is granted */}
@@ -6660,6 +6736,16 @@ function Dashboard({members,visitors,attendance,giving,prayers,setView,canViewGi
         {canViewGiving && <Stat label={monthLabel+" Giving"} value={f$(totalG)} sub="Tithes and offerings" color={GR}/>}
         <Stat label="Prayer Requests" value={prayers.filter((p:any)=>p.status==="Active").length} sub="Active" color={PU}/>
       </div>
+      {!isRestrictedUser && <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:18,marginBottom:16,borderLeft:"3px solid "+(carePulse.length?RE:GR)}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+          <h3 style={{fontSize:14,fontWeight:500,color:N,margin:0}}>💗 Care Pulse — Haven't Seen Them Lately</h3>
+          <span style={{fontSize:12,color:carePulse.length?RE:GR,fontWeight:600}}>{carePulse.length} {carePulse.length===1?"person":"people"}</span>
+        </div>
+        <div style={{fontSize:11,color:MU,marginBottom:carePulse.length?6:0}}>Active members whose check-in attendance has dropped off. Reach out before they drift away.</div>
+        {carePulse.length===0
+          ? <div style={{fontSize:12,color:MU,fontStyle:"italic",padding:"10px 0"}}>Everyone active has been seen recently. 🎉</div>
+          : <div style={{maxHeight:340,overflowY:"auto"}}>{carePulse.map((row:any)=><CareRow key={row.m.id} row={row} onContacted={markContacted}/>)}</div>}
+      </div>}
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
         <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:18,position:"relative"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
@@ -16751,6 +16837,8 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   const [custom,setCustom] = useState(lsGet('custom') ?? []);
   const [servicePlans,setServicePlans] = useState(lsGet('servicePlans') ?? {});
   const [checkIns,setCheckIns] = useState(lsGet('checkIns') ?? []);
+  const [careContacted,setCareContacted] = useState(lsGet('careContacted') ?? {}); // Care Pulse: {memberId: ISODate last reached out}
+  useEffect(()=>{ lsSave('careContacted',careContacted); },[careContacted]);
   const _storedCL=lsGet('classrooms')||_I.classrooms;const _hasOldCL=_storedCL&&(_storedCL.length>7||_storedCL.some((c:any)=>["","1st","2nd","3rd","4th","5th","6th","7th"].includes(c.grade)));
   const [classrooms,setClassrooms] = useState(_hasOldCL?ICLASSROOMS:(_storedCL||ICLASSROOMS));
   const _storedKids=lsGet('children')||_I.children;const _migratedKids=_storedKids?_storedKids.map((c:any)=>({...c,grade:CHURCH_LEVELS.find((l:any)=>l.name===c.grade)?c.grade:levelFromAge(typeof calcAge(c.dob)==="number"?calcAge(c.dob) as number:6)})):[];
@@ -17665,7 +17753,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
               s(setMembers,'members');s(setVisitors,'visitors');s(setAttendance,'attendance');s(setGiving,'giving');s(setPrayers,'prayers');s(setGroups,'groups');s(setGrpMeetings,'grpMeetings');s(setVisitRecords,'visitRecords');s(setCheckIns,'checkIns');s(setKidsCheckIns,'kidsCheckIns');s(setTeacherFollowups,'teacherFollowups');s(setFollowupDismissedChildIds,'followupDismissedChildIds');s(setEventRsvps,'eventRsvps');s(setAnnouncements,'announcements');s(setChildren,'children');s(setPledgeDrives,'pledgeDrives');s(setPledges,'pledges');s(setWeeklyReports,'weeklyReports');s(setEquipment,'equipment');s(setWorkOrders,'workOrders');s(setSchedMaint,'schedMaint');s(setSupplies,'supplies');s(setCheckoutItems,'checkoutItems');s(setCheckouts,'checkouts');s(setUsers,'users');s(setRoles,'roles');s(setPermissions,'permissions',false);s(setRecurring,'recurring');s(setCustom,'custom');s(setEmailLog,'emailLog');s(setEmailTemplates,'emailTemplates',false);s(setEmailConfig,'emailConfig',false);s(setIncidents,'incidents');s(setRollCalls,'rollCalls');s(setProgressNotes,'progressNotes');s(setTeacherSchedule,'teacherSchedule');s(setSickVisits,'sickVisits');s(setBenevolence,'benevolence');s(setHospitalityFund,'hospitalityFund');s(setHospStartBalance,'hospStartBalance',false);s(setCounselingLogs,'counselingLogs');if(d.churchSettings&&mode==='replace')setChurchSettings(d.churchSettings);
             }}
           />}
-          {!isMemberPortal && view==="dashboard" && <Dashboard members={members} visitors={visitors} attendance={attendance} giving={giving} prayers={prayers} setView={setView} canViewGiving={canViewGiving} isRestrictedUser={isRestrictedUser} canAddPerson={canAddPerson}/>}
+          {!isMemberPortal && view==="dashboard" && <Dashboard members={members} visitors={visitors} attendance={attendance} giving={giving} prayers={prayers} setView={setView} canViewGiving={canViewGiving} isRestrictedUser={isRestrictedUser} canAddPerson={canAddPerson} checkIns={checkIns} careContacted={careContacted} setCareContacted={setCareContacted}/>}
           {!isMemberPortal && view==="addperson" && <AddMemberPage members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} currentUser={currentUser} roles={roles} permissions={permissions} setView={setView} prospects={prospects} setProspects={setProspects} children={children} setChildren={setChildren} classrooms={classrooms}/>}
           {!isMemberPortal && view==="people" && <People members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} setGiving={setGiving} prayers={prayers} setPrayers={setPrayers} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings} visitRecords={visitRecords} setVisitRecords={setVisitRecords} checkIns={checkIns} setCheckIns={setCheckIns} setView={setView} canViewGiving={canViewGiving} currentUser={currentUser} roles={roles} children={children} setChildren={setChildren} churchId={churchId} classrooms={classrooms}/>}
           {!isMemberPortal && view==="groups" && <Groups members={members} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings} currentUser={currentUser} roles={roles}/>}
