@@ -17238,6 +17238,15 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       if(d.cleaningSchedule && typeof d.cleaningSchedule==='object') setCleaningSchedule(d.cleaningSchedule);
       if(d.eventSchedule && typeof d.eventSchedule==='object') setEventSchedule(d.eventSchedule);
       if(Array.isArray(d.adminNotesRead)) setAdminNotesRead(d.adminNotesRead);
+      // Care Pulse "Contacted" snooze marks ({memberId: ISODate}) — cloud-synced so every device
+      // agrees on who's been reached out to (previously per-device localStorage → counts differed).
+      // Union cloud with any just-made local mark; newest date wins.
+      if(d.careContacted && typeof d.careContacted==='object') setCareContacted((cur:any)=>{
+        const curObj=cur&&typeof cur==='object'?cur:{};
+        const out:any={...d.careContacted};
+        Object.keys(curObj).forEach(k=>{ if(!(k in out) || new Date(curObj[k]).getTime()>new Date(out[k]).getTime()) out[k]=curObj[k]; });
+        return out;
+      });
       if(Array.isArray(d.hospitalityFund)) setHospitalityFund(d.hospitalityFund);
       if(typeof d.hospStartBalance === 'number'){
         // Don't let a stale cloud 0 wipe a real local starting balance (it self-heals on the next save).
@@ -17419,7 +17428,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
         emailLog,emailTemplates,emailConfig:safeEmailConfig,recurring,custom,checkIns,rollCalls,
         teacherSchedule,kidsCheckIns,teacherFollowups,eventRsvps,announcements,roles,permissions,churchSettings,users:safeUsers,prospects,
         followupDismissedChildIds,
-        sickVisits,benevolence,hospitalityFund,hospStartBalance:_hospBal,cleaningSchedule,eventSchedule,adminNotesRead};
+        sickVisits,benevolence,hospitalityFund,hospStartBalance:_hospBal,cleaningSchedule,eventSchedule,adminNotesRead,careContacted};
       // Staleness guard: did another device save after our last load?
       const {data:meta} = await supabase.from('church_data').select('updated_at').eq('church_id',churchId).maybeSingle();
       const remoteTs = meta?.updated_at ? new Date(meta.updated_at).getTime() : 0;
@@ -17459,7 +17468,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     emailLog,emailTemplates,emailConfig,recurring,custom,checkIns,rollCalls,
     teacherSchedule,kidsCheckIns,teacherFollowups,eventRsvps,announcements,roles,permissions,churchSettings,users,prospects,
     followupDismissedChildIds,
-    sickVisits,benevolence,hospitalityFund,hospStartBalance,cleaningSchedule,eventSchedule,adminNotesRead]);
+    sickVisits,benevolence,hospitalityFund,hospStartBalance,cleaningSchedule,eventSchedule,adminNotesRead,careContacted]);
 
   const nidEmail = useRef(8000);
   const logEmail = (data) => {

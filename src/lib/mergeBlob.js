@@ -34,7 +34,8 @@ const ID_ARRAYS = [
 // Arrays of bare scalar values (e.g. ids), merged as a set.
 const SCALAR_ARRAYS = ['followupDismissedChildIds', 'adminNotesRead'];
 // Objects merged per top-level key (additive — keys are never dropped).
-const OBJECT_FIELDS = ['permissions','churchSettings','emailConfig','cleaningSchedule','eventSchedule'];
+// careContacted = Care Pulse {memberId: ISODate} snooze marks; additive so marks from any device survive.
+const OBJECT_FIELDS = ['permissions','churchSettings','emailConfig','cleaningSchedule','eventSchedule','careContacted'];
 // Single scalar values.
 const SCALAR_FIELDS = ['hospStartBalance'];
 
