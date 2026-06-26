@@ -16308,6 +16308,26 @@ function MyAccountFallback({currentUser,roles=[],loggedInEmail="",displayName=""
     </div>
   );
 }
+// Live broadcast (BoxCast). Default embed below; an admin can override it in Church Settings
+// (churchSettings.liveStreamUrl) without a code change.
+const DEFAULT_LIVESTREAM_URL = "https://boxcast.tv/embed-app.html#rd2rmmxupntzozbtzbov?showTitle=1&showDescription=1&showHighlights=1&showRelated=1&defaultVideo=next&playInline=0&dvr=1&market=house-of-worship&showCountdown=1&showDonations=0&showDocuments=1&showIndex=1&showChat=1&hidePreBroadcastTextOverlay=0&layout=playlist-to-right";
+function MediaPage({cs}:any){
+  const url = String(cs?.liveStreamUrl||"").trim() || DEFAULT_LIVESTREAM_URL;
+  return (
+    <div>
+      <h2 style={{fontSize:20,fontWeight:600,color:N,margin:"0 0 4px"}}>Watch Live</h2>
+      <div style={{fontSize:13,color:MU,marginBottom:10,maxWidth:760,lineHeight:1.6}}>{cs?.name||"Our church"} live broadcast. The player shows the current or next scheduled service automatically — a countdown appears before it starts.</div>
+      <div style={{fontSize:12.5,color:"#92400e",background:"#fef3c7",border:"0.5px solid #fcd34d",borderRadius:8,padding:"8px 12px",marginBottom:16,maxWidth:760,lineHeight:1.5}}>🔊 The video starts muted (your browser requires it). Click the <strong>speaker icon</strong> in the player to turn on sound.</div>
+      {url ? (
+        <div style={{width:"100%",maxWidth:1200,height:"min(78vh,760px)",borderRadius:12,overflow:"hidden",border:"0.5px solid "+BR,background:"#000"}}>
+          <iframe src={url} title="Live Broadcast" allow="autoplay; fullscreen; encrypted-media; picture-in-picture" allowFullScreen style={{width:"100%",height:"100%",border:"none"}}/>
+        </div>
+      ) : (
+        <div style={{fontSize:13,color:MU,background:"#f8f9fc",border:"0.5px solid "+BR,borderRadius:12,padding:24,maxWidth:600}}>No live stream is configured yet. An administrator can add the broadcast link in <strong>Settings</strong>.</div>
+      )}
+    </div>
+  );
+}
 function MemberProfilePortal({member,setMembers,giving,onSignOut,staffMode=false,roles=[],users=[],setUsers,recurring=[],custom=[],eventRsvps=[],setEventRsvps=null,members=[],children=[],announcements=[],cleaningSchedule={},eventSchedule={},initialTab="profile",givingUrl=""}:any) {
   const [tab,setTab] = useState(initialTab);
   // Let the sidebar open the portal directly to a given tab (e.g. 📢 Announcements → News).
@@ -17552,6 +17572,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     {id:"people",label:"Members Profile",icon:"P",group:"Core"},
     {id:"prospects",label:"Prospects",icon:"🎯",group:"Core"},
     {id:"visitation",label:"Visitation",icon:"V",group:"Core"},
+    {id:"media",label:"Watch Live",icon:"📺",group:"Core"},
     {id:"prayer",label:"Prayer Wall",icon:"Pr",group:"Pastoral Care"},
     {id:"hospitalvisits",label:"Hospital & Visits",icon:"🏥",group:"Pastoral Care"},
     {id:"benevolencefund",label:"Benevolence Fund",icon:"🤝",group:"Pastoral Care"},
@@ -17606,6 +17627,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   const RESTRICTED_NAV_HIDDEN = ['ai','email','sms'];
   const PORTAL_NAV = [
     {id:"myprofile",label:"My Profile",icon:"👤",group:"Core"},
+    {id:"media",label:"Watch Live",icon:"📺",group:"Core"},
     {id:"give",label:"Give",icon:"💝",group:"Core"},
     {id:"news",label:"Announcements",icon:"📢",group:"Core"},
     {id:"prayer",label:"Prayer Wall",icon:"Pr",group:"Pastoral Care"},
@@ -17920,8 +17942,9 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           {!isMemberPortal && view==="attendance" && <Attendance attendance={attendance} setAttendance={setAttendance} setView={setView} checkIns={checkIns} setCheckIns={setCheckIns} members={members} visitors={visitors} kidsCheckIns={kidsCheckIns}/>}
           {!isMemberPortal && view==="giving" && canViewGiving && <Giving giving={giving} setGiving={setGiving} pledgeDrives={pledgeDrives} setPledgeDrives={setPledgeDrives} pledges={pledges} setPledges={setPledges} members={members} visitors={visitors} weeklyReports={weeklyReports} setWeeklyReports={setWeeklyReports} emailTemplates={emailTemplates} currentUser={currentUser} roles={roles} churchId={churchId} onTxnDeleted={(rec:any)=>{ if(rec&&rec.txnId) givingDeletedTxns.current.add(String(rec.txnId)); }}/>}
           {!isMemberPortal && view==="prayer" && <Prayer prayers={prayers} setPrayers={setPrayers}/>}
-          {/* ── Member Portal hard-gate: only myprofile and prayer allowed ── */}
-          {isMemberPortal && view!=="prayer" && <MemberProfilePortal member={portalMember} setMembers={setMembers} giving={giving} onSignOut={onSignOut} roles={roles} users={users} setUsers={setUsers} recurring={recurring} custom={custom} eventRsvps={eventRsvps} setEventRsvps={setEventRsvps} members={members} children={children} announcements={announcements} cleaningSchedule={cleaningSchedule} eventSchedule={eventSchedule} givingUrl={churchSettings?.onlineGivingUrl||"https://myntccglendaleaz.onlinegiving.cc/"} initialTab={view==="give"?"give":view==="news"?"news":"profile"}/>}
+          {/* ── Member Portal hard-gate: only myprofile, media, and prayer allowed ── */}
+          {view==="media" && <MediaPage cs={churchSettings}/>}
+          {isMemberPortal && view!=="prayer" && view!=="media" && <MemberProfilePortal member={portalMember} setMembers={setMembers} giving={giving} onSignOut={onSignOut} roles={roles} users={users} setUsers={setUsers} recurring={recurring} custom={custom} eventRsvps={eventRsvps} setEventRsvps={setEventRsvps} members={members} children={children} announcements={announcements} cleaningSchedule={cleaningSchedule} eventSchedule={eventSchedule} givingUrl={churchSettings?.onlineGivingUrl||"https://myntccglendaleaz.onlinegiving.cc/"} initialTab={view==="give"?"give":view==="news"?"news":"profile"}/>}
           {isMemberPortal && view==="prayer" && <Prayer prayers={prayers} setPrayers={setPrayers} portalMode={true} portalMember={portalMember}/>}
           {/* ── My Profile: every logged-in staff/user. Shows their member record if linked, else a read-only account card. ── */}
           {!isMemberPortal && view==="myprofile" && (staffMemberRecord
