@@ -10946,6 +10946,18 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
     localStorage.setItem(fixKey,"1");
   // eslint-disable-next-line
   },[]);
+  // One-time: correct OnlineGiving gifts that posted to the wrong day from the UTC timezone bug
+  // (evening 6/25 Arizona gifts landed on 6/26). Re-date the affected gifts back to 6/25.
+  useEffect(()=>{
+    const fixKey = "ntcc_og_tzfix_20260625_done";
+    if(localStorage.getItem(fixKey)==="1") return;
+    if(!Array.isArray(giving) || !giving.length) return; // wait for giving to load
+    const names = ["charles gray","bianca sanabria","sweet mercurio"];
+    const isT=(g:any)=> g && g.source==="onlinegiving" && String(g.date||"")==="2026-06-26" && names.includes(((g.name||"")+"").trim().toLowerCase());
+    if(giving.some(isT)) setGiving((gs:any[])=>gs.map((g:any)=> isT(g) ? {...g,date:"2026-06-25"} : g));
+    localStorage.setItem(fixKey,"1");
+  // eslint-disable-next-line
+  },[giving]);
   useEffect(()=>{
     const fixKey = "ntcc_onlinegiving_dedupe_fix_20260525_done";
     if(localStorage.getItem(fixKey)==="1") return;
@@ -16856,13 +16868,17 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   const fetchOnlineGiftAdds = async (existingTxnIds:Set<string>)=>{
     try {
       const {data:inc} = await supabase.from('online_giving_incoming')
-        .select('txn_id,donor_first,donor_last,donor_email,amount,category,gift_date')
+        .select('txn_id,donor_first,donor_last,donor_email,amount,category,gift_date,created_at')
         .eq('church_id',churchId).order('created_at',{ascending:false}).limit(2000);
       if(!inc || !inc.length) return [];
       let n = Date.now();
+      // Record the gift on its calendar date in ARIZONA time (America/Phoenix, no DST). The DB
+      // stored gift_date in UTC, so an evening gift rolled forward a day; deriving the date from
+      // the received timestamp in Arizona time fixes that. Falls back to gift_date if needed.
+      const azDate=(ts:any)=>{try{return new Date(ts).toLocaleDateString('en-CA',{timeZone:'America/Phoenix'});}catch{return '';}};
       return inc.filter((d:any)=>d.txn_id && !existingTxnIds.has(String(d.txn_id)) && !givingDeletedTxns.current.has(String(d.txn_id)))
         .map((d:any)=>({
-          id: n++, date: d.gift_date || td(),
+          id: n++, date: azDate(d.created_at) || d.gift_date || td(),
           name: ((d.donor_first||'')+' '+(d.donor_last||'')).trim() || d.donor_email || 'Online Gift',
           category: d.category || 'Offering', amount: Number(d.amount)||0,
           method: 'Online', notes: 'Imported from Online Giving', txnId: d.txn_id, source: 'onlinegiving',
@@ -16986,6 +17002,17 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   const [eventRsvps,setEventRsvps] = useState(lsGet('eventRsvps') ?? []);
   const [announcements,setAnnouncements] = useState(lsGet('announcements') ?? []);
   const [followupDismissedChildIds,setFollowupDismissedChildIds] = useState(lsGet('followupDismissedChildIds') ?? []);
+  // Auto-remove one-time events (and their RSVPs) once the event date has passed, so the calendar
+  // and Manage Events list don't pile up stale events (e.g. Father's Day after it's over). Recurring
+  // weekly services have no fixed date and are never touched. The `.some` guards prevent re-loops.
+  useEffect(()=>{
+    const today = td();
+    const isPast=(d:any)=> d && String(d) < today;
+    if(Array.isArray(custom) && custom.some((e:any)=>e && isPast(e.date)))
+      setCustom((cs:any[])=> cs.filter((e:any)=> !(e && isPast(e.date))));
+    if(Array.isArray(eventRsvps) && eventRsvps.some((r:any)=>r && isPast(r.date)))
+      setEventRsvps((rs:any[])=> rs.filter((r:any)=> !(r && isPast(r.date))));
+  },[custom,eventRsvps]);
   const [printerConfig,setPrinterConfig] = useState(lsGet('printerConfig') ?? DEFAULT_PRINTER_CFG);
   const [incidents,setIncidents] = useState([]); // confidential — loaded from church_confidential (Pastor/Admin)
   const [rollCalls,setRollCalls] = useState(lsGet('rollCalls') ?? _I.rollCalls ?? []);
