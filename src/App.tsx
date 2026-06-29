@@ -13761,11 +13761,22 @@ function TeacherFollowPipeline({children,kidsCheckIns,rollCalls,users,members,cu
     if(v==="stage1") return 1;
     return 0;
   };
+  // Stable identity for a follow-up's child: name + parent. Collapses duplicate roster entries for the
+  // SAME child (which carry DIFFERENT child IDs) so they don't produce two Stage-1 cards. A parent
+  // match (phone or name) is REQUIRED, so two unrelated children who merely share a name are never merged.
+  const childIdentityKey = (r:any) => {
+    const f = String(r?.childFirst||"").trim().toLowerCase();
+    const l = String(r?.childLast||"").trim().toLowerCase();
+    const ph = String(r?.parentPhone||"").replace(/\D/g,"");
+    const pn = String(r?.parentName||"").trim().toLowerCase();
+    return (f && l && (ph || pn)) ? `idn:${f}|${l}|${ph||pn}` : null;
+  };
   const normalizePipelineRecords = (rows:any[]) => {
     const arr = Array.isArray(rows) ? rows : [];
     const byKey = new Map<string,any>();
     arr.forEach((r:any)=>{
-      const key = (r?.childId!==undefined && r?.childId!==null && String(r.childId)!=="") ? `child:${String(r.childId)}` : `id:${String(r?.id)}`;
+      const key = childIdentityKey(r)
+        || ((r?.childId!==undefined && r?.childId!==null && String(r.childId)!=="") ? `child:${String(r.childId)}` : `id:${String(r?.id)}`);
       const cur = byKey.get(key);
       if(!cur){ byKey.set(key,r); return; }
       const curTs = new Date(cur?.movedToOngoingAt||cur?.assignedAt||cur?.lastStatusAt||cur?.createdAt||0).getTime() || 0;
