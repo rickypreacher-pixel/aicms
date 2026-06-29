@@ -12598,7 +12598,7 @@ function CheckInPortal({classrooms,children,setChildren,kidsCheckIns,setKidsChec
     setSelChild(null);
     setSelClass(null);
   };
-  const addChild=()=>{if(!newChild.first||!newChild.last||!newChild.grade){alert("Name and level required.");return;}const id=600+children.length+1;const c={...newChild,id,status:"Active"};setChildren(cs=>[...cs,c]);pickChild(c);setNewModal(false);setNewChild({first:"",last:"",dob:"",grade:"",parentName:"",parentPhone:"",allergies:[],medical:[],medicalNotes:"",emergencyPickup:""});};
+  const addChild=()=>{if(!newChild.first||!newChild.last||!newChild.grade){alert("Name and level required.");return;}const id=newChildId();const c={...newChild,id,status:"Active"};setChildren(cs=>[...cs,c]);pickChild(c);setNewModal(false);setNewChild({first:"",last:"",dob:"",grade:"",parentName:"",parentPhone:"",allergies:[],medical:[],medicalNotes:"",emergencyPickup:""});};
   const reprint=id=>{const ci=kidsCheckIns.find(c=>c.id===id);if(!ci)return;const ch=children.find(c=>c.id===ci.childId);const cl=classrooms.find(c=>c.id===ci.classroomId);if(ch&&cl&&shouldPrintChildLabel(ch,cl))setPrintData({ci,child:ch,classroom:cl});};
   return(
     <div>
@@ -12652,7 +12652,101 @@ function CheckInPortal({classrooms,children,setChildren,kidsCheckIns,setKidsChec
   );
 }
 
-function ChildrenRoster({children,setChildren,classrooms,members,setMembers,kidsCheckIns,incidents,teacherFollowups,setTeacherFollowups,followupDismissedChildIds,setFollowupDismissedChildIds}){
+// Collision-proof unique child id (timestamp-based). Replaces the old length/useRef schemes that
+// reset per session/device and caused both duplicate kids and shared-id collisions.
+const newChildId=()=>Math.floor(Date.now()*1000+Math.random()*1000);
+
+// ── Duplicate-children detection ──────────────────────────────────────────────
+// Groups children who share first+last AND a parent (phone, name, or member link) OR a date of birth
+// — i.e. the same child entered more than once. Requires a parent/DOB match so two unrelated kids who
+// merely share a name are never grouped. Returns an array of groups (each group = 2+ likely-dupes).
+const _cnorm=(s:any)=>String(s||"").trim().toLowerCase().replace(/\s+/g," ");
+const _cdig=(s:any)=>String(s||"").replace(/\D/g,"");
+function findChildDupGroups(children:any[]){
+  const arr=Array.isArray(children)?children:[];
+  const byName:Record<string,any[]>={};
+  arr.forEach((c:any)=>{ const f=_cnorm(c.first),l=_cnorm(c.last); if(!f||!l)return; (byName[f+"|"+l]=byName[f+"|"+l]||[]).push(c); });
+  const groups:any[][]=[];
+  Object.values(byName).forEach((list:any[])=>{
+    if(list.length<2) return;
+    const parent=list.map(()=>-1);
+    const find=(i:number):number=>{ while(parent[i]>=0)i=parent[i]; return i; };
+    const union=(a:number,b:number)=>{ a=find(a);b=find(b); if(a!==b)parent[a]=b; };
+    for(let i=0;i<list.length;i++)for(let j=i+1;j<list.length;j++){
+      const A=list[i],B=list[j];
+      const samePhone=!!_cdig(A.parentPhone)&&_cdig(A.parentPhone)===_cdig(B.parentPhone);
+      const sameName=!!_cnorm(A.parentName)&&_cnorm(A.parentName)===_cnorm(B.parentName);
+      const sameMember=A.parentMemberId!=null&&B.parentMemberId!=null&&String(A.parentMemberId)===String(B.parentMemberId);
+      const sameDob=!!A.dob&&String(A.dob)===String(B.dob);
+      if(samePhone||sameName||sameMember||sameDob) union(i,j);
+    }
+    const cl:Record<number,any[]>={};
+    list.forEach((c:any,i:number)=>{ const r=find(i); (cl[r]=cl[r]||[]).push(c); });
+    Object.values(cl).forEach((g:any[])=>{ if(g.length>1) groups.push(g); });
+  });
+  return groups;
+}
+
+// Review-based merge: pick the record to KEEP per group; the others' check-ins, roll-call marks,
+// follow-ups, progress notes, incidents, dismissals, and the parent's child-link are reassigned to it,
+// then the duplicates are removed. Nothing merges without an explicit per-group confirm.
+function ChildDedupeModal({open,onClose,children,setChildren,kidsCheckIns,setKidsCheckIns,setRollCalls,setTeacherFollowups,setProgressNotes,setIncidents,setFollowupDismissedChildIds,setMembers}:any){
+  const groups=useMemo(()=>findChildDupGroups(children),[JSON.stringify((children||[]).map((c:any)=>[c.id,c.first,c.last,c.dob,c.parentPhone,c.parentName,c.parentMemberId]))]);
+  const ciCount=(id:any)=>(Array.isArray(kidsCheckIns)?kidsCheckIns:[]).filter((k:any)=>String(k.childId)===String(id)).length;
+  const defaultKeep=(g:any[])=>[...g].sort((a:any,b:any)=>(ciCount(b.id)-ciCount(a.id))||((b.parentMemberId?1:0)-(a.parentMemberId?1:0))||(Number(a.id)-Number(b.id)))[0]?.id;
+  const [keep,setKeep]=useState<Record<number,any>>({});
+  const [done,setDone]=useState<Record<number,boolean>>({});
+  const keepFor=(gi:number,g:any[])=>keep[gi]!==undefined?keep[gi]:defaultKeep(g);
+  const merge=(gi:number,g:any[])=>{
+    const keepId=keepFor(gi,g);
+    const keeper=g.find((c:any)=>String(c.id)===String(keepId)); if(!keeper)return;
+    const losers=g.filter((c:any)=>String(c.id)!==String(keepId));
+    const loserIds=new Set(losers.map((c:any)=>String(c.id)));
+    if(!confirm(`Merge ${losers.length} duplicate record${losers.length!==1?"s":""} of ${keeper.first} ${keeper.last} into the kept one? Their check-ins and follow-ups move to the kept record. This cannot be undone.`)) return;
+    setChildren((cs:any[])=>{ const m={...keeper}; losers.forEach((L:any)=>{ ["dob","grade","classroomId","parentName","parentPhone","parentMemberId","medicalNotes","emergencyPickup","status"].forEach((k)=>{ if((m[k]==null||m[k]==="")&&L[k]) m[k]=L[k]; }); m.allergies=Array.from(new Set([...(m.allergies||[]),...(L.allergies||[])])); m.medical=Array.from(new Set([...(m.medical||[]),...(L.medical||[])])); }); return (Array.isArray(cs)?cs:[]).filter((c:any)=>!loserIds.has(String(c.id))).map((c:any)=>String(c.id)===String(keepId)?m:c); });
+    if(typeof setKidsCheckIns==="function") setKidsCheckIns((ks:any[])=>{ const re=(Array.isArray(ks)?ks:[]).map((k:any)=>loserIds.has(String(k.childId))?{...k,childId:keeper.id}:k); const seen=new Set(); const out:any[]=[]; re.forEach((k:any)=>{ const key=String(k.childId)+"|"+String(k.date); if(!seen.has(key)){seen.add(key);out.push(k);} }); return out; });
+    if(typeof setRollCalls==="function") setRollCalls((rcs:any[])=>(Array.isArray(rcs)?rcs:[]).map((rc:any)=>{ if(!Array.isArray(rc.entries))return rc; const seen=new Set(); const entries:any[]=[]; rc.entries.forEach((e:any)=>{ const cid=loserIds.has(String(e.childId))?keeper.id:e.childId; if(!seen.has(String(cid))){seen.add(String(cid));entries.push({...e,childId:cid});} }); return {...rc,entries}; }));
+    if(typeof setTeacherFollowups==="function") setTeacherFollowups((fs:any[])=>{ const re=(Array.isArray(fs)?fs:[]).map((f:any)=>loserIds.has(String(f.childId))?{...f,childId:keeper.id,childFirst:keeper.first,childLast:keeper.last}:f); const seen=new Set(); const out:any[]=[]; re.forEach((f:any)=>{ if(!seen.has(String(f.childId))){seen.add(String(f.childId));out.push(f);} }); return out; });
+    if(typeof setProgressNotes==="function") setProgressNotes((ns:any[])=>(Array.isArray(ns)?ns:[]).map((n:any)=>loserIds.has(String(n.childId))?{...n,childId:keeper.id}:n));
+    if(typeof setIncidents==="function") setIncidents((is:any[])=>(Array.isArray(is)?is:[]).map((i:any)=>loserIds.has(String(i.childId))?{...i,childId:keeper.id}:i));
+    if(typeof setFollowupDismissedChildIds==="function") setFollowupDismissedChildIds((ds:any[])=>Array.from(new Set((Array.isArray(ds)?ds:[]).map((x:any)=>loserIds.has(String(x))?String(keeper.id):String(x)))));
+    if(typeof setMembers==="function") setMembers((ms:any[])=>(Array.isArray(ms)?ms:[]).map((mm:any)=>{ if(!Array.isArray(mm.children))return mm; let changed=false; const kids=mm.children.map((c:any)=>{ if(c.memberId!=null&&loserIds.has(String(c.memberId))){changed=true;return{...c,memberId:keeper.id};} return c; }); if(!changed)return mm; const seen=new Set(); const dd:any[]=[]; kids.forEach((c:any)=>{ const key=c.memberId!=null?("m"+c.memberId):("n"+_cnorm(c.first)+_cnorm(c.last)); if(!seen.has(key)){seen.add(key);dd.push(c);} }); return {...mm,children:dd}; }));
+    setDone((d:any)=>({...d,[gi]:true}));
+  };
+  if(!open) return null;
+  return (
+    <Modal open={open} onClose={onClose} title="Find & Merge Duplicate Children" width={640}>
+      <div style={{fontSize:12.5,color:MU,marginBottom:14,lineHeight:1.6}}>These children share a name <b>and</b> a parent or date of birth — likely the same child entered more than once. Pick the record to <b>keep</b>; its check-ins, follow-ups, and notes will absorb the others. Review each group before merging.</div>
+      {groups.length===0 && <div style={{textAlign:"center",padding:24,color:MU,fontSize:13}}>No likely duplicates found. 🎉</div>}
+      <div style={{display:"flex",flexDirection:"column",gap:14,maxHeight:"60vh",overflowY:"auto"}}>
+        {groups.map((g:any[],gi:number)=>{
+          if(done[gi]) return (<div key={gi} style={{background:"#f0fdf4",border:"0.5px solid #86efac",borderRadius:10,padding:"10px 14px",fontSize:13,color:"#166534",fontWeight:500}}>✓ Merged {g[0].first} {g[0].last}.</div>);
+          const kid=keepFor(gi,g);
+          return (
+            <div key={gi} style={{border:"0.5px solid "+BR,borderRadius:10,padding:14,background:W}}>
+              <div style={{fontSize:13,fontWeight:600,color:N,marginBottom:8}}>{g[0].first} {g[0].last} <span style={{fontWeight:400,color:MU}}>· {g.length} records</span></div>
+              <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:10}}>
+                {g.map((c:any)=>(
+                  <label key={c.id} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",border:"0.5px solid "+(String(kid)===String(c.id)?GR:BR),background:String(kid)===String(c.id)?"#f0fdf4":BG,borderRadius:8,cursor:"pointer"}}>
+                    <input type="radio" name={"keep"+gi} checked={String(kid)===String(c.id)} onChange={()=>setKeep((k:any)=>({...k,[gi]:c.id}))}/>
+                    <div style={{flex:1,fontSize:12.5}}>
+                      <div style={{fontWeight:500,color:TX}}>{c.first} {c.last}{c.dob?<span style={{color:MU,fontWeight:400}}> · DOB {c.dob}</span>:null}</div>
+                      <div style={{color:MU,fontSize:11.5}}>{c.parentName||"no parent"}{c.parentPhone?" · "+c.parentPhone:""}{c.grade?" · "+c.grade:""} · {ciCount(c.id)} check-in{ciCount(c.id)!==1?"s":""} · id {String(c.id)}</div>
+                    </div>
+                    {String(kid)===String(c.id)&&<span style={{fontSize:10,background:GR+"22",color:GR,borderRadius:10,padding:"2px 8px",fontWeight:700}}>KEEP</span>}
+                  </label>
+                ))}
+              </div>
+              <Btn onClick={()=>merge(gi,g)} v="success" style={{fontSize:12.5,padding:"7px 14px"}}>Merge {g.length} → 1</Btn>
+            </div>
+          );
+        })}
+      </div>
+    </Modal>
+  );
+}
+
+function ChildrenRoster({children,setChildren,classrooms,members,setMembers,kidsCheckIns,setKidsCheckIns,setRollCalls,incidents,setIncidents,progressNotes,setProgressNotes,teacherFollowups,setTeacherFollowups,followupDismissedChildIds,setFollowupDismissedChildIds}){
   const [search,setSearch]=useState("");
   const [cDrop,setCDrop]=useState(false);
   const [filterGrade,setFilterGrade]=useState("all");
@@ -12662,7 +12756,8 @@ function ChildrenRoster({children,setChildren,classrooms,members,setMembers,kids
   const [form,setForm]=useState(blankForm());
   const [parentQuery,setParentQuery]=useState("");
   const [parentSugs,setParentSugs]=useState<any[]>([]);
-  const nid=useRef(700);
+  const [dedupeOpen,setDedupeOpen]=useState(false);
+  const dupExtra=useMemo(()=>findChildDupGroups(children).reduce((a:number,g:any[])=>a+g.length-1,0),[JSON.stringify((children||[]).map((c:any)=>[c.id,c.first,c.last,c.dob,c.parentPhone,c.parentName,c.parentMemberId]))]);
   const filtered=children.filter(c=>{if(search&&!(c.first+" "+c.last).toLowerCase().includes(search.toLowerCase()))return false;if(filterGrade!=="all"&&c.grade!==filterGrade)return false;return true;});
   useEffect(()=>{
     if(form.parentMemberId){setParentSugs([]);return;}
@@ -12682,7 +12777,7 @@ function ChildrenRoster({children,setChildren,classrooms,members,setMembers,kids
     const savedChild={...form,grade:finalGrade};
     let savedId:any=editing?.id;
     if(editing){setChildren((cs:any[])=>cs.map(c=>c.id===editing.id?{...c,...savedChild}:c));}
-    else{savedId=nid.current++;setChildren((cs:any[])=>[...cs,{...savedChild,id:savedId}]);}
+    else{savedId=newChildId();setChildren((cs:any[])=>[...cs,{...savedChild,id:savedId}]);}
     if(form.parentMemberId&&setMembers){
       setMembers((ms:any[])=>ms.map((m:any)=>{
         if(m.id!==form.parentMemberId)return m;
@@ -12761,6 +12856,7 @@ function ChildrenRoster({children,setChildren,classrooms,members,setMembers,kids
           <option value="all">All levels</option>
           {CHURCH_LEVELS.map(l=><option key={l.name} value={l.name}>{l.name}</option>)}
         </select>
+        <Btn onClick={()=>setDedupeOpen(true)} v="outline" style={dupExtra>0?{borderColor:AM,color:"#b45309"}:undefined}>🔁 Find duplicates{dupExtra>0?` (${dupExtra})`:""}</Btn>
         <Btn onClick={openAdd}>+ Add Child</Btn>
       </div>
       <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,overflow:"hidden"}}>
@@ -12772,6 +12868,7 @@ function ChildrenRoster({children,setChildren,classrooms,members,setMembers,kids
           </tbody>
         </table>
       </div>
+      <ChildDedupeModal open={dedupeOpen} onClose={()=>setDedupeOpen(false)} children={children} setChildren={setChildren} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckIns} setRollCalls={setRollCalls} setTeacherFollowups={setTeacherFollowups} setProgressNotes={setProgressNotes} setIncidents={setIncidents} setFollowupDismissedChildIds={setFollowupDismissedChildIds} setMembers={setMembers}/>
       <Modal open={modal} onClose={()=>setModal(false)} title={editing?"Edit Child":"Register New Child"} width={520}>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
           <Fld label="First Name *"><Inp value={form.first} onChange={v=>setForm(f=>({...f,first:v}))}/></Fld>
@@ -14096,7 +14193,7 @@ function Education({members,setMembers,visitors,attendance,setAttendance,users,r
       {tab==="dashboard"&&<EdDashboard classrooms={classrooms} children={children} kidsCheckIns={kidsCheckIns} teacherSchedule={teacherSchedule} users={users} members={members} checkIns={checkIns} setTab={setTab}/>}
       {tab==="checkin"&&<CheckInPortal classrooms={classrooms} children={children} setChildren={setChildren} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckIns} attendance={attendance} setAttendance={setAttendance} members={members} printerConfig={printerConfig} rollCalls={rollCalls} setRollCalls={setRollCalls} progressNotes={progressNotes} setProgressNotes={setProgressNotes} teacherFollowups={teacherFollowups} setTeacherFollowups={setTeacherFollowups} addConfidential={addConfidential} currentUser={currentUser} roles={roles}/>}
       {tab==="rollcall"&&<ClassRollCall classrooms={classrooms} children={children} rollCalls={rollCalls} setRollCalls={setRollCalls} teacherSchedule={teacherSchedule} users={users} members={members} cs={cs}/>}
-      {tab==="children"&&<ChildrenRoster children={children} setChildren={setChildren} classrooms={classrooms} members={members} setMembers={setMembers} kidsCheckIns={kidsCheckIns} incidents={incidents} teacherFollowups={teacherFollowups} setTeacherFollowups={setTeacherFollowups} followupDismissedChildIds={followupDismissedChildIds} setFollowupDismissedChildIds={setFollowupDismissedChildIds}/>}
+      {tab==="children"&&<ChildrenRoster children={children} setChildren={setChildren} classrooms={classrooms} members={members} setMembers={setMembers} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckIns} setRollCalls={setRollCalls} incidents={incidents} setIncidents={setIncidents} progressNotes={progressNotes} setProgressNotes={setProgressNotes} teacherFollowups={teacherFollowups} setTeacherFollowups={setTeacherFollowups} followupDismissedChildIds={followupDismissedChildIds} setFollowupDismissedChildIds={setFollowupDismissedChildIds}/>}
       {tab==="progress"&&<ChildProgress children={children} classrooms={classrooms} rollCalls={rollCalls} progressNotes={progressNotes} setProgressNotes={setProgressNotes} addConfidential={addConfidential} cs={cs}/>}
       {tab==="classrooms"&&<ClassroomsManager classrooms={classrooms} setClassrooms={setClassrooms} teacherSchedule={teacherSchedule} users={users} members={members} kidsCheckIns={kidsCheckIns}/>}
       {tab==="teachers"&&<TeacherScheduleMgr classrooms={classrooms} teacherSchedule={teacherSchedule} setTeacherSchedule={setTeacherSchedule} users={users} members={members} roles={roles}/>}
