@@ -13861,19 +13861,25 @@ function TeacherFollowPipeline({children,kidsCheckIns,rollCalls,users,members,cu
   // Stable identity for a follow-up's child: name + parent. Collapses duplicate roster entries for the
   // SAME child (which carry DIFFERENT child IDs) so they don't produce two Stage-1 cards. A parent
   // match (phone or name) is REQUIRED, so two unrelated children who merely share a name are never merged.
-  const childIdentityKey = (r:any) => {
-    const f = String(r?.childFirst||"").trim().toLowerCase();
-    const l = String(r?.childLast||"").trim().toLowerCase();
-    const ph = String(r?.parentPhone||"").replace(/\D/g,"");
-    const pn = String(r?.parentName||"").trim().toLowerCase();
-    return (f && l && (ph || pn)) ? `idn:${f}|${l}|${ph||pn}` : null;
-  };
+  // Map every childId to a CANONICAL id, collapsing duplicate roster children (same name + shared
+  // parent phone/name/member, OR same DOB) — the SAME grouping the merge tool uses, but read from the
+  // live roster so it works even when a follow-up record's own stored parent fields are blank/stale
+  // (the common case: the parent was added to the child AFTER the follow-up record was created).
+  const childCanonical = useMemo(()=>{
+    const map:Record<string,string>={};
+    findChildDupGroups(safeChildren).forEach((g:any[])=>{
+      const canon=String(g[0]?.id);
+      g.forEach((c:any)=>{ map[String(c.id)]=canon; });
+    });
+    return map;
+  },[JSON.stringify(safeChildren.map((c:any)=>[c.id,c.first,c.last,c.dob,c.parentPhone,c.parentName,c.parentMemberId]))]);
+  const canonChildId = (cid:any)=> (cid!==undefined&&cid!==null&&String(cid)!=="") ? (childCanonical[String(cid)]||String(cid)) : "";
   const normalizePipelineRecords = (rows:any[]) => {
     const arr = Array.isArray(rows) ? rows : [];
     const byKey = new Map<string,any>();
     arr.forEach((r:any)=>{
-      const key = childIdentityKey(r)
-        || ((r?.childId!==undefined && r?.childId!==null && String(r.childId)!=="") ? `child:${String(r.childId)}` : `id:${String(r?.id)}`);
+      const cc = canonChildId(r?.childId);
+      const key = cc ? `child:${cc}` : `id:${String(r?.id)}`;
       const cur = byKey.get(key);
       if(!cur){ byKey.set(key,r); return; }
       const curTs = new Date(cur?.movedToOngoingAt||cur?.assignedAt||cur?.lastStatusAt||cur?.createdAt||0).getTime() || 0;
@@ -13885,7 +13891,7 @@ function TeacherFollowPipeline({children,kidsCheckIns,rollCalls,users,members,cu
     });
     return Array.from(byKey.values());
   };
-  const safePipeline:any[] = useMemo(()=>normalizePipelineRecords(Array.isArray(pipeline) ? pipeline : []),[JSON.stringify(pipeline)]);
+  const safePipeline:any[] = useMemo(()=>normalizePipelineRecords(Array.isArray(pipeline) ? pipeline : []),[JSON.stringify(pipeline),JSON.stringify(childCanonical)]);
 
   const activeUsers = safeUsers.filter((u:any)=>u.status==="Active");
   // Stage-1 assignment is teachers-only: a user qualifies if their primary OR secondary role
