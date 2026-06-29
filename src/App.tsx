@@ -3070,22 +3070,36 @@ function PermTab({roles,permissions,setPermissions,currentUser}){
   );
 }
 
-function PortalTab({members,portalMembers,setPortalMembers,currentUser,roles}){
+function PortalTab({members,portalMembers,setPortalMembers,currentUser,roles,churchId}){
   const [modal,setModal] = useState(false);
   const [sel,setSel] = useState(null);
-  const [pin,setPin] = useState("");
-  const [pinModal,setPinModal] = useState(false);
-  const [editPin,setEditPin] = useState(null);
+  const [copiedId,setCopiedId] = useState<any>(null);
   const isAdmin = currentUser?.superAdmin || (currentUser?.roleId && roles?.find(r=>r.id===currentUser.roleId)?.name==="Administrator");
   const existing = portalMembers.map(p=>p.memberId);
   const avail = members.filter(m=>!existing.includes(m.id));
 
+  // A member logs in by EMAIL: they open this link (or use the "Member" tab), which pre-fills the
+  // Church Access Code + their email so their login matches their member record.
+  const inviteLink = (m:any) => {
+    if(!m || !churchId) return "";
+    const base = (typeof window!=="undefined" ? window.location.origin : "");
+    const q = new URLSearchParams({ member:String(churchId), email:String(m.email||""), first:String(m.first||""), last:String(m.last||"") });
+    return `${base}/?${q.toString()}`;
+  };
+  const copyInvite = async (m:any) => {
+    const link = inviteLink(m);
+    if(!link) return;
+    try { await navigator.clipboard.writeText(link); } catch { try{ const t=document.createElement("textarea"); t.value=link; document.body.appendChild(t); t.select(); document.execCommand("copy"); document.body.removeChild(t); }catch{} }
+    setCopiedId(m.id); setTimeout(()=>setCopiedId(null),2000);
+  };
+
   const add = () => {
     if(!sel){alert("Select a member.");return;}
-    if(pin.length<4){alert("PIN must be 4 digits.");return;}
+    if(!sel.email){ if(!confirm(`${sel.first} ${sel.last} has no email on file. They log in by email, so add their email to their member profile first. Grant access anyway?`)) return; }
     const newPerms = Object.fromEntries(PORTAL_PERMS.map(p=>[p.key,true]));
-    setPortalMembers(ps=>[...ps,{memberId:sel.id,pin,status:"Active",perms:newPerms}]);
-    setSel(null); setPin(""); setModal(false);
+    setPortalMembers(ps=>[...ps,{memberId:sel.id,status:"Active",perms:newPerms}]);
+    const justAdded = sel; setSel(null); setModal(false);
+    if(justAdded.email) setTimeout(()=>copyInvite(justAdded),100);
   };
   const togglePerm = (mid,key) => setPortalMembers(ps=>ps.map(p=>p.memberId===mid?{...p,perms:{...p.perms,[key]:!p.perms[key]}}:p));
   const toggleStatus = mid => setPortalMembers(ps=>ps.map(p=>p.memberId===mid?{...p,status:p.status==="Active"?"Suspended":"Active"}:p));
@@ -3094,14 +3108,14 @@ function PortalTab({members,portalMembers,setPortalMembers,currentUser,roles}){
   return (
     <div>
       <div style={{background:GL,border:"0.5px solid "+G,borderRadius:10,padding:"12px 16px",marginBottom:16,fontSize:13,color:"#7a5c10",lineHeight:1.7}}>
-        <strong>Member Self-Service Portal</strong> — Selected members log in with a personal PIN to view their own records only (attendance, giving, events).
+        <strong>Member Self-Service Portal</strong> — Members sign in with <strong>their own email</strong> to view only their own records (profile, giving, prayer). Grant a member access below, then <strong>send them their invite link</strong> — it pre-fills everything so they just choose a password. They can also use the <strong>“Member”</strong> tab on the login screen, or the passwordless <strong>“Email me a sign-in link”</strong> option. <em>A member's email must match the email on their member profile.</em>
       </div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
         <div>
           <h3 style={{fontSize:15,fontWeight:500,color:N,margin:0}}>Portal Members ({portalMembers.length})</h3>
           <div style={{fontSize:12,color:MU,marginTop:2}}>Separate from staff user accounts — members see only their own data</div>
         </div>
-        <Btn onClick={()=>{setSel(null);setPin("");setModal(true);}} disabled={!isAdmin}>+ Grant Portal Access</Btn>
+        <Btn onClick={()=>{setSel(null);setModal(true);}} disabled={!isAdmin}>+ Grant Portal Access</Btn>
       </div>
       {portalMembers.length===0 ? (
         <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:48,textAlign:"center"}}>
@@ -3123,10 +3137,10 @@ function PortalTab({members,portalMembers,setPortalMembers,currentUser,roles}){
                       <span style={{fontSize:14,fontWeight:500}}>{m.first} {m.last}</span>
                       <span style={{fontSize:11,borderRadius:20,padding:"2px 9px",fontWeight:500,background:active?"#dcfce7":"#fee2e2",color:active?GR:RE}}>{pm.status}</span>
                     </div>
-                    <div style={{fontSize:12,color:MU,marginTop:2}}>{m.email} · {m.role||"Member"}</div>
+                    <div style={{fontSize:12,color:m.email?MU:RE,marginTop:2}}>{m.email||"⚠ no email — add one to their profile so they can sign in"} · {m.role||"Member"}</div>
                   </div>
-                  <div style={{display:"flex",gap:6}}>
-                    {isAdmin && <Btn onClick={()=>{setEditPin({memberId:pm.memberId,pin:""});setPinModal(true);}} v="ghost" style={{fontSize:11,padding:"4px 9px"}}>Reset PIN</Btn>}
+                  <div style={{display:"flex",gap:6,flexWrap:"wrap",justifyContent:"flex-end"}}>
+                    <Btn onClick={()=>copyInvite(m)} v={copiedId===m.id?"outline":"ghost"} disabled={!m.email} style={{fontSize:11,padding:"4px 9px"}}>{copiedId===m.id?"✓ Copied":"🔗 Invite link"}</Btn>
                     {isAdmin && <Btn onClick={()=>toggleStatus(pm.memberId)} v={active?"ghost":"outline"} style={{fontSize:11,padding:"4px 9px"}}>{active?"Suspend":"Reactivate"}</Btn>}
                     {isAdmin && <Btn onClick={()=>remove(pm.memberId)} v="danger" style={{fontSize:11,padding:"4px 9px"}}>X</Btn>}
                   </div>
@@ -3150,28 +3164,18 @@ function PortalTab({members,portalMembers,setPortalMembers,currentUser,roles}){
           })}
         </div>
       )}
-      <Modal open={modal} onClose={()=>setModal(false)} title="Grant Member Portal Access" width={420}>
+      <Modal open={modal} onClose={()=>setModal(false)} title="Grant Member Portal Access" width={440}>
         <Fld label="Select Member *">
           <select value={sel?.id||""} onChange={e=>setSel(members.find(m=>m.id===+e.target.value)||null)} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}>
             <option value="">Choose a member</option>
-            {avail.map(m=><option key={m.id} value={m.id}>{m.first} {m.last}{m.role?" ("+m.role+")":""}</option>)}
+            {avail.map(m=><option key={m.id} value={m.id}>{m.first} {m.last}{m.email?"":" — no email"}{m.role?" ("+m.role+")":""}</option>)}
           </select>
         </Fld>
-        <Fld label="Set 4-Digit Portal PIN *"><PINInput value={pin} onChange={setPin}/></Fld>
+        {sel && !sel.email && <div style={{background:"#fef2f2",border:"0.5px solid #fca5a5",borderRadius:8,padding:"9px 12px",marginBottom:12,fontSize:12,color:RE,lineHeight:1.5}}>⚠ This member has no email on file. They sign in by email, so add their email to their member profile first — otherwise their login can't be matched.</div>}
+        <div style={{background:BG,border:"0.5px solid "+BR,borderRadius:8,padding:"10px 12px",marginBottom:14,fontSize:12,color:MU,lineHeight:1.6}}>After you grant access, an <strong>invite link</strong> is copied to your clipboard (and available as <strong>🔗 Invite link</strong> on their row). Text or email it to the member — it opens the sign-up pre-filled with their email and your church code, so they just pick a password.</div>
         <div style={{display:"flex",gap:8}}>
-          <Btn onClick={add} style={{flex:1,justifyContent:"center"}}>Grant Access</Btn>
+          <Btn onClick={add} style={{flex:1,justifyContent:"center"}}>Grant Access &amp; Copy Link</Btn>
           <Btn onClick={()=>setModal(false)} v="ghost" style={{flex:1,justifyContent:"center"}}>Cancel</Btn>
-        </div>
-      </Modal>
-      <Modal open={pinModal} onClose={()=>setPinModal(false)} title="Reset Portal PIN" width={360}>
-        <Fld label="New 4-Digit PIN *"><PINInput value={editPin?.pin||""} onChange={v=>setEditPin(p=>({...p,pin:v}))}/></Fld>
-        <div style={{display:"flex",gap:8,marginTop:4}}>
-          <Btn onClick={()=>{
-            if((editPin?.pin||"").length<4){alert("PIN must be 4 digits.");return;}
-            setPortalMembers(ps=>ps.map(p=>p.memberId===editPin.memberId?{...p,pin:editPin.pin}:p));
-            setPinModal(false); setEditPin(null);
-          }} style={{flex:1,justifyContent:"center"}}>Save PIN</Btn>
-          <Btn onClick={()=>setPinModal(false)} v="ghost" style={{flex:1,justifyContent:"center"}}>Cancel</Btn>
         </div>
       </Modal>
     </div>
@@ -3213,7 +3217,7 @@ function Access({members,users,setUsers,roles,setRoles,permissions,setPermission
       {tab==="users" && <UsersTab members={members} users={users} setUsers={setUsers} roles={roles} permissions={permissions} currentUser={currentUser} churchId={churchId}/>}
       {tab==="roles" && <RolesTab roles={roles} setRoles={setRoles} permissions={permissions} setPermissions={setPermissions} users={users} currentUser={currentUser}/>}
       {tab==="permissions" && <PermTab roles={roles} permissions={permissions} setPermissions={setPermissions} currentUser={currentUser}/>}
-      {tab==="portal" && <PortalTab members={members} portalMembers={portalMembers} setPortalMembers={setPortalMembers} currentUser={currentUser} roles={roles}/>}
+      {tab==="portal" && <PortalTab members={members} portalMembers={portalMembers} setPortalMembers={setPortalMembers} currentUser={currentUser} roles={roles} churchId={churchId}/>}
     </div>
   );
 }
