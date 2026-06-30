@@ -17513,6 +17513,9 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       if(Array.isArray(d.benevolence)) setBenevolence(d.benevolence);
       if(d.cleaningSchedule && typeof d.cleaningSchedule==='object') setCleaningSchedule(d.cleaningSchedule);
       if(d.eventSchedule && typeof d.eventSchedule==='object') setEventSchedule(d.eventSchedule);
+      // servicePlans = service Schedule Planner, keyed by "<service>|<date>". Merge cloud plans IN
+      // (so other devices/staff see them) without ever dropping a local one (clobber-safe).
+      if(d.servicePlans && typeof d.servicePlans==='object') setServicePlans((cur:any)=>({...d.servicePlans,...((cur&&typeof cur==='object')?cur:{})}));
       if(Array.isArray(d.adminNotesRead)) setAdminNotesRead(d.adminNotesRead);
       // Care Pulse "Contacted" snooze marks ({memberId: ISODate}) — cloud-synced so every device
       // agrees on who's been reached out to (previously per-device localStorage → counts differed).
@@ -17704,7 +17707,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
         emailLog,emailTemplates,emailConfig:safeEmailConfig,recurring,custom,checkIns,rollCalls,
         teacherSchedule,kidsCheckIns,teacherFollowups,eventRsvps,announcements,roles,permissions,churchSettings,users:safeUsers,prospects,
         followupDismissedChildIds,
-        sickVisits,benevolence,hospitalityFund,hospStartBalance:_hospBal,cleaningSchedule,eventSchedule,adminNotesRead,careContacted};
+        sickVisits,benevolence,hospitalityFund,hospStartBalance:_hospBal,cleaningSchedule,eventSchedule,adminNotesRead,careContacted,servicePlans};
       // Staleness guard: did another device save after our last load?
       const {data:meta} = await supabase.from('church_data').select('updated_at').eq('church_id',churchId).maybeSingle();
       const remoteTs = meta?.updated_at ? new Date(meta.updated_at).getTime() : 0;
@@ -17744,7 +17747,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     emailLog,emailTemplates,emailConfig,recurring,custom,checkIns,rollCalls,
     teacherSchedule,kidsCheckIns,teacherFollowups,eventRsvps,announcements,roles,permissions,churchSettings,users,prospects,
     followupDismissedChildIds,
-    sickVisits,benevolence,hospitalityFund,hospStartBalance,cleaningSchedule,eventSchedule,adminNotesRead,careContacted]);
+    sickVisits,benevolence,hospitalityFund,hospStartBalance,cleaningSchedule,eventSchedule,adminNotesRead,careContacted,servicePlans]);
 
   const nidEmail = useRef(8000);
   const logEmail = (data) => {

@@ -35,7 +35,8 @@ const ID_ARRAYS = [
 const SCALAR_ARRAYS = ['followupDismissedChildIds', 'adminNotesRead'];
 // Objects merged per top-level key (additive — keys are never dropped).
 // careContacted = Care Pulse {memberId: ISODate} snooze marks; additive so marks from any device survive.
-const OBJECT_FIELDS = ['permissions','churchSettings','emailConfig','cleaningSchedule','eventSchedule','careContacted'];
+// servicePlans = service Schedule Planner, keyed by "<service>|<date>"; additive so plans from any device survive.
+const OBJECT_FIELDS = ['permissions','churchSettings','emailConfig','cleaningSchedule','eventSchedule','careContacted','servicePlans'];
 // Single scalar values.
 const SCALAR_FIELDS = ['hospStartBalance'];
 
