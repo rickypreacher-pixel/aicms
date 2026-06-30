@@ -13786,6 +13786,7 @@ function TeacherFollowPipeline({children,kidsCheckIns,rollCalls,users,members,cu
   const MW = Math.max(1, Number(cs?.missedWeeksThreshold)||4); // weeks-missed threshold (church-wide setting)
   const [assignDraft,setAssignDraft] = useState<any>({});
   const [draftTypeByCard,setDraftTypeByCard] = useState<any>({});
+  const [openProfile,setOpenProfile] = useState<any>({}); // per-card: show child's parent contact info
   const [actionToast,setActionToast] = useState("");
   const [noteDraftVersion,setNoteDraftVersion] = useState(0);
   const NOTE_DRAFTS_KEY = "education_followup_note_drafts_v1";
@@ -14002,7 +14003,18 @@ function TeacherFollowPipeline({children,kidsCheckIns,rollCalls,users,members,cu
     const child = safeChildren.find((c:any)=>String(c.id)===String(r?.childId)) || {first:r?.childFirst||"Unknown",last:r?.childLast||"Child",parentPhone:r?.parentPhone||"",parentName:r?.parentName||""};
     const idStats = checkInStats[String(r?.childId)] || {};
     const last = lastAttendFor(r?.childId, child.first||r?.childFirst, child.last||r?.childLast);
-    return {...r,child,stats:{...idStats,last},missedWeeks:missedWeeksSince(last)};
+    // Resolve the parent's contact info for outreach: prefer what's on the child record, then fall back
+    // to the linked parent member's profile (which carries email + a structured address).
+    const pm = (child && child.parentMemberId!=null) ? safeMembers.find((m:any)=>String(m.id)===String(child.parentMemberId)) : null;
+    const _addr = (a:any)=> !a ? "" : (typeof a==="string" ? a : [a.street,a.city,a.state,a.zip].filter(Boolean).join(", "));
+    const parent = {
+      name: String(child.parentName||"").trim() || (pm ? `${pm.first||""} ${pm.last||""}`.trim() : ""),
+      phone: String(child.parentPhone||"").trim() || String(pm?.phone||""),
+      email: String((child as any).parentEmail||"").trim() || String(pm?.email||""),
+      address: _addr((child as any).address) || _addr(pm?.address),
+      linked: !!pm,
+    };
+    return {...r,child,parent,stats:{...idStats,last},missedWeeks:missedWeeksSince(last)};
   };
 
   const stage1 = safePipeline.filter((r:any)=>isStage1(r)).map(enrichCard).filter((r:any)=>matchAssignee(r) && (r.manual || r.missedWeeks>=MW));
@@ -14104,6 +14116,22 @@ function TeacherFollowPipeline({children,kidsCheckIns,rollCalls,users,members,cu
           )}
           <span style={{fontSize:10,background:r.stage==="stage1"?MU+"22":r.stage==="stage2"?AM+"22":GR+"22",color:r.stage==="stage1"?MU:r.stage==="stage2"?AM:GR,borderRadius:20,padding:"2px 8px",fontWeight:600}}>{r.stage==="stage1"?"Stage 1":r.stage==="stage2"?"Stage 2":"Ongoing"}</span>
         </div>
+      </div>
+
+      {/* Child profile — parent contact for outreach (tap to call / email / map). Collapsed by default. */}
+      <div style={{marginBottom:10}}>
+        <button onClick={()=>setOpenProfile((p:any)=>({...p,[rid]:!p[rid]}))} style={{background:"none",border:"none",padding:0,cursor:"pointer",fontSize:12,fontWeight:600,color:N,display:"flex",alignItems:"center",gap:5}}>
+          <span style={{fontSize:9}}>{openProfile[rid]?"▼":"▶"}</span>👤 Contact info
+        </button>
+        {openProfile[rid] && (
+          <div style={{marginTop:6,background:BG,border:"0.5px solid "+BR,borderRadius:8,padding:"9px 11px",fontSize:12.5,lineHeight:1.9}}>
+            <div><span style={{color:MU,display:"inline-block",width:62}}>Parent</span><span style={{color:TX,fontWeight:500}}>{r.parent?.name||"—"}</span></div>
+            <div><span style={{color:MU,display:"inline-block",width:62}}>Phone</span>{r.parent?.phone?<a href={`tel:${String(r.parent.phone).replace(/[^\d+]/g,"")}`} style={{color:N,fontWeight:600,textDecoration:"none"}}>{r.parent.phone}</a>:<span style={{color:MU}}>—</span>}</div>
+            <div><span style={{color:MU,display:"inline-block",width:62}}>Email</span>{r.parent?.email?<a href={`mailto:${r.parent.email}`} style={{color:N,fontWeight:600,textDecoration:"none"}}>{r.parent.email}</a>:<span style={{color:MU}}>—</span>}</div>
+            <div style={{display:"flex"}}><span style={{color:MU,display:"inline-block",width:62,flexShrink:0}}>Address</span>{r.parent?.address?<a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(r.parent.address)}`} target="_blank" rel="noreferrer" style={{color:N,fontWeight:500,textDecoration:"none"}}>{r.parent.address}</a>:<span style={{color:MU}}>—</span>}</div>
+            {!r.parent?.linked && (r.parent?.name||r.parent?.phone) && <div style={{fontSize:10,color:MU,marginTop:4,fontStyle:"italic"}}>From the child record · parent not linked to a member profile (link them to pull email + address).</div>}
+          </div>
+        )}
       </div>
 
       {r.stage==="stage1" && (
