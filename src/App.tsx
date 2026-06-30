@@ -15872,7 +15872,7 @@ function ManualPage(){
         <div style={{background:N,borderRadius:12,padding:'20px 24px',marginBottom:20}}>
           <div style={{color:'#fff',fontSize:21,fontWeight:600,letterSpacing:0.3}}>ChurchOS Staff Manual</div>
           <div style={{color:G,fontSize:13,marginTop:4}}>New Testament Christian Church — Administrator Guide</div>
-          <div style={{color:'#7a9acc',fontSize:12,marginTop:6}}>Version 6.6 · June 2026 · For internal staff use</div>
+          <div style={{color:'#7a9acc',fontSize:12,marginTop:6}}>Version 6.7 · June 2026 · For internal staff use</div>
         </div>
 
         <Sec><H id="s1">1. Getting Started</H>
@@ -15980,6 +15980,8 @@ function ManualPage(){
           <Note>Auto-linking requires the full first <em>and</em> last name to match exactly (case-insensitive). Nicknames or partial names will not auto-link.</Note>
           <H3>Deleting a Record</H3>
           <Warn>Only <B>Super Administrators</B> can permanently delete a member or visitor record. The red trash button on the row only appears when logged in as Super Admin. Deletion removes the person and all associated giving, attendance, prayer, and group data. There is no undo.</Warn>
+          <H3>🏠 Household Linking &amp; View</H3>
+          <P>People in the same household are automatically grouped under a shared <B>Family</B>. When you add someone in <B>Add Person</B>, they are auto-linked to an existing household if they share the <B>same address</B>, or the <B>same last name and phone number</B> — in addition to any spouse or children you enter on the form. A profile’s <B>Family</B> tab now shows a <B>🏠 Household</B> card listing everyone in that household (each name is clickable to jump to their profile), so family members added separately still appear together. Two unrelated people who merely share a surname are never merged.</P>
           <H3>AI Follow-Up Generator</H3>
           <P>Inside any profile, click <B>Generate Follow-Up</B> to have the AI write a warm, personalized pastoral message. Copy it and send via Email Center or SMS Center.</P>
         </Sec>
@@ -16049,6 +16051,11 @@ function ManualPage(){
           <Ul><Li><B>📅 Sunday Snapshot</B> — pick any Sunday from the date dropdown to see that day's check-ins, classroom attendance, and who served.</Li><Li><B>🏆 Monthly Competition</B> — a friendly teacher leaderboard. Each classroom is scored on its <B>attendance rate</B> plus its <B>returning-children rate</B> (kids who came back 2+ Sundays), credited to the teacher who led it most that month, with a monthly winner banner.</Li></Ul>
           <H3>Setting Up the Label Printer</H3>
           <Ol><Li>Go to <B>Education → 🖨 Printer</B> and pick the preset matching your printer and label stock (Dymo, Brother, Zebra, or Avery sheets)</Li><Li>Click <B>🖨 Print a Test Label</B> to confirm the printer prints and cuts correctly — no real check-in needed</Li><Li>Your selection saves automatically. See <B>Section 22</B> for full label-printer details</Li></Ol>
+          <H3>Finding &amp; Merging Duplicate Children</H3>
+          <P>If the same child was entered more than once (e.g. registered at the kiosk <em>and</em> added on a parent’s profile), open <B>Education → Children</B> and click <B>🔁 Find duplicates</B> — a count shows when any are detected. The tool groups likely duplicates (children sharing a <B>name plus a parent or date of birth</B>) and lets you choose which record to <B>keep</B>; merging moves the others’ check-ins, follow-ups, notes, and parent link onto the kept record, then removes the extras. New children are also given collision-proof IDs so fresh duplicates stop forming. Two different children who merely share a name are never grouped.</P>
+          <Warn>Merges cannot be undone — take a <B>Backup</B> (Section 20) before working through a large list.</Warn>
+          <H3>Follow-Up — Parent Contact</H3>
+          <P>Every card in the <B>Follow-Up</B> pipeline has a <B>👤 Contact info</B> toggle that opens the child’s parent details — <B>name, phone (tap to call), email, and address (tap to open in Maps)</B> — so the assigned teacher can reach out without leaving the page. Duplicate follow-up cards for the same child are also collapsed automatically.</P>
         </Sec>
 
         <Sec><H id="s8">8. Event Calendar</H>
@@ -16341,6 +16348,8 @@ function ManualPage(){
           <P>The <B>News</B> tab is a read-only feed of current church announcements (pinned items first; expired ones drop off automatically). Staff post these from the <B>Announcements</B> page. See Section 25.</P>
           <H3>Staff My Profile</H3>
           <P>Staff members who also have a matching record in the member database gain an additional <B>My Profile</B> item in their regular staff sidebar. Clicking it opens a simplified read-only-by-default profile view of their own member record. They can edit their own personal info from this view. A <B>← Back</B> button returns them to the staff area.</P>
+          <H3>📋 Schedule Planner in My Profile</H3>
+          <P>Ministry team members see a <B>📋 Schedule Planner</B> tab in their <B>My Profile</B> showing the read-only service plan (message, songs, announcements) for the upcoming <B>Sunday Morning, Sunday Night, and Thursday</B> services — whatever the worship/admin team set in the <B>Event Calendar</B>. It appears only for these access-control roles: <B>Pastor, Staff, Team Leader, Sponsor, Musician, Teacher, Team Supervisor, Office, Maintenance</B> (plus Administrators / Super Admin). Service plans sync across all devices.</P>
           <Warn>Member Portal users cannot access any staff features — member lists, visitation records, giving reports, access control, or any administrative function. The portal is completely separated from the staff interface and shows only the logged-in member's own data.</Warn>
         </Sec>
 
@@ -16467,7 +16476,7 @@ function ManualPage(){
         </Sec>
 
         <div style={{textAlign:'center',padding:'24px 0 8px',borderTop:'0.5px solid '+BR,marginTop:4}}>
-          <div style={{fontSize:12,color:MU}}>ChurchOS Staff Manual · New Testament Christian Church · Version 6.6 · June 2026</div>
+          <div style={{fontSize:12,color:MU}}>ChurchOS Staff Manual · New Testament Christian Church · Version 6.7 · June 2026</div>
           <div style={{fontSize:11,color:MU,marginTop:4}}>For technical support or feature requests, contact your system administrator.</div>
         </div>
       </div>
