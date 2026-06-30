@@ -16486,7 +16486,7 @@ function MediaPage({cs}:any){
     </div>
   );
 }
-function MemberProfilePortal({member,setMembers,giving,onSignOut,staffMode=false,roles=[],users=[],setUsers,recurring=[],custom=[],eventRsvps=[],setEventRsvps=null,members=[],children=[],announcements=[],cleaningSchedule={},eventSchedule={},initialTab="profile",givingUrl=""}:any) {
+function MemberProfilePortal({member,setMembers,giving,onSignOut,staffMode=false,roles=[],users=[],setUsers,recurring=[],custom=[],eventRsvps=[],setEventRsvps=null,members=[],children=[],announcements=[],cleaningSchedule={},eventSchedule={},servicePlans={},currentUser=null,initialTab="profile",givingUrl=""}:any) {
   const [tab,setTab] = useState(initialTab);
   // Let the sidebar open the portal directly to a given tab (e.g. 📢 Announcements → News).
   useEffect(()=>{ setTab(initialTab); },[initialTab]);
@@ -16578,7 +16578,29 @@ function MemberProfilePortal({member,setMembers,giving,onSignOut,staffMode=false
     const rows=Object.keys(assigns).map(area=>({area,people:cleanSlotPeople(assigns[area])})).filter(r=>r.people.length>0);
     return {event:ename,date:d.date||"",rows};
   }).filter(e=>e.rows.length>0);
-  const TABS = staffMode ? [{id:"profile",label:"Personal Info"},{id:"give",label:"💝 Give"},{id:"events",label:"📅 Events"},{id:"news",label:"📢 News"},{id:"cleaning",label:"🧹 Cleaning"},{id:"bigevents",label:"🎉 Big Events"}] : [{id:"profile",label:"Personal Info"},{id:"give",label:"💝 Give"},{id:"giving",label:"My Giving"},{id:"events",label:"📅 Events"},{id:"news",label:"📢 News"},{id:"cleaning",label:"🧹 Cleaning"},{id:"bigevents",label:"🎉 Big Events"}];
+  // ── Service Schedule Planner (READ-ONLY) — shown in My Profile to ministry roles so the worship/
+  // service team can see the plan (songs, message, announcements) for the upcoming services. ──
+  const _viewerRoleNames = [linkedUser?.roleId, linkedUser?.secondaryRoleId, (currentUser as any)?.roleId, (currentUser as any)?.secondaryRoleId]
+    .map((rid:any)=>String((roles.find((r:any)=>String(r.id)===String(rid))||{}).name||"").toLowerCase()).filter(Boolean);
+  const PLANNER_ROLES = ["administrator","pastor","staff","team leader","sponsor","musician","teacher","team supervisor","office","maintenance"];
+  const canViewPlanner = staffMode && (!!((currentUser as any)?.superAdmin || (linkedUser as any)?.superAdmin) || _viewerRoleNames.some((rn:string)=>PLANNER_ROLES.includes(rn)));
+  const PLANNER_VIEW_SERVICES = ["Sunday Morning Worship","Sunday Night Service","Thursday Worship"];
+  const upcomingPlans = (()=>{
+    const out:any[]=[]; const start=td(); const seen=new Set<string>();
+    for(let i=0;i<14 && seen.size<PLANNER_VIEW_SERVICES.length;i++){ const ds=_addDays(start,i);
+      cEventsFor(ds, recurring||[], custom||[], []).forEach((e:any)=>{
+        if(PLANNER_VIEW_SERVICES.includes(e.name) && !seen.has(e.name)){ seen.add(e.name);
+          out.push({name:e.name,date:e.date,time:e.time,plan:(servicePlans||{})[e.name+"|"+e.date]||null}); }
+      });
+    }
+    return PLANNER_VIEW_SERVICES.map(n=>out.find(o=>o.name===n)).filter(Boolean);
+  })();
+  const TABS = [
+    ...(staffMode
+      ? [{id:"profile",label:"Personal Info"},{id:"give",label:"💝 Give"},{id:"events",label:"📅 Events"},{id:"news",label:"📢 News"},{id:"cleaning",label:"🧹 Cleaning"},{id:"bigevents",label:"🎉 Big Events"}]
+      : [{id:"profile",label:"Personal Info"},{id:"give",label:"💝 Give"},{id:"giving",label:"My Giving"},{id:"events",label:"📅 Events"},{id:"news",label:"📢 News"},{id:"cleaning",label:"🧹 Cleaning"},{id:"bigevents",label:"🎉 Big Events"}]),
+    ...(canViewPlanner ? [{id:"planner",label:"📋 Schedule Planner"}] : []),
+  ];
 
   return (
     <div style={{maxWidth:700,margin:"0 auto",padding:"0 4px"}}>
@@ -16790,6 +16812,54 @@ function MemberProfilePortal({member,setMembers,giving,onSignOut,staffMode=false
           ) : (
             <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:40,textAlign:"center" as any,color:MU,fontSize:13}}>Online giving isn't set up yet. Please contact the church office.</div>
           )}
+        </div>
+      )}
+      {tab==="planner"&&(
+        <div style={{display:"flex",flexDirection:"column",gap:14}}>
+          <div style={{fontSize:12,color:MU,lineHeight:1.6}}>The service plan for the upcoming worship services (read-only). Set up by your worship/admin team in the Event Calendar.</div>
+          {upcomingPlans.length===0 && <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:24,textAlign:"center",fontSize:13,color:MU}}>No upcoming services found.</div>}
+          {upcomingPlans.map((sp:any,i:number)=>{
+            const plan=sp.plan;
+            const songs=(plan&&Array.isArray(plan.songs)?plan.songs:[]).filter((s:any)=>s&&(s.title||"").trim());
+            const anns=(plan&&Array.isArray(plan.announcements)?plan.announcements:[]).filter((a:any)=>a&&String(a).trim());
+            const hasSermon=plan&&(plan.sermonTitle||plan.sermonScripture||plan.sermonSpeaker);
+            const empty=!hasSermon&&songs.length===0&&anns.length===0;
+            return (
+              <div key={i} style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:18}}>
+                <div style={{fontSize:15,fontWeight:600,color:N}}>{sp.name}</div>
+                <div style={{fontSize:12,color:MU,marginBottom:12}}>{fd(sp.date)}{sp.time?" · "+sp.time:""}</div>
+                {empty ? <div style={{fontSize:13,color:MU,fontStyle:"italic"}}>No plan has been posted for this service yet.</div> : (<>
+                  {hasSermon && (
+                    <div style={{marginBottom:12}}>
+                      <div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:0.5,fontWeight:600,marginBottom:5}}>Message</div>
+                      {plan.sermonTitle && <div style={{fontSize:14,fontWeight:600,color:TX}}>{plan.sermonTitle}</div>}
+                      {plan.sermonScripture && <div style={{fontSize:12.5,color:MU,marginTop:1}}>📖 {plan.sermonScripture}</div>}
+                      {plan.sermonSpeaker && <div style={{fontSize:12.5,color:MU,marginTop:1}}>🎤 {plan.sermonSpeaker}</div>}
+                    </div>
+                  )}
+                  {songs.length>0 && (
+                    <div style={{marginBottom:12}}>
+                      <div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:0.5,fontWeight:600,marginBottom:5}}>Songs</div>
+                      {songs.map((s:any,j:number)=>(
+                        <div key={j} style={{fontSize:13,color:TX,padding:"5px 0",borderTop:j?"0.5px solid "+BR:"none",display:"flex",gap:8,flexWrap:"wrap"}}>
+                          <span style={{color:MU,minWidth:16}}>{j+1}.</span>
+                          <span style={{fontWeight:500}}>{s.title}</span>
+                          {s.key && <span style={{color:MU}}>· Key {s.key}</span>}
+                          {s.leader && <span style={{color:MU}}>· {s.leader}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {anns.length>0 && (
+                    <div>
+                      <div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:0.5,fontWeight:600,marginBottom:5}}>Announcements</div>
+                      {anns.map((a:any,j:number)=><div key={j} style={{fontSize:13,color:TX,padding:"2px 0"}}>• {a}</div>)}
+                    </div>
+                  )}
+                </>)}
+              </div>
+            );
+          })}
         </div>
       )}
       {tab==="news"&&(
@@ -18121,7 +18191,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           {isMemberPortal && view==="prayer" && <Prayer prayers={prayers} setPrayers={setPrayers} portalMode={true} portalMember={portalMember}/>}
           {/* ── My Profile: every logged-in staff/user. Shows their member record if linked, else a read-only account card. ── */}
           {!isMemberPortal && view==="myprofile" && (staffMemberRecord
-            ? <MemberProfilePortal member={staffMemberRecord} setMembers={setMembers} giving={giving} onSignOut={()=>setView("dashboard")} staffMode={true} roles={roles} users={users} setUsers={setUsers} recurring={recurring} custom={custom} eventRsvps={eventRsvps} setEventRsvps={setEventRsvps} members={members} children={children} announcements={announcements} cleaningSchedule={cleaningSchedule} eventSchedule={eventSchedule} givingUrl={churchSettings?.onlineGivingUrl||"https://myntccglendaleaz.onlinegiving.cc/"}/>
+            ? <MemberProfilePortal member={staffMemberRecord} setMembers={setMembers} giving={giving} onSignOut={()=>setView("dashboard")} staffMode={true} roles={roles} users={users} setUsers={setUsers} recurring={recurring} custom={custom} eventRsvps={eventRsvps} setEventRsvps={setEventRsvps} members={members} children={children} announcements={announcements} cleaningSchedule={cleaningSchedule} eventSchedule={eventSchedule} servicePlans={servicePlans} currentUser={currentUser} givingUrl={churchSettings?.onlineGivingUrl||"https://myntccglendaleaz.onlinegiving.cc/"}/>
             : <MyAccountFallback currentUser={currentUser} roles={roles} loggedInEmail={loggedInEmail} displayName={displayName} onBack={()=>setView("dashboard")}/>)}
           {/* ── Staff / Admin views (never rendered for portal users) ── */}
           {!isMemberPortal && view==="sms" && <SmsCenter smsLog={smsLog} setSmsLog={setSmsLog} smsTemplates={smsTemplates} setSmsTemplates={setSmsTemplates} smsConfig={smsConfig} setSmsConfig={setSmsConfig} members={members} visitors={visitors} cs={churchSettings} onCompose={()=>openSmsComposer({})} onBulkCompose={()=>openBulkSmsComposer({recipients:[...members,...visitors].filter(p=>p.phone).map(p=>({...p,first:p.first,last:p.last,name:p.first+" "+p.last}))})}/>}
