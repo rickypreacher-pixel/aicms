@@ -16594,11 +16594,20 @@ function MemberProfilePortal({member,setMembers,giving,onSignOut,staffMode=false
   const _findPlan=(name:string,date:string)=>{ const sp:any=servicePlans||{}; if(sp[name+"|"+date]) return sp[name+"|"+date];
     const want=(name+"|"+date).toLowerCase().replace(/\s+/g," ").trim();
     const k=Object.keys(sp).find((key:string)=>String(key).toLowerCase().replace(/\s+/g," ").trim()===want); return k?sp[k]:null; };
-  const upcomingPlans = [
-    {name:"Sunday Morning Worship",date:_nextSunday,time:_svcTime("Sunday Morning Worship"),plan:_findPlan("Sunday Morning Worship",_nextSunday)},
-    {name:"Sunday Night Service",date:_nextSunday,time:_svcTime("Sunday Night Service"),plan:_findPlan("Sunday Night Service",_nextSunday)},
-    {name:"Thursday Worship",date:_nextThursday,time:_svcTime("Thursday Worship"),plan:_findPlan("Thursday Worship",_nextThursday)},
-  ];
+  const _sun2=_addDays(_nextSunday,7), _thu2=_addDays(_nextThursday,7);
+  const _planEnd=_addDays(td(),16);
+  const _hasPlan=(p:any)=> !!(p && (String(p.sermonTitle||"").trim()||String(p.sermonScripture||"").trim()||String(p.sermonSpeaker||"").trim()||(Array.isArray(p.songs)&&p.songs.some((s:any)=>String(s?.title||"").trim()))||(Array.isArray(p.announcements)&&p.announcements.some((a:any)=>String(a||"").trim()))));
+  // Any SAVED plan (with content) dated within the next ~2 weeks — read straight from the data, so it
+  // shows no matter what the service is named or whether it's recurring. Plus the standard this-/next-
+  // week Sunday + Thursday slots so the structure is always visible. De-duped by name|date.
+  const _fromPlans = Object.keys(servicePlans||{}).map((key:string)=>{ const i=key.lastIndexOf("|"); return i<0?null:{name:key.slice(0,i),date:key.slice(i+1),plan:(servicePlans as any)[key]}; })
+    .filter((x:any)=>x && x.date>=td() && x.date<=_planEnd && _hasPlan(x.plan));
+  const _slots = ([["Sunday Morning Worship",_nextSunday],["Sunday Night Service",_nextSunday],["Thursday Worship",_nextThursday],["Sunday Morning Worship",_sun2],["Sunday Night Service",_sun2],["Thursday Worship",_thu2]] as any[]).map(([name,date]:any)=>({name,date,plan:_findPlan(name,date)}));
+  const _seenPlan=new Set<string>();
+  const upcomingPlans = [..._fromPlans,..._slots]
+    .filter((x:any)=>{ const k=(x.name+"|"+x.date).toLowerCase().replace(/\s+/g," ").trim(); if(_seenPlan.has(k))return false; _seenPlan.add(k); return true; })
+    .map((x:any)=>({...x,time:_svcTime(x.name)}))
+    .sort((a:any,b:any)=>String(a.date).localeCompare(String(b.date))||String(a.name).localeCompare(String(b.name)));
   const TABS = [
     ...(staffMode
       ? [{id:"profile",label:"Personal Info"},{id:"give",label:"💝 Give"},{id:"events",label:"📅 Events"},{id:"news",label:"📢 News"},{id:"cleaning",label:"🧹 Cleaning"},{id:"bigevents",label:"🎉 Big Events"}]
