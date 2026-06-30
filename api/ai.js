@@ -28,25 +28,29 @@ export default async function handler(req, res) {
   if (!resolvedKey) return res.status(400).json({ error: "No API key provided" });
   if (!messages || messages.length === 0) return res.status(400).json({ error: "No messages provided" });
 
-  // Fetch available models from Anthropic to pick the right one dynamically
-  let model = "claude-opus-4-5";
+  // Fetch available models from Anthropic to pick the best one this key can actually use.
+  // NOTE: /v1/models may LIST special-access models (e.g. Claude Fable/Mythos) that 404 on /v1/messages
+  // for a normal key — never auto-select those; prefer Opus, then Sonnet, then Haiku.
+  let model = "claude-opus-4-8";
+  const isRestricted = (id) => /fable|mythos/i.test(String(id || ""));
   try {
     const modelsRes = await fetch("https://api.anthropic.com/v1/models", {
       headers: { "x-api-key": resolvedKey, "anthropic-version": "2023-06-01" }
     });
     if (modelsRes.ok) {
       const modelsData = await modelsRes.json();
-      const ids = (modelsData.data || []).map(m => m.id);
-      // prefer newest sonnet or haiku available
+      const ids = (modelsData.data || []).map(m => m.id).filter(id => !isRestricted(id));
       const preferred = [
-        "claude-opus-4-5","claude-opus-4-0","claude-sonnet-4-5","claude-sonnet-4-0",
+        "claude-opus-4-8","claude-opus-4-7","claude-opus-4-6","claude-opus-4-5","claude-opus-4-0",
+        "claude-sonnet-4-6","claude-sonnet-4-5","claude-sonnet-4-0",
+        "claude-haiku-4-5-20251001","claude-haiku-4-5",
         "claude-3-7-sonnet-20250219","claude-3-5-sonnet-20241022",
         "claude-3-5-haiku-20241022","claude-3-haiku-20240307"
       ];
-      for (const m of preferred) {
-        if (ids.includes(m)) { model = m; break; }
-      }
-      if (!ids.includes(model)) model = ids[0] || model;
+      let picked = "";
+      for (const m of preferred) { if (ids.includes(m)) { picked = m; break; } }
+      // Fall back to the first NON-restricted model the key has, else keep the safe default.
+      model = picked || ids[0] || model;
     }
   } catch(e) { /* use default */ }
 
