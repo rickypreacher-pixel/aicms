@@ -8491,6 +8491,28 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
                 {/* FAMILY TAB */}
                 {detailTab==="family" && (
                   <div>
+                    {(() => {
+                      // Everyone in the same household — linked by familyId (or family name), incl.
+                      // people added separately who share the household (not just an explicit spouse).
+                      const hh = [...members,...visitors].filter((p:any)=> String(p.id)!==String(detail.id) && (
+                        (detail.familyId && p.familyId===detail.familyId) ||
+                        (detail.family && String(detail.family).trim()!=="" && p.family===detail.family)
+                      ));
+                      if(hh.length===0) return null;
+                      return (
+                        <SectionCard title={"🏠 Household ("+(hh.length+1)+" people)"}>
+                          {hh.map((p:any)=>(
+                            <div key={p.id} style={{display:"flex",alignItems:"center",gap:10,padding:"6px 0",borderTop:"0.5px solid "+BR}}>
+                              <Av f={p.first||"?"} l={p.last||"?"} sz={32}/>
+                              <div style={{flex:1}}>
+                                <button onClick={()=>openDetail({...p,_type:members.find((m:any)=>m.id===p.id)?"members":"visitors"})} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,fontWeight:600,color:N,padding:0,textDecoration:"underline",textDecorationStyle:"dotted",textDecorationColor:N+"66"}}>{p.first} {p.last}</button>
+                                <div style={{fontSize:11,color:MU}}>{p.role||p.stage||(members.find((m:any)=>m.id===p.id)?"Member":"Visitor")}</div>
+                              </div>
+                            </div>
+                          ))}
+                        </SectionCard>
+                      );
+                    })()}
                     <SectionCard title="Spouse">
                       {(detail.spouseFirst||detail.spouseLast||detail.spouseName) ? (() => {
                         const spName = [detail.spouseFirst||"",detail.spouseLast||""].filter(Boolean).join(" ")||detail.spouseName||"";
