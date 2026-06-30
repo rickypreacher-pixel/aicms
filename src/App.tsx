@@ -16584,17 +16584,21 @@ function MemberProfilePortal({member,setMembers,giving,onSignOut,staffMode=false
     .map((rid:any)=>String((roles.find((r:any)=>String(r.id)===String(rid))||{}).name||"").toLowerCase()).filter(Boolean);
   const PLANNER_ROLES = ["administrator","pastor","staff","team leader","sponsor","musician","teacher","team supervisor","office","maintenance"];
   const canViewPlanner = staffMode && (!!((currentUser as any)?.superAdmin || (linkedUser as any)?.superAdmin) || _viewerRoleNames.some((rn:string)=>PLANNER_ROLES.includes(rn)));
-  const PLANNER_VIEW_SERVICES = ["Sunday Morning Worship","Sunday Night Service","Thursday Worship"];
-  const upcomingPlans = (()=>{
-    const out:any[]=[]; const start=td(); const seen=new Set<string>();
-    for(let i=0;i<14 && seen.size<PLANNER_VIEW_SERVICES.length;i++){ const ds=_addDays(start,i);
-      cEventsFor(ds, recurring||[], custom||[], []).forEach((e:any)=>{
-        if(PLANNER_VIEW_SERVICES.includes(e.name) && !seen.has(e.name)){ seen.add(e.name);
-          out.push({name:e.name,date:e.date,time:e.time,plan:(servicePlans||{})[e.name+"|"+e.date]||null}); }
-      });
-    }
-    return PLANNER_VIEW_SERVICES.map(n=>out.find(o=>o.name===n)).filter(Boolean);
-  })();
+  // Just THIS week's window: this Sunday (morning + night) and this Thursday. Compute the dates
+  // directly and look up the plan by "<service>|<date>" (tolerant of stray spacing/casing), so a plan
+  // shows even if the recurring calendar event isn't named exactly the same.
+  const _planDow=(ds:string)=>new Date(ds+"T00:00:00").getDay();
+  const _nextDow=(target:number)=>{ const s=td(); for(let i=0;i<7;i++){ const ds=_addDays(s,i); if(_planDow(ds)===target) return ds; } return td(); };
+  const _nextSunday=_nextDow(0), _nextThursday=_nextDow(4);
+  const _svcTime=(name:string)=>{ const rec=(recurring||[]).find((e:any)=>String(e.name||"").toLowerCase().trim()===name.toLowerCase().trim()); return rec?.time||""; };
+  const _findPlan=(name:string,date:string)=>{ const sp:any=servicePlans||{}; if(sp[name+"|"+date]) return sp[name+"|"+date];
+    const want=(name+"|"+date).toLowerCase().replace(/\s+/g," ").trim();
+    const k=Object.keys(sp).find((key:string)=>String(key).toLowerCase().replace(/\s+/g," ").trim()===want); return k?sp[k]:null; };
+  const upcomingPlans = [
+    {name:"Sunday Morning Worship",date:_nextSunday,time:_svcTime("Sunday Morning Worship"),plan:_findPlan("Sunday Morning Worship",_nextSunday)},
+    {name:"Sunday Night Service",date:_nextSunday,time:_svcTime("Sunday Night Service"),plan:_findPlan("Sunday Night Service",_nextSunday)},
+    {name:"Thursday Worship",date:_nextThursday,time:_svcTime("Thursday Worship"),plan:_findPlan("Thursday Worship",_nextThursday)},
+  ];
   const TABS = [
     ...(staffMode
       ? [{id:"profile",label:"Personal Info"},{id:"give",label:"💝 Give"},{id:"events",label:"📅 Events"},{id:"news",label:"📢 News"},{id:"cleaning",label:"🧹 Cleaning"},{id:"bigevents",label:"🎉 Big Events"}]
