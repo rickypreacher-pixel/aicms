@@ -17513,9 +17513,15 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       if(Array.isArray(d.benevolence)) setBenevolence(d.benevolence);
       if(d.cleaningSchedule && typeof d.cleaningSchedule==='object') setCleaningSchedule(d.cleaningSchedule);
       if(d.eventSchedule && typeof d.eventSchedule==='object') setEventSchedule(d.eventSchedule);
-      // servicePlans = service Schedule Planner, keyed by "<service>|<date>". Merge cloud plans IN
-      // (so other devices/staff see them) without ever dropping a local one (clobber-safe).
-      if(d.servicePlans && typeof d.servicePlans==='object') setServicePlans((cur:any)=>({...d.servicePlans,...((cur&&typeof cur==='object')?cur:{})}));
+      // servicePlans = service Schedule Planner, keyed by "<service>|<date>". For each plan take the
+      // RICHER version (more songs/announcements/sermon): a device with a stale/partial copy pulls the
+      // fuller cloud plan, while a device mid-edit (its in-progress plan is richer) keeps its own.
+      if(d.servicePlans && typeof d.servicePlans==='object') setServicePlans((cur:any)=>{
+        const c=(cur&&typeof cur==='object')?cur:{}; const out:any={...c};
+        const score=(p:any)=>{ if(!p||typeof p!=='object')return -1; const so=Array.isArray(p.songs)?p.songs.filter((s:any)=>String(s?.title||"").trim()).length:0; const an=Array.isArray(p.announcements)?p.announcements.filter((a:any)=>String(a||"").trim()).length:0; const se=(String(p.sermonTitle||"")+String(p.sermonScripture||"")+String(p.sermonSpeaker||"")).trim().length; return so*1000+an*100+(se?1:0); };
+        Object.keys(d.servicePlans).forEach((k:string)=>{ if(c[k]===undefined || score(d.servicePlans[k])>=score(c[k])) out[k]=d.servicePlans[k]; });
+        return out;
+      });
       if(Array.isArray(d.adminNotesRead)) setAdminNotesRead(d.adminNotesRead);
       // Care Pulse "Contacted" snooze marks ({memberId: ISODate}) — cloud-synced so every device
       // agrees on who's been reached out to (previously per-device localStorage → counts differed).
