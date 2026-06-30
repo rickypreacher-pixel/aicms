@@ -14325,7 +14325,9 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
     const all=[...members,...visitors];
     return all.filter((p:any)=>{
       const nameMatch=(p.first||"").trim().toLowerCase()===fn&&(p.last||"").trim().toLowerCase()===ln&&fn&&ln;
-      const phoneMatch=ph&&(p.phone||"").replace(/\D/g,"")===ph;
+      // A shared phone with a DIFFERENT name is a family member (now auto-linked), not a duplicate —
+      // so only flag a phone match when the NAME also matches (i.e. genuinely the same person).
+      const phoneMatch=ph&&(p.phone||"").replace(/\D/g,"")===ph&&nameMatch;
       return nameMatch||phoneMatch;
     });
   };
