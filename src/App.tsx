@@ -14335,14 +14335,22 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
     const famId="fam_"+id;
     const spN=form.spouseFirst&&form.spouseLast?(form.spouseFirst+" "+form.spouseLast):(form.spouseName||"");
     const hasFamily=!!(form.spouseFirst||form.children.some((c:any)=>c.first));
-    // ── Same-address household linking ── find existing members + visitors at this exact
-    //    address and silently fold everyone into one household (shared familyId + name).
+    // ── Household auto-linking ── as each person is added, fold everyone who is clearly the same
+    //    household into one family (shared familyId + name). Matches on: same exact address, OR
+    //    same last name + same phone number. (Same-last-name+phone is safe — it won't merge two
+    //    unrelated people who just share a surname.)
     const newAddrKey=addrKey(form.address);
-    const sameAddr=newAddrKey?[...members,...visitors].filter((p:any)=>addrKey(p.address)===newAddrKey):[];
+    const _digits=(s:any)=>String(s||"").replace(/\D/g,"");
+    const newPhone=_digits(form.phone); const newLast=String(form.last||"").trim().toLowerCase();
+    const sameAddr=[...members,...visitors].filter((p:any)=>{
+      if(newAddrKey && addrKey(p.address)===newAddrKey) return true;
+      if(newPhone && newLast && _digits(p.phone)===newPhone && String(p.last||"").trim().toLowerCase()===newLast) return true;
+      return false;
+    });
     const addrFamilyId=sameAddr.map((p:any)=>p.familyId).find(Boolean)||null;
     const addrFamilyName=sameAddr.map((p:any)=>p.family).find(Boolean)||null;
     const addrHasHead=sameAddr.some((p:any)=>p.familyHead);
-    // Effective household id: existing address household > spouse/children family > new (when grouping by address).
+    // Effective household id: existing household > spouse/children family > new (when grouping).
     const familyId=addrFamilyId||((hasFamily||sameAddr.length>0)?famId:null);
     const familyName=addrFamilyName||form.family||((form.last||"")+" Family");
     // The person being entered heads the household unless one already exists at this address.
