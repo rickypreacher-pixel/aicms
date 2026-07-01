@@ -6024,7 +6024,7 @@ function FamilyForm({newVis,setNewVis,onSubmit,allPeople}){
   );
 }
 
-function CalendarView({members,visitors,setVisitors,groups,recurring,setRecurring,custom,setCustom,checkIns,setCheckIns,grpMeetings=[],setGrpMeetings=()=>{},prospects=[],setProspects=()=>{},servicePlans={},setServicePlans=()=>{},eventRsvps=[],setEventRsvps=()=>{},eventSchedule={},setEventSchedule=()=>{}}){
+function CalendarView({members,visitors,setVisitors,groups,recurring,setRecurring,custom,setCustom,checkIns,setCheckIns,grpMeetings=[],setGrpMeetings=()=>{},prospects=[],setProspects=()=>{},servicePlans={},setServicePlans=()=>{},eventRsvps=[],setEventRsvps=()=>{},eventSchedule={},setEventSchedule=()=>{},children=[],kidsCheckIns=[],setKidsCheckIns=()=>{}}){
   const [ctab,setCtab]=useState("calendar");
   // Open on the current month + today. If a DIFFERENT month was last viewed, restore it.
   const _calToday=td();const _calCurY=+_calToday.slice(0,4),_calCurM=+_calToday.slice(5,7)-1;
@@ -6065,6 +6065,14 @@ function CalendarView({members,visitors,setVisitors,groups,recurring,setRecurrin
   const allPeople=[...members.map(m=>({...m,ptype:"member"})),...visitors.map(v=>({...v,ptype:"visitor"}))];
   const results=search.trim().length>1?allPeople.filter(p=>(p.first+" "+p.last).toLowerCase().includes(search.toLowerCase())).slice(0,8):[];
   const totalCI=checkIns.length;const memCI=checkIns.filter(c=>c.ptype==="member").length;const visCI=checkIns.filter(c=>c.ptype==="visitor"&&!c.isNew).length;const newCI=checkIns.filter(c=>c.isNew).length;
+  // ── Education / Sunday School check-in shares ONE store (kidsCheckIns) with the Education page portal,
+  //    so a child checked in EITHER place shows up in both — no mirrored records, no duplicate children.
+  const isEduEvt=(e:any)=>{ const n=String(e?.name||"").toLowerCase(); return n.includes("education")||n.includes("sunday school"); };
+  const _kidName=(cid:any)=>{ const c=(children||[]).find((x:any)=>String(x.id)===String(cid)); return c?((c.first||"")+" "+(c.last||"")).trim():"Child"; };
+  const eduKids=(selEvt&&isEduEvt(selEvt))?(kidsCheckIns||[]).filter((c:any)=>String(c.date)===String(selEvt.date)):[];
+  const kidCheckedIds=new Set(eduKids.map((c:any)=>String(c.childId)));
+  const kidResults=(selEvt&&isEduEvt(selEvt)&&search.trim().length>1)?(children||[]).filter((c:any)=>((c.first||"")+" "+(c.last||"")).toLowerCase().includes(search.toLowerCase())).slice(0,8):[];
+  const doKidCI=(child:any)=>{ if(!selEvt)return; if((kidsCheckIns||[]).some((c:any)=>String(c.childId)===String(child.id)&&String(c.date)===String(selEvt.date)))return; setKidsCheckIns((cs:any[])=>[...(Array.isArray(cs)?cs:[]),{id:Math.floor(Date.now()*1000+Math.random()*1000),childId:child.id,classroomId:child.classroomId||null,date:selEvt.date,time:new Date().toLocaleTimeString(),code:"",checkedOut:false}]); setSearch(""); };
   const prevMo=()=>{if(mo===0){setMo(11);setYr(y=>y-1);}else setMo(m=>m-1);};
   const nextMo=()=>{if(mo===11){setMo(0);setYr(y=>y+1);}else setMo(m=>m+1);};
   const initV=()=>({first:"",last:"",phone:"",email:"",gender:"Male",familyName:"",dob:"",spouseFirst:"",spouseLast:"",spouseDob:"",spouseAllergies:[],spouseMedical:[],spouseMedNotes:"",allergies:[],medical:[],medNotes:"",broughtBy:"",children:[]});
@@ -6232,8 +6240,13 @@ function CalendarView({members,visitors,setVisitors,groups,recurring,setRecurrin
                                     {search.trim().length>1&&results.length===0&&<div style={{fontSize:11,color:MU,padding:"4px 2px"}}>No match. <button onClick={()=>setNewVis(initV())} style={{background:"none",border:"none",color:N,cursor:"pointer",fontSize:11,fontWeight:500,padding:0}}>Add as new visitor</button></div>}
                                     {results.map(p=>{const inn=checkedIds.has(p.id);return(<div key={p.id} onClick={()=>!inn&&doCI(p)} style={{display:"flex",alignItems:"center",gap:7,padding:"6px 8px",borderRadius:7,border:"0.5px solid "+(inn?GR+"55":BR),background:inn?"#f0fdf4":W,cursor:inn?"default":"pointer",marginBottom:4}}><Av f={p.first} l={p.last} sz={24}/><div style={{flex:1,minWidth:0}}><div style={{fontSize:12,fontWeight:500,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.first} {p.last}</div><div style={{fontSize:10,color:MU}}>{p.ptype==="member"?"Member":p.stage||"Visitor"}</div></div>{inn?<span style={{fontSize:10,color:GR,fontWeight:600}}>In</span>:<span style={{fontSize:10,background:N,color:"#fff",borderRadius:4,padding:"2px 6px"}}>Check In</span>}</div>);})}
                                   </div>)}
+                                  {!newVis&&selEvt&&isEduEvt(selEvt)&&kidResults.length>0&&(<div style={{marginBottom:8}}>
+                                    <div style={{fontSize:9,color:MU,textTransform:"uppercase",letterSpacing:0.4,marginBottom:4,fontWeight:600}}>Children · Sunday School</div>
+                                    {kidResults.map((c:any)=>{const inn=kidCheckedIds.has(String(c.id));return(<div key={"k"+c.id} onClick={()=>!inn&&doKidCI(c)} style={{display:"flex",alignItems:"center",gap:7,padding:"6px 8px",borderRadius:7,border:"0.5px solid "+(inn?GR+"55":BR),background:inn?"#f0fdf4":W,cursor:inn?"default":"pointer",marginBottom:4}}><Av f={c.first} l={c.last} sz={24}/><div style={{flex:1,minWidth:0}}><div style={{fontSize:12,fontWeight:500,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{c.first} {c.last}</div><div style={{fontSize:10,color:MU}}>Child{c.grade?" · "+c.grade:""}</div></div>{inn?<span style={{fontSize:10,color:GR,fontWeight:600}}>In</span>:<span style={{fontSize:10,background:N,color:"#fff",borderRadius:4,padding:"2px 6px"}}>Check In</span>}</div>);})}
+                                  </div>)}
                                   {!newVis&&!search&&<button onClick={()=>setNewVis(initV())} style={{width:"100%",padding:"6px",background:BG,border:"0.5px dashed "+G,borderRadius:7,fontSize:11,cursor:"pointer",color:MU,marginBottom:8}}>+ New Visitor or Family</button>}
                                   {eci.length>0&&(<div style={{borderTop:"0.5px solid "+BR,paddingTop:8,marginTop:4}}><div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:0.4,marginBottom:5,fontWeight:500}}>Checked In — {eci.length}</div>{[...eci].sort((a:any,b:any)=>(+b.id||0)-(+a.id||0)).map(ci=><div key={ci.id} style={{display:"flex",alignItems:"center",gap:6,padding:"5px 7px",background:"#f0fdf4",borderRadius:6,border:"0.5px solid #86efac",marginBottom:4}}><Av f={ci.first} l={ci.last} sz={20}/><div style={{flex:1,minWidth:0}}><div style={{fontSize:11,fontWeight:500,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{ci.first} {ci.last}</div><div style={{fontSize:9,color:MU}}>{ci.isNew?(ci.role||"New"):ci.ptype==="member"?"Member":"Visitor"}{ci.family?" · "+ci.family:""}</div></div><span style={{fontSize:9,color:GR,fontWeight:600}}>done</span></div>)}</div>)}
+                                  {selEvt&&isEduEvt(selEvt)&&eduKids.length>0&&(<div style={{borderTop:"0.5px solid "+BR,paddingTop:8,marginTop:4}}><div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:0.4,marginBottom:5,fontWeight:500}}>🧒 Sunday School — {eduKids.length} <span style={{fontWeight:400,textTransform:"none"}}>(shared with Education portal)</span></div>{[...eduKids].sort((a:any,b:any)=>(+b.id||0)-(+a.id||0)).map((c:any)=>{const nm=_kidName(c.childId);const pr=nm.split(" ");return(<div key={"kc"+c.id} style={{display:"flex",alignItems:"center",gap:6,padding:"5px 7px",background:"#eff6ff",borderRadius:6,border:"0.5px solid #bfdbfe",marginBottom:4}}><Av f={pr[0]||"?"} l={pr.slice(1).join(" ")||""} sz={20}/><div style={{flex:1,minWidth:0}}><div style={{fontSize:11,fontWeight:500,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{nm}</div><div style={{fontSize:9,color:MU}}>Child{c.checkedOut?" · checked out":""}</div></div><span style={{fontSize:9,color:"#2563eb",fontWeight:600}}>Sun. School</span></div>);})}</div>)}
                                 </div>
                               )}
                               {evtDetailTab==="planner"&&PLANNER_SERVICES.includes(evt.name)&&(
@@ -18226,6 +18239,9 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
                 setCustom={setCustom}
                 checkIns={checkIns}
                 setCheckIns={setCheckIns}
+                children={children}
+                kidsCheckIns={kidsCheckIns}
+                setKidsCheckIns={setKidsCheckIns}
                 grpMeetings={grpMeetings}
                 setGrpMeetings={setGrpMeetings}
                 prospects={prospects}
