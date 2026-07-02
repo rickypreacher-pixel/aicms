@@ -8522,6 +8522,11 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
                                 <button onClick={()=>openDetail({...p,_type:members.find((m:any)=>m.id===p.id)?"members":"visitors"})} style={{background:"none",border:"none",cursor:"pointer",fontSize:14,fontWeight:600,color:N,padding:0,textDecoration:"underline",textDecorationStyle:"dotted",textDecorationColor:N+"66"}}>{p.first} {p.last}</button>
                                 <div style={{fontSize:11,color:MU}}>{p.role||p.stage||(members.find((m:any)=>m.id===p.id)?"Member":"Visitor")}</div>
                               </div>
+                              <button title="Remove from this household" onClick={()=>{
+                                if(!confirm(`Remove ${p.first} ${p.last} from ${detail.first} ${detail.last}'s household? They will no longer be shown as family. (This does not delete anyone.)`)) return;
+                                setMembers((ms:any[])=>ms.map((m:any)=>String(m.id)===String(p.id)?{...m,familyId:null,family:""}:m));
+                                setVisitors((vs:any[])=>vs.map((v:any)=>String(v.id)===String(p.id)?{...v,familyId:null,family:""}:v));
+                              }} style={{background:"none",border:"0.5px solid #fca5a5",borderRadius:7,padding:"4px 9px",cursor:"pointer",fontSize:11,color:RE,fontWeight:600,whiteSpace:"nowrap"}}>✕ Unlink</button>
                             </div>
                           ))}
                         </SectionCard>
