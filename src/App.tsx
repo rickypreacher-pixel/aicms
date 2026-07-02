@@ -9323,7 +9323,9 @@ function Attendance({attendance,setAttendance,setView,checkIns=[],setCheckIns=()
               if(detail && isKidsSvc(detail.service)){
                 const _dk=nk(detail.date);
                 const n=new Set((kidsCheckIns||[]).filter((c:any)=>nk(c.date)===_dk&&c.childId!=null).map((c:any)=>String(c.childId))).size;
-                return [["Total",n,N],["Children",n,"#2563eb"]].map(([l,val,col]:any)=>(<div key={l} style={{flex:1,background:BG,border:"0.5px solid "+BR,borderRadius:8,padding:"8px 10px",textAlign:"center"}}><div style={{fontSize:18,fontWeight:700,color:col}}>{val}</div><div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:0.5}}>{l}</div></div>));
+                const rc=roster.length?rCount(roster):{members:detail.members||0,visitors:detail.visitors||0};
+                const mem=rc.members||0,vis=rc.visitors||0;
+                return [["Total",n+mem+vis,N],["Members",mem,GR],["Visitors",vis,AM],["Children",n,"#2563eb"]].map(([l,val,col]:any)=>(<div key={l} style={{flex:1,background:BG,border:"0.5px solid "+BR,borderRadius:8,padding:"8px 6px",textAlign:"center"}}><div style={{fontSize:18,fontWeight:700,color:col}}>{val}</div><div style={{fontSize:9,color:MU,textTransform:"uppercase",letterSpacing:0.3}}>{l}</div></div>));
               }
               const c=roster.length?rCount(roster):{count:detail.count||0,members:detail.members||0,visitors:detail.visitors||0};return [["Total",c.count,N],["Members",c.members,GR],["Visitors",c.visitors,AM]].map(([l,val,col]:any)=>(<div key={l} style={{flex:1,background:BG,border:"0.5px solid "+BR,borderRadius:8,padding:"8px 10px",textAlign:"center"}}><div style={{fontSize:18,fontWeight:700,color:col}}>{val}</div><div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:0.5}}>{l}</div></div>));})()}
           </div>
