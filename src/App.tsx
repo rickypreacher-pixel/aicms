@@ -9096,7 +9096,7 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
 }
 
 // ── ATTENDANCE ──
-function Attendance({attendance,setAttendance,setView,checkIns=[],setCheckIns=()=>{},members=[],visitors=[],kidsCheckIns=[],children=[]}:any) {
+function Attendance({attendance,setAttendance,setView,checkIns=[],setCheckIns=()=>{},members=[],visitors=[],kidsCheckIns=[],setKidsCheckIns=()=>{},children=[]}:any) {
   const [modal,setModal] = useState(false);
   const [form,setForm] = useState({date:td(),service:"Sunday Morning Worship",count:"",members:"",visitors:"",notes:""});
   const [insight,setInsight] = useState("");
@@ -9317,7 +9317,15 @@ function Attendance({attendance,setAttendance,setView,checkIns=[],setCheckIns=()
           </div>
           <Fld label="Notes"><Inp value={dForm.notes} onChange={(v:string)=>setDForm((f:any)=>({...f,notes:v}))} placeholder="Any notable details..."/></Fld>
           <div style={{display:"flex",gap:10,margin:"6px 0 10px"}}>
-            {(()=>{const c=roster.length?rCount(roster):{count:detail.count||0,members:detail.members||0,visitors:detail.visitors||0};return [["Total",c.count,N],["Members",c.members,GR],["Visitors",c.visitors,AM]].map(([l,val,col]:any)=>(<div key={l} style={{flex:1,background:BG,border:"0.5px solid "+BR,borderRadius:8,padding:"8px 10px",textAlign:"center"}}><div style={{fontSize:18,fontWeight:700,color:col}}>{val}</div><div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:0.5}}>{l}</div></div>));})()}
+            {(()=>{
+              // Education Department rows are children (not members/visitors): show Total + Children,
+              // both computed live from the check-ins so they update as children are removed below.
+              if(detail && isKidsSvc(detail.service)){
+                const _dk=nk(detail.date);
+                const n=new Set((kidsCheckIns||[]).filter((c:any)=>nk(c.date)===_dk&&c.childId!=null).map((c:any)=>String(c.childId))).size;
+                return [["Total",n,N],["Children",n,"#2563eb"]].map(([l,val,col]:any)=>(<div key={l} style={{flex:1,background:BG,border:"0.5px solid "+BR,borderRadius:8,padding:"8px 10px",textAlign:"center"}}><div style={{fontSize:18,fontWeight:700,color:col}}>{val}</div><div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:0.5}}>{l}</div></div>));
+              }
+              const c=roster.length?rCount(roster):{count:detail.count||0,members:detail.members||0,visitors:detail.visitors||0};return [["Total",c.count,N],["Members",c.members,GR],["Visitors",c.visitors,AM]].map(([l,val,col]:any)=>(<div key={l} style={{flex:1,background:BG,border:"0.5px solid "+BR,borderRadius:8,padding:"8px 10px",textAlign:"center"}}><div style={{fontSize:18,fontWeight:700,color:col}}>{val}</div><div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:0.5}}>{l}</div></div>));})()}
           </div>
           <div style={{fontSize:12,color:MU,marginBottom:10}}>{roster.length?"Counts auto-calculated from who attended below.":"No attendees yet — add people below (or they'll appear from calendar check-ins). Counts calculate automatically."}</div>
           <div style={{fontWeight:500,fontSize:13,color:N,marginBottom:8}}>Who Attended ({roster.length})</div>
@@ -9340,9 +9348,10 @@ function Attendance({attendance,setAttendance,setView,checkIns=[],setCheckIns=()
                 {kids.map((k:any)=>(<div key={k.id} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",borderBottom:"0.5px solid "+BR}}>
                   <span style={{flex:1,fontSize:13,fontWeight:500}}>{k.name}</span>
                   <span style={{fontSize:11,fontWeight:500,color:"#2563eb",background:"#eff6ff",borderRadius:10,padding:"2px 8px"}}>Child</span>
+                  <Btn onClick={()=>{if(!confirm(`Remove ${k.name} from the ${fd(detail.date)} check-in? This deletes their check-in for that date.`))return;setKidsCheckIns((ks:any[])=>(Array.isArray(ks)?ks:[]).filter((c:any)=>!(String(c.childId)===String(k.id)&&nk(c.date)===_dk)));}} v="danger" style={{fontSize:11,padding:"2px 7px"}}>X</Btn>
                 </div>))}
               </div>
-              <div style={{fontSize:11,color:MU,marginTop:6}}>These are the children from the Education check-in portal. They make up the Total; Members/Visitors are 0 because children aren't counted as either.</div>
+              <div style={{fontSize:11,color:MU,marginTop:6}}>Children come from the Education check-in portal and make up the Total. Use ✕ to remove a child's check-in for this date.</div>
             </div>);
           })()}
           <Fld label="Add Attendee"><Inp value={pick} onChange={(v:string)=>setPick(v)} placeholder="Search members or visitors..."/></Fld>
@@ -18315,7 +18324,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           {!isMemberPortal && view==="benevolencefund" && <BenevolencePage members={members} visitors={visitors} benevolence={benevolence} setBenevolence={setBenevolence}/>}
           {!isMemberPortal && view==="counselinglog" && canAccessCounseling && <CounselingLog members={members} visitors={visitors} counselingLogs={counselingLogs} setCounselingLogs={setCounselingLogs}/>}
           {!isMemberPortal && view==="hospitalityfund" && <HospitalityFund members={members} hospitalityFund={hospitalityFund} setHospitalityFund={setHospitalityFund} hospStartBalance={hospStartBalance} setHospStartBalance={(v:any)=>{hospStartReady.current=true;setHospStartBalance(v);}}/>}
-          {!isMemberPortal && view==="attendance" && <Attendance attendance={attendance} setAttendance={setAttendance} setView={setView} checkIns={checkIns} setCheckIns={setCheckIns} members={members} visitors={visitors} kidsCheckIns={kidsCheckIns} children={children}/>}
+          {!isMemberPortal && view==="attendance" && <Attendance attendance={attendance} setAttendance={setAttendance} setView={setView} checkIns={checkIns} setCheckIns={setCheckIns} members={members} visitors={visitors} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckIns} children={children}/>}
           {!isMemberPortal && view==="giving" && canViewGiving && <Giving giving={giving} setGiving={setGiving} pledgeDrives={pledgeDrives} setPledgeDrives={setPledgeDrives} pledges={pledges} setPledges={setPledges} members={members} visitors={visitors} weeklyReports={weeklyReports} setWeeklyReports={setWeeklyReports} emailTemplates={emailTemplates} currentUser={currentUser} roles={roles} churchId={churchId} onTxnDeleted={(rec:any)=>{ if(rec&&rec.txnId) givingDeletedTxns.current.add(String(rec.txnId)); }}/>}
           {!isMemberPortal && view==="prayer" && <Prayer prayers={prayers} setPrayers={setPrayers}/>}
           {/* ── Member Portal hard-gate: only myprofile, media, and prayer allowed ── */}
