@@ -2021,6 +2021,7 @@ function genCode(){const c="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";let s="";for(let i
 // ── Label Printer Presets ──
 const LABEL_PRESETS=[
   {id:"dymo30334",  name:'Dymo 30334 — 2¼" × 1¼" name badge',   w:57,  h:32,  mode:"roll"},
+  {id:"dymo30857",  name:'Dymo 30857 — 2¼" × 4" name badge (LW 550)', w:57, h:102, mode:"roll"},
   {id:"dymo30252",  name:'Dymo 30252 — 3½" × 1⅛" address',       w:89,  h:28,  mode:"roll"},
   {id:"dymo99014",  name:'Dymo 99014 / LW — 4" × 6"',             w:102, h:152, mode:"roll"},
   {id:"brotdk1201", name:'Brother DK-1201 — 3.5" × 1.1"',         w:90,  h:29,  mode:"roll"},
@@ -12414,18 +12415,29 @@ function PrintLabels({ci,child,classroom,onClose,printerConfig}){
   const pageCSS=`@page{size:${sizeCSS};margin:${isRoll?"1mm":"10mm"}}@media print{body *{visibility:hidden;}.ntcc-label-print,.ntcc-label-print *{visibility:visible;}.ntcc-label-print{position:absolute;left:0;top:0;}.ntcc-no-print{display:none !important;}.ntcc-label-break{page-break-before:always;}}`;
   // Layout category
   const isSmall=(wMM<=62)&&(hMM===0||hMM<=32);   // Dymo 30334, Zebra 2x1, DK-2205 small
+  const isTall=(wMM<=62)&&(hMM>=90);             // Dymo 30857 portrait name badge 2¼"×4" (LW 550)
   const isNarrow=(wMM>62)&&(hMM>0&&hMM<36);       // Dymo 30252, Brother DK-1201
-  const isMedium=hMM>=36&&hMM<100;                // Avery 5163, DK-1202, Avery 5160 (h=25 → small)
-  // large = hMM>=100 or hMM===0 on wide roll
+  const isMedium=(hMM>=36&&hMM<100)&&!isTall;     // Avery 5163, DK-1202, Avery 5160 (h=25 → small)
+  // large = hMM>=100 (wide) or hMM===0 on wide roll — NOT the narrow-tall 30857 (that's isTall)
   const lblW=isRoll?`${wMM}mm`:"auto";
   const lblH=hMM>0?`${hMM}mm`:"auto";
   const baseStyle:any={width:lblW,height:lblH,boxSizing:"border-box",overflow:"hidden",fontFamily:"system-ui,sans-serif"};
   // Preview scale so labels are visible on-screen
-  const scale=isSmall?4:isNarrow?3:isMedium?2.2:1.5;
+  const scale=isSmall?4:isNarrow?3:isTall?2.4:isMedium?2.2:1.5;
   const scaledH=hMM>0?hMM*scale:60*scale;
   const scaledW=wMM*scale;
 
   const ChildLabel=()=>{
+    if(isTall)return(
+      <div style={{...baseStyle,border:"2px solid "+N,borderRadius:8,padding:"12px 8px",background:W,display:"flex",flexDirection:"column",justifyContent:"center",gap:9}}>
+        <div style={{background:classroom.color,color:"#fff",padding:"6px 6px",borderRadius:5,fontWeight:700,fontSize:12,textAlign:"center",letterSpacing:0.8}}>{classroom.name.toUpperCase()}</div>
+        <div style={{fontSize:20,fontWeight:800,textAlign:"center",color:"#000",lineHeight:1.15,wordBreak:"break-word"}}>{child.first} {child.last}</div>
+        <div style={{fontSize:10,color:"#444",textAlign:"center"}}>DOB: {fd(child.dob)} · Age {calcAge(child.dob)}</div>
+        {meds.length>0&&<div style={{background:"#fee2e2",border:"1.5px solid "+RE,color:RE,padding:"4px 6px",borderRadius:4,textAlign:"center",fontSize:9,fontWeight:700,wordBreak:"break-word"}}>MEDICAL: {meds.join(", ")}</div>}
+        <div style={{background:BG,borderRadius:5,padding:"6px 8px",textAlign:"center",border:"1px solid "+BR}}><div style={{fontSize:8,color:MU,textTransform:"uppercase",letterSpacing:2}}>Pickup Code</div><div style={{fontSize:28,fontWeight:800,fontFamily:"monospace",letterSpacing:4,color:"#000",lineHeight:1.1}}>{ci.code}</div></div>
+        <div style={{fontSize:9,color:MU,textAlign:"center"}}>{fd(ci.date)} · {ci.time}</div>
+      </div>
+    );
     if(isSmall)return(
       <div style={{...baseStyle,border:"2px solid "+N,borderRadius:3,background:W}}>
         <div style={{background:classroom.color,color:"#fff",fontSize:6,padding:"2px 3px",fontWeight:700,textAlign:"center",letterSpacing:0.5}}>{classroom.name.toUpperCase()}</div>
@@ -12471,6 +12483,16 @@ function PrintLabels({ci,child,classroom,onClose,printerConfig}){
 
   const ParentStub=()=>{
     const breakCls=isRoll?"ntcc-label-break":"";
+    if(isTall)return(
+      <div className={breakCls} style={{...baseStyle,border:"2px dashed "+N,borderRadius:8,padding:"12px 8px",background:W,marginTop:isRoll?0:8,display:"flex",flexDirection:"column",justifyContent:"center",gap:9}}>
+        <div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:1,textAlign:"center",fontWeight:600}}>Parent Pickup Stub</div>
+        <div style={{fontSize:19,fontWeight:700,textAlign:"center",color:"#000",lineHeight:1.15,wordBreak:"break-word"}}>{child.first} {child.last}</div>
+        <div style={{fontSize:10,color:"#444",textAlign:"center"}}>Classroom: {classroom.name}</div>
+        <div style={{background:BG,borderRadius:5,padding:"6px 8px",textAlign:"center",border:"1px solid "+BR}}><div style={{fontSize:8,color:MU,textTransform:"uppercase",letterSpacing:2}}>Your Code</div><div style={{fontSize:28,fontWeight:800,fontFamily:"monospace",letterSpacing:4,color:"#000",lineHeight:1.1}}>{ci.code}</div></div>
+        <div style={{fontSize:10,color:"#444",textAlign:"center"}}>{child.parentName||"-"} · {child.parentPhone||"-"}</div>
+        <div style={{fontSize:9,color:MU,textAlign:"center",fontStyle:"italic"}}>Present at pickup. Code must match.</div>
+      </div>
+    );
     if(isSmall)return(
       <div className={breakCls} style={{...baseStyle,border:"2px dashed "+N,borderRadius:3,background:W,marginTop:isRoll?0:8}}>
         <div style={{fontSize:7,color:MU,textAlign:"center",padding:"2px",fontWeight:600,borderBottom:"1px dashed "+BR}}>PARENT STUB</div>
@@ -16379,7 +16401,7 @@ function ManualPage(){
         <Sec><H id="s19">22. Printer / Label Setup</H>
           <P>ChurchOS prints secure child check-in labels on all major thermal label printers and Avery sheet labels through the browser's native print dialog — no special drivers needed.</P>
           <H3>Supported Printers and Label Sizes</H3>
-          <Ul><Li><B>Dymo LabelWriter</B> — 30334 (2¼"×1¼" name badge), 30252 (3½"×1⅛" address), 99014 (4"×6")</Li><Li><B>Brother QL Series</B> — DK-1201 (3.5"×1.1"), DK-1202 (4.07"×2.76"), DK-2205 (62mm continuous roll)</Li><Li><B>Zebra</B> — Z-Perform 2"×1", 4"×6" shipping</Li><Li><B>Avery Sheet Labels</B> — 5160 (2⅝"×1", 30/sheet), 5163 (4"×2", 10/sheet)</Li></Ul>
+          <Ul><Li><B>Dymo LabelWriter</B> (incl. LW 550) — 30334 (2¼"×1¼" name badge), <B>30857 (2¼"×4" name badge)</B>, 30252 (3½"×1⅛" address), 99014 (4"×6")</Li><Li><B>Brother QL Series</B> — DK-1201 (3.5"×1.1"), DK-1202 (4.07"×2.76"), DK-2205 (62mm continuous roll)</Li><Li><B>Zebra</B> — Z-Perform 2"×1", 4"×6" shipping</Li><Li><B>Avery Sheet Labels</B> — 5160 (2⅝"×1", 30/sheet), 5163 (4"×2", 10/sheet)</Li></Ul>
           <H3>One-Time Printer Configuration</H3>
           <Ol><Li>Go to <B>Education → 🖨 Printer</B></Li><Li>Click the preset that matches your label printer and loaded label stock</Li><Li>The selection saves automatically — configure it once per installation or when you change label stock</Li></Ol>
           <H3>Printing Check-In Labels</H3>
@@ -16388,6 +16410,7 @@ function ManualPage(){
           <Ul><Li><B>Child Name Tag</B> — classroom name (color-coded), child's full name, date of birth, age, medical/allergy alerts, and 4-character security code</Li><Li><B>Parent Pickup Stub</B> — child's name, classroom, and the matching 4-character code. Parent presents this at pickup; the code must match the child's tag before release.</Li></Ul>
           <Tip>Most Dymo, Brother, and Zebra label printers auto-detect the page size from the print job. You should not need to manually change paper size settings in the browser print dialog.</Tip>
           <Note>For Avery sheet labels, print to a standard laser or inkjet printer loaded with the matching Avery label sheets. Both labels print on the same sheet page.</Note>
+          <Note><B>Dymo LabelWriter 550 setup (plug-and-play):</B> The browser can only print to printers your computer already recognizes, so install <B>DYMO Connect</B> once (dymo.com/setup) and plug the 550 in via USB — Windows/Mac will then list it in every print dialog. Load <B>Dymo 30857</B> (2¼"×4") labels, then in <B>Education → 🖨 Printer</B> choose the <B>Dymo 30857 — 2¼"×4"</B> preset and click <B>Print a Test Label</B>. In the print dialog pick <B>DYMO LabelWriter 550</B> and confirm the size shows <B>57 × 102 mm</B>. The 550 uses Automatic Label Recognition, so genuine Dymo 30857 rolls are detected automatically.</Note>
         </Sec>
 
         <Sec><H id="s20">23. Member Portal</H>
