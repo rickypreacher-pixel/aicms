@@ -9274,7 +9274,7 @@ function Attendance({attendance,setAttendance,setView,checkIns=[],setCheckIns=()
         <table style={{width:"100%",borderCollapse:"collapse"}}>
           <thead>
             <tr style={{background:BG}}>
-              {["Date","Service","Total","Members","Visitors","Notes",""].map(h=><th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:11,fontWeight:500,color:MU,textTransform:"uppercase",letterSpacing:0.5,borderBottom:"0.5px solid "+BR}}>{h}</th>)}
+              {["Date","Service","Total","Members","Visitors","Children","Notes",""].map(h=><th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:11,fontWeight:500,color:MU,textTransform:"uppercase",letterSpacing:0.5,borderBottom:"0.5px solid "+BR}}>{h}</th>)}
             </tr>
           </thead>
           <tbody>
@@ -9285,6 +9285,7 @@ function Attendance({attendance,setAttendance,setView,checkIns=[],setCheckIns=()
                 <td style={{padding:"10px 14px",fontSize:15,fontWeight:500,color:N}}>{a.count}</td>
                 <td style={{padding:"10px 14px",fontSize:13,color:GR}}>{a.members}</td>
                 <td style={{padding:"10px 14px",fontSize:13,color:AM}}>{a.visitors}</td>
+                <td style={{padding:"10px 14px",fontSize:13,color:"#2563eb"}}>{isKidsSvc(a.service)?a.count:0}</td>
                 <td style={{padding:"10px 14px",fontSize:13,color:MU}}>{a.notes||(a._virtual?"From check-ins":"None")}</td>
                 <td style={{padding:"10px 14px"}}><div style={{display:"flex",gap:6}}><Btn onClick={()=>openDetail(a)} v="ghost" style={{fontSize:11,padding:"3px 8px"}}>View</Btn>{!a._virtual&&<Btn onClick={()=>setAttendance(attendance.filter((s:any)=>s.id!==a.id))} v="danger" style={{fontSize:11,padding:"3px 8px"}}>X</Btn>}</div></td>
               </tr>
