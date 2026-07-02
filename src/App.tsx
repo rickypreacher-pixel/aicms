@@ -17571,8 +17571,13 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       // drop check-ins entered locally that haven't reached the cloud blob yet ("disappearing" bug).
       if(Array.isArray(d.kidsCheckIns)) setKidsCheckIns((cur:any[])=>{
         const curArr=Array.isArray(cur)?cur:[];
-        const ids=new Set(curArr.map((c:any)=>String(c.id)));
-        const merged=[...curArr,...d.kidsCheckIns.filter((c:any)=>!ids.has(String(c.id)))];
+        // Union by the natural childId|date key, NOT id. Check-in ids collide (old per-device
+        // counters reused 900,901,...), so an id-union would drop a cloud check-in whenever its id
+        // already exists locally for a DIFFERENT child/date (e.g. Noah's July-5 id 900 vs his May-19
+        // id 900) — making a real check-in never appear on that device.
+        const keyOf=(c:any)=>String(c&&c.childId)+"|"+String(c&&c.date);
+        const keys=new Set(curArr.map(keyOf));
+        const merged=[...curArr,...d.kidsCheckIns.filter((c:any)=>!keys.has(keyOf(c)))];
         return merged.length===curArr.length?curArr:merged;
       });
       if(Array.isArray(d.teacherFollowups)) setTeacherFollowups((cur:any)=>{
