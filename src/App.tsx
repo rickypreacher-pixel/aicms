@@ -9145,7 +9145,11 @@ function Attendance({attendance,setAttendance,setView,checkIns=[],setCheckIns=()
   // duplicate check-in rows for the same child+date (e.g. May 31 had 101 rows for 55 children),
   // so counting distinct child ids makes those duplicates harmless. A stored snapshot count can't
   // survive the union-by-id sync either, so we always recompute from the check-ins.
-  const SS_SVC = "Sunday School (Children)";
+  const SS_SVC = "Education Department";
+  // Legacy: kids check-ins used to log under "Sunday School (Children)". Treat both names as the
+  // SAME Education-department row so historical records relabel cleanly and never double up.
+  const SS_SVC_LEGACY = "Sunday School (Children)";
+  const isKidsSvc = (svc:any)=>{const s=nk(svc);return s===nk(SS_SVC)||s===nk(SS_SVC_LEGACY);};
   const kidsByDate:any = (()=>{
     const m:any={};
     (kidsCheckIns||[]).forEach((c:any)=>{if(!c||c.date==null||c.childId==null)return;const k=nk(c.date);(m[k]||(m[k]=new Set())).add(String(c.childId));});
@@ -9159,12 +9163,13 @@ function Attendance({attendance,setAttendance,setView,checkIns=[],setCheckIns=()
     const manual:any[] = [];
     const seenSS = new Set();
     (attendance||[]).forEach((a:any)=>{
-      if(nk(a.service)===nk(SS_SVC)){
+      if(isKidsSvc(a.service)){
         const dk=nk(a.date);
         if(seenSS.has(dk)) return;
         seenSS.add(dk);
         const live=kidsByDate[dk];
-        manual.push(live!=null?{...a,count:live,members:0,visitors:0}:a);
+        // Relabel any legacy "Sunday School (Children)" row to SS_SVC ("Education Department").
+        manual.push(live!=null?{...a,service:SS_SVC,count:live,members:0,visitors:0}:{...a,service:SS_SVC});
       } else {
         manual.push(a);
       }
@@ -9193,7 +9198,7 @@ function Attendance({attendance,setAttendance,setView,checkIns=[],setCheckIns=()
   // in the general check-ins). We take the MAX of the two per Sunday rather than summing, because a
   // class is normally recorded in ONE system and the other holds only strays — summing would
   // double-count the same kids. ──
-  const isEduSvc=(svc:any)=>{const s=nk(svc);return s===nk(SS_SVC)||s.includes("education");};
+  const isEduSvc=(svc:any)=>{const s=nk(svc);return isKidsSvc(svc)||s.includes("education");};
   const weeklySummary=(()=>{
     const isSunday=(ds:any)=>{const d=new Date(String(ds)+"T00:00:00");return !isNaN(d.getTime())&&d.getDay()===0;};
     // Every Sunday that has either a logged/checked-in service or kids check-ins.
@@ -12555,14 +12560,15 @@ function CheckInPortal({classrooms,children,setChildren,kidsCheckIns,setKidsChec
           : c);
       });
     }
-    // Record a "Sunday School (Children)" entry in the main Attendance module (authoritative count from check-ins).
+    // Record an "Education Department" entry in the main Attendance module (authoritative count from check-ins).
     if(typeof setAttendance==="function"){
-      const svc="Sunday School (Children)";
+      const svc="Education Department";
       const dayCount=(kidsCheckIns||[]).filter((c:any)=>String(c.date)===String(selDate)).length+1;
       setAttendance((prev:any[])=>{
         const arr=Array.isArray(prev)?prev:[];
-        const ex=arr.find((a:any)=>String(a.date)===String(selDate)&&a.service===svc);
-        if(ex) return arr.map((a:any)=>a.id===ex.id?{...a,count:dayCount}:a);
+        // Match the new name OR the legacy "Sunday School (Children)" row so we relabel in place (no duplicate).
+        const ex=arr.find((a:any)=>String(a.date)===String(selDate)&&(a.service===svc||a.service==="Sunday School (Children)"));
+        if(ex) return arr.map((a:any)=>a.id===ex.id?{...a,service:svc,count:dayCount}:a);
         return [{id:Date.now()+Math.random(),date:selDate,service:svc,count:dayCount,members:0,visitors:0,notes:"Auto-recorded from kids check-in",auto:true},...arr];
       });
     }
