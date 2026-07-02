@@ -12582,7 +12582,8 @@ function PrintLabels({ci,child,classroom,onClose,printerConfig,force=false}){
             </div>
           </div>
         </div>
-        <div style={{padding:"14px 20px",borderTop:"0.5px solid "+BR,display:"flex",gap:10}} className="ntcc-no-print">
+        <div style={{padding:"10px 20px 0",fontSize:12,color:MU}} className="ntcc-no-print">💡 If clicking Print does nothing, keep this preview open and press <b>Ctrl&nbsp;+&nbsp;P</b> (Mac: <b>⌘&nbsp;+&nbsp;P</b>) — only the label will print. (Some browser ad-block/privacy extensions block the button but not the keyboard shortcut.)</div>
+        <div style={{padding:"12px 20px 14px",borderTop:"0.5px solid "+BR,display:"flex",gap:10,marginTop:12}} className="ntcc-no-print">
           <Btn onClick={doPrint} v="primary" style={{flex:1,justifyContent:"center",padding:"10px",fontSize:14}}>Print Both Labels</Btn>
           <Btn onClick={onClose} v="ghost" style={{flex:1,justifyContent:"center"}}>Close</Btn>
         </div>
