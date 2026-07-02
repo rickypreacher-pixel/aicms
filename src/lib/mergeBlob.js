@@ -50,6 +50,10 @@ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 // Identity key for an array element of a given field.
 function keyFor(field, item) {
   if (field === 'teacherSchedule') return String(item && item.date) + '|' + String(item && item.classroomId);
+  // Kids check-ins have non-unique / colliding ids (per-device counters). Key by the natural
+  // composite childId|date (one check-in per child per date) so the merge is stable and doesn't
+  // collapse distinct records or shrink the array (which the DB no-shrink guard would then revert).
+  if (field === 'kidsCheckIns') return String(item && item.childId) + '|' + String(item && item.date);
   if (SCALAR_ARR_SET.has(field)) return String(item);
   return String(item && item.id);
 }

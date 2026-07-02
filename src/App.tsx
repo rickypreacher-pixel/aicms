@@ -6241,12 +6241,12 @@ function CalendarView({members,visitors,setVisitors,groups,recurring,setRecurrin
                                     {results.map(p=>{const inn=checkedIds.has(p.id);return(<div key={p.id} onClick={()=>!inn&&doCI(p)} style={{display:"flex",alignItems:"center",gap:7,padding:"6px 8px",borderRadius:7,border:"0.5px solid "+(inn?GR+"55":BR),background:inn?"#f0fdf4":W,cursor:inn?"default":"pointer",marginBottom:4}}><Av f={p.first} l={p.last} sz={24}/><div style={{flex:1,minWidth:0}}><div style={{fontSize:12,fontWeight:500,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.first} {p.last}</div><div style={{fontSize:10,color:MU}}>{p.ptype==="member"?"Member":p.stage||"Visitor"}</div></div>{inn?<span style={{fontSize:10,color:GR,fontWeight:600}}>In</span>:<span style={{fontSize:10,background:N,color:"#fff",borderRadius:4,padding:"2px 6px"}}>Check In</span>}</div>);})}
                                   </div>)}
                                   {!newVis&&selEvt&&isEduEvt(selEvt)&&kidResults.length>0&&(<div style={{marginBottom:8}}>
-                                    <div style={{fontSize:9,color:MU,textTransform:"uppercase",letterSpacing:0.4,marginBottom:4,fontWeight:600}}>Children · Sunday School</div>
+                                    <div style={{fontSize:9,color:MU,textTransform:"uppercase",letterSpacing:0.4,marginBottom:4,fontWeight:600}}>Children · Education Department</div>
                                     {kidResults.map((c:any)=>{const inn=kidCheckedIds.has(String(c.id));return(<div key={"k"+c.id} onClick={()=>!inn&&doKidCI(c)} style={{display:"flex",alignItems:"center",gap:7,padding:"6px 8px",borderRadius:7,border:"0.5px solid "+(inn?GR+"55":BR),background:inn?"#f0fdf4":W,cursor:inn?"default":"pointer",marginBottom:4}}><Av f={c.first} l={c.last} sz={24}/><div style={{flex:1,minWidth:0}}><div style={{fontSize:12,fontWeight:500,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{c.first} {c.last}</div><div style={{fontSize:10,color:MU}}>Child{c.grade?" · "+c.grade:""}</div></div>{inn?<span style={{fontSize:10,color:GR,fontWeight:600}}>In</span>:<span style={{fontSize:10,background:N,color:"#fff",borderRadius:4,padding:"2px 6px"}}>Check In</span>}</div>);})}
                                   </div>)}
                                   {!newVis&&!search&&<button onClick={()=>setNewVis(initV())} style={{width:"100%",padding:"6px",background:BG,border:"0.5px dashed "+G,borderRadius:7,fontSize:11,cursor:"pointer",color:MU,marginBottom:8}}>+ New Visitor or Family</button>}
                                   {eci.length>0&&(<div style={{borderTop:"0.5px solid "+BR,paddingTop:8,marginTop:4}}><div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:0.4,marginBottom:5,fontWeight:500}}>Checked In — {eci.length}</div>{[...eci].sort((a:any,b:any)=>(+b.id||0)-(+a.id||0)).map(ci=><div key={ci.id} style={{display:"flex",alignItems:"center",gap:6,padding:"5px 7px",background:"#f0fdf4",borderRadius:6,border:"0.5px solid #86efac",marginBottom:4}}><Av f={ci.first} l={ci.last} sz={20}/><div style={{flex:1,minWidth:0}}><div style={{fontSize:11,fontWeight:500,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{ci.first} {ci.last}</div><div style={{fontSize:9,color:MU}}>{ci.isNew?(ci.role||"New"):ci.ptype==="member"?"Member":"Visitor"}{ci.family?" · "+ci.family:""}</div></div><span style={{fontSize:9,color:GR,fontWeight:600}}>done</span></div>)}</div>)}
-                                  {selEvt&&isEduEvt(selEvt)&&eduKids.length>0&&(<div style={{borderTop:"0.5px solid "+BR,paddingTop:8,marginTop:4}}><div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:0.4,marginBottom:5,fontWeight:500}}>🧒 Sunday School — {eduKids.length} <span style={{fontWeight:400,textTransform:"none"}}>(shared with Education portal)</span></div>{[...eduKids].sort((a:any,b:any)=>(+b.id||0)-(+a.id||0)).map((c:any)=>{const nm=_kidName(c.childId);const pr=nm.split(" ");return(<div key={"kc"+c.id} style={{display:"flex",alignItems:"center",gap:6,padding:"5px 7px",background:"#eff6ff",borderRadius:6,border:"0.5px solid #bfdbfe",marginBottom:4}}><Av f={pr[0]||"?"} l={pr.slice(1).join(" ")||""} sz={20}/><div style={{flex:1,minWidth:0}}><div style={{fontSize:11,fontWeight:500,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{nm}</div><div style={{fontSize:9,color:MU}}>Child{c.checkedOut?" · checked out":""}</div></div><span style={{fontSize:9,color:"#2563eb",fontWeight:600}}>Sun. School</span></div>);})}</div>)}
+                                  {selEvt&&isEduEvt(selEvt)&&eduKids.length>0&&(<div style={{borderTop:"0.5px solid "+BR,paddingTop:8,marginTop:4}}><div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:0.4,marginBottom:5,fontWeight:500}}>🧒 Education Department — {eduKids.length} <span style={{fontWeight:400,textTransform:"none"}}>(shared with Education portal)</span></div>{[...eduKids].sort((a:any,b:any)=>(+b.id||0)-(+a.id||0)).map((c:any)=>{const nm=_kidName(c.childId);const pr=nm.split(" ");return(<div key={"kc"+c.id} style={{display:"flex",alignItems:"center",gap:6,padding:"5px 7px",background:"#eff6ff",borderRadius:6,border:"0.5px solid #bfdbfe",marginBottom:4}}><Av f={pr[0]||"?"} l={pr.slice(1).join(" ")||""} sz={20}/><div style={{flex:1,minWidth:0}}><div style={{fontSize:11,fontWeight:500,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{nm}</div><div style={{fontSize:9,color:MU}}>Child{c.checkedOut?" · checked out":""}</div></div><span style={{fontSize:9,color:"#2563eb",fontWeight:600}}>Education</span></div>);})}</div>)}
                                 </div>
                               )}
                               {evtDetailTab==="planner"&&PLANNER_SERVICES.includes(evt.name)&&(
@@ -9096,7 +9096,7 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
 }
 
 // ── ATTENDANCE ──
-function Attendance({attendance,setAttendance,setView,checkIns=[],setCheckIns=()=>{},members=[],visitors=[],kidsCheckIns=[]}:any) {
+function Attendance({attendance,setAttendance,setView,checkIns=[],setCheckIns=()=>{},members=[],visitors=[],kidsCheckIns=[],children=[]}:any) {
   const [modal,setModal] = useState(false);
   const [form,setForm] = useState({date:td(),service:"Sunday Morning Worship",count:"",members:"",visitors:"",notes:""});
   const [insight,setInsight] = useState("");
@@ -9329,6 +9329,22 @@ function Attendance({attendance,setAttendance,setView,checkIns=[],setCheckIns=()
               <Btn onClick={()=>remAtt(x.pid)} v="danger" style={{fontSize:11,padding:"2px 7px"}}>X</Btn>
             </div>))}
           </div>
+          {detail && isKidsSvc(detail.service) && (()=>{
+            const _dk=nk(detail.date);
+            const ids=Array.from(new Set((kidsCheckIns||[]).filter((c:any)=>nk(c.date)===_dk && c.childId!=null).map((c:any)=>String(c.childId))));
+            const kids=ids.map((id:string)=>{const ch=(children||[]).find((c:any)=>String(c.id)===id);return {id,name:ch?((ch.first||"")+" "+(ch.last||"")).trim():("Child #"+id)};});
+            return (<div style={{marginBottom:10}}>
+              <div style={{fontWeight:500,fontSize:13,color:N,marginBottom:8}}>🧒 Children checked in ({kids.length})</div>
+              <div style={{maxHeight:200,overflowY:"auto",border:"0.5px solid "+BR,borderRadius:8}}>
+                {kids.length===0&&<div style={{fontSize:12,color:MU,fontStyle:"italic",padding:"6px 10px"}}>No children on file for this date.</div>}
+                {kids.map((k:any)=>(<div key={k.id} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",borderBottom:"0.5px solid "+BR}}>
+                  <span style={{flex:1,fontSize:13,fontWeight:500}}>{k.name}</span>
+                  <span style={{fontSize:11,fontWeight:500,color:"#2563eb",background:"#eff6ff",borderRadius:10,padding:"2px 8px"}}>Child</span>
+                </div>))}
+              </div>
+              <div style={{fontSize:11,color:MU,marginTop:6}}>These are the children from the Education check-in portal. They make up the Total; Members/Visitors are 0 because children aren't counted as either.</div>
+            </div>);
+          })()}
           <Fld label="Add Attendee"><Inp value={pick} onChange={(v:string)=>setPick(v)} placeholder="Search members or visitors..."/></Fld>
           {pickResults.length>0&&<div style={{border:"0.5px solid "+BR,borderRadius:8,marginBottom:10,overflow:"hidden"}}>
             {pickResults.map((p:any)=>(<div key={p.ptype+"_"+p.id} onClick={()=>addAtt(p)} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",cursor:"pointer",borderBottom:"0.5px solid "+BR}}>
@@ -17795,7 +17811,11 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
         emailLog,emailTemplates,emailConfig:safeEmailConfig,recurring,custom,checkIns,rollCalls,
         teacherSchedule,kidsCheckIns,teacherFollowups,eventRsvps,announcements,roles,permissions,churchSettings,users:safeUsers,prospects,
         followupDismissedChildIds,
-        sickVisits,benevolence,hospitalityFund,hospStartBalance:_hospBal,cleaningSchedule,eventSchedule,adminNotesRead,careContacted,servicePlans};
+        sickVisits,benevolence,hospitalityFund,hospStartBalance:_hospBal,cleaningSchedule,eventSchedule,adminNotesRead,careContacted,servicePlans,
+        // Tell the DB no-shrink guard (trg_guard_no_shrink_kids) this client does a correct
+        // composite-key (childId|date) 3-way merge of kidsCheckIns, so it must NOT revert a save
+        // whose kids array is legitimately shorter (dedup of colliding-id rows / real deletions).
+        _saveGuardV:2};
       // Staleness guard: did another device save after our last load?
       const {data:meta} = await supabase.from('church_data').select('updated_at').eq('church_id',churchId).maybeSingle();
       const remoteTs = meta?.updated_at ? new Date(meta.updated_at).getTime() : 0;
@@ -18290,7 +18310,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           {!isMemberPortal && view==="benevolencefund" && <BenevolencePage members={members} visitors={visitors} benevolence={benevolence} setBenevolence={setBenevolence}/>}
           {!isMemberPortal && view==="counselinglog" && canAccessCounseling && <CounselingLog members={members} visitors={visitors} counselingLogs={counselingLogs} setCounselingLogs={setCounselingLogs}/>}
           {!isMemberPortal && view==="hospitalityfund" && <HospitalityFund members={members} hospitalityFund={hospitalityFund} setHospitalityFund={setHospitalityFund} hospStartBalance={hospStartBalance} setHospStartBalance={(v:any)=>{hospStartReady.current=true;setHospStartBalance(v);}}/>}
-          {!isMemberPortal && view==="attendance" && <Attendance attendance={attendance} setAttendance={setAttendance} setView={setView} checkIns={checkIns} setCheckIns={setCheckIns} members={members} visitors={visitors} kidsCheckIns={kidsCheckIns}/>}
+          {!isMemberPortal && view==="attendance" && <Attendance attendance={attendance} setAttendance={setAttendance} setView={setView} checkIns={checkIns} setCheckIns={setCheckIns} members={members} visitors={visitors} kidsCheckIns={kidsCheckIns} children={children}/>}
           {!isMemberPortal && view==="giving" && canViewGiving && <Giving giving={giving} setGiving={setGiving} pledgeDrives={pledgeDrives} setPledgeDrives={setPledgeDrives} pledges={pledges} setPledges={setPledges} members={members} visitors={visitors} weeklyReports={weeklyReports} setWeeklyReports={setWeeklyReports} emailTemplates={emailTemplates} currentUser={currentUser} roles={roles} churchId={churchId} onTxnDeleted={(rec:any)=>{ if(rec&&rec.txnId) givingDeletedTxns.current.add(String(rec.txnId)); }}/>}
           {!isMemberPortal && view==="prayer" && <Prayer prayers={prayers} setPrayers={setPrayers}/>}
           {/* ── Member Portal hard-gate: only myprofile, media, and prayer allowed ── */}
