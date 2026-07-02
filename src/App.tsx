@@ -2034,6 +2034,58 @@ const LABEL_PRESETS=[
 ];
 const DEFAULT_PRINTER_CFG={preset:"dymo30334"};
 
+// ── DYMO Connect direct printing ─────────────────────────────────────────────
+// When DYMO Connect is installed and running, it exposes a local web service. We can print straight
+// to the LabelWriter with NO browser print dialog — which also sidesteps ad-block/privacy extensions
+// that block window.print(). Everything is best-effort: if the service isn't reachable the caller
+// falls back to the normal browser print flow (and Ctrl+P).
+const DYMO_BASES = ["https://127.0.0.1:41951","https://localhost:41951"];
+let _dymoBase:string|null = null;
+async function _dymoTry(path:string, opts?:any):Promise<Response>{
+  const bases = _dymoBase ? [_dymoBase, ...DYMO_BASES.filter(b=>b!==_dymoBase)] : DYMO_BASES;
+  let err:any;
+  for(const base of bases){
+    try{ const r = await fetch(base+"/DYMO/DLS/Printing"+path, opts); _dymoBase = base; return r; }
+    catch(e){ err=e; }
+  }
+  throw err||new Error("DYMO service unreachable");
+}
+async function dymoAvailable():Promise<boolean>{
+  try{ const r = await _dymoTry("/Check",{method:"GET"}); return !!r && r.status>=200 && r.status<400; }catch(e){ return false; }
+}
+async function dymoPrinters():Promise<{name:string,connected:boolean}[]>{
+  try{
+    const r = await _dymoTry("/GetPrinters",{method:"GET"});
+    const doc = new DOMParser().parseFromString(await r.text(),"text/xml");
+    const out:{name:string,connected:boolean}[] = [];
+    const nodes = doc.getElementsByTagName("LabelWriterPrinter");
+    for(let i=0;i<nodes.length;i++){
+      const p=nodes[i];
+      const name=p.getElementsByTagName("Name")[0]?.textContent||"";
+      const conn=(p.getElementsByTagName("IsConnected")[0]?.textContent||"").toLowerCase()==="true";
+      if(name) out.push({name,connected:conn});
+    }
+    return out;
+  }catch(e){ return []; }
+}
+function _xmlEsc(s:any){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&apos;"); }
+function _dymoEl(text:string,size:number,bold:boolean){
+  return `<Element><String>${_xmlEsc(text)}&#10;</String><Attributes><Font Family="Arial" Size="${size}" Bold="${bold?"True":"False"}" Italic="False" Underline="False" Strikeout="False"/><ForeColor Alpha="255" Red="0" Green="0" Blue="0"/></Attributes></Element>`;
+}
+// A 30857 (2¼"×4") name badge as ONE centered, shrink-to-fit text block (robust; DYMO auto-fits).
+function buildDymoBadgeXml(lines:{text:string,size:number,bold:boolean}[]){
+  const els = lines.filter(l=>l && l.text!=null && String(l.text).trim().length).map(l=>_dymoEl(l.text,l.size,l.bold)).join("");
+  return `<?xml version="1.0" encoding="utf-8"?>
+<DieCutLabel Version="8.0" Units="twips"><PaperOrientation>Landscape</PaperOrientation><Id>NameBadge</Id><PaperName>30857 Name Badge</PaperName><DrawCommands><RoundRectangle X="0" Y="0" Width="5760" Height="3240" Rx="200" Ry="200"/></DrawCommands><ObjectInfo><TextObject><Name>CONTENT</Name><ForeColor Alpha="255" Red="0" Green="0" Blue="0"/><BackColor Alpha="0" Red="255" Green="255" Blue="255"/><LinkedObjectName/><Rotation>Rotation0</Rotation><IsMirrored>False</IsMirrored><IsVariable>False</IsVariable><HorizontalAlignment>Center</HorizontalAlignment><VerticalAlignment>Middle</VerticalAlignment><TextFitMode>ShrinkToFit</TextFitMode><UseFullFontHeight>True</UseFullFontHeight><Verticalized>False</Verticalized><StyledText>${els}</StyledText></TextObject><Bounds X="180" Y="180" Width="5400" Height="2880"/></ObjectInfo></DieCutLabel>`;
+}
+async function dymoPrint(printerName:string, labelXml:string):Promise<boolean>{
+  const body = new URLSearchParams();
+  body.set("printerName", printerName); body.set("printParamsXml",""); body.set("labelXml", labelXml); body.set("labelSetXml","");
+  const r = await _dymoTry("/PrintLabel",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded; charset=UTF-8"},body:body.toString()});
+  if(!r.ok){ const t=await r.text().catch(()=>""); throw new Error("Print failed ("+r.status+") "+t.slice(0,140)); }
+  return true;
+}
+
 const MODULES=[
   {key:"addperson",label:"Add Person",icon:"Add",desc:"Add new members and visitors to the database",actions:["create"]},
   {key:"addvisitor",label:"Add Visitor",icon:"AddV",desc:"Add new visitors to the follow-up pipeline",actions:["create"]},
@@ -12407,6 +12459,23 @@ function PrintLabels({ci,child,classroom,onClose,printerConfig,force=false}){
   // `force` = a test print: always show, even if this child/room wouldn't normally get a label.
   const suppressLabel=!force && !shouldPrintChildLabel(child,classroom);
   useEffect(()=>{if(suppressLabel&&typeof onClose==="function")onClose();},[suppressLabel,onClose]);
+  // DYMO Connect direct-print detection (runs once; harmless if the service isn't installed).
+  const [dymoOK,setDymoOK]=useState(false);
+  const [dymoPrinter,setDymoPrinter]=useState("");
+  const [dymoBusy,setDymoBusy]=useState(false);
+  const [dymoMsg,setDymoMsg]=useState("");
+  useEffect(()=>{
+    let alive=true;
+    (async()=>{
+      const ok=await dymoAvailable(); if(!alive)return;
+      if(!ok){ setDymoOK(false); return; }
+      const printers=await dymoPrinters(); if(!alive)return;
+      const connected=printers.filter(p=>p.connected);
+      const pick=connected.find(p=>/550/.test(p.name))||connected.find(p=>/label\s*writer/i.test(p.name))||connected[0]||printers[0];
+      if(pick){ setDymoOK(true); setDymoPrinter(pick.name); } else setDymoOK(false);
+    })();
+    return ()=>{alive=false;};
+  },[]);
   if(suppressLabel)return null;
   const meds=[...(child.allergies||[]),...(child.medical||[])];
   const preset=LABEL_PRESETS.find(p=>p.id===(printerConfig?.preset||"dymo30334"))||LABEL_PRESETS[0];
@@ -12423,6 +12492,35 @@ function PrintLabels({ci,child,classroom,onClose,printerConfig,force=false}){
   const lblW=isRoll?`${wMM}mm`:"auto";
   const lblH=hMM>0?`${hMM}mm`:"auto";
   const baseStyle:any={width:lblW,height:lblH,boxSizing:"border-box",overflow:"hidden",fontFamily:"system-ui,sans-serif"};
+  // Direct print to the Dymo via DYMO Connect (no browser dialog / extension can't block it).
+  const printDirect=async()=>{
+    if(!dymoPrinter){ setDymoMsg("No DYMO printer detected."); return; }
+    setDymoBusy(true); setDymoMsg("");
+    try{
+      const nm=`${child.first||""} ${child.last||""}`.trim();
+      const childLines=[
+        {text:(classroom.name||"").toUpperCase(),size:13,bold:true},
+        {text:nm,size:26,bold:true},
+        {text:`Age ${calcAge(child.dob)||"-"} · DOB ${child.dob?fd(child.dob):"-"}`,size:10,bold:false},
+        ...(meds.length?[{text:"MEDICAL: "+meds.join(", "),size:11,bold:true}]:[]),
+        {text:`CODE   ${ci.code||""}`,size:22,bold:true},
+      ];
+      await dymoPrint(dymoPrinter, buildDymoBadgeXml(childLines));
+      const parentLines=[
+        {text:"PARENT PICKUP STUB",size:11,bold:true},
+        {text:nm,size:22,bold:true},
+        {text:`Room: ${classroom.name||""}`,size:10,bold:false},
+        {text:`CODE   ${ci.code||""}`,size:22,bold:true},
+        {text:`${child.parentName||""}  ${child.parentPhone||""}`.trim(),size:10,bold:false},
+      ];
+      await dymoPrint(dymoPrinter, buildDymoBadgeXml(parentLines));
+      setDymoMsg("✓ Sent to "+dymoPrinter);
+      setTimeout(()=>{ if(typeof onClose==="function") onClose(); }, 1000);
+    }catch(e:any){
+      setDymoMsg("Couldn't print directly ("+(e?.message||e)+"). Use the browser Print or Ctrl+P below.");
+    }
+    setDymoBusy(false);
+  };
   // Preview scale so labels are visible on-screen
   const scale=isSmall?4:isNarrow?3:isTall?2.4:isMedium?2.2:1.5;
   const scaledH=hMM>0?hMM*scale:60*scale;
@@ -12582,10 +12680,12 @@ function PrintLabels({ci,child,classroom,onClose,printerConfig,force=false}){
             </div>
           </div>
         </div>
-        <div style={{padding:"10px 20px 0",fontSize:12,color:MU}} className="ntcc-no-print">💡 If clicking Print does nothing, keep this preview open and press <b>Ctrl&nbsp;+&nbsp;P</b> (Mac: <b>⌘&nbsp;+&nbsp;P</b>) — only the label will print. (Some browser ad-block/privacy extensions block the button but not the keyboard shortcut.)</div>
-        <div style={{padding:"12px 20px 14px",borderTop:"0.5px solid "+BR,display:"flex",gap:10,marginTop:12}} className="ntcc-no-print">
-          <Btn onClick={doPrint} v="primary" style={{flex:1,justifyContent:"center",padding:"10px",fontSize:14}}>Print Both Labels</Btn>
-          <Btn onClick={onClose} v="ghost" style={{flex:1,justifyContent:"center"}}>Close</Btn>
+        {dymoMsg&&<div style={{padding:"8px 20px 0",fontSize:12,fontWeight:600,color:dymoMsg.startsWith("✓")?GR:RE}} className="ntcc-no-print">{dymoMsg}</div>}
+        <div style={{padding:"10px 20px 0",fontSize:12,color:MU}} className="ntcc-no-print">{dymoOK?<><b style={{color:GR}}>✓ DYMO Connect detected</b> ({dymoPrinter||"printer"}) — click below to print directly, no dialog.</>:<>💡 If clicking Print does nothing, keep this preview open and press <b>Ctrl&nbsp;+&nbsp;P</b> (Mac: <b>⌘&nbsp;+&nbsp;P</b>) — only the label will print. (Some browser ad-block/privacy extensions block the button but not the keyboard shortcut.)</>}</div>
+        <div style={{padding:"12px 20px 14px",borderTop:"0.5px solid "+BR,display:"flex",gap:10,marginTop:12,flexWrap:"wrap"}} className="ntcc-no-print">
+          {dymoOK&&<Btn onClick={printDirect} v="primary" disabled={dymoBusy} style={{flex:"1 1 200px",justifyContent:"center",padding:"10px",fontSize:14}}>{dymoBusy?"Printing…":"🏷️ Print to Dymo (1-click)"}</Btn>}
+          <Btn onClick={doPrint} v={dymoOK?"outline":"primary"} style={{flex:"1 1 140px",justifyContent:"center",padding:"10px",fontSize:14}}>{dymoOK?"Print via browser":"Print Both Labels"}</Btn>
+          <Btn onClick={onClose} v="ghost" style={{flex:"0 1 auto",justifyContent:"center"}}>Close</Btn>
         </div>
       </div>
     </div>
