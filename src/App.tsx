@@ -7541,7 +7541,7 @@ const PROSPECT_STATUSES = [
   {id:"Confirmed",    label:"Confirmed Coming",color:"#16a34a"},
 ];
 
-function ProspectsPage({prospects,setProspects,members,setView,onOpenSms,isAdmin=true,currentUserId=null,currentUserMemberId=null,currentUserName=""}:any) {
+function ProspectsPage({prospects,setProspects,members,setView,onOpenSms,isAdmin=true,currentUserId=null,currentUserMemberId=null,currentUserName="",portalMode=false}:any) {
   const blank = () => ({first:"",last:"",phone:"",street:"",city:"",state:"",zip:"",invitedBy:"",invitedById:null,status:"Not Contacted",notes:""});
   const [form,setForm] = useState(blank());
   const [modal,setModal] = useState(false);
@@ -7590,6 +7590,7 @@ function ProspectsPage({prospects,setProspects,members,setView,onOpenSms,isAdmin
   };
   const del = (id:number) => { if(confirm("Remove this prospect?")) setProspects((ps:any[])=>ps.filter((p:any)=>String(p.id)!==String(id))); };
   const launchSmsForProspect = (p:any) => {
+    if(portalMode) return; // congregant portal has no SMS Center — texting is a staff tool
     if(!p?.phone){ alert("This prospect has no phone number on file."); return; }
     const payload = {
       phone:p.phone,
@@ -7714,7 +7715,7 @@ function ProspectsPage({prospects,setProspects,members,setView,onOpenSms,isAdmin
                 </div>
               </div>
               <div style={{display:"flex",gap:6,flexShrink:0}}>
-                <button onClick={()=>launchSmsForProspect(p)} style={{background:lastTextedProspectId===String(p.id)?"#dcfce7":BL+"14",border:"0.5px solid "+(lastTextedProspectId===String(p.id)?"#86efac":BL+"44"),borderRadius:7,padding:"6px 12px",cursor:"pointer",fontSize:11,color:lastTextedProspectId===String(p.id)?"#166534":BL,fontWeight:600}}>Text</button>
+                {!portalMode && <button onClick={()=>launchSmsForProspect(p)} style={{background:lastTextedProspectId===String(p.id)?"#dcfce7":BL+"14",border:"0.5px solid "+(lastTextedProspectId===String(p.id)?"#86efac":BL+"44"),borderRadius:7,padding:"6px 12px",cursor:"pointer",fontSize:11,color:lastTextedProspectId===String(p.id)?"#166534":BL,fontWeight:600}}>Text</button>}
                 <button onClick={()=>openEdit(p)} style={{background:N+"12",border:"0.5px solid "+N+"33",borderRadius:7,padding:"6px 12px",cursor:"pointer",fontSize:11,color:N,fontWeight:500}}>Edit</button>
                 <button onClick={()=>del(p.id)} style={{background:"#fee2e2",border:"0.5px solid #fca5a5",borderRadius:7,padding:"6px 10px",cursor:"pointer",fontSize:11,color:RE,fontWeight:500}}>✕</button>
               </div>
@@ -17946,6 +17947,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   const RESTRICTED_NAV_HIDDEN = ['ai','email','sms'];
   const PORTAL_NAV = [
     {id:"myprofile",label:"My Profile",icon:"👤",group:"Core"},
+    {id:"prospects",label:"Invite / Prospects",icon:"🎯",group:"Core"},
     {id:"media",label:"Watch Live",icon:"📺",group:"Core"},
     {id:"give",label:"Give",icon:"💝",group:"Core"},
     {id:"news",label:"Announcements",icon:"📢",group:"Core"},
@@ -18266,7 +18268,8 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           {!isMemberPortal && view==="prayer" && <Prayer prayers={prayers} setPrayers={setPrayers}/>}
           {/* ── Member Portal hard-gate: only myprofile, media, and prayer allowed ── */}
           {view==="media" && <MediaPage cs={churchSettings}/>}
-          {isMemberPortal && view!=="prayer" && view!=="media" && <MemberProfilePortal member={portalMember} setMembers={setMembers} giving={giving} onSignOut={onSignOut} roles={roles} users={users} setUsers={setUsers} recurring={recurring} custom={custom} eventRsvps={eventRsvps} setEventRsvps={setEventRsvps} members={members} children={children} announcements={announcements} cleaningSchedule={cleaningSchedule} eventSchedule={eventSchedule} givingUrl={churchSettings?.onlineGivingUrl||"https://myntccglendaleaz.onlinegiving.cc/"} initialTab={view==="give"?"give":view==="news"?"news":"profile"}/>}
+          {isMemberPortal && view==="prospects" && <ProspectsPage prospects={prospects} setProspects={setProspects} members={members} setView={setView} portalMode={true} isAdmin={false} currentUserId={null} currentUserMemberId={portalMember?.id ?? null} currentUserName={(portalMember.first+" "+portalMember.last).trim()}/>}
+          {isMemberPortal && view!=="prayer" && view!=="media" && view!=="prospects" && <MemberProfilePortal member={portalMember} setMembers={setMembers} giving={giving} onSignOut={onSignOut} roles={roles} users={users} setUsers={setUsers} recurring={recurring} custom={custom} eventRsvps={eventRsvps} setEventRsvps={setEventRsvps} members={members} children={children} announcements={announcements} cleaningSchedule={cleaningSchedule} eventSchedule={eventSchedule} givingUrl={churchSettings?.onlineGivingUrl||"https://myntccglendaleaz.onlinegiving.cc/"} initialTab={view==="give"?"give":view==="news"?"news":"profile"}/>}
           {isMemberPortal && view==="prayer" && <Prayer prayers={prayers} setPrayers={setPrayers} portalMode={true} portalMember={portalMember}/>}
           {/* ── My Profile: every logged-in staff/user. Shows their member record if linked, else a read-only account card. ── */}
           {!isMemberPortal && view==="myprofile" && (staffMemberRecord
