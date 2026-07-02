@@ -9173,8 +9173,11 @@ function Attendance({attendance,setAttendance,setView,checkIns=[],setCheckIns=()
         if(seenSS.has(dk)) return;
         seenSS.add(dk);
         const live=kidsByDate[dk];
-        // Relabel any legacy "Sunday School (Children)" row to SS_SVC ("Education Department").
-        manual.push(live!=null?{...a,service:SS_SVC,count:live,members:0,visitors:0}:{...a,service:SS_SVC});
+        // Education Department count is DERIVED from live kids check-ins. If a stored row exists but
+        // there are no check-ins for that date (e.g. the check-ins were lost to a sync collision),
+        // drop the row instead of showing a stale/phantom count. Otherwise relabel + use the live count.
+        if(live==null) return;
+        manual.push({...a,service:SS_SVC,count:live,members:0,visitors:0});
       } else {
         manual.push(a);
       }
@@ -9310,7 +9313,7 @@ function Attendance({attendance,setAttendance,setView,checkIns=[],setCheckIns=()
         {detail && (<div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
             <Fld label="Date *"><Inp type="date" value={dForm.date} onChange={(v:string)=>setDForm((f:any)=>({...f,date:v}))}/></Fld>
-            <Fld label="Service Type"><Slt value={dForm.service} onChange={(v:string)=>setDForm((f:any)=>({...f,service:v}))} opts={["Sunday Morning Worship","Sunday Evening Service","Tuesday Bible Study","Thursday Worship","Special Event","Youth Service","Prayer Meeting"]}/></Fld>
+            <Fld label="Service Type"><Slt value={dForm.service} onChange={(v:string)=>setDForm((f:any)=>({...f,service:v}))} opts={["Sunday Morning Worship","Sunday Evening Service","Tuesday Bible Study","Thursday Worship","Education Department","Special Event","Youth Service","Prayer Meeting"]}/></Fld>
           </div>
           <Fld label="Notes"><Inp value={dForm.notes} onChange={(v:string)=>setDForm((f:any)=>({...f,notes:v}))} placeholder="Any notable details..."/></Fld>
           <div style={{display:"flex",gap:10,margin:"6px 0 10px"}}>
