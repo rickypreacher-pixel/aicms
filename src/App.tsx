@@ -12539,17 +12539,21 @@ function PrintLabels({ci,child,classroom,onClose,printerConfig,force=false}){
     const html=node?(node as any).outerHTML:"";
     const css=`@page{size:${sizeCSS};margin:${isRoll?"1mm":"10mm"}}html,body{margin:0;padding:0}.ntcc-label-break{page-break-before:always;}`;
     try{
+      const old=document.getElementById("ntcc-print-frame"); if(old&&old.parentNode){ old.parentNode.removeChild(old); }
       const ifr=document.createElement("iframe");
-      ifr.setAttribute("aria-hidden","true");
-      ifr.style.cssText="position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;";
+      ifr.id="ntcc-print-frame";
+      // IMPORTANT: off-screen but with a REAL size and NOT visibility:hidden. Chrome silently
+      // refuses to print a 0×0 / hidden iframe (that was the "nothing happens" cause).
+      ifr.style.cssText="position:fixed;left:-10000px;top:0;width:420px;height:640px;border:0;";
+      let printed=false;
+      const fire=()=>{ if(printed) return; printed=true; try{ const cw:any=ifr.contentWindow; cw.focus(); cw.print(); }catch(e){ try{window.print();}catch(_e){} } setTimeout(()=>{ try{ ifr.parentNode&&ifr.parentNode.removeChild(ifr); }catch(e){} },3000); };
+      ifr.onload=fire;
       document.body.appendChild(ifr);
       const cw:any=ifr.contentWindow;
-      const idoc=cw.document;
-      idoc.open();
-      idoc.write(`<!doctype html><html><head><title>Check-in label</title><style>${css}</style></head><body>${html}</body></html>`);
-      idoc.close();
-      const fire=()=>{ try{ cw.focus(); cw.print(); }catch(e){ try{window.print();}catch(_e){} } setTimeout(()=>{ try{document.body.removeChild(ifr);}catch(e){} },2000); };
-      setTimeout(fire,300); // let the iframe render before printing
+      cw.document.open();
+      cw.document.write(`<!doctype html><html><head><title>Check-in label</title><style>${css}</style></head><body>${html}</body></html>`);
+      cw.document.close();
+      setTimeout(fire,600); // fallback in case onload doesn't fire for a written document
     }catch(e){ try{ window.print(); }catch(_e){} }
   };
   return(<>
