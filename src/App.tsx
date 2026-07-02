@@ -12530,6 +12530,20 @@ function PrintLabels({ci,child,classroom,onClose,printerConfig,force=false}){
     );
   };
 
+  // Print by opening a dedicated window containing ONLY the label markup (reusing the already-
+  // rendered inline-styled HTML). This is far more reliable than window.print() on the whole app
+  // (which silently did nothing in some browsers) and gives the label printer a clean single page.
+  const doPrint=()=>{
+    const node=(typeof document!=="undefined")?document.querySelector(".ntcc-label-print"):null;
+    const html=node?(node as any).outerHTML:"";
+    let w:any=null; try{ w=window.open("","_blank","width=420,height=640"); }catch(e){ w=null; }
+    if(!w){ try{ window.print(); }catch(e){} return; } // popup blocked → fall back to whole-page print
+    w.document.open();
+    w.document.write(`<!doctype html><html><head><title>Check-in label</title><style>@page{size:${sizeCSS};margin:${isRoll?"1mm":"10mm"}}html,body{margin:0;padding:0}.ntcc-label-break{page-break-before:always;}</style></head><body>${html}</body></html>`);
+    w.document.close(); w.focus();
+    try{ w.onafterprint=()=>{ try{w.close();}catch(e){} }; }catch(e){}
+    setTimeout(()=>{ try{ w.print(); }catch(e){} }, 350);
+  };
   return(<>
     <style>{pageCSS}</style>
     {/* Actual print output — hidden on screen, shown when printing */}
@@ -12557,7 +12571,7 @@ function PrintLabels({ci,child,classroom,onClose,printerConfig,force=false}){
           </div>
         </div>
         <div style={{padding:"14px 20px",borderTop:"0.5px solid "+BR,display:"flex",gap:10}} className="ntcc-no-print">
-          <Btn onClick={()=>window.print()} v="primary" style={{flex:1,justifyContent:"center",padding:"10px",fontSize:14}}>Print Both Labels</Btn>
+          <Btn onClick={doPrint} v="primary" style={{flex:1,justifyContent:"center",padding:"10px",fontSize:14}}>Print Both Labels</Btn>
           <Btn onClick={onClose} v="ghost" style={{flex:1,justifyContent:"center"}}>Close</Btn>
         </div>
       </div>
