@@ -12530,19 +12530,27 @@ function PrintLabels({ci,child,classroom,onClose,printerConfig,force=false}){
     );
   };
 
-  // Print by opening a dedicated window containing ONLY the label markup (reusing the already-
-  // rendered inline-styled HTML). This is far more reliable than window.print() on the whole app
-  // (which silently did nothing in some browsers) and gives the label printer a clean single page.
+  // Print via a hidden iframe (NOT window.print() on the app, and NOT a popup window — both were
+  // unreliable / blocked). We drop the already-rendered label HTML into an off-screen iframe and
+  // call print() on that iframe's document, which reliably opens the print dialog with a clean
+  // single-label page. Falls back to window.print() only if the iframe can't be created.
   const doPrint=()=>{
     const node=(typeof document!=="undefined")?document.querySelector(".ntcc-label-print"):null;
     const html=node?(node as any).outerHTML:"";
-    let w:any=null; try{ w=window.open("","_blank","width=420,height=640"); }catch(e){ w=null; }
-    if(!w){ try{ window.print(); }catch(e){} return; } // popup blocked → fall back to whole-page print
-    w.document.open();
-    w.document.write(`<!doctype html><html><head><title>Check-in label</title><style>@page{size:${sizeCSS};margin:${isRoll?"1mm":"10mm"}}html,body{margin:0;padding:0}.ntcc-label-break{page-break-before:always;}</style></head><body>${html}</body></html>`);
-    w.document.close(); w.focus();
-    try{ w.onafterprint=()=>{ try{w.close();}catch(e){} }; }catch(e){}
-    setTimeout(()=>{ try{ w.print(); }catch(e){} }, 350);
+    const css=`@page{size:${sizeCSS};margin:${isRoll?"1mm":"10mm"}}html,body{margin:0;padding:0}.ntcc-label-break{page-break-before:always;}`;
+    try{
+      const ifr=document.createElement("iframe");
+      ifr.setAttribute("aria-hidden","true");
+      ifr.style.cssText="position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;";
+      document.body.appendChild(ifr);
+      const cw:any=ifr.contentWindow;
+      const idoc=cw.document;
+      idoc.open();
+      idoc.write(`<!doctype html><html><head><title>Check-in label</title><style>${css}</style></head><body>${html}</body></html>`);
+      idoc.close();
+      const fire=()=>{ try{ cw.focus(); cw.print(); }catch(e){ try{window.print();}catch(_e){} } setTimeout(()=>{ try{document.body.removeChild(ifr);}catch(e){} },2000); };
+      setTimeout(fire,300); // let the iframe render before printing
+    }catch(e){ try{ window.print(); }catch(_e){} }
   };
   return(<>
     <style>{pageCSS}</style>
