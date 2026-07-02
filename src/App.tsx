@@ -12403,8 +12403,9 @@ function EdDashboard({classrooms,children,kidsCheckIns,teacherSchedule,users,mem
   );
 }
 
-function PrintLabels({ci,child,classroom,onClose,printerConfig}){
-  const suppressLabel=!shouldPrintChildLabel(child,classroom);
+function PrintLabels({ci,child,classroom,onClose,printerConfig,force=false}){
+  // `force` = a test print: always show, even if this child/room wouldn't normally get a label.
+  const suppressLabel=!force && !shouldPrintChildLabel(child,classroom);
   useEffect(()=>{if(suppressLabel&&typeof onClose==="function")onClose();},[suppressLabel,onClose]);
   if(suppressLabel)return null;
   const meds=[...(child.allergies||[]),...(child.medical||[])];
@@ -13888,7 +13889,7 @@ function PrinterSettings({printerConfig,setPrinterConfig}){
         {preset.mode==="sheet"&&<div style={{marginTop:12,padding:"10px 12px",background:GL+"55",border:"0.5px solid "+G+"77",borderRadius:8,fontSize:12,color:"#7a5c10"}}><strong>Sheet-fed tip:</strong> Load {preset.id==="avery5160"?"Avery 5160 (30-up)":"Avery 5163 (10-up)"} sheets into a laser or inkjet. Both labels print on the same sheet.</div>}
         {preset.mode==="roll"&&<div style={{marginTop:12,padding:"10px 12px",background:N+"0a",border:"0.5px solid "+N+"33",borderRadius:8,fontSize:12,color:N}}><strong>Roll printer tip:</strong> Each label prints as a separate page — the cutter fires automatically after each one.</div>}
       </div>
-      {testData&&<PrintLabels ci={testData.ci} child={testData.child} classroom={testData.classroom} onClose={()=>setTestData(null)} printerConfig={printerConfig}/>}
+      {testData&&<PrintLabels ci={testData.ci} child={testData.child} classroom={testData.classroom} onClose={()=>setTestData(null)} printerConfig={printerConfig} force={true}/>}
     </div>
   );
 }
