@@ -12528,6 +12528,10 @@ function CheckInPortal({classrooms,children,setChildren,kidsCheckIns,setKidsChec
   const isStaff = ["staff","office","team supervisor","team leader"].includes(roleNameLc);
   const dateCI=kidsCheckIns.filter(c=>c.date===selDate);
   const activeCI=dateCI.filter(c=>!c.checkedOut);
+  // Count DISTINCT children (not raw records). Multi-device sync can leave several rows for the same
+  // child+date, so raw .length would show e.g. 11 for 1 child.
+  const activeKidCount=new Set(activeCI.filter((c:any)=>c.childId!=null).map((c:any)=>String(c.childId))).size;
+  const outKidCount=new Set(dateCI.filter((c:any)=>c.checkedOut&&c.childId!=null).map((c:any)=>String(c.childId))).size;
   const results=search.length>1?children.filter(c=>{const q=search.toLowerCase();return c.status==="Active"&&((c.first+" "+c.last).toLowerCase().includes(q)||(c.parentName||"").toLowerCase().includes(q));}):[]; 
   const pickChild=c=>{const age=calcAge(c.dob);const minorRooms=classrooms.filter(cl=>cl.checkin!==false&&cl.id<=6);setSelChild(c);setSelClass(minorRooms.find(cl=>typeof age==="number"&&age>=cl.ageMin&&age<=cl.ageMax)||minorRooms.find(cl=>cl.grade===c.grade||cl.name===c.grade)||minorRooms[3]||null);setSearch("");};
   const doCheckIn=()=>{
@@ -12552,12 +12556,17 @@ function CheckInPortal({classrooms,children,setChildren,kidsCheckIns,setKidsChec
     const nowIso = now.toISOString();
     const checkInTime = now.toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit",hour12:true});
     const code=genCode();
-    const ci={id:nid.current++,childId:selChild.id,classroomId:selClass.id,date:selDate,time:checkInTime,code,checkedOut:false};
+    // Globally-unique id (not a per-device counter) so two devices checking in kids don't generate
+    // colliding ids that clobber each other when the cloud blob merges kidsCheckIns by id.
+    const ci={id:Math.floor(Date.now()*1000+Math.random()*1000),childId:selChild.id,classroomId:selClass.id,date:selDate,time:checkInTime,code,checkedOut:false};
     setKidsCheckIns((cs:any[])=>[...cs,ci]);
 
     // Mark attendance in all areas: update the child's roster record (last attended + running count).
     if(typeof setChildren==="function"){
-      const childCount=(kidsCheckIns||[]).filter((c:any)=>String(c.childId)===String(selChild.id)).length+1;
+      // Times attended = DISTINCT dates checked in (dupe records from sync must not inflate it).
+      const _childDates=new Set((kidsCheckIns||[]).filter((c:any)=>String(c.childId)===String(selChild.id)&&c.date).map((c:any)=>String(c.date)));
+      _childDates.add(String(selDate));
+      const childCount=_childDates.size;
       setChildren((prev:any[])=>{
         const arr=Array.isArray(prev)?prev:[];
         return arr.map((c:any)=>String(c.id)===String(selChild.id)
@@ -12568,7 +12577,11 @@ function CheckInPortal({classrooms,children,setChildren,kidsCheckIns,setKidsChec
     // Record an "Education Department" entry in the main Attendance module (authoritative count from check-ins).
     if(typeof setAttendance==="function"){
       const svc="Education Department";
-      const dayCount=(kidsCheckIns||[]).filter((c:any)=>String(c.date)===String(selDate)).length+1;
+      // DISTINCT children checked in that date (not raw records) so the logged count is right even
+      // when multi-device sync leaves duplicate check-in rows.
+      const _dayIds=new Set((kidsCheckIns||[]).filter((c:any)=>String(c.date)===String(selDate)&&c.childId!=null).map((c:any)=>String(c.childId)));
+      _dayIds.add(String(selChild.id));
+      const dayCount=_dayIds.size;
       setAttendance((prev:any[])=>{
         const arr=Array.isArray(prev)?prev:[];
         // Match the new name OR the legacy "Sunday School (Children)" row so we relabel in place (no duplicate).
@@ -12658,7 +12671,7 @@ function CheckInPortal({classrooms,children,setChildren,kidsCheckIns,setKidsChec
         <input type="date" value={selDate} onChange={e=>setSelDate(e.target.value)} style={{padding:"7px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}/>
         <div style={{fontSize:11,color:MU}}>Late check-in policy: past Sundays only (Admin + Staff).</div>
         <div style={{flex:1}}></div>
-        <div style={{fontSize:12,color:MU}}>{activeCI.length} in - {dateCI.filter(c=>c.checkedOut).length} out</div>
+        <div style={{fontSize:12,color:MU}}>{activeKidCount} in - {outKidCount} out</div>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
         <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:16}}>
@@ -12666,9 +12679,9 @@ function CheckInPortal({classrooms,children,setChildren,kidsCheckIns,setKidsChec
           {!selChild?(<div><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Type child's name..." style={{width:"100%",padding:"10px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:14,outline:"none",boxSizing:"border-box",marginBottom:8}}/>{search.length<=1&&<div style={{textAlign:"center",padding:16,color:MU,fontSize:12}}>Start typing to find a child</div>}{results.length>0&&(<div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:10,maxHeight:280,overflowY:"auto"}}>{results.map(ch=>{const inn=activeCI.some(c=>c.childId===ch.id);return (<div key={ch.id} onClick={()=>!inn&&pickChild(ch)} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",borderRadius:8,border:"0.5px solid "+(inn?GR+"55":BR),background:inn?"#f0fdf4":W,cursor:inn?"default":"pointer"}}><Av f={ch.first} l={ch.last} sz={32}/><div style={{flex:1}}><div style={{fontSize:13,fontWeight:500}}>{ch.first} {ch.last}</div><div style={{fontSize:11,color:MU}}>Age {calcAge(ch.dob)} · {ch.grade} · {ch.parentName}</div></div>{inn&&<span style={{fontSize:10,background:GR,color:"#fff",borderRadius:10,padding:"2px 7px",fontWeight:500}}>In</span>}</div>);})}</div>)}{search.length>1&&results.length===0&&<div style={{textAlign:"center",padding:16,color:MU,fontSize:12}}>No child found. Add them as new.</div>}<Btn onClick={()=>{setNewModal(true);const p=search.trim().split(" ");setNewChild(n=>({...n,first:p[0]||"",last:p.slice(1).join(" ")||""}));}} v="outline" style={{width:"100%",justifyContent:"center"}}>+ Add New Child</Btn></div>):(<div><div style={{padding:14,background:BG,borderRadius:10,border:"0.5px solid "+BR,marginBottom:12}}><div style={{display:"flex",alignItems:"center",gap:12,marginBottom:10}}><Av f={selChild.first} l={selChild.last} sz={48}/><div style={{flex:1}}><div style={{fontSize:16,fontWeight:500}}>{selChild.first} {selChild.last}</div><div style={{fontSize:12,color:MU}}>Age {calcAge(selChild.dob)} · {selChild.grade}</div><div style={{fontSize:12,color:MU}}>Parent: {selChild.parentName} - {selChild.parentPhone}</div></div><button onClick={()=>{setSelChild(null);setSelClass(null);}} style={{background:"none",border:"none",cursor:"pointer",color:MU,fontSize:16}}>x</button></div>{(selChild.allergies?.length>0||selChild.medical?.length>0)&&<div style={{padding:"7px 10px",background:"#fff5f5",border:"0.5px solid #fca5a5",borderRadius:6,fontSize:11}}><strong style={{color:RE}}>MEDICAL:</strong>{selChild.allergies?.length>0&&" Allergies: "+selChild.allergies.join(", ")+"."}{selChild.medical?.length>0&&" Conditions: "+selChild.medical.join(", ")+"."}{selChild.medicalNotes&&" "+selChild.medicalNotes}</div>}</div><div style={{fontSize:11,color:MU,fontWeight:500,textTransform:"uppercase",letterSpacing:0.5,marginBottom:6}}>Classroom</div><div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(100px,1fr))",gap:6,marginBottom:12}}>{classrooms.filter(cl=>cl.checkin!==false&&cl.id<=6).map(cl=>{const sel=selClass?.id===cl.id;const age=calcAge(selChild.dob);const rec=typeof age==="number"&&age>=cl.ageMin&&age<=cl.ageMax;const count=activeCI.filter(c=>c.classroomId===cl.id).length;const full=count>=cl.capacity;return (<button key={cl.id} onClick={()=>!full&&setSelClass(cl)} disabled={full} style={{padding:"8px 6px",borderRadius:7,border:"1.5px solid "+(sel?cl.color:rec?G:BR),background:sel?cl.color+"14":rec?GL+"44":W,cursor:full?"not-allowed":"pointer",opacity:full?0.4:1,fontSize:11,fontWeight:sel?600:400,color:sel?cl.color:TX,textAlign:"center"}}><div>{cl.name}</div><div style={{fontSize:9,color:MU,marginTop:2}}>{count}/{cl.capacity}</div></button>);})}</div><Btn onClick={doCheckIn} v="success" style={{width:"100%",justifyContent:"center",padding:"12px",fontSize:14}} disabled={!selClass}>Check In and Print Labels</Btn></div>)}
         </div>
         <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:16}}>
-          <h3 style={{fontSize:14,fontWeight:500,color:N,margin:"0 0 14px"}}>{fd(selDate)} - {activeCI.length} Active</h3>
+          <h3 style={{fontSize:14,fontWeight:500,color:N,margin:"0 0 14px"}}>{fd(selDate)} - {activeKidCount} Active</h3>
           {activeCI.length===0?(<div style={{textAlign:"center",padding:32,color:MU,fontSize:13}}>No active check-ins yet.</div>):(<div style={{display:"flex",flexDirection:"column",gap:8,maxHeight:500,overflowY:"auto"}}>{activeCI.map(ci=>{const ch=children.find(c=>c.id===ci.childId);const cl=classrooms.find(c=>c.id===ci.classroomId);if(!ch||!cl)return null;return (<div key={ci.id} style={{padding:"10px 12px",background:BG,borderRadius:8,border:"0.5px solid "+BR}}><div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6}}><Av f={ch.first} l={ch.last} sz={32}/><div style={{flex:1}}><div style={{fontSize:13,fontWeight:500}}>{ch.first} {ch.last}</div><div style={{fontSize:11,color:cl.color,fontWeight:500}}>{cl.name}</div></div><div style={{textAlign:"right"}}><div style={{fontSize:15,fontWeight:700,color:N,fontFamily:"monospace",letterSpacing:1}}>{ci.code}</div><div style={{fontSize:10,color:MU}}>{ci.time}</div></div></div><div style={{display:"flex",gap:6}}><Btn onClick={()=>reprint(ci.id)} v="ghost" style={{width:"100%",fontSize:11,padding:"4px 8px",justifyContent:"center"}}>Reprint</Btn></div></div>);})}</div>)}
-          {dateCI.filter(c=>c.checkedOut).length>0&&<div style={{marginTop:12,paddingTop:12,borderTop:"0.5px solid "+BR}}><div style={{fontSize:11,color:MU,marginBottom:6}}>Checked Out ({dateCI.filter(c=>c.checkedOut).length})</div>{dateCI.filter(c=>c.checkedOut).slice(-5).map(ci=>{const ch=children.find(c=>c.id===ci.childId);return ch?(<div key={ci.id} style={{fontSize:11,color:MU,padding:"2px 0"}}>{ch.first} {ch.last} - {ci.checkOutAt}</div>):null;})}</div>}
+          {dateCI.filter(c=>c.checkedOut).length>0&&<div style={{marginTop:12,paddingTop:12,borderTop:"0.5px solid "+BR}}><div style={{fontSize:11,color:MU,marginBottom:6}}>Checked Out ({outKidCount})</div>{dateCI.filter(c=>c.checkedOut).slice(-5).map(ci=>{const ch=children.find(c=>c.id===ci.childId);return ch?(<div key={ci.id} style={{fontSize:11,color:MU,padding:"2px 0"}}>{ch.first} {ch.last} - {ci.checkOutAt}</div>):null;})}</div>}
         </div>
       </div>
       <Modal open={newModal} onClose={()=>setNewModal(false)} title="Register New Child" width={500}>
