@@ -139,6 +139,10 @@ function EquipmentTab({equipment,setEquipment,workOrders,schedMaint,canEdit}){
   const [form,setForm]=useState({name:"",category:"Other",location:"Other",serial:"",purchaseDate:"",warrantyExpires:"",vendor:"",manufacturer:"",cost:"",status:"Active",notes:""});
   const nid=useRef(4000);
   const sf=k=>v=>setForm(f=>({...f,[k]:v}));
+  // Category/location options = built-in list + any custom values already saved on equipment.
+  const catOpts=Array.from(new Set([...MAINT_CATS,...equipment.map(e=>e.category).filter(Boolean)]));
+  const locOpts=Array.from(new Set([...MAINT_LOCS,...equipment.map(e=>e.location).filter(Boolean)]));
+  const catColor=(c)=>MCAT_COLORS[c]||"#64748b";
   const filtered=equipment.filter(e=>{if(search&&!(e.name+" "+(e.serial||"")+" "+(e.manufacturer||"")).toLowerCase().includes(search.toLowerCase())) return false;if(filterCat!=="all"&&e.category!==filterCat) return false;if(filterLoc!=="all"&&e.location!==filterLoc) return false;return true;});
   const openAdd=()=>{if(!canEdit){alert("Permission required.");return;}setEditing(null);setForm({name:"",category:"Other",location:"Other",serial:"",purchaseDate:"",warrantyExpires:"",vendor:"",manufacturer:"",cost:"",status:"Active",notes:""});setModal(true);};
   const openEdit=e=>{if(!canEdit){alert("Permission required.");return;}setEditing(e);setForm({...e,cost:String(e.cost||"")});setModal(true);};
@@ -147,8 +151,8 @@ function EquipmentTab({equipment,setEquipment,workOrders,schedMaint,canEdit}){
   return (<div>
     <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}>
       <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search by name, serial, manufacturer..." style={{flex:1,minWidth:200,padding:"8px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}/>
-      <select value={filterCat} onChange={e=>setFilterCat(e.target.value)} style={{padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:12,outline:"none",background:W}}><option value="all">All Categories</option>{MAINT_CATS.map(c=><option key={c} value={c}>{c}</option>)}</select>
-      <select value={filterLoc} onChange={e=>setFilterLoc(e.target.value)} style={{padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:12,outline:"none",background:W}}><option value="all">All Locations</option>{MAINT_LOCS.map(l=><option key={l} value={l}>{l}</option>)}</select>
+      <select value={filterCat} onChange={e=>setFilterCat(e.target.value)} style={{padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:12,outline:"none",background:W}}><option value="all">All Categories</option>{catOpts.map(c=><option key={c} value={c}>{c}</option>)}</select>
+      <select value={filterLoc} onChange={e=>setFilterLoc(e.target.value)} style={{padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:12,outline:"none",background:W}}><option value="all">All Locations</option>{locOpts.map(l=><option key={l} value={l}>{l}</option>)}</select>
       <Btn onClick={openAdd} v="primary" disabled={!canEdit}>+ Add Equipment</Btn>
     </div>
     <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,overflow:"hidden"}}>
@@ -156,7 +160,7 @@ function EquipmentTab({equipment,setEquipment,workOrders,schedMaint,canEdit}){
         <thead><tr style={{background:BG}}>{["Equipment","Category","Location","Serial","Warranty","Status",""].map(h=><th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:11,fontWeight:500,color:MU,textTransform:"uppercase",letterSpacing:0.5,borderBottom:"0.5px solid "+BR}}>{h}</th>)}</tr></thead>
         <tbody>{filtered.map(e=>{const ws=warrantyStatus(e);const activeWOs=workOrders.filter(w=>w.equipmentId===e.id&&w.status!=="Completed").length;return (<tr key={e.id} onClick={()=>setDetail(e)} style={{borderBottom:"0.5px solid "+BR,cursor:"pointer"}} onMouseEnter={evt=>evt.currentTarget.style.background="#f8f9fc"} onMouseLeave={evt=>evt.currentTarget.style.background=W}>
           <td style={{padding:"10px 14px"}}><div style={{fontSize:13,fontWeight:500,color:N}}>{e.name}</div><div style={{fontSize:11,color:MU}}>{e.manufacturer||""}{e.cost?" · $"+Number(e.cost).toLocaleString():""}{activeWOs>0?" · "+activeWOs+" open WO":""}</div></td>
-          <td style={{padding:"10px 14px"}}><span style={{fontSize:11,background:MCAT_COLORS[e.category]+"18",color:MCAT_COLORS[e.category],borderRadius:20,padding:"2px 9px",fontWeight:500}}>{e.category}</span></td>
+          <td style={{padding:"10px 14px"}}><span style={{fontSize:11,background:catColor(e.category)+"18",color:catColor(e.category),borderRadius:20,padding:"2px 9px",fontWeight:500}}>{e.category}</span></td>
           <td style={{padding:"10px 14px",fontSize:12}}>{e.location}</td>
           <td style={{padding:"10px 14px",fontSize:11,color:MU,fontFamily:"monospace"}}>{e.serial||"—"}</td>
           <td style={{padding:"10px 14px"}}><span style={{fontSize:11,background:ws.bg,color:ws.color,borderRadius:20,padding:"2px 9px",fontWeight:500}}>{ws.label}</span></td>
@@ -167,7 +171,11 @@ function EquipmentTab({equipment,setEquipment,workOrders,schedMaint,canEdit}){
     </div>
     <Modal open={modal} onClose={()=>setModal(false)} title={editing?"Edit Equipment":"Add New Equipment"}>
       <Fld label="Equipment Name *"><Inp value={form.name} onChange={sf("name")} placeholder="e.g. Yamaha TF5 Mixer"/></Fld>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}><Fld label="Category"><Slt value={form.category} onChange={sf("category")} opts={MAINT_CATS}/></Fld><Fld label="Location"><Slt value={form.location} onChange={sf("location")} opts={MAINT_LOCS}/></Fld></div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+        <Fld label="Category"><input value={form.category} onChange={e=>sf("category")(e.target.value)} list="maint-cat-list" placeholder="Type new or choose…" style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box",fontFamily:"inherit"}}/><datalist id="maint-cat-list">{catOpts.map(c=><option key={c} value={c}/>)}</datalist></Fld>
+        <Fld label="Location"><input value={form.location} onChange={e=>sf("location")(e.target.value)} list="maint-loc-list" placeholder="Type new or choose…" style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box",fontFamily:"inherit"}}/><datalist id="maint-loc-list">{locOpts.map(l=><option key={l} value={l}/>)}</datalist></Fld>
+      </div>
+      <div style={{fontSize:11,color:MU,marginTop:-6,marginBottom:8}}>Tip: type a new category or location to add it — it'll be saved and appear as a choice next time.</div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}><Fld label="Serial / Asset ID"><Inp value={form.serial} onChange={sf("serial")}/></Fld><Fld label="Cost ($)"><Inp type="number" value={form.cost} onChange={sf("cost")}/></Fld></div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}><Fld label="Manufacturer"><Inp value={form.manufacturer} onChange={sf("manufacturer")}/></Fld><Fld label="Vendor"><Inp value={form.vendor} onChange={sf("vendor")}/></Fld></div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}><Fld label="Purchase Date"><Inp type="date" value={form.purchaseDate} onChange={sf("purchaseDate")}/></Fld><Fld label="Warranty Expires"><Inp type="date" value={form.warrantyExpires} onChange={sf("warrantyExpires")}/></Fld></div>
@@ -178,8 +186,8 @@ function EquipmentTab({equipment,setEquipment,workOrders,schedMaint,canEdit}){
     <Modal open={!!detail} onClose={()=>setDetail(null)} title="" width={560}>
       {detail && (()=>{const ws=warrantyStatus(detail);const related=schedMaint.filter(s=>s.equipmentId===detail.id);const history=workOrders.filter(w=>w.equipmentId===detail.id);return (<div style={{marginTop:-14}}>
         <div style={{display:"flex",alignItems:"center",gap:14,padding:"12px 0 16px",borderBottom:"0.5px solid "+BR,marginBottom:14}}>
-          <div style={{width:48,height:48,borderRadius:10,background:MCAT_COLORS[detail.category]+"14",color:MCAT_COLORS[detail.category],display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:14,flexShrink:0}}>{detail.category.slice(0,3).toUpperCase()}</div>
-          <div style={{flex:1}}><div style={{fontSize:18,fontWeight:500,color:N}}>{detail.name}</div><div style={{display:"flex",gap:6,marginTop:4,flexWrap:"wrap"}}><span style={{fontSize:11,background:MCAT_COLORS[detail.category]+"18",color:MCAT_COLORS[detail.category],borderRadius:20,padding:"2px 9px",fontWeight:500}}>{detail.category}</span><span style={{fontSize:11,background:BG,color:TX,borderRadius:20,padding:"2px 9px",fontWeight:500}}>{detail.location}</span><span style={{fontSize:11,background:ws.bg,color:ws.color,borderRadius:20,padding:"2px 9px",fontWeight:500}}>Warranty: {ws.label}</span></div></div>
+          <div style={{width:48,height:48,borderRadius:10,background:catColor(detail.category)+"14",color:catColor(detail.category),display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700,fontSize:14,flexShrink:0}}>{detail.category.slice(0,3).toUpperCase()}</div>
+          <div style={{flex:1}}><div style={{fontSize:18,fontWeight:500,color:N}}>{detail.name}</div><div style={{display:"flex",gap:6,marginTop:4,flexWrap:"wrap"}}><span style={{fontSize:11,background:catColor(detail.category)+"18",color:catColor(detail.category),borderRadius:20,padding:"2px 9px",fontWeight:500}}>{detail.category}</span><span style={{fontSize:11,background:BG,color:TX,borderRadius:20,padding:"2px 9px",fontWeight:500}}>{detail.location}</span><span style={{fontSize:11,background:ws.bg,color:ws.color,borderRadius:20,padding:"2px 9px",fontWeight:500}}>Warranty: {ws.label}</span></div></div>
           <Btn onClick={()=>{setDetail(null);openEdit(detail);}} v="outline" style={{fontSize:12}} disabled={!canEdit}>Edit</Btn>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:16}}>{[["Serial",detail.serial],["Cost",detail.cost?"$"+Number(detail.cost).toLocaleString():""],["Manufacturer",detail.manufacturer],["Vendor",detail.vendor],["Purchased",fd(detail.purchaseDate)],["Warranty Expires",fd(detail.warrantyExpires)]].map(([k,v])=>v?<div key={k} style={{background:BG,borderRadius:8,padding:"8px 12px",border:"0.5px solid "+BR}}><div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:0.5}}>{k}</div><div style={{fontSize:13,fontWeight:500,marginTop:2}}>{v}</div></div>:null)}</div>
