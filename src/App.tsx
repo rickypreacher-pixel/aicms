@@ -6030,7 +6030,7 @@ function Groups({members,groups,setGroups,grpMeetings,setGrpMeetings,currentUser
 // ── CALENDAR MODULE ──
 const INIT_RECURRING=[
   {id:"r1",name:"Sunday Morning Worship",dow:0,time:"11:00 AM",color:N,type:"Worship",location:"Sanctuary"},
-  {id:"r2",name:"Education Department",dow:0,time:"11:00 AM",color:G,type:"Education",location:"Education Wing"},
+  {id:"r2",name:"Education Department",dow:0,time:"11:00 AM",color:G,type:"Education",location:"Total Children & Youth"},
   {id:"r3",name:"Sunday Night Service",dow:0,time:"6:00 PM",color:PU,type:"Worship",location:"Sanctuary"},
   {id:"r4",name:"Tuesday Bible Study",dow:2,time:"7:30 PM",color:GR,type:"Study",location:"Fellowship Hall"},
   {id:"r5",name:"Thursday Worship",dow:4,time:"7:30 PM",color:BL,type:"Worship",location:"Sanctuary"},
