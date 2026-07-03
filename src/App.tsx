@@ -2122,8 +2122,8 @@ const NEW_CHURCH_KEY="founder-2026-x7k9qm4t";
 const blankPerms=()=>Object.fromEntries(MODULES.map(m=>[m.key,Object.fromEntries(m.actions.map(a=>[a,false]))]));
 const VS={Pastor:"Pastor Visit",TeamSupervisor:"Team Supervisor",TeamLeader:"Team Leader",Sponsor:"Sponsor",OngoingCare:"Ongoing Care",Complete:"Complete"};
 const VC={Pastor:N,TeamSupervisor:"#f97316",TeamLeader:PU,Sponsor:GR,OngoingCare:G,Complete:TE};
-const METH_IC={Text:"💬",Call:"📞",Visit:"🚪"};
-const METH_CLR={Text:{bg:"#f3e8ff",c:PU},Call:{bg:"#eff6ff",c:BL},Visit:{bg:"#dcfce7",c:GR}};
+const METH_IC={Text:"💬",Call:"📞",Visit:"🚪",Other:"📝"};
+const METH_CLR={Text:{bg:"#f3e8ff",c:PU},Call:{bg:"#eff6ff",c:BL},Visit:{bg:"#dcfce7",c:GR},Other:{bg:"#f1f5f9",c:"#475569"}};
 const AVC=["#1a2e5a","#c9a84c","#2e7d32","#1565c0","#6a1b9a","#00695c","#c62828","#e65100"];
 const avc=s=>{let x=0;for(let c of(s||""))x+=c.charCodeAt(0);return AVC[x%AVC.length];};
 const ini=(f,l)=>(((f||"")[0]||"")+((l||"")[0]||"")).toUpperCase();
@@ -5454,7 +5454,7 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
               </div>
               <Fld label="Contact Method *">
                 <div style={{display:"flex",gap:8}}>
-                  {["Text","Call","Visit"].map(mth=>(
+                  {["Text","Call","Visit","Other"].map(mth=>(
                     <button key={mth} onClick={()=>{setLogForm(f=>({...f,method:mth})); if(mth==="Text") openTextFromLog(logModal);}} style={{flex:1,padding:"10px 8px",borderRadius:8,border:"0.5px solid "+(logForm.method===mth?N:BR),background:logForm.method===mth?N:W,color:logForm.method===mth?"#fff":TX,fontSize:13,cursor:"pointer",fontWeight:logForm.method===mth?500:400}}>
                       {METH_IC[mth]} {mth}
                     </button>
