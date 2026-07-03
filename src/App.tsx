@@ -2136,6 +2136,15 @@ const contactStamp=c=>{
   if(c.loggedAt) return fdt(c.loggedAt);
   return fd(c.date);
 };
+// Who logged a contact — "Name · Role" (Team Supervisor / Team Leader / Sponsor / etc.). Empty if unknown.
+const contactBy=(c:any)=>{
+  if(!c) return "";
+  const nm=String(c.byName||"").trim();
+  const role=String(c.byRole||"").trim();
+  const cleanNm=(nm&&nm!=="Unknown"&&nm!=="None")?nm:"";
+  if(cleanNm&&role) return cleanNm+" · "+role;
+  return cleanNm||role||"";
+};
 const stageCompletionTs = (c:any) => {
   if(!c) return "";
   if(c.completedAt) return c.completedAt;
@@ -2144,21 +2153,25 @@ const stageCompletionTs = (c:any) => {
   return "";
 };
 const buildStageTimeline = (rec:any) => {
-  const base:any = {Pastor:"",TeamSupervisor:"",TeamLeader:"",Sponsor:"",OngoingCare:[]};
+  const base:any = {Pastor:"",TeamSupervisor:"",TeamLeader:"",Sponsor:"",OngoingCare:[],
+    by:{Pastor:"",TeamSupervisor:"",TeamLeader:"",Sponsor:""}, careBy:[]};
   if(!rec || !Array.isArray(rec.contacts)) return base;
   rec.contacts.forEach((c:any)=>{
     if(!c?.completed) return;
     const ts = stageCompletionTs(c);
     if(!ts || !c.stage) return;
+    const who = contactBy(c);
     if(c.stage==="OngoingCare") {
-      base.OngoingCare.push(ts);
+      base.OngoingCare.push({ts,who});
       return;
     }
-    if(base[c.stage]!==undefined) {
-      if(!base[c.stage] || new Date(ts)>new Date(base[c.stage])) base[c.stage]=ts;
+    if(base[c.stage]!==undefined && typeof base[c.stage]==="string") {
+      if(!base[c.stage] || new Date(ts)>new Date(base[c.stage])) { base[c.stage]=ts; base.by[c.stage]=who; }
     }
   });
-  base.OngoingCare.sort((a:string,b:string)=>new Date(a).getTime()-new Date(b).getTime());
+  base.OngoingCare.sort((a:any,b:any)=>new Date(a.ts).getTime()-new Date(b.ts).getTime());
+  base.careBy = base.OngoingCare.map((o:any)=>o.who);
+  base.OngoingCare = base.OngoingCare.map((o:any)=>o.ts);
   return base;
 };
 const td=()=>new Date().toISOString().split("T")[0];
@@ -4743,7 +4756,12 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
     const rec = logModal;
     if(!logForm.method||!logForm.date){alert("Method and date required.");return;}
     const nowIso = new Date().toISOString();
-    const contact = {id:Date.now(),method:logForm.method,date:logForm.date,notes:logForm.notes,completed:logForm.completed,completedAt:logForm.completed?nowIso:null,loggedAt:nowIso,stage:rec.stage};
+    // Record WHO performed this contact (name + their role) so it shows on the card and in reports.
+    const _actorId = currentUser?.id ?? null;
+    let _actorName = getUName(_actorId);
+    if(!_actorName || _actorName==="Unknown" || _actorName==="None") _actorName = currentUser?.name || "";
+    const _actorRole = (roles.find((r:any)=>r.id===currentUser?.roleId)?.name) || (roles.find((r:any)=>r.id===currentUser?.secondaryRoleId)?.name) || "";
+    const contact = {id:Date.now(),method:logForm.method,date:logForm.date,notes:logForm.notes,completed:logForm.completed,completedAt:logForm.completed?nowIso:null,loggedAt:nowIso,stage:rec.stage,byUserId:_actorId,byName:_actorName,byRole:_actorRole};
     const newContacts = [...rec.contacts,contact];
     if(logForm.completed) {
       if(rec.stage==="Pastor") {
@@ -5018,11 +5036,11 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
                         {hasStageTs && (
                           <div style={{fontSize:10,color:MU,marginBottom:6,display:"flex",flexDirection:"column",gap:2,background:BG,border:"0.5px solid "+BR,borderRadius:6,padding:"6px 7px"}}>
                             <div style={{fontSize:9,fontWeight:700,textTransform:"uppercase",letterSpacing:0.5,color:TX}}>Stage Completions</div>
-                            {stageTimeline.Pastor && <div><span style={{fontWeight:600,color:TX}}>Pastor:</span> {fdt(stageTimeline.Pastor)}</div>}
-                            {stageTimeline.TeamSupervisor && <div><span style={{fontWeight:600,color:TX}}>Team Supervisor:</span> {fdt(stageTimeline.TeamSupervisor)}</div>}
-                            {stageTimeline.TeamLeader && <div><span style={{fontWeight:600,color:TX}}>Team Leader:</span> {fdt(stageTimeline.TeamLeader)}</div>}
-                            {stageTimeline.Sponsor && <div><span style={{fontWeight:600,color:TX}}>Sponsor:</span> {fdt(stageTimeline.Sponsor)}</div>}
-                            {stageTimeline.OngoingCare.map((ts:string,idx:number)=><div key={ts+"_"+idx}><span style={{fontWeight:600,color:TX}}>Ongoing Care #{idx+1}:</span> {fdt(ts)}</div>)}
+                            {stageTimeline.Pastor && <div><span style={{fontWeight:600,color:TX}}>Pastor:</span> {fdt(stageTimeline.Pastor)}{stageTimeline.by?.Pastor?<span style={{color:N}}> · 👤 {stageTimeline.by.Pastor}</span>:null}</div>}
+                            {stageTimeline.TeamSupervisor && <div><span style={{fontWeight:600,color:TX}}>Team Supervisor:</span> {fdt(stageTimeline.TeamSupervisor)}{stageTimeline.by?.TeamSupervisor?<span style={{color:N}}> · 👤 {stageTimeline.by.TeamSupervisor}</span>:null}</div>}
+                            {stageTimeline.TeamLeader && <div><span style={{fontWeight:600,color:TX}}>Team Leader:</span> {fdt(stageTimeline.TeamLeader)}{stageTimeline.by?.TeamLeader?<span style={{color:N}}> · 👤 {stageTimeline.by.TeamLeader}</span>:null}</div>}
+                            {stageTimeline.Sponsor && <div><span style={{fontWeight:600,color:TX}}>Sponsor:</span> {fdt(stageTimeline.Sponsor)}{stageTimeline.by?.Sponsor?<span style={{color:N}}> · 👤 {stageTimeline.by.Sponsor}</span>:null}</div>}
+                            {stageTimeline.OngoingCare.map((ts:string,idx:number)=><div key={ts+"_"+idx}><span style={{fontWeight:600,color:TX}}>Ongoing Care #{idx+1}:</span> {fdt(ts)}{stageTimeline.careBy?.[idx]?<span style={{color:N}}> · 👤 {stageTimeline.careBy[idx]}</span>:null}</div>)}
                           </div>
                         )}
                         {needsAssign && <div style={{fontSize:11,background:"#fee2e2",color:RE,borderRadius:4,padding:"2px 7px",marginBottom:6,display:"inline-block"}}>Needs Assignment</div>}
@@ -5037,6 +5055,7 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
                           <div style={{fontSize:11,color:MU,marginBottom:6,display:"flex",alignItems:"center",gap:5,flexWrap:"wrap"}}>
                             <span style={{background:(METH_CLR[last.method]||{bg:BG}).bg,color:(METH_CLR[last.method]||{c:MU}).c,borderRadius:4,padding:"1px 6px",fontSize:10,fontWeight:500}}>{METH_IC[last.method]} {last.method}</span>
                             {contactStamp(last)}
+                            {contactBy(last)&&<span style={{color:N,fontWeight:500}}>· 👤 {contactBy(last)}</span>}
                           </div>
                         )}
                         {due && <div style={{fontSize:10,color:cs?.color||MU,marginBottom:6,fontWeight:500}}>Next check-in: {fd(due)}</div>}
@@ -5140,6 +5159,7 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
                         <span style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:0.5,fontWeight:500}}>Last Contact</span>
                         <span style={{background:(METH_CLR[last.method]||{bg:W}).bg,color:(METH_CLR[last.method]||{c:MU}).c,borderRadius:4,padding:"2px 8px",fontSize:11,fontWeight:500}}>{METH_IC[last.method]} {last.method}</span>
                         <span>{contactStamp(last)}</span>
+                        {contactBy(last)&&<span style={{color:N,fontWeight:500}}>👤 {contactBy(last)}</span>}
                         {last.notes && <span style={{fontStyle:"italic"}}>— "{last.notes.slice(0,60)}{last.notes.length>60?"...":""}"</span>}
                       </div>
                     )}
@@ -5208,6 +5228,7 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
                           ? <div style={{display:"flex",flexDirection:"column",gap:4}}>
                               <span style={{background:(METH_CLR[last.method]||{bg:BG}).bg,color:(METH_CLR[last.method]||{c:MU}).c,borderRadius:4,padding:"2px 8px",fontSize:11,fontWeight:500,display:"inline-flex",width:"fit-content"}}>{METH_IC[last.method]} {last.method}</span>
                               <span style={{fontSize:11,color:MU}}>{contactStamp(last)}</span>
+                              {contactBy(last)&&<span style={{fontSize:11,color:N,fontWeight:500}}>👤 {contactBy(last)}</span>}
                             </div>
                           : <span style={{color:MU,fontSize:12}}>None yet</span>
                         }
@@ -5250,6 +5271,7 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
                             <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",marginBottom:3}}>
                               <span style={{fontSize:13,fontWeight:500}}>{c.method}</span>
                               <span style={{fontSize:12,color:MU}}>{contactStamp(c)}</span>
+                              {contactBy(c)&&<span style={{fontSize:11,color:N,fontWeight:500}}>👤 {contactBy(c)}</span>}
                               {c.stage && <span style={{fontSize:10,background:VC[c.stage]+"18",color:VC[c.stage],borderRadius:4,padding:"1px 6px",fontWeight:500}}>{VS[c.stage]}</span>}
                               {c.completed && <span style={{fontSize:11,background:"#dcfce7",color:GR,borderRadius:4,padding:"1px 6px"}}>Completed</span>}
                             </div>
@@ -5321,6 +5343,7 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
                                   <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",marginBottom:2}}>
                                     <span style={{fontSize:13,fontWeight:500}}>{c.method}</span>
                                     <span style={{fontSize:11,color:MU}}>{contactStamp(c)}</span>
+                                    {contactBy(c)&&<span style={{fontSize:11,color:N,fontWeight:500}}>👤 {contactBy(c)}</span>}
                                     {c.stage && <span style={{fontSize:10,background:VC[c.stage]+"18",color:VC[c.stage],borderRadius:4,padding:"1px 6px",fontWeight:500}}>{VS[c.stage]}</span>}
                                     {c.completed && <span style={{fontSize:11,background:"#dcfce7",color:GR,borderRadius:4,padding:"1px 6px"}}>Step Completed</span>}
                                   </div>
