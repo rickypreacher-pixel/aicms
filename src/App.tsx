@@ -4921,8 +4921,29 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
     const overdue = overdueRecords.length;
     const rate = total ? Math.round(done/total*100) : 0;
     const byStage = Object.keys(VS).map(k=>VS[k]+": "+visibleRecords.filter(r=>r.stage===k).length).join(", ");
-    const txt = await callAI([{role:"user",content:"Generate a 3-4 paragraph pastoral visitation report for "+pastorDisplayName+". Total: "+total+". By stage: "+byStage+". Currently in Ongoing Sponsor Care: "+ongoing+", of which "+overdue+" are overdue. Initial pipeline completion rate: "+rate+"%. Include a scripture and mention the importance of ongoing sponsor care."}],[],[],[],[],[],{});
+    // Who has been doing the follow-up work (name · role → count of contacts logged).
+    const activity:any = {};
+    visibleRecords.forEach(r=>(r.contacts||[]).forEach((c:any)=>{ const who=contactBy(c); if(who) activity[who]=(activity[who]||0)+1; }));
+    const activityStr = Object.entries(activity).sort((a:any,b:any)=>b[1]-a[1]).map(([k,v])=>`${k}: ${v} contact${v===1?"":"s"}`).join("; ") || "none recorded yet";
+    const txt = await callAI([{role:"user",content:"Generate a 3-4 paragraph pastoral visitation report for "+pastorDisplayName+". Total: "+total+". By stage: "+byStage+". Currently in Ongoing Sponsor Care: "+ongoing+", of which "+overdue+" are overdue. Initial pipeline completion rate: "+rate+"%. Contacts logged by each team member: "+activityStr+" — please acknowledge and thank these team supervisors, team leaders, and sponsors by name for their follow-up work. Include a scripture and mention the importance of ongoing sponsor care."}],[],[],[],[],[],{});
     setAiRep(txt); setAiLoad(false);
+  };
+  // Printable contact-history export — every visitor's logged contacts, including WHO logged each.
+  const printContactHistory=()=>{
+    const cs:any=(window as any).__CS__||{};
+    const esc=(s:any)=>String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    const blocks=visitors.map((v:any)=>{
+      const rec=getRec(v.id);
+      if(!rec||!Array.isArray(rec.contacts)||rec.contacts.length===0) return "";
+      const crows=rec.contacts.map((c:any)=>{
+        const who=contactBy(c);
+        return `<tr><td>${esc(fd(c.date))}</td><td>${esc(c.method||"")}</td><td>${esc(VS[c.stage]||c.stage||"")}</td><td>${esc(who||"—")}</td><td style="text-align:center">${c.completed?"✓":""}</td><td>${esc(c.notes||"")}</td></tr>`;
+      }).join("");
+      return `<h2>${esc(v.first+" "+v.last)} <span class="stg">— ${esc(VS[rec.stage]||rec.stage||"")}</span></h2><div class="meta">First visit: ${esc(fd(v.firstVisit))} &middot; ${rec.contacts.length} contact${rec.contacts.length===1?"":"s"} &middot; Assigned to: ${esc(getAssigned(rec))}</div><table><thead><tr><th>Date</th><th>Method</th><th>Stage</th><th>Logged By</th><th>Done</th><th>Notes</th></tr></thead><tbody>${crows}</tbody></table>`;
+    }).filter(Boolean).join("");
+    const styles=`@page{size:portrait;margin:14mm}body{font-family:Georgia,serif;color:#1f2937;font-size:12px}h1{font-size:22px;margin:0;color:#1e3a5f;text-align:center}.sub{font-size:13px;color:#6b7280;text-align:center;margin:2px 0 18px}h2{font-size:14px;color:#1e3a5f;margin:18px 0 2px;padding-bottom:3px;border-bottom:1px solid #d8dee9}h2 .stg{font-size:11px;color:#6b7280;font-weight:normal}.meta{font-size:11px;color:#6b7280;margin-bottom:6px}table{width:100%;border-collapse:collapse;margin-bottom:8px}th,td{border:1px solid #d8dee9;padding:5px 7px;text-align:left;vertical-align:top;font-size:11px}th{background:#1e3a5f;color:#fff}`;
+    const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Visitation Contact History</title><style>${styles}</style></head><body><h1>${esc(cs.name||"Church")}</h1><div class="sub">Visitation Contact History &middot; ${esc(fd(td()))}</div>${blocks||"<p style='text-align:center;color:#6b7280'>No contacts logged yet.</p>"}</body></html>`;
+    const w=window.open("","_blank","width=850,height=1000"); if(w){ w.document.write(html); w.document.close(); w.focus(); setTimeout(()=>{ try{w.print();}catch(e){} },250); }
   };
 
   // Pipeline columns now include TeamSupervisor and OngoingCare
@@ -5311,7 +5332,10 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
             </div>
             <div style={{fontSize:13,lineHeight:1.9,color:aiRep?TX:MU,fontStyle:aiRep?"normal":"italic",whiteSpace:"pre-wrap"}}>{aiRep||"Click Generate Report for an AI-powered pastoral visitation narrative, "+pastorDisplayName+"."}</div>
           </div>
-          <h3 style={{fontSize:14,fontWeight:500,color:N,marginBottom:14}}>Detailed Visitor Timeline</h3>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,gap:10,flexWrap:"wrap"}}>
+            <h3 style={{fontSize:14,fontWeight:500,color:N,margin:0}}>Detailed Visitor Timeline</h3>
+            <Btn onClick={printContactHistory} v="outline" style={{fontSize:12}}>🖨 Print Contact History</Btn>
+          </div>
           <div style={{display:"flex",flexDirection:"column",gap:10}}>
             {visitors.map(v=>{
               const rec = getRec(v.id);
