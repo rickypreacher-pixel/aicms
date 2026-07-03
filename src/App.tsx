@@ -13574,7 +13574,8 @@ function EdReports({classrooms,children,kidsCheckIns,teacherSchedule,users,membe
   }).sort((a:any,b:any)=>(b.attRate-a.attRate));
 
   const classStats=(classrooms as any[]).map((cl:any)=>{
-    const ciN=dayCI.filter((ci:any)=>ci.classroomId===cl.id).length;
+    // DISTINCT children per classroom (not raw records) — consistent with Attendance + Ed Dashboard.
+    const ciN=new Set(dayCI.filter((ci:any)=>ci.classroomId===cl.id&&ci.childId!=null).map((ci:any)=>String(ci.childId))).size;
     const t=daySched.find((x:any)=>x.classroomId===cl.id);
     const lead=t?schedLead(t):null;
     return {cl,ciN,leadName:lead?teacherName(lead):""};
@@ -13704,8 +13705,7 @@ function EdReports({classrooms,children,kidsCheckIns,teacherSchedule,users,membe
 
       <div style={{display:"flex",gap:12,marginBottom:20,flexWrap:"wrap"}}>
         <Stat label="Active Children" value={totalKids} color={BL}/>
-        <Stat label="Check-Ins" value={dayN} color={GR}/>
-        <Stat label="Unique Kids" value={uniqKids} color={N}/>
+        <Stat label="Kids Checked In" value={uniqKids} color={GR}/>
         <Stat label="Classrooms Staffed" value={staffedCount} color={G}/>
       </div>
 
