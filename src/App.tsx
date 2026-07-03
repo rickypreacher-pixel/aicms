@@ -12684,7 +12684,7 @@ function PrintLabels({ci,child,classroom,onClose,printerConfig,force=false}){
         <div style={{padding:"10px 20px 0",fontSize:12,color:MU}} className="ntcc-no-print">{dymoOK?<><b style={{color:GR}}>✓ DYMO Connect detected</b> ({dymoPrinter||"printer"}) — click below to print directly, no dialog.</>:<>💡 If clicking Print does nothing, keep this preview open and press <b>Ctrl&nbsp;+&nbsp;P</b> (Mac: <b>⌘&nbsp;+&nbsp;P</b>) — only the label will print. (Some browser ad-block/privacy extensions block the button but not the keyboard shortcut.)</>}</div>
         <div style={{padding:"12px 20px 14px",borderTop:"0.5px solid "+BR,display:"flex",gap:10,marginTop:12,flexWrap:"wrap"}} className="ntcc-no-print">
           {dymoOK&&<Btn onClick={printDirect} v="primary" disabled={dymoBusy} style={{flex:"1 1 200px",justifyContent:"center",padding:"10px",fontSize:14}}>{dymoBusy?"Printing…":"🏷️ Print to Dymo (1-click)"}</Btn>}
-          <Btn onClick={doPrint} v={dymoOK?"outline":"primary"} style={{flex:"1 1 140px",justifyContent:"center",padding:"10px",fontSize:14}}>{dymoOK?"Print via browser":"Print Both Labels"}</Btn>
+          <Btn onClick={()=>{try{window.print();}catch(e){}}} v={dymoOK?"outline":"primary"} style={{flex:"1 1 170px",justifyContent:"center",padding:"10px",fontSize:14}}>🖨 Print (same as Ctrl+P)</Btn>
           <Btn onClick={onClose} v="ghost" style={{flex:"0 1 auto",justifyContent:"center"}}>Close</Btn>
         </div>
       </div>
