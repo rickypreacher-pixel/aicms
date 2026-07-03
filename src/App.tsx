@@ -137,6 +137,8 @@ function EquipmentTab({equipment,setEquipment,workOrders,schedMaint,canEdit}){
   const [editing,setEditing]=useState(null);
   const [detail,setDetail]=useState(null);
   const [form,setForm]=useState({name:"",category:"Other",location:"Other",serial:"",purchaseDate:"",warrantyExpires:"",vendor:"",manufacturer:"",cost:"",status:"Active",notes:""});
+  const [addingCat,setAddingCat]=useState(false);
+  const [addingLoc,setAddingLoc]=useState(false);
   const nid=useRef(4000);
   const sf=k=>v=>setForm(f=>({...f,[k]:v}));
   // Category/location options = built-in list + any custom values already saved on equipment.
@@ -144,8 +146,8 @@ function EquipmentTab({equipment,setEquipment,workOrders,schedMaint,canEdit}){
   const locOpts=Array.from(new Set([...MAINT_LOCS,...equipment.map(e=>e.location).filter(Boolean)]));
   const catColor=(c)=>MCAT_COLORS[c]||"#64748b";
   const filtered=equipment.filter(e=>{if(search&&!(e.name+" "+(e.serial||"")+" "+(e.manufacturer||"")).toLowerCase().includes(search.toLowerCase())) return false;if(filterCat!=="all"&&e.category!==filterCat) return false;if(filterLoc!=="all"&&e.location!==filterLoc) return false;return true;});
-  const openAdd=()=>{if(!canEdit){alert("Permission required.");return;}setEditing(null);setForm({name:"",category:"Other",location:"Other",serial:"",purchaseDate:"",warrantyExpires:"",vendor:"",manufacturer:"",cost:"",status:"Active",notes:""});setModal(true);};
-  const openEdit=e=>{if(!canEdit){alert("Permission required.");return;}setEditing(e);setForm({...e,cost:String(e.cost||"")});setModal(true);};
+  const openAdd=()=>{if(!canEdit){alert("Permission required.");return;}setEditing(null);setAddingCat(false);setAddingLoc(false);setForm({name:"",category:"Other",location:"Other",serial:"",purchaseDate:"",warrantyExpires:"",vendor:"",manufacturer:"",cost:"",status:"Active",notes:""});setModal(true);};
+  const openEdit=e=>{if(!canEdit){alert("Permission required.");return;}setEditing(e);setAddingCat(false);setAddingLoc(false);setForm({...e,cost:String(e.cost||"")});setModal(true);};
   const save=()=>{if(!form.name){alert("Name required.");return;}const data={...form,cost:+form.cost||0};if(editing) setEquipment(es=>es.map(e=>e.id===editing.id?{...e,...data}:e));else setEquipment(es=>[...es,{...data,id:nid.current++}]);setModal(false);};
   const del=id=>{if(!canEdit){alert("Permission required.");return;}if(confirm("Delete this equipment?")) setEquipment(es=>es.filter(e=>e.id!==id));};
   return (<div>
@@ -172,10 +174,17 @@ function EquipmentTab({equipment,setEquipment,workOrders,schedMaint,canEdit}){
     <Modal open={modal} onClose={()=>setModal(false)} title={editing?"Edit Equipment":"Add New Equipment"}>
       <Fld label="Equipment Name *"><Inp value={form.name} onChange={sf("name")} placeholder="e.g. Yamaha TF5 Mixer"/></Fld>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-        <Fld label="Category"><input value={form.category} onChange={e=>sf("category")(e.target.value)} list="maint-cat-list" placeholder="Type new or choose…" style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box",fontFamily:"inherit"}}/><datalist id="maint-cat-list">{catOpts.map(c=><option key={c} value={c}/>)}</datalist></Fld>
-        <Fld label="Location"><input value={form.location} onChange={e=>sf("location")(e.target.value)} list="maint-loc-list" placeholder="Type new or choose…" style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box",fontFamily:"inherit"}}/><datalist id="maint-loc-list">{locOpts.map(l=><option key={l} value={l}/>)}</datalist></Fld>
+        <Fld label="Category">
+          {addingCat
+            ? <div style={{display:"flex",gap:6}}><input autoFocus value={form.category} onChange={e=>sf("category")(e.target.value)} placeholder="New category name" style={{flex:1,padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box",fontFamily:"inherit"}}/><Btn onClick={()=>{setAddingCat(false); if(!(form.category||"").trim()) sf("category")("Other");}} v="ghost" style={{fontSize:11,padding:"4px 8px"}}>↩ List</Btn></div>
+            : <select value={form.category} onChange={e=>{ if(e.target.value==="__add__"){setAddingCat(true); sf("category")("");} else sf("category")(e.target.value); }} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}>{Array.from(new Set([...catOpts,form.category].filter(Boolean))).map(c=><option key={c} value={c}>{c}</option>)}<option value="__add__">➕ Add new category…</option></select>}
+        </Fld>
+        <Fld label="Location">
+          {addingLoc
+            ? <div style={{display:"flex",gap:6}}><input autoFocus value={form.location} onChange={e=>sf("location")(e.target.value)} placeholder="New location name" style={{flex:1,padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box",fontFamily:"inherit"}}/><Btn onClick={()=>{setAddingLoc(false); if(!(form.location||"").trim()) sf("location")("Other");}} v="ghost" style={{fontSize:11,padding:"4px 8px"}}>↩ List</Btn></div>
+            : <select value={form.location} onChange={e=>{ if(e.target.value==="__add__"){setAddingLoc(true); sf("location")("");} else sf("location")(e.target.value); }} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}>{Array.from(new Set([...locOpts,form.location].filter(Boolean))).map(l=><option key={l} value={l}>{l}</option>)}<option value="__add__">➕ Add new location…</option></select>}
+        </Fld>
       </div>
-      <div style={{fontSize:11,color:MU,marginTop:-6,marginBottom:8}}>Tip: type a new category or location to add it — it'll be saved and appear as a choice next time.</div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}><Fld label="Serial / Asset ID"><Inp value={form.serial} onChange={sf("serial")}/></Fld><Fld label="Cost ($)"><Inp type="number" value={form.cost} onChange={sf("cost")}/></Fld></div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}><Fld label="Manufacturer"><Inp value={form.manufacturer} onChange={sf("manufacturer")}/></Fld><Fld label="Vendor"><Inp value={form.vendor} onChange={sf("vendor")}/></Fld></div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}><Fld label="Purchase Date"><Inp type="date" value={form.purchaseDate} onChange={sf("purchaseDate")}/></Fld><Fld label="Warranty Expires"><Inp type="date" value={form.warrantyExpires} onChange={sf("warrantyExpires")}/></Fld></div>
