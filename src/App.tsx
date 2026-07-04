@@ -3178,6 +3178,18 @@ function PortalTab({members,portalMembers,setPortalMembers,currentUser,roles,chu
     try { await navigator.clipboard.writeText(link); } catch { try{ const t=document.createElement("textarea"); t.value=link; document.body.appendChild(t); t.select(); document.execCommand("copy"); document.body.removeChild(t); }catch{} }
     setCopiedId(m.id); setTimeout(()=>setCopiedId(null),2000);
   };
+  // Open the SMS Center pre-filled with the member's sign-in link so it can be texted to them.
+  const textInvite = (m:any) => {
+    if(!m?.phone){ alert(`${(m?.first||"This member")} has no phone number on file — add one to their profile to text the sign-in link.`); return; }
+    const link = inviteLink(m);
+    if(!link) return;
+    const first = String(m.first||"there").trim();
+    const church = (typeof window!=="undefined" && (window as any).__CS__?.name) || "our church";
+    const body = `Hi ${first}, you've been given access to the ${church} member portal. Tap to sign in: ${link}`;
+    const name = `${m.first||""} ${m.last||""}`.trim();
+    if((window as any).__openSmsComposer__) (window as any).__openSmsComposer__({ phone:m.phone, to:m.phone, name, toName:name, category:"Member Portal", body, relatedType:"portal_invite", relatedId:m.id });
+    else alert("SMS Center is not available.");
+  };
 
   const add = () => {
     if(!sel){alert("Select a member.");return;}
@@ -3185,7 +3197,9 @@ function PortalTab({members,portalMembers,setPortalMembers,currentUser,roles,chu
     const newPerms = Object.fromEntries(PORTAL_PERMS.map(p=>[p.key,true]));
     setPortalMembers(ps=>[...ps,{memberId:sel.id,status:"Active",perms:newPerms}]);
     const justAdded = sel; setSel(null); setModal(false);
-    if(justAdded.email) setTimeout(()=>copyInvite(justAdded),100);
+    // Send them the sign-in link: text it if they have a phone, otherwise copy the link.
+    if(justAdded.phone) setTimeout(()=>textInvite(justAdded),150);
+    else if(justAdded.email) setTimeout(()=>copyInvite(justAdded),100);
   };
   const togglePerm = (mid,key) => setPortalMembers(ps=>ps.map(p=>p.memberId===mid?{...p,perms:{...p.perms,[key]:!p.perms[key]}}:p));
   const toggleStatus = mid => setPortalMembers(ps=>ps.map(p=>p.memberId===mid?{...p,status:p.status==="Active"?"Suspended":"Active"}:p));
@@ -3194,7 +3208,7 @@ function PortalTab({members,portalMembers,setPortalMembers,currentUser,roles,chu
   return (
     <div>
       <div style={{background:GL,border:"0.5px solid "+G,borderRadius:10,padding:"12px 16px",marginBottom:16,fontSize:13,color:"#7a5c10",lineHeight:1.7}}>
-        <strong>Member Self-Service Portal</strong> — Members sign in with <strong>their own email</strong> to view only their own records (profile, giving, prayer). Grant a member access below, then <strong>send them their invite link</strong> — it pre-fills everything so they just choose a password. They can also use the <strong>“Member”</strong> tab on the login screen, or the passwordless <strong>“Email me a sign-in link”</strong> option. <em>A member's email must match the email on their member profile.</em>
+        <strong>Member Self-Service Portal</strong> — Members sign in with <strong>their own email</strong> to view only their own records (profile, giving, prayer). Grant a member access below — when they have a phone on file, the SMS Center opens automatically to <strong>text them their sign-in link</strong> (or use <strong>📱 Text link</strong> / <strong>🔗 Invite link</strong> anytime). The link pre-fills everything so they just choose a password. They can also use the <strong>“Member”</strong> tab on the login screen, or the passwordless <strong>“Email me a sign-in link”</strong> option. <em>A member's email must match the email on their member profile.</em>
       </div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
         <div>
@@ -3226,6 +3240,7 @@ function PortalTab({members,portalMembers,setPortalMembers,currentUser,roles,chu
                     <div style={{fontSize:12,color:m.email?MU:RE,marginTop:2}}>{m.email||"⚠ no email — add one to their profile so they can sign in"} · {m.role||"Member"}</div>
                   </div>
                   <div style={{display:"flex",gap:6,flexWrap:"wrap",justifyContent:"flex-end"}}>
+                    <Btn onClick={()=>textInvite(m)} v="ghost" disabled={!m.phone} title={m.phone?"Text the sign-in link":"No phone on file"} style={{fontSize:11,padding:"4px 9px"}}>📱 Text link</Btn>
                     <Btn onClick={()=>copyInvite(m)} v={copiedId===m.id?"outline":"ghost"} disabled={!m.email} style={{fontSize:11,padding:"4px 9px"}}>{copiedId===m.id?"✓ Copied":"🔗 Invite link"}</Btn>
                     {isAdmin && <Btn onClick={()=>toggleStatus(pm.memberId)} v={active?"ghost":"outline"} style={{fontSize:11,padding:"4px 9px"}}>{active?"Suspend":"Reactivate"}</Btn>}
                     {isAdmin && <Btn onClick={()=>remove(pm.memberId)} v="danger" style={{fontSize:11,padding:"4px 9px"}}>X</Btn>}
