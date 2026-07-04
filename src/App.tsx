@@ -3159,6 +3159,7 @@ function PermTab({roles,permissions,setPermissions,currentUser}){
 function PortalTab({members,portalMembers,setPortalMembers,currentUser,roles,churchId}){
   const [modal,setModal] = useState(false);
   const [sel,setSel] = useState(null);
+  const [memberSearch,setMemberSearch] = useState("");
   const [copiedId,setCopiedId] = useState<any>(null);
   const isAdmin = currentUser?.superAdmin || (currentUser?.roleId && roles?.find(r=>r.id===currentUser.roleId)?.name==="Administrator");
   const existing = portalMembers.map(p=>p.memberId);
@@ -3196,7 +3197,7 @@ function PortalTab({members,portalMembers,setPortalMembers,currentUser,roles,chu
     if(!sel.email){ if(!confirm(`${sel.first} ${sel.last} has no email on file. They log in by email, so add their email to their member profile first. Grant access anyway?`)) return; }
     const newPerms = Object.fromEntries(PORTAL_PERMS.map(p=>[p.key,true]));
     setPortalMembers(ps=>[...ps,{memberId:sel.id,status:"Active",perms:newPerms}]);
-    const justAdded = sel; setSel(null); setModal(false);
+    const justAdded = sel; setSel(null); setMemberSearch(""); setModal(false);
     // Send them the sign-in link: text it if they have a phone, otherwise copy the link.
     if(justAdded.phone) setTimeout(()=>textInvite(justAdded),150);
     else if(justAdded.email) setTimeout(()=>copyInvite(justAdded),100);
@@ -3215,7 +3216,7 @@ function PortalTab({members,portalMembers,setPortalMembers,currentUser,roles,chu
           <h3 style={{fontSize:15,fontWeight:500,color:N,margin:0}}>Portal Members ({portalMembers.length})</h3>
           <div style={{fontSize:12,color:MU,marginTop:2}}>Separate from staff user accounts — members see only their own data</div>
         </div>
-        <Btn onClick={()=>{setSel(null);setModal(true);}} disabled={!isAdmin}>+ Grant Portal Access</Btn>
+        <Btn onClick={()=>{setSel(null);setMemberSearch("");setModal(true);}} disabled={!isAdmin}>+ Grant Portal Access</Btn>
       </div>
       {portalMembers.length===0 ? (
         <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:48,textAlign:"center"}}>
@@ -3266,12 +3267,32 @@ function PortalTab({members,portalMembers,setPortalMembers,currentUser,roles,chu
         </div>
       )}
       <Modal open={modal} onClose={()=>setModal(false)} title="Grant Member Portal Access" width={440}>
-        <Fld label="Select Member *">
-          <select value={sel?.id||""} onChange={e=>setSel(members.find(m=>m.id===+e.target.value)||null)} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}>
-            <option value="">Choose a member</option>
-            {avail.map(m=><option key={m.id} value={m.id}>{m.first} {m.last}{m.email?"":" — no email"}{m.role?" ("+m.role+")":""}</option>)}
-          </select>
+        <Fld label="Find Member *">
+          {sel
+            ? <div style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",background:"#f0fdf4",border:"0.5px solid "+GR+"55",borderRadius:8}}>
+                <Av f={sel.first} l={sel.last} sz={30}/>
+                <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:500}}>{sel.first} {sel.last}</div><div style={{fontSize:11,color:sel.email?MU:RE}}>{sel.email||"no email on file"}{sel.role?" · "+sel.role:""}</div></div>
+                <Btn onClick={()=>{setSel(null);setMemberSearch("");}} v="ghost" style={{fontSize:11,padding:"3px 9px"}}>Change</Btn>
+              </div>
+            : <input value={memberSearch} onChange={e=>setMemberSearch(e.target.value)} autoFocus placeholder="Type a name or email to search…" style={{width:"100%",padding:"9px 11px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}/>}
         </Fld>
+        {!sel && memberSearch.trim().length>0 && (()=>{
+          const q=memberSearch.toLowerCase();
+          const matches=avail.filter((m:any)=>(((m.first||"")+" "+(m.last||"")+" "+(m.email||"")).toLowerCase().includes(q))).slice(0,8);
+          return (
+            <div style={{border:"0.5px solid "+BR,borderRadius:8,marginBottom:12,maxHeight:240,overflowY:"auto"}}>
+              {matches.length===0
+                ? <div style={{padding:"10px 12px",fontSize:12,color:MU,fontStyle:"italic"}}>No available members match "{memberSearch}".</div>
+                : matches.map((m:any)=>(
+                  <div key={m.id} onClick={()=>{setSel(m);setMemberSearch("");}} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 12px",cursor:"pointer",borderBottom:"0.5px solid "+BR}} onMouseEnter={e=>e.currentTarget.style.background="#f8f9fc"} onMouseLeave={e=>e.currentTarget.style.background=W}>
+                    <Av f={m.first} l={m.last} sz={28}/>
+                    <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:500}}>{m.first} {m.last}</div><div style={{fontSize:11,color:m.email?MU:RE}}>{m.email||"no email on file"}{m.role?" · "+m.role:""}</div></div>
+                    <span style={{fontSize:10,background:N,color:"#fff",borderRadius:4,padding:"2px 7px"}}>Select</span>
+                  </div>
+                ))}
+            </div>
+          );
+        })()}
         {sel && !sel.email && <div style={{background:"#fef2f2",border:"0.5px solid #fca5a5",borderRadius:8,padding:"9px 12px",marginBottom:12,fontSize:12,color:RE,lineHeight:1.5}}>⚠ This member has no email on file. They sign in by email, so add their email to their member profile first — otherwise their login can't be matched.</div>}
         <div style={{background:BG,border:"0.5px solid "+BR,borderRadius:8,padding:"10px 12px",marginBottom:14,fontSize:12,color:MU,lineHeight:1.6}}>After you grant access, an <strong>invite link</strong> is copied to your clipboard (and available as <strong>🔗 Invite link</strong> on their row). Text or email it to the member — it opens the sign-up pre-filled with their email and your church code, so they just pick a password.</div>
         <div style={{display:"flex",gap:8}}>
