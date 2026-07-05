@@ -17837,13 +17837,15 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       // drop check-ins entered locally that haven't reached the cloud blob yet ("disappearing" bug).
       if(Array.isArray(d.kidsCheckIns)) setKidsCheckIns((cur:any[])=>{
         const curArr=Array.isArray(cur)?cur:[];
-        // Union by the natural childId|date key, NOT id. Check-in ids collide (old per-device
-        // counters reused 900,901,...), so an id-union would drop a cloud check-in whenever its id
-        // already exists locally for a DIFFERENT child/date (e.g. Noah's July-5 id 900 vs his May-19
-        // id 900) — making a real check-in never appear on that device.
+        // Key by the natural childId|date (NOT id — ids collide across devices). Only pull in cloud
+        // check-ins that are genuinely NEW to this device: not already local AND not present in what
+        // we last synced. Skipping the baseline keys HONORS local deletes — without this, a check-in
+        // the user just deleted keeps getting resurrected by the 60s poll re-adding it from the cloud.
         const keyOf=(c:any)=>String(c&&c.childId)+"|"+String(c&&c.date);
-        const keys=new Set(curArr.map(keyOf));
-        const merged=[...curArr,...d.kidsCheckIns.filter((c:any)=>!keys.has(keyOf(c)))];
+        const localKeys=new Set(curArr.map(keyOf));
+        const baseArr=(lastSyncedBlob&&Array.isArray(lastSyncedBlob.current?.kidsCheckIns))?lastSyncedBlob.current.kidsCheckIns:[];
+        const baseKeys=new Set(baseArr.map(keyOf));
+        const merged=[...curArr,...d.kidsCheckIns.filter((c:any)=>{const k=keyOf(c);return !localKeys.has(k)&&!baseKeys.has(k);})];
         return merged.length===curArr.length?curArr:merged;
       });
       if(Array.isArray(d.teacherFollowups)) setTeacherFollowups((cur:any)=>{
