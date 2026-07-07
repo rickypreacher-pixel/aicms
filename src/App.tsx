@@ -1466,11 +1466,20 @@ function ChurchSettingsPage({cs,setCs,churchId,members,setMembers,visitors,setVi
         try{localStorage.setItem(csKey,JSON.stringify(savedSettings));}catch(e){}
         if(aiKey) try{localStorage.setItem("ntcc_ai_api_key",aiKey);}catch(e){}
         if(elKey) try{localStorage.setItem("ntcc_el_api_key",elKey);}catch(e){}
-        // Write empty blob to Supabase so data doesn't reload from cloud on next sign-in
+        // Write empty blob to Supabase so data doesn't reload from cloud on next sign-in.
+        // _saveGuardV:2 tells the no-shrink DB guard this is a LEGITIMATE shrink — without it the
+        // guard would revert kidsCheckIns back to the old set and the wipe wouldn't stick.
         if(churchId){
-          const emptyBlob = {members:[],visitors:[],attendance:[],giving:[],prayers:[],groups:[],grpMeetings:[],visitRecords:[],children:[],classrooms:[],equipment:[],workOrders:[],schedMaint:[],supplies:[],checkoutItems:[],checkouts:[],pledgeDrives:[],pledges:[],weeklyReports:[],emailLog:[],recurring:[],custom:[],checkIns:[],incidents:[],rollCalls:[],progressNotes:[],teacherSchedule:[],kidsCheckIns:[],roles:[],users:[],prospects:[],emailTemplates:null,emailConfig:{},permissions:{},churchSettings:savedSettings,_clearedAt:Date.now()};
+          const emptyBlob = {members:[],visitors:[],attendance:[],giving:[],prayers:[],groups:[],grpMeetings:[],visitRecords:[],children:[],classrooms:[],equipment:[],workOrders:[],schedMaint:[],supplies:[],checkoutItems:[],checkouts:[],pledgeDrives:[],pledges:[],weeklyReports:[],emailLog:[],recurring:[],custom:[],checkIns:[],incidents:[],rollCalls:[],progressNotes:[],teacherSchedule:[],kidsCheckIns:[],roles:[],users:[],prospects:[],emailTemplates:null,emailConfig:{},permissions:{},churchSettings:savedSettings,_saveGuardV:2,_clearedAt:Date.now()};
           const {error:clrErr} = await supabase.from('church_data').upsert({church_id:churchId,data:emptyBlob,updated_at:new Date().toISOString()},{onConflict:'church_id'});
           if(clrErr){alert('Cloud clear failed: '+clrErr.message+'\n\nPlease try again or contact support.');return;}
+          // Data also lives in three OTHER cloud tables — clear them too, or giving/finances/pledges,
+          // counseling, and incidents/progress-notes would reload after the wipe. Giving is required
+          // (awaited); counseling/confidential are best-effort (permission-gated).
+          const {error:givErr} = await supabase.from('church_giving').upsert({church_id:churchId,giving:[],deleted_txns:[],pledges:[],pledge_drives:[],weekly_reports:[],expenses:[],budgets:{},opening_balances:{},updated_at:new Date().toISOString()},{onConflict:'church_id'});
+          if(givErr){alert('Cloud giving/finance clear failed: '+givErr.message+'\n\nPlease try again or contact support.');return;}
+          await supabase.from('church_counseling').upsert({church_id:churchId,counseling_logs:[],updated_at:new Date().toISOString()},{onConflict:'church_id'});
+          await supabase.from('church_confidential').upsert({church_id:churchId,incidents:[],progress_notes:[],updated_at:new Date().toISOString()},{onConflict:'church_id'});
         }
         // Set a cross-tab guard so any other open tabs' debounced save won't overwrite the empty cloud blob
         localStorage.setItem('ntcc_data_cleared', Date.now().toString());
