@@ -1281,17 +1281,27 @@ function BackupRestore({backupData,onRestore}:any){
     setTimeout(()=>setRestoreDone(false),4000);
   };
 
+  // Every data section captured by a full backup. MUST stay in sync with the backupData object
+  // and onRestore handler (both in the main App component) — all three cover the same keys so a
+  // backup is a complete snapshot of every cloud table (church_data / giving / counseling / confidential).
   const SECTIONS=[
     ['members','Members'],['visitors','Visitors / Guests'],['attendance','Attendance'],
-    ['giving','Giving Records'],['prayers','Prayer Requests'],['groups','Groups'],
-    ['grpMeetings','Group Meetings'],['checkIns','Event Check-Ins'],['kidsCheckIns','Kids Check-Ins'],
-    ['children','Children'],['visitRecords','Visitation Records'],['pledgeDrives','Pledge Drives'],
-    ['pledges','Pledges'],['weeklyReports','Weekly Reports'],['equipment','Equipment'],
-    ['workOrders','Work Orders'],['schedMaint','Scheduled Maintenance'],['users','Access Control Users'],
-    ['roles','Roles'],['permissions','Permissions'],['recurring','Recurring Events'],
-    ['custom','One-Time Events'],['emailLog','Email Log'],['emailTemplates','Email Templates'],
+    ['giving','Giving Records'],['expenses','Expenses'],['budgets','Budgets'],['openingBalances','Opening Balances'],
+    ['prayers','Prayer Requests'],['groups','Groups'],['grpMeetings','Group Meetings'],
+    ['checkIns','Event Check-Ins'],['kidsCheckIns','Kids Check-Ins'],['children','Children'],['classrooms','Classrooms'],
+    ['visitRecords','Visitation Records'],['sickVisits','Hospital / Sick Visits'],['prospects','Prospects / Leads'],
+    ['pledgeDrives','Pledge Drives'],['pledges','Pledges'],['weeklyReports','Weekly Reports'],
+    ['equipment','Equipment'],['workOrders','Work Orders'],['schedMaint','Scheduled Maintenance'],
+    ['supplies','Supplies'],['checkoutItems','Checkout Items'],['checkouts','Checkouts'],
+    ['users','Access Control Users'],['roles','Roles'],['permissions','Permissions'],['portalMembers','Portal Members'],
+    ['recurring','Recurring Events'],['custom','One-Time Events'],['eventRsvps','Event RSVPs'],
+    ['eventSchedule','Event Schedule'],['servicePlans','Service Plans'],['cleaningSchedule','Cleaning Schedule'],
+    ['announcements','Announcements'],['emailLog','Email Log'],['emailTemplates','Email Templates'],
+    ['smsLog','SMS Log'],['smsTemplates','SMS Templates'],
     ['incidents','Incidents'],['rollCalls','Roll Calls'],['progressNotes','Progress Notes'],
-    ['teacherSchedule','Teacher Schedule'],['churchSettings','Church Settings'],
+    ['teacherSchedule','Teacher Schedule'],['teacherFollowups','Teacher Follow-Ups'],['followupDismissedChildIds','Follow-Up Dismissed'],
+    ['benevolence','Benevolence'],['hospitalityFund','Hospitality Fund'],['counselingLogs','Counseling Logs'],
+    ['careContacted','Care Contacted'],['adminNotesRead','Admin Notes Read'],['churchSettings','Church Settings'],
   ];
 
   return(
@@ -18543,10 +18553,10 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
         <div style={{flex:1,padding:isMobile?12:24,overflow:"auto"}}>
           {!isStaff && showSetup && <SetupModal onSave={s=>{setChurchSettings(s);setShowSetup(false);}} initialName={churchName||''} initialPastorName={(adminFirst||adminLast)?`Pastor ${[adminFirst,adminLast].filter(Boolean).join(' ')}`:''}/>}
           {!isMemberPortal && view==="settings" && <ChurchSettingsPage cs={churchSettings} setCs={setChurchSettings} churchId={churchId} members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} prayers={prayers} groups={groups} grpMeetings={grpMeetings} visitRecords={visitRecords} checkIns={checkIns} kidsCheckIns={kidsCheckIns} children={children} pledgeDrives={pledgeDrives} pledges={pledges} weeklyReports={weeklyReports} equipment={equipment} workOrders={workOrders} schedMaint={schedMaint}
-            backupData={{members,visitors,attendance,giving,prayers,groups,grpMeetings,visitRecords,checkIns,kidsCheckIns,teacherFollowups,followupDismissedChildIds,eventRsvps,announcements,children,pledgeDrives,pledges,weeklyReports,equipment,workOrders,schedMaint,supplies,checkoutItems,checkouts,users,roles,permissions,recurring,custom,emailLog,emailTemplates,emailConfig,incidents,rollCalls,progressNotes,teacherSchedule,churchSettings,sickVisits,benevolence,hospitalityFund,hospStartBalance,counselingLogs}}
+            backupData={{members,visitors,attendance,giving,expenses,budgets,openingBalances,prayers,groups,grpMeetings,visitRecords,sickVisits,checkIns,kidsCheckIns,teacherFollowups,followupDismissedChildIds,eventRsvps,eventSchedule,servicePlans,cleaningSchedule,announcements,children,classrooms,prospects,pledgeDrives,pledges,weeklyReports,equipment,workOrders,schedMaint,supplies,checkoutItems,checkouts,users:(users||[]).map((u:any)=>{const{password,pin,...r}=u||{};return r;}),roles,permissions,portalMembers,recurring,custom,emailLog,emailTemplates,emailConfig:(()=>{const{apiKey,...r}=(emailConfig||{});return r;})(),smsLog,smsTemplates,smsConfig,incidents,rollCalls,progressNotes,teacherSchedule,churchSettings,benevolence,hospitalityFund,hospStartBalance,counselingLogs,careContacted,adminNotesRead}}
             onRestore={(d:any,mode:string)=>{
               const s=(setter:any,key:string,isArr=true)=>{if(d[key]===undefined)return;if(mode==='replace'){setter(d[key]);}else{if(isArr&&Array.isArray(d[key])){setter((cur:any[])=>[...cur,...d[key].filter((n:any)=>!cur.find(x=>String(x.id)===String(n.id)))]);}else{setter(d[key]);}}};
-              s(setMembers,'members');s(setVisitors,'visitors');s(setAttendance,'attendance');s(setGiving,'giving');s(setPrayers,'prayers');s(setGroups,'groups');s(setGrpMeetings,'grpMeetings');s(setVisitRecords,'visitRecords');s(setCheckIns,'checkIns');s(setKidsCheckIns,'kidsCheckIns');s(setTeacherFollowups,'teacherFollowups');s(setFollowupDismissedChildIds,'followupDismissedChildIds');s(setEventRsvps,'eventRsvps');s(setAnnouncements,'announcements');s(setChildren,'children');s(setPledgeDrives,'pledgeDrives');s(setPledges,'pledges');s(setWeeklyReports,'weeklyReports');s(setEquipment,'equipment');s(setWorkOrders,'workOrders');s(setSchedMaint,'schedMaint');s(setSupplies,'supplies');s(setCheckoutItems,'checkoutItems');s(setCheckouts,'checkouts');s(setUsers,'users');s(setRoles,'roles');s(setPermissions,'permissions',false);s(setRecurring,'recurring');s(setCustom,'custom');s(setEmailLog,'emailLog');s(setEmailTemplates,'emailTemplates',false);s(setEmailConfig,'emailConfig',false);s(setIncidents,'incidents');s(setRollCalls,'rollCalls');s(setProgressNotes,'progressNotes');s(setTeacherSchedule,'teacherSchedule');s(setSickVisits,'sickVisits');s(setBenevolence,'benevolence');s(setHospitalityFund,'hospitalityFund');s(setHospStartBalance,'hospStartBalance',false);s(setCounselingLogs,'counselingLogs');if(d.churchSettings&&mode==='replace')setChurchSettings(d.churchSettings);
+              s(setMembers,'members');s(setVisitors,'visitors');s(setAttendance,'attendance');s(setGiving,'giving');s(setExpenses,'expenses');s(setBudgets,'budgets');s(setOpeningBalances,'openingBalances',false);s(setPrayers,'prayers');s(setGroups,'groups');s(setGrpMeetings,'grpMeetings');s(setVisitRecords,'visitRecords');s(setSickVisits,'sickVisits');s(setCheckIns,'checkIns');s(setKidsCheckIns,'kidsCheckIns');s(setTeacherFollowups,'teacherFollowups');s(setFollowupDismissedChildIds,'followupDismissedChildIds');s(setEventRsvps,'eventRsvps');s(setEventSchedule,'eventSchedule');s(setServicePlans,'servicePlans');s(setCleaningSchedule,'cleaningSchedule');s(setAnnouncements,'announcements');s(setChildren,'children');s(setClassrooms,'classrooms');s(setProspects,'prospects');s(setPledgeDrives,'pledgeDrives');s(setPledges,'pledges');s(setWeeklyReports,'weeklyReports');s(setEquipment,'equipment');s(setWorkOrders,'workOrders');s(setSchedMaint,'schedMaint');s(setSupplies,'supplies');s(setCheckoutItems,'checkoutItems');s(setCheckouts,'checkouts');s(setUsers,'users');s(setRoles,'roles');s(setPermissions,'permissions',false);s(setPortalMembers,'portalMembers');s(setRecurring,'recurring');s(setCustom,'custom');s(setEmailLog,'emailLog');s(setEmailTemplates,'emailTemplates',false);s(setEmailConfig,'emailConfig',false);s(setSmsLog,'smsLog');s(setSmsTemplates,'smsTemplates',false);s(setSmsConfig,'smsConfig',false);s(setIncidents,'incidents');s(setRollCalls,'rollCalls');s(setProgressNotes,'progressNotes');s(setTeacherSchedule,'teacherSchedule');s(setBenevolence,'benevolence');s(setHospitalityFund,'hospitalityFund');s(setHospStartBalance,'hospStartBalance',false);s(setCounselingLogs,'counselingLogs');s(setCareContacted,'careContacted');s(setAdminNotesRead,'adminNotesRead');if(d.churchSettings&&mode==='replace')setChurchSettings(d.churchSettings);
             }}
           />}
           {!isMemberPortal && view==="dashboard" && <Dashboard members={members} visitors={visitors} attendance={attendance} giving={giving} prayers={prayers} setView={setView} canViewGiving={canViewGiving} isRestrictedUser={isRestrictedUser} canAddPerson={canAddPerson} checkIns={checkIns} careContacted={careContacted} setCareContacted={setCareContacted} isAdmin={isAdminUser}/>}
