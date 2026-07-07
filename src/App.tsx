@@ -7291,6 +7291,8 @@ function BenevolencePage({members,visitors,benevolence,setBenevolence}:any) {
   const [search,setSearch] = useState("");
   const nid = useRef(9800);
   const sf = (k:string) => (v:any) => setForm((f:any)=>({...f,[k]:v}));
+  const activeMembers = members.filter((m:any)=>m.status==="Active").sort((a:any,b:any)=>a.last.localeCompare(b.last));
+  const memberNameById = (id:any)=>{const m=members.find((x:any)=>x.id===+id);return m?m.first+" "+m.last:"";};
   const getPerson = (id:number,type:string) => type==="member"?members.find((m:any)=>m.id===id):visitors.find((v:any)=>v.id===id);
   const getPersonName = (id:number,type:string) => {const p=getPerson(id,type);return p?p.first+" "+p.last:"Unknown";};
   const save = () => {
@@ -7398,16 +7400,14 @@ function BenevolencePage({members,visitors,benevolence,setBenevolence}:any) {
               <div style={{fontSize:10,fontWeight:600,color:MU,textTransform:"uppercase" as any,letterSpacing:0.4}}>Provider</div>
               <div style={{fontSize:10,fontWeight:600,color:MU,textTransform:"uppercase" as any,letterSpacing:0.4}}>Meal Description</div>
             </div>
+            <datalist id="benMealProviders">{activeMembers.map((m:any)=><option key={m.id} value={m.first+" "+m.last}/>)}</datalist>
             {form.mealDays.map((d:any,i:number)=>(
               <div key={i} style={{display:"grid",gridTemplateColumns:"110px 1fr 1fr",gap:8,marginBottom:i<form.mealDays.length-1?8:0,alignItems:"center"}}>
                 <select value={d.day} onChange={e=>{const md=form.mealDays.map((x:any,j:number)=>j===i?{...x,day:e.target.value}:x);sf("mealDays")(md);}} style={{padding:"7px 8px",border:"0.5px solid "+BR,borderRadius:7,fontSize:12,outline:"none",background:W,fontWeight:600,color:N}}>
                   <option value="">— Day —</option>
                   {MEAL_DAYS.map(dy=><option key={dy} value={dy}>{dy}</option>)}
                 </select>
-                <select value={d.memberId} onChange={e=>{const md=form.mealDays.map((x:any,j:number)=>j===i?{...x,memberId:e.target.value}:x);sf("mealDays")(md);}} style={{padding:"7px 8px",border:"0.5px solid "+BR,borderRadius:7,fontSize:12,outline:"none",background:W}}>
-                  <option value="">— Provider —</option>
-                  {members.filter((m:any)=>m.status==="Active").sort((a:any,b:any)=>a.last.localeCompare(b.last)).map((m:any)=><option key={m.id} value={m.id}>{m.first} {m.last}</option>)}
-                </select>
+                <input list="benMealProviders" autoComplete="off" value={d.providerText!==undefined?d.providerText:memberNameById(d.memberId)} onChange={e=>{const v=e.target.value;const m=activeMembers.find((x:any)=>(x.first+" "+x.last).toLowerCase()===v.trim().toLowerCase());const md=form.mealDays.map((x:any,j:number)=>j===i?{...x,providerText:v,memberId:m?String(m.id):""}:x);sf("mealDays")(md);}} placeholder="Search provider..." style={{padding:"7px 8px",border:"0.5px solid "+BR,borderRadius:7,fontSize:12,outline:"none",background:W,fontFamily:"inherit"}}/>
                 <input value={d.meal} onChange={e=>{const md=form.mealDays.map((x:any,j:number)=>j===i?{...x,meal:e.target.value}:x);sf("mealDays")(md);}} placeholder="Describe the meal..." style={{padding:"7px 8px",border:"0.5px solid "+BR,borderRadius:7,fontSize:12,outline:"none",fontFamily:"inherit",background:W}}/>
               </div>
             ))}
