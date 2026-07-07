@@ -7274,9 +7274,13 @@ function SickVisitLog({members,visitors,sickVisits,setSickVisits,users=[]}:any) 
 // ═══════════════════════════════════════════════════════════════
 // BENEVOLENCE FUND TRACKER
 // ═══════════════════════════════════════════════════════════════
-const BEN_CATEGORIES = ["Food Assistance","Condolence Meal","Rent / Housing","Utility Bill","Medical","Transportation","Clothing","Emergency Cash","Other"];
+const BEN_CATEGORIES = ["Food Assistance","Condolence Meal","Military Meals","Rent / Housing","Utility Bill","Medical","Transportation","Clothing","Emergency Cash","Other"];
 const MEAL_DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday"];
 const blankMealDays = ()=>MEAL_DAYS.map(day=>({day,memberId:"",meal:""}));
+// Military Meals: a single provider slot, fixed to Tuesday (vs. Condolence Meal's 5-day week).
+const blankMilitaryMeals = ()=>[{day:"Tuesday",memberId:"",meal:""}];
+const isMealCat = (c:string)=>c==="Condolence Meal"||c==="Military Meals";
+const mealSlotsFor = (c:string)=>c==="Military Meals"?blankMilitaryMeals():blankMealDays();
 const BEN_STATUSES = ["Pending","Approved","Disbursed","Denied","Withdrawn"];
 function BenevolencePage({members,visitors,benevolence,setBenevolence}:any) {
   const blank=()=>({personId:"",personType:"member",requestDate:td(),category:"Food Assistance",amountRequested:"",amountApproved:"",disbursedDate:"",status:"Pending",approvedBy:"",notes:"",mealDays:blankMealDays()});
@@ -7291,13 +7295,13 @@ function BenevolencePage({members,visitors,benevolence,setBenevolence}:any) {
   const getPersonName = (id:number,type:string) => {const p=getPerson(id,type);return p?p.first+" "+p.last:"Unknown";};
   const save = () => {
     if(!form.personId||!form.amountRequested){alert("Person and amount required.");return;}
-    const rec={personId:+form.personId,personType:form.personType,requestDate:form.requestDate,category:form.category,amountRequested:+form.amountRequested||0,amountApproved:+form.amountApproved||0,disbursedDate:form.disbursedDate,status:form.status,approvedBy:form.approvedBy,notes:form.notes,mealDays:form.category==="Condolence Meal"?form.mealDays:undefined};
+    const rec={personId:+form.personId,personType:form.personType,requestDate:form.requestDate,category:form.category,amountRequested:+form.amountRequested||0,amountApproved:+form.amountApproved||0,disbursedDate:form.disbursedDate,status:form.status,approvedBy:form.approvedBy,notes:form.notes,mealDays:isMealCat(form.category)?form.mealDays:undefined};
     if(editing){setBenevolence((b:any[])=>b.map(x=>x.id===editing.id?{...x,...rec}:x));}
     else{setBenevolence((b:any[])=>[{...rec,id:nid.current++},...b]);}
     setModal(false); setEditing(null); setForm(blank());
   };
   const del = (id:number)=>{if(confirm("Delete this request?"))setBenevolence((b:any[])=>b.filter(x=>x.id!==id));};
-  const openEdit=(b:any)=>{setEditing(b);setForm({personId:String(b.personId),personType:b.personType,requestDate:b.requestDate,category:b.category,amountRequested:String(b.amountRequested),amountApproved:String(b.amountApproved||""),disbursedDate:b.disbursedDate||"",status:b.status,approvedBy:b.approvedBy||"",notes:b.notes||"",mealDays:b.mealDays&&b.mealDays.length===5?b.mealDays:blankMealDays()});setModal(true);};
+  const openEdit=(b:any)=>{setEditing(b);setForm({personId:String(b.personId),personType:b.personType,requestDate:b.requestDate,category:b.category,amountRequested:String(b.amountRequested),amountApproved:String(b.amountApproved||""),disbursedDate:b.disbursedDate||"",status:b.status,approvedBy:b.approvedBy||"",notes:b.notes||"",mealDays:b.mealDays&&b.mealDays.length>0?b.mealDays:mealSlotsFor(b.category)});setModal(true);};
   const BS_COLORS:any={Pending:AM,Approved:BL,Disbursed:GR,Denied:RE,Withdrawn:MU};
   let shown=[...benevolence].sort((a:any,b:any)=>b.requestDate.localeCompare(a.requestDate));
   if(filterStatus!=="All") shown=shown.filter(b=>b.status===filterStatus);
@@ -7346,7 +7350,7 @@ function BenevolencePage({members,visitors,benevolence,setBenevolence}:any) {
                     {b.disbursedDate&&<span>Disbursed: {fd(b.disbursedDate)}</span>}
                   </div>
                   {b.notes&&<div style={{fontSize:12,color:MU,fontStyle:"italic",marginTop:6}}>💬 {b.notes}</div>}
-                  {b.category==="Condolence Meal"&&b.mealDays&&b.mealDays.length>0&&(()=>{const active=b.mealDays.filter((d:any)=>d.day||(d.memberId)||(d.meal&&d.meal.trim()));return active.length>0?<div style={{marginTop:6,display:"flex",flexWrap:"wrap" as any,gap:6}}>{active.map((d:any,i:number)=>{const prov=d.memberId?members.find((m:any)=>m.id===+d.memberId):null;return(<span key={i} style={{fontSize:11,background:"#f0fdf4",color:GR,borderRadius:6,padding:"3px 8px",border:"0.5px solid #bbf7d0",fontWeight:500}}>{d.day?d.day.slice(0,3):"Slot "+(i+1)}{prov?" · "+prov.first:""}{d.meal?" — "+d.meal:""}</span>);})}</div>:null;})()}
+                  {isMealCat(b.category)&&b.mealDays&&b.mealDays.length>0&&(()=>{const active=b.mealDays.filter((d:any)=>d.day||(d.memberId)||(d.meal&&d.meal.trim()));return active.length>0?<div style={{marginTop:6,display:"flex",flexWrap:"wrap" as any,gap:6}}>{active.map((d:any,i:number)=>{const prov=d.memberId?members.find((m:any)=>m.id===+d.memberId):null;return(<span key={i} style={{fontSize:11,background:"#f0fdf4",color:GR,borderRadius:6,padding:"3px 8px",border:"0.5px solid #bbf7d0",fontWeight:500}}>{d.day?d.day.slice(0,3):"Slot "+(i+1)}{prov?" · "+prov.first:""}{d.meal?" — "+d.meal:""}</span>);})}</div>:null;})()}
                 </div>
                 <div style={{display:"flex",gap:5,flexShrink:0}}>
                   <Btn onClick={()=>openEdit(b)} v="ghost" style={{fontSize:11,padding:"4px 10px"}}>Edit</Btn>
@@ -7368,7 +7372,7 @@ function BenevolencePage({members,visitors,benevolence,setBenevolence}:any) {
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
           <Fld label="Request Date"><Inp type="date" value={form.requestDate} onChange={sf("requestDate")}/></Fld>
           <Fld label="Category">
-            <select value={form.category} onChange={e=>sf("category")(e.target.value)} style={{width:"100%",padding:"9px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}>
+            <select value={form.category} onChange={e=>{const c=e.target.value;setForm((f:any)=>({...f,category:c,mealDays:isMealCat(c)?mealSlotsFor(c):f.mealDays}));}} style={{width:"100%",padding:"9px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}>
               {BEN_CATEGORIES.map(c=><option key={c}>{c}</option>)}
             </select>
           </Fld>
@@ -7386,16 +7390,16 @@ function BenevolencePage({members,visitors,benevolence,setBenevolence}:any) {
           <Fld label="Disbursed Date"><Inp type="date" value={form.disbursedDate} onChange={sf("disbursedDate")}/></Fld>
         </div>
         <Fld label="Approved By"><Inp value={form.approvedBy} onChange={sf("approvedBy")} placeholder="Pastor Hall, Board, etc."/></Fld>
-        {form.category==="Condolence Meal"&&(
+        {isMealCat(form.category)&&(
           <div style={{background:"#f0fdf4",border:"0.5px solid #bbf7d0",borderRadius:10,padding:"12px 14px",marginBottom:4}}>
-            <div style={{fontSize:11,fontWeight:600,color:GR,textTransform:"uppercase" as any,letterSpacing:0.5,marginBottom:10}}>🍽 Meal Providers (5 Slots)</div>
+            <div style={{fontSize:11,fontWeight:600,color:GR,textTransform:"uppercase" as any,letterSpacing:0.5,marginBottom:10}}>🍽 {form.mealDays.length===1?"Meal Provider":"Meal Providers ("+form.mealDays.length+" Slots)"}</div>
             <div style={{display:"grid",gridTemplateColumns:"110px 1fr 1fr",gap:8,marginBottom:6}}>
               <div style={{fontSize:10,fontWeight:600,color:MU,textTransform:"uppercase" as any,letterSpacing:0.4}}>Day</div>
               <div style={{fontSize:10,fontWeight:600,color:MU,textTransform:"uppercase" as any,letterSpacing:0.4}}>Provider</div>
               <div style={{fontSize:10,fontWeight:600,color:MU,textTransform:"uppercase" as any,letterSpacing:0.4}}>Meal Description</div>
             </div>
             {form.mealDays.map((d:any,i:number)=>(
-              <div key={i} style={{display:"grid",gridTemplateColumns:"110px 1fr 1fr",gap:8,marginBottom:i<4?8:0,alignItems:"center"}}>
+              <div key={i} style={{display:"grid",gridTemplateColumns:"110px 1fr 1fr",gap:8,marginBottom:i<form.mealDays.length-1?8:0,alignItems:"center"}}>
                 <select value={d.day} onChange={e=>{const md=form.mealDays.map((x:any,j:number)=>j===i?{...x,day:e.target.value}:x);sf("mealDays")(md);}} style={{padding:"7px 8px",border:"0.5px solid "+BR,borderRadius:7,fontSize:12,outline:"none",background:W,fontWeight:600,color:N}}>
                   <option value="">— Day —</option>
                   {MEAL_DAYS.map(dy=><option key={dy} value={dy}>{dy}</option>)}
