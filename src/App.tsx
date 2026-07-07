@@ -9329,11 +9329,14 @@ function Attendance({attendance,setAttendance,setView,checkIns=[],setCheckIns=()
         if(seenSS.has(dk)) return;
         seenSS.add(dk);
         const live=kidsByDate[dk];
-        // Education Department count is DERIVED from live kids check-ins. If a stored row exists but
-        // there are no check-ins for that date (e.g. the check-ins were lost to a sync collision),
-        // drop the row instead of showing a stale/phantom count. Otherwise relabel + use the live count.
-        if(live==null) return;
-        manual.push({...a,service:SS_SVC,count:live,members:0,visitors:0});
+        // Education Department count is normally DERIVED from live kids check-ins. Exception: a
+        // MANUALLY-entered row (not auto-recorded) is a deliberate count — e.g. recovering a day whose
+        // individual check-ins were lost — so respect it (show the larger of the manual count and live).
+        // An AUTO row (auto-recorded from a check-in) with no live check-ins is a stale phantom → drop.
+        const isManual = !a.auto;
+        if(live==null && !isManual) return;
+        const cnt = isManual ? Math.max(+a.count||0, live||0) : live;
+        manual.push({...a,service:SS_SVC,count:cnt,members:0,visitors:0});
       } else {
         manual.push(a);
       }
