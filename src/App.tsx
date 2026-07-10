@@ -2269,8 +2269,21 @@ const BDGE={
 // Attaches the signed-in user's Supabase token so the server /api/* proxies can verify the
 // caller is a real, logged-in user — prevents anonymous abuse of the email/SMS/AI/TTS relays.
 async function _authHeaders(): Promise<Record<string,string>> {
-  try { const { data } = await supabase.auth.getSession(); const t = data?.session?.access_token; return t ? { Authorization: "Bearer " + t } : {}; }
-  catch { return {}; }
+  try {
+    let { data } = await supabase.auth.getSession();
+    let s: any = data?.session;
+    // A long-open tab or a slept device can leave the stored access token expired even though a
+    // valid refresh token exists. getSession() may hand back that stale token, which the server
+    // relays (SMS/email/AI) reject as "Unauthorized". Force a refresh when the token is missing,
+    // expired, or within 60s of expiry so relays always receive a fresh, valid token.
+    const expMs = s?.expires_at ? s.expires_at * 1000 : 0;
+    if (!s?.access_token || !expMs || (expMs - Date.now()) < 60000) {
+      const r = await supabase.auth.refreshSession();
+      if (r?.data?.session) s = r.data.session;
+    }
+    const t = s?.access_token;
+    return t ? { Authorization: "Bearer " + t } : {};
+  } catch { return {}; }
 }
 
 // ── ElevenLabs TTS ──
