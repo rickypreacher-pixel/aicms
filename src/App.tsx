@@ -16889,6 +16889,138 @@ function MediaPage({cs}:any){
     </div>
   );
 }
+// Live staff-only chat — topic channels + direct messages + presence, on the real-time
+// chat_messages table (gated by is_chat_staff RLS). Not in the synced blob → instant, never clobbered.
+const CHAT_CHANNELS = [
+  {id:'staff',  label:'Staff',  icon:'💬'},
+  {id:'prayer', label:'Prayer', icon:'🙏'},
+  {id:'youth',  label:'Youth',  icon:'🧑'},
+];
+function StaffChat({churchId,currentUserName,isAdmin}:any){
+  const [msgs,setMsgs]=useState<any[]>([]);
+  const [text,setText]=useState("");
+  const [myId,setMyId]=useState<string|null>(null);
+  const [err,setErr]=useState("");
+  const [loading,setLoading]=useState(true);
+  const [conv,setConv]=useState<any>({type:'channel',id:'staff'});
+  const [online,setOnline]=useState<any[]>([]);
+  const [reads,setReads]=useState<any>({});
+  const scrollRef=useRef<any>(null);
+  const name=(currentUserName||"").trim()||"Staff";
+  const rkPrefix='ntcc_chat_read_'+churchId+'_';
+
+  useEffect(()=>{ let c=false; supabase.auth.getUser().then(({data}:any)=>{ if(!c) setMyId(data?.user?.id||null); },()=>{}); return ()=>{c=true;}; },[]);
+  useEffect(()=>{ try{ const o:any={}; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k&&k.startsWith(rkPrefix)) o[k.slice(rkPrefix.length)]=+(localStorage.getItem(k)||'0'); } setReads(o); }catch(e){} },[churchId]);
+
+  useEffect(()=>{
+    if(!churchId||!myId) return;
+    let active=true;
+    supabase.from('chat_messages').select('*').eq('church_id',churchId).order('created_at',{ascending:true}).limit(600)
+      .then(({data,error}:any)=>{ if(!active)return; if(error){setErr('Could not load chat.');} else setMsgs(data||[]); setLoading(false); });
+    const ch=supabase.channel('chat:'+churchId,{config:{presence:{key:myId}}});
+    ch.on('postgres_changes',{event:'INSERT',schema:'public',table:'chat_messages',filter:'church_id=eq.'+churchId},(p:any)=>{
+        setMsgs((m:any[])=> m.some(x=>String(x.id)===String(p.new.id)) ? m : [...m,p.new]);
+      })
+      .on('postgres_changes',{event:'DELETE',schema:'public',table:'chat_messages',filter:'church_id=eq.'+churchId},(p:any)=>{
+        setMsgs((m:any[])=>m.filter(x=>String(x.id)!==String(p.old.id)));
+      })
+      .on('presence',{event:'sync'},()=>{
+        try{ const st:any=ch.presenceState(); const seen:any={}; const arr:any[]=[];
+          Object.keys(st).forEach(k=>{ (st[k]||[]).forEach((e:any)=>{ const uid=e?.uid||k; if(uid && !seen[uid]){ seen[uid]=1; arr.push({uid,name:e?.name||'Staff'}); } }); });
+          setOnline(arr);
+        }catch(e){}
+      })
+      .subscribe((status:string)=>{ if(status==='SUBSCRIBED'){ try{ ch.track({uid:myId,name}); }catch(e){} } });
+    return ()=>{ active=false; try{supabase.removeChannel(ch);}catch(e){} };
+  },[churchId,myId,name]);
+
+  const convKey = conv.type==='channel' ? ('ch:'+conv.id) : ('dm:'+conv.uid);
+  const shown = msgs.filter((m:any)=>{
+    if(conv.type==='channel') return (m.channel||'staff')===conv.id && !m.recipient_id;
+    return m.recipient_id && ((m.user_id===myId && m.recipient_id===conv.uid) || (m.user_id===conv.uid && m.recipient_id===myId));
+  });
+
+  useEffect(()=>{ if(scrollRef.current) scrollRef.current.scrollTop=scrollRef.current.scrollHeight; },[shown.length, convKey]);
+  useEffect(()=>{ const now=Date.now(); setReads((r:any)=>({...r,[convKey]:now})); try{ localStorage.setItem(rkPrefix+convKey,String(now)); }catch(e){} },[convKey, msgs.length]);
+
+  const onlineSet=new Set(online.map((o:any)=>o.uid));
+  const lastRead=(ck:string)=> reads[ck]||0;
+  const unreadChannel=(cid:string)=> msgs.filter((m:any)=>(m.channel||'staff')===cid && !m.recipient_id && m.user_id!==myId && new Date(m.created_at).getTime()>lastRead('ch:'+cid)).length;
+  const unreadDm=(uid:string)=> msgs.filter((m:any)=>m.recipient_id===myId && m.user_id===uid && new Date(m.created_at).getTime()>lastRead('dm:'+uid)).length;
+  const people=(()=>{ const map:any={}; online.forEach((o:any)=>{ if(o.uid && o.uid!==myId) map[o.uid]={uid:o.uid,name:o.name}; }); msgs.forEach((m:any)=>{ if(m.user_id && m.user_id!==myId && !map[m.user_id]) map[m.user_id]={uid:m.user_id,name:m.author_name||'Staff'}; }); return Object.values(map).sort((a:any,b:any)=>(Number(onlineSet.has(b.uid))-Number(onlineSet.has(a.uid)))||String(a.name).localeCompare(String(b.name))); })();
+
+  const send=async()=>{
+    const body=(text||"").trim(); if(!body||!churchId) return;
+    setText("");
+    const row:any = conv.type==='channel' ? {church_id:churchId,author_name:name,body,channel:conv.id}
+                                          : {church_id:churchId,author_name:name,body,channel:'dm',recipient_id:conv.uid};
+    const {error}=await supabase.from('chat_messages').insert(row);
+    if(error){ setErr('Message failed to send. '+(error.message||'')); setText(body); } else setErr("");
+  };
+  const del=async(m:any)=>{ if(!confirm('Delete this message?'))return; const {error}=await supabase.from('chat_messages').delete().eq('id',m.id); if(error) setErr('Could not delete that message.'); };
+  const fmtTime=(ts:string)=>{ try{ return new Date(ts).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}); }catch{ return ''; } };
+  const fmtDay=(ts:string)=>{ try{ return new Date(ts).toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}); }catch{ return ''; } };
+
+  const Badge=({n}:{n:number})=> n>0 ? <span style={{background:RE,color:"#fff",borderRadius:10,fontSize:10,fontWeight:700,padding:"1px 6px",minWidth:16,textAlign:"center" as any}}>{n}</span> : null;
+  const railBtn=(active:boolean):any=>({display:"flex",alignItems:"center",gap:8,width:"100%",textAlign:"left",padding:"7px 10px",borderRadius:8,border:"none",background:active?N+"14":"transparent",color:active?N:TX,cursor:"pointer",fontSize:13,fontWeight:active?600:400});
+  const convTitle = conv.type==='channel' ? ('# '+(CHAT_CHANNELS.find(c=>c.id===conv.id)?.label||conv.id)) : (conv.name||'Direct message');
+
+  return (
+    <div>
+      <h2 style={{fontSize:20,fontWeight:600,color:N,margin:"0 0 2px"}}>Staff Chat</h2>
+      <div style={{fontSize:12.5,color:MU,marginBottom:12}}>Live channels &amp; direct messages for your staff team. Congregants can&rsquo;t see this.</div>
+      {err && <div style={{fontSize:12.5,color:RE,background:"#fef2f2",border:"0.5px solid #fca5a5",borderRadius:8,padding:"8px 12px",marginBottom:10,maxWidth:1000}}>{err}</div>}
+      <div style={{display:"flex",gap:14,maxWidth:1000,alignItems:"stretch",flexWrap:"wrap"}}>
+        <div style={{width:230,flexShrink:0,background:W,border:"0.5px solid "+BR,borderRadius:12,padding:12,display:"flex",flexDirection:"column",gap:3,maxHeight:"min(70vh,660px)",overflowY:"auto"}}>
+          <div style={{fontSize:10.5,fontWeight:700,color:MU,textTransform:"uppercase" as any,letterSpacing:0.5,padding:"4px 8px"}}>Channels</div>
+          {CHAT_CHANNELS.map(c=>{ const u=unreadChannel(c.id); const act=conv.type==='channel'&&conv.id===c.id; return (
+            <button key={c.id} onClick={()=>setConv({type:'channel',id:c.id})} style={railBtn(act)}><span style={{opacity:0.9}}>{c.icon}</span><span style={{flex:1}}>{c.label}</span><Badge n={u}/></button>
+          );})}
+          <div style={{fontSize:10.5,fontWeight:700,color:MU,textTransform:"uppercase" as any,letterSpacing:0.5,padding:"12px 8px 4px"}}>Direct Messages</div>
+          {people.length===0 ? <div style={{fontSize:11.5,color:MU,padding:"2px 10px",lineHeight:1.5}}>People appear here once they&rsquo;re online or have chatted.</div>
+           : people.map((p:any)=>{ const u=unreadDm(p.uid); const act=conv.type==='dm'&&conv.uid===p.uid; return (
+            <button key={p.uid} onClick={()=>setConv({type:'dm',uid:p.uid,name:p.name})} style={railBtn(act)}>
+              <span style={{display:"inline-block",width:8,height:8,borderRadius:8,flexShrink:0,background:onlineSet.has(p.uid)?GR:"transparent",border:onlineSet.has(p.uid)?"none":"1px solid "+BR}}/>
+              <span style={{flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</span><Badge n={u}/>
+            </button>
+          );})}
+          <div style={{marginTop:"auto",paddingTop:10,fontSize:11,color:MU,borderTop:"0.5px solid "+BR,display:"flex",alignItems:"center",gap:6}}>
+            <span style={{display:"inline-block",width:8,height:8,borderRadius:8,background:GR}}/> {online.length} online now
+          </div>
+        </div>
+        <div style={{flex:1,minWidth:280,background:W,border:"0.5px solid "+BR,borderRadius:12,overflow:"hidden",display:"flex",flexDirection:"column",height:"min(70vh,660px)"}}>
+          <div style={{padding:"10px 14px",borderBottom:"0.5px solid "+BR,display:"flex",alignItems:"center",gap:8}}>
+            <span style={{fontSize:14,fontWeight:600,color:N}}>{convTitle}</span>
+            {conv.type==='dm' && <span style={{fontSize:11,color:onlineSet.has(conv.uid)?GR:MU}}>{onlineSet.has(conv.uid)?'● online':'offline'}</span>}
+          </div>
+          <div ref={scrollRef} style={{flex:1,overflowY:"auto",padding:"14px 16px 8px"}}>
+            {loading ? <div style={{fontSize:13,color:MU,textAlign:"center",padding:20}}>Loading&hellip;</div>
+             : shown.length===0 ? <div style={{fontSize:13,color:MU,textAlign:"center",padding:30}}>{conv.type==='dm'?('Start a conversation with '+(conv.name||'')):'No messages yet. Say hello 👋'}</div>
+             : shown.map((m:any,i:number)=>{
+                const mine=!!(myId && m.user_id===myId);
+                const showDay = i===0 || fmtDay(m.created_at)!==fmtDay(shown[i-1].created_at);
+                const canDel = mine || (isAdmin && conv.type==='channel');
+                return (<div key={m.id}>
+                  {showDay && <div style={{textAlign:"center",fontSize:10.5,color:MU,margin:"10px 0",textTransform:"uppercase" as any,letterSpacing:0.5}}>{fmtDay(m.created_at)}</div>}
+                  <div style={{display:"flex",flexDirection:"column",alignItems:mine?"flex-end":"flex-start",marginBottom:8}}>
+                    <div style={{fontSize:11,color:MU,marginBottom:2,padding:"0 4px"}}>{mine?"You":(m.author_name||"Staff")} &middot; {fmtTime(m.created_at)}</div>
+                    <div style={{display:"flex",alignItems:"center",gap:6,flexDirection:mine?"row-reverse" as any:"row" as any,maxWidth:"80%"}}>
+                      <div style={{background:mine?N:BG,color:mine?"#fff":TX,borderRadius:12,padding:"8px 12px",fontSize:14,lineHeight:1.5,wordBreak:"break-word" as any,whiteSpace:"pre-wrap" as any}}>{m.body}</div>
+                      {canDel && <button onClick={()=>del(m)} title="Delete message" style={{background:"none",border:"none",color:MU,cursor:"pointer",fontSize:12,opacity:0.55,flexShrink:0,padding:2}}>&#x2715;</button>}
+                    </div>
+                  </div>
+                </div>);
+              })}
+          </div>
+          <div style={{borderTop:"0.5px solid "+BR,padding:10,display:"flex",gap:8,background:W}}>
+            <input value={text} onChange={e=>setText(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}}} placeholder={conv.type==='dm'?('Message '+(conv.name||'')+'…'):('Message #'+conv.id+'…')} style={{flex:1,padding:"10px 12px",border:"1px solid "+BR,borderRadius:9,fontSize:14,outline:"none",fontFamily:"inherit",background:W,color:TX}}/>
+            <Btn onClick={send} disabled={!text.trim()} style={{fontSize:13}}>Send</Btn>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 function MemberProfilePortal({member,setMembers,giving,onSignOut,staffMode=false,roles=[],users=[],setUsers,recurring=[],custom=[],eventRsvps=[],setEventRsvps=null,members=[],children=[],announcements=[],cleaningSchedule={},eventSchedule={},servicePlans={},currentUser=null,initialTab="profile",givingUrl=""}:any) {
   const [tab,setTab] = useState(initialTab);
   // Let the sidebar open the portal directly to a given tab (e.g. 📢 Announcements → News).
@@ -17421,6 +17553,21 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   const [churchSettings,setChurchSettings] = useState(_I.churchSettings || DEFAULT_CS);
   const [showSetup,setShowSetup] = useState(false);
   const [view,setView] = useState("dashboard");
+  // Staff Chat sidebar badge: count chat messages (not mine) that arrive while you're elsewhere.
+  const [chatUnread,setChatUnread] = useState(0);
+  const chatViewRef = useRef("dashboard");
+  const chatMyIdRef = useRef<any>(null);
+  useEffect(()=>{ chatViewRef.current = view; if(view==='chat') setChatUnread(0); },[view]);
+  useEffect(()=>{
+    if(!churchId) return;
+    supabase.auth.getUser().then(({data}:any)=>{ chatMyIdRef.current = data?.user?.id||null; },()=>{});
+    const ch=supabase.channel('chatbadge:'+churchId)
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'chat_messages',filter:'church_id=eq.'+churchId},(p:any)=>{
+        if(p?.new && p.new.user_id!==chatMyIdRef.current && chatViewRef.current!=='chat') setChatUnread((n:number)=>n+1);
+      })
+      .subscribe();
+    return ()=>{ try{supabase.removeChannel(ch);}catch(e){} };
+  },[churchId]);
   const [members,setMembers] = useState(lsGet('members') ?? _I.members ?? []);
   const [visitors,setVisitors] = useState(lsGet('visitors') ?? _I.visitors ?? []);
   const [prospects,setProspects] = useState(lsGet('prospects') ?? []);
@@ -18266,6 +18413,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     {id:"hospitalityfund",label:"Hospitality Fund",icon:"🍽",group:"Finances"},
     {id:"email",label:"Email Center",icon:"@",group:"Communication"},
     {id:"sms",label:"SMS Center",icon:"✉",group:"Communication"},
+    {id:"chat",label:"Staff Chat"+(chatUnread>0?` (${chatUnread})`:""),icon:"💬",group:"Communication"},
     {id:"announcements",label:"Announcements",icon:"📢",group:"Communication"},
     {id:"ai",label:"AI Assistant",icon:"AI",group:"Communication"},
     {id:"access",label:"Access Control",icon:"Ac",group:"Tools"},
@@ -18292,7 +18440,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     visitation:"visitation", groups:"groups", education:"education",
     hospitalvisits:"hospitalVisits", benevolencefund:"benevolenceFund", counselinglog:"counselingLog", hospitalityfund:"hospitalityFund",
     maintenance:"maintenance", calendar:"events", attendance:"attendance",
-    giving:"giving", prayer:"prayer", email:null, sms:null,
+    giving:"giving", prayer:"prayer", email:null, sms:null, chat:null,
     access:"settings", ai:null, settings:"settings", alerts:null, adminnotes:null, manual:null, loginactivity:null, auditlog:null, myfollowups:null,
   };
   const PASTORAL_CARE_SIDEBAR_ROLE_ACCESS:Record<string,string[]> = {
@@ -18655,6 +18803,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           {!isMemberPortal && view==="announcements" && <Announcements announcements={announcements} setAnnouncements={setAnnouncements} currentUser={currentUser} roles={roles} permissions={permissions} recurring={recurring} custom={custom} churchId={churchId}/>}
           {!isMemberPortal && view==="finances" && canViewGiving && <Finances expenses={expenses} setExpenses={setExpenses} budgets={budgets} setBudgets={setBudgets} giving={giving} openingBalances={openingBalances} setOpeningBalances={setOpeningBalances}/>}
           {!isMemberPortal && view==="manual" && <ManualPage/>}
+          {!isMemberPortal && view==="chat" && <StaffChat churchId={churchId} currentUserName={staffMemberRecord ? (staffMemberRecord.first+" "+staffMemberRecord.last).trim() : (displayName || loggedInEmail || "")} isAdmin={!isStaff}/>}
         </div>
       </div>
 
