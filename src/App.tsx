@@ -16207,6 +16207,7 @@ function ManualPage(){
     {id:'s29',label:'29. Admin Notes'},{id:'s30',label:'30. Auto Follow-Up (Stopped Attending)'},
     {id:'s31',label:'31. Youth Ministry Roll Call'},{id:'s32',label:'32. Online Giving Auto-Import'},
     {id:'s33',label:'33. Audit Log'},{id:'s34',label:'34. Automated Daily Backups'},
+    {id:'s35',label:'35. Watch Live'},{id:'s36',label:'36. Staff Chat'},
   ];
   const H=({id,children}:any)=><h2 ref={setRef(id)} style={{fontSize:17,fontWeight:600,color:N,margin:'0 0 14px',paddingBottom:10,borderBottom:'2px solid '+G}}>{children}</h2>;
   const H3=({children}:any)=><h3 style={{fontSize:13,fontWeight:600,color:N,margin:'18px 0 8px',textTransform:'uppercase',letterSpacing:0.4}}>{children}</h3>;
@@ -16233,7 +16234,7 @@ function ManualPage(){
         <div style={{background:N,borderRadius:12,padding:'20px 24px',marginBottom:20}}>
           <div style={{color:'#fff',fontSize:21,fontWeight:600,letterSpacing:0.3}}>ChurchOS Staff Manual</div>
           <div style={{color:G,fontSize:13,marginTop:4}}>New Testament Christian Church — Administrator Guide</div>
-          <div style={{color:'#7a9acc',fontSize:12,marginTop:6}}>Version 6.7 · June 2026 · For internal staff use</div>
+          <div style={{color:'#7a9acc',fontSize:12,marginTop:6}}>Version 6.8 · July 2026 · For internal staff use</div>
         </div>
 
         <Sec><H id="s1">1. Getting Started</H>
@@ -16837,8 +16838,24 @@ function ManualPage(){
           <Note>This runs entirely on its own — there is nothing to turn on or maintain. To request a restore to a specific day, contact your system administrator.</Note>
         </Sec>
 
+        <Sec><H id="s35">35. Watch Live</H>
+          <P>The <B>Watch Live</B> page streams your church&rsquo;s live broadcast right inside ChurchOS. The player shows the current or next scheduled service automatically, with a countdown before it starts.</P>
+          <Ol><Li>Click <B>📺 Watch Live</B> in the sidebar</Li><Li>The broadcast plays in-app — members with a portal login can watch too</Li></Ol>
+          <Note>The video starts muted (browsers require it) — click the speaker icon in the player to turn on sound. The broadcast link is pre-configured; an administrator can change it in Settings.</Note>
+        </Sec>
+
+        <Sec><H id="s36">36. Staff Chat</H>
+          <P><B>Staff Chat</B> is a live, real-time chat for your staff team — topic channels, direct messages, and presence. Congregants can never see it; it&rsquo;s restricted to staff at the database level.</P>
+          <H3>Channels &amp; Direct Messages</H3>
+          <Ul><Li><B>Channels</B> — switch between <B># Staff</B>, <B># Prayer</B>, and <B># Youth</B> in the left rail; channel messages are seen by all staff.</Li><Li><B>Direct Messages</B> — click a name under <B>Direct Messages</B> for a private 1:1 thread only you and that person can see.</Li></Ul>
+          <H3>Who&rsquo;s Online &amp; Unread</H3>
+          <Ul><Li>Green dots show who&rsquo;s <B>online now</B>, with a live count.</Li><Li>Red badges show <B>unread</B> counts per conversation and a total on the sidebar <B>Staff Chat</B> item, which clears when you open chat.</Li></Ul>
+          <H3>Who Can Use It</H3>
+          <P>Only staff (people in your <B>Access Control</B> users list) and the main administrator can open Staff Chat. You can delete your own messages; the main administrator can delete any channel message.</P>
+        </Sec>
+
         <div style={{textAlign:'center',padding:'24px 0 8px',borderTop:'0.5px solid '+BR,marginTop:4}}>
-          <div style={{fontSize:12,color:MU}}>ChurchOS Staff Manual · New Testament Christian Church · Version 6.7 · June 2026</div>
+          <div style={{fontSize:12,color:MU}}>ChurchOS Staff Manual · New Testament Christian Church · Version 6.8 · July 2026</div>
           <div style={{fontSize:11,color:MU,marginTop:4}}>For technical support or feature requests, contact your system administrator.</div>
         </div>
       </div>
