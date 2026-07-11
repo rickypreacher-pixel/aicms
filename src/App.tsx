@@ -18061,15 +18061,15 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       // drop check-ins entered locally that haven't reached the cloud blob yet ("disappearing" bug).
       if(Array.isArray(d.kidsCheckIns)) setKidsCheckIns((cur:any[])=>{
         const curArr=Array.isArray(cur)?cur:[];
-        // Key by the natural childId|date (NOT id — ids collide across devices). Only pull in cloud
-        // check-ins that are genuinely NEW to this device: not already local AND not present in what
-        // we last synced. Skipping the baseline keys HONORS local deletes — without this, a check-in
-        // the user just deleted keeps getting resurrected by the 60s poll re-adding it from the cloud.
+        // ADD-ONLY union, keyed by the natural childId|date (NOT id — ids collide across devices).
+        // Always re-absorb ANY cloud check-in this device is missing. Previously we skipped keys
+        // present in the last-synced baseline (to "honor local deletes") — but that let a device's
+        // local copy silently lag behind the cloud, and its next save then broadcast a phantom
+        // delete that wiped a whole day's check-ins for everyone (the recurring 43<->0 flapping).
+        // Never inferring a delete from absence is the fix; genuine deletes are handled explicitly.
         const keyOf=(c:any)=>String(c&&c.childId)+"|"+String(c&&c.date);
         const localKeys=new Set(curArr.map(keyOf));
-        const baseArr=(lastSyncedBlob&&Array.isArray(lastSyncedBlob.current?.kidsCheckIns))?lastSyncedBlob.current.kidsCheckIns:[];
-        const baseKeys=new Set(baseArr.map(keyOf));
-        const merged=[...curArr,...d.kidsCheckIns.filter((c:any)=>{const k=keyOf(c);return !localKeys.has(k)&&!baseKeys.has(k);})];
+        const merged=[...curArr,...d.kidsCheckIns.filter((c:any)=>!localKeys.has(keyOf(c)))];
         return merged.length===curArr.length?curArr:merged;
       });
       if(Array.isArray(d.teacherFollowups)) setTeacherFollowups((cur:any)=>{

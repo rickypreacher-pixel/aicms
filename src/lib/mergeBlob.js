@@ -33,6 +33,15 @@ const ID_ARRAYS = [
 ];
 // Arrays of bare scalar values (e.g. ids), merged as a set.
 const SCALAR_ARRAYS = ['followupDismissedChildIds', 'adminNotesRead'];
+// ADD-ONLY arrays: never infer a delete from absence. A device that is merely behind
+// (partial/just-loaded copy) must NOT be able to broadcast a phantom delete that wipes
+// records for everyone — the root cause of the recurring kids-check-in "flapping" (a day's
+// check-ins repeatedly dropping to 0 and being restored by another device). Union of both
+// sides, keyed by the natural composite key; the only way to remove one is an explicit,
+// intentional delete flow (or the dedicated table that replaces this blob path). Genuine
+// deletes of a child check-in are rare; NEVER losing an entered check-in is what matters.
+const UNION_ARRAYS = ['kidsCheckIns'];
+const UNION_SET = new Set(UNION_ARRAYS);
 // Objects merged per top-level key (additive — keys are never dropped).
 // careContacted = Care Pulse {memberId: ISODate} snooze marks; additive so marks from any device survive.
 // servicePlans = service Schedule Planner, keyed by "<service>|<date>"; additive so plans from any device survive.
@@ -100,6 +109,22 @@ function mergeArray(field, baseArr, localArr, remoteArr) {
   return out;
 }
 
+// ADD-ONLY union merge: keep every key present on EITHER side; never drop for absence.
+// When a key is on both sides and differs, keep the newer copy (local on a tie).
+function mergeArrayUnion(field, localArr, remoteArr) {
+  localArr = Array.isArray(localArr) ? localArr : [];
+  remoteArr = Array.isArray(remoteArr) ? remoteArr : [];
+  const k = (it) => keyFor(field, it);
+  const byKey = new Map();
+  for (const it of remoteArr) byKey.set(k(it), it);
+  for (const it of localArr) {
+    const key = k(it);
+    const ex = byKey.get(key);
+    if (!ex || tsOf(it) >= tsOf(ex)) byKey.set(key, it);
+  }
+  return Array.from(byKey.values());
+}
+
 // Additive per-key merge for config objects. Start from remote (latest), then overlay
 // any key THIS device actually changed relative to base. Never drops keys.
 function mergeObject(baseObj, localObj, remoteObj) {
@@ -120,7 +145,9 @@ export function mergeChurchData(base, local, remote) {
   const out = {};
   const fields = new Set([...Object.keys(local), ...Object.keys(remote)]);
   for (const field of fields) {
-    if (ID_SET.has(field) || SCALAR_ARR_SET.has(field) || field === 'teacherSchedule') {
+    if (UNION_SET.has(field)) {
+      out[field] = mergeArrayUnion(field, local[field], remote[field]);
+    } else if (ID_SET.has(field) || SCALAR_ARR_SET.has(field) || field === 'teacherSchedule') {
       out[field] = mergeArray(field, base[field], local[field], remote[field]);
     } else if (OBJ_SET.has(field)) {
       out[field] = mergeObject(base[field], local[field], remote[field]);
