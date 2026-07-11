@@ -422,7 +422,7 @@ function CheckoutsTab({checkoutItems,setCheckoutItems,checkouts,setCheckouts,equ
   const [detail,setDetail]=useState(null);
   const [form,setForm]=useState({});
   const [search,setSearch]=useState('');
-  const today=()=>new Date().toISOString().split('T')[0];
+  const today=()=>td();
   const fds=d=>d?new Date(d+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';
   const isOverdue=c=>c.status==='Out'&&c.expectedReturnDate&&c.expectedReturnDate<today();
   const overdueCount=(checkouts||[]).filter(isOverdue).length;
@@ -640,13 +640,13 @@ function SuppliesTab({supplies,setSupplies,canEdit}){
   const logPurchase=()=>{
     const qty=Number(form.qty);
     if(!qty||qty<=0){alert('Enter quantity received.');return;}
-    setSupplies(p=>p.map(s=>{if(s.id!==detail.id)return s;const nq=s.quantity+qty;const entry={id:Date.now(),date:form.date||new Date().toISOString().split('T')[0],vendor:form.vendor||'',addedQty:qty};return{...s,quantity:nq,maxQty:Math.max(s.maxQty,nq),purchaseLog:[entry,...(s.purchaseLog||[])]};}));
+    setSupplies(p=>p.map(s=>{if(s.id!==detail.id)return s;const nq=s.quantity+qty;const entry={id:Date.now(),date:form.date||td(),vendor:form.vendor||'',addedQty:qty};return{...s,quantity:nq,maxQty:Math.max(s.maxQty,nq),purchaseLog:[entry,...(s.purchaseLog||[])]};}));
     closeM();
   };
   const logUsage=()=>{
     const qty=Number(form.qty);
     if(!qty||qty<=0){alert('Enter quantity used.');return;}
-    setSupplies(p=>p.map(s=>{if(s.id!==detail.id)return s;const nq=Math.max(0,s.quantity-qty);const entry={id:Date.now(),date:form.date||new Date().toISOString().split('T')[0],usedQty:qty,usedBy:form.usedBy||'',notes:form.usedNotes||''};return{...s,quantity:nq,usageLog:[entry,...(s.usageLog||[])]};}));
+    setSupplies(p=>p.map(s=>{if(s.id!==detail.id)return s;const nq=Math.max(0,s.quantity-qty);const entry={id:Date.now(),date:form.date||td(),usedQty:qty,usedBy:form.usedBy||'',notes:form.usedNotes||''};return{...s,quantity:nq,usageLog:[entry,...(s.usageLog||[])]};}));
     closeM();
   };
   const editQty=()=>{
@@ -700,8 +700,8 @@ function SuppliesTab({supplies,setSupplies,canEdit}){
               {low&&item.maxQty>0&&<div style={{fontSize:11,color:RE,marginTop:4}}>Reorder threshold: {Math.round(item.maxQty*LOW_PCT)} {item.unit}</div>}
             </div>
             {canEdit&&<div style={{display:'flex',gap:6,marginBottom:10}}>
-              <button onClick={()=>openM('purchase',item,{date:new Date().toISOString().split('T')[0]})} style={{flex:1,background:GR+'15',border:'0.5px solid '+GR+'44',borderRadius:7,padding:'6px 0',fontSize:12,fontWeight:500,color:GR,cursor:'pointer'}}>📦 Log Purchase</button>
-              <button onClick={()=>openM('usage',item,{date:new Date().toISOString().split('T')[0]})} style={{flex:1,background:RE+'0d',border:'0.5px solid '+RE+'33',borderRadius:7,padding:'6px 0',fontSize:12,fontWeight:500,color:RE,cursor:'pointer'}}>🧹 Log Usage</button>
+              <button onClick={()=>openM('purchase',item,{date:td()})} style={{flex:1,background:GR+'15',border:'0.5px solid '+GR+'44',borderRadius:7,padding:'6px 0',fontSize:12,fontWeight:500,color:GR,cursor:'pointer'}}>📦 Log Purchase</button>
+              <button onClick={()=>openM('usage',item,{date:td()})} style={{flex:1,background:RE+'0d',border:'0.5px solid '+RE+'33',borderRadius:7,padding:'6px 0',fontSize:12,fontWeight:500,color:RE,cursor:'pointer'}}>🧹 Log Usage</button>
               <button onClick={()=>openM('editqty',item,{qty:String(item.quantity)})} title="Adjust quantity" style={{background:'none',border:'0.5px solid '+BR,borderRadius:7,padding:'6px 8px',fontSize:12,color:MU,cursor:'pointer'}}>✎</button>
             </div>}
             <button onClick={()=>setExpandedId(expanded?null:item.id)} style={{background:'none',border:'none',cursor:'pointer',fontSize:11,color:MU,padding:0,display:'flex',alignItems:'center',gap:4}}>{expanded?'▲':'▼'} {logAll.length} log entr{logAll.length===1?'y':'ies'}</button>
@@ -915,9 +915,9 @@ function BigEventScheduler({eventSchedule,setEventSchedule,members,canEdit}:any)
   const [editSlot,setEditSlot]=useState<any>(null); // area name being edited
   const [search,setSearch]=useState("");
   const [newArea,setNewArea]=useState("");
-  const _today=new Date().toISOString().split('T')[0];
-  const shiftWk=(w:string,days:number)=>{const d=new Date(w+"T00:00:00");d.setDate(d.getDate()+days);return d.toISOString().split('T')[0];};
-  const [wk,setWk]=useState(()=>getMondayOf(new Date().toISOString().split('T')[0]));
+  const _today=td();
+  const shiftWk=(w:string,days:number)=>{const d=new Date(w+"T00:00:00");d.setDate(d.getDate()+days);return ymd(d);};
+  const [wk,setWk]=useState(()=>getMondayOf(td()));
   const wkSunday=getSundayOf(wk);
   const ev=(eventSchedule||{})[sel]||{};
   const areas=[...DEFAULT_EVENT_AREAS, ...((ev.customAreas||[]).filter((a:string)=>!DEFAULT_EVENT_AREAS.includes(a)))];
@@ -1035,7 +1035,7 @@ function Maintenance({users,members,currentUser,roles,permissions,equipment,setE
   const alerts=computeMaintAlerts(equipment,schedMaint);
   const totalAlerts=alerts.overdue.length+alerts.urgent.length+alerts.warrantyExpired.length+alerts.warrantyExpiringSoon.length;
   const lowSupplies=(supplies||[]).filter((s:any)=>s.maxQty>0&&s.quantity<=Math.round(s.maxQty*0.25)).length;
-  const today=new Date().toISOString().split('T')[0];
+  const today=td();
   const overdueCheckouts=(checkouts||[]).filter((c:any)=>c.status==='Out'&&c.expectedReturnDate&&c.expectedReturnDate<today).length;
   const isAdmin=currentUser?.superAdmin||(currentUser?.roleId&&roles?.find(r=>r.id===currentUser.roleId)?.name==="Administrator");
   const canEdit=isAdmin||checkPermission(currentUser,roles,permissions,"maintenance","edit");
@@ -1072,7 +1072,7 @@ async function downloadApp(cs, d) {
   const activeM = (d.members||[]).filter(m=>m.status==="Active").length;
   const totalGiving = (d.giving||[]).reduce((a,g)=>a+(+g.amount||0),0);
   const openWOs = (d.workOrders||[]).filter(w=>w.status!=="Completed").length;
-  const overdueMaint = (d.schedMaint||[]).filter(s=>s.active&&s.nextService&&s.nextService<new Date().toISOString().split("T")[0]).length;
+  const overdueMaint = (d.schedMaint||[]).filter(s=>s.active&&s.nextService&&s.nextService<td()).length;
 
   const logoHtml = cs.logoUrl
     ? `<img src="${esc(cs.logoUrl)}" style="height:54px;object-fit:contain;margin-bottom:6px" alt="logo"/>`
@@ -1203,7 +1203,7 @@ ${section("Prayer Requests","#7c3aed", table(
 <div class="footer">${esc(cs.name)} — Exported on ${today} — NTCC AI Church Database v5</div>
 </div></body></html>`;
 
-  const fname = (cs.name||"Church").replace(/[^a-z0-9]/gi,"_")+"_Export_"+new Date().toISOString().slice(0,10)+".html";
+  const fname = (cs.name||"Church").replace(/[^a-z0-9]/gi,"_")+"_Export_"+td()+".html";
   const blob = new Blob([html],{type:"text/html;charset=utf-8"});
   const url = URL.createObjectURL(blob);
   const a = Object.assign(document.createElement("a"),{href:url,download:fname});
@@ -2213,7 +2213,12 @@ const buildStageTimeline = (rec:any) => {
   base.OngoingCare = base.OngoingCare.map((o:any)=>o.ts);
   return base;
 };
-const td=()=>new Date().toISOString().split("T")[0];
+// Format a Date as LOCAL yyyy-mm-dd (device time = Arizona for this church), NOT UTC.
+const ymd=(d:any)=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+// Today's date in LOCAL time. Using toISOString() here rolled to "tomorrow" every evening after
+// 5 PM Arizona (UTC-7), which mis-dated evening entries (Sunday Night check-ins, giving) and the
+// calendar's "today".
+const td=()=>ymd(new Date());
 const albl=a=>({view:"View",create:"Create",edit:"Edit",delete:"Delete"}[a]||a);
 const actionColor=a=>({view:BL,create:GR,edit:"#d97706",delete:RE}[a]||MU);
 
@@ -3384,7 +3389,7 @@ function daysBetween(dateStr, refDate){
 function addDays(dateStr, n){
   const d = new Date(dateStr+"T00:00:00");
   d.setDate(d.getDate() + n);
-  return d.toISOString().split("T")[0];
+  return ymd(d);
 }
 // Compute next-due date for a record in OngoingCare
 function getNextDue(rec){
@@ -3493,7 +3498,7 @@ function EmailCenter({emailLog,setEmailLog,emailTemplates,setEmailTemplates,emai
     total: emailLog.length,
     individual: emailLog.filter(e=>!e.isBulk).length,
     bulk: emailLog.filter(e=>e.isBulk).length,
-    thisMonth: emailLog.filter(e=>e.timestamp.startsWith(new Date().toISOString().slice(0,7))).length,
+    thisMonth: emailLog.filter(e=>e.timestamp.startsWith(td().slice(0,7))).length,
   };
 
   const openAddTpl = ()=>{ setEditTpl(null); setTplForm({name:"",category:"Custom",subject:"",body:""}); setTplModal(true); };
@@ -4492,7 +4497,7 @@ function SmsCenter({smsLog,setSmsLog,smsTemplates,setSmsTemplates,smsConfig,setS
     total:smsLog.length,
     individual:smsLog.filter(s=>!s.isBulk).length,
     bulk:smsLog.filter(s=>s.isBulk).length,
-    thisMonth:smsLog.filter(s=>s.timestamp?.startsWith(new Date().toISOString().slice(0,7))).length,
+    thisMonth:smsLog.filter(s=>s.timestamp?.startsWith(td().slice(0,7))).length,
   };
   const filtered=smsLog.filter(s=>{
     if(!search) return true;
@@ -5766,7 +5771,7 @@ function Groups({members,groups,setGroups,grpMeetings,setGrpMeetings,currentUser
           <div style={{display:"flex",gap:12,marginBottom:20}}>
             <Stat label="Total Groups" value={visibleGroups.length}/>
             <Stat label="Members Enrolled" value={[...new Set(visibleGroups.flatMap((g:any)=>g.memberIds))].length} color={BL}/>
-            <Stat label="Meetings This Month" value={grpMeetings.filter((m:any)=>visibleGroups.some((g:any)=>g.id===m.groupId)&&m.date.startsWith(new Date().toISOString().slice(0,7))).length} color={GR}/>
+            <Stat label="Meetings This Month" value={grpMeetings.filter((m:any)=>visibleGroups.some((g:any)=>g.id===m.groupId)&&m.date.startsWith(td().slice(0,7))).length} color={GR}/>
             <Stat label="Active Leaders" value={visibleGroups.filter((g:any)=>g.leaderId).length} color={G}/>
           </div>
           {_isGroupAdmin&&<div style={{display:"flex",justifyContent:"flex-end",marginBottom:16}}><Btn onClick={openAdd}>+ Create Group</Btn></div>}
@@ -6357,7 +6362,7 @@ function CalendarView({members,visitors,setVisitors,groups,recurring,setRecurrin
                 <button onClick={prevMo} style={{width:28,height:28,borderRadius:6,border:"0.5px solid "+BR,background:W,cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1}}>{"<"}</button>
                 <span style={{fontSize:15,fontWeight:500,color:N,minWidth:150,textAlign:"center"}}>{CMONTHS[mo]} {yr}</span>
                 <button onClick={nextMo} style={{width:28,height:28,borderRadius:6,border:"0.5px solid "+BR,background:W,cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1}}>{">"}</button>
-                <button onClick={()=>{const n=new Date();setYr(n.getFullYear());setMo(n.getMonth());setSelDate(n.toISOString().split("T")[0]);}} style={{padding:"4px 10px",borderRadius:5,border:"0.5px solid "+BR,background:W,cursor:"pointer",fontSize:11,color:N}}>Today</button>
+                <button onClick={()=>{const n=new Date();setYr(n.getFullYear());setMo(n.getMonth());setSelDate(td());}} style={{padding:"4px 10px",borderRadius:5,border:"0.5px solid "+BR,background:W,cursor:"pointer",fontSize:11,color:N}}>Today</button>
               </div>
               <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>{[[N,"Worship"],[G,"Education"],[GR,"Study"],[PU,"Prayer"],["#65a30d","Group"]].map(([c,t])=><div key={t} style={{display:"flex",alignItems:"center",gap:3}}><div style={{width:8,height:8,borderRadius:2,background:c}}></div><span style={{fontSize:10,color:MU}}>{t}</span></div>)}</div>
             </div>
@@ -6812,7 +6817,7 @@ function Dashboard({members,visitors,attendance,giving,prayers,setView,canViewGi
   const [aLoad,setALoad] = useState(false);
   const [attHover,setAttHover] = useState<number|null>(null);
   const [visHover,setVisHover] = useState<number|null>(null);
-  const nowYM = new Date().toISOString().slice(0,7); // e.g. "2026-04"
+  const nowYM = td().slice(0,7); // e.g. "2026-04"
   const monthLabel = new Date().toLocaleDateString("en-US",{month:"long",year:"numeric"});
   const totalG = giving.filter((g:any)=>(g.date||"").startsWith(nowYM)).reduce((a:number,g:any)=>a+g.amount,0);
   const lastSvc = attendance[0];
@@ -6921,7 +6926,7 @@ function Dashboard({members,visitors,attendance,giving,prayers,setView,canViewGi
     out.sort((a:any,b:any)=> (rank[a.tier]-rank[b.tier]) || (b.weeks-a.weeks));
     return out;
   },[members,checkIns,careContacted]);
-  const markContacted=(id:any)=>{ if(setCareContacted) setCareContacted((p:any)=>({...(p||{}),[id]:new Date().toISOString().slice(0,10)})); };
+  const markContacted=(id:any)=>{ if(setCareContacted) setCareContacted((p:any)=>({...(p||{}),[id]:td()})); };
 
   return (
     <div>
@@ -9928,12 +9933,12 @@ function getMondayOf(dateStr){
   const day = d.getDay(); // 0=Sun, 1=Mon, ... 6=Sat
   const diff = day === 0 ? -6 : 1 - day; // if Sunday, go back 6; else go back (day-1)
   d.setDate(d.getDate() + diff);
-  return d.toISOString().split("T")[0];
+  return ymd(d);
 }
 function getSundayOf(mondayStr){
   const d = new Date(mondayStr+"T00:00:00");
   d.setDate(d.getDate() + 6);
-  return d.toISOString().split("T")[0];
+  return ymd(d);
 }
 function computeWeekReport(mondayStr, giving){
   const sunday = getSundayOf(mondayStr);
@@ -10297,7 +10302,7 @@ function TithesView({giving,weeklyReports}){
     filteredGiving = giving.filter(g=>g.date>=monday && g.date<=sunday);
     rangeLabel = "This Week ("+fd(monday)+" — "+fd(sunday)+")";
   } else if(range==="month"){
-    const ym = today.toISOString().slice(0,7);
+    const ym = td().slice(0,7);
     filteredGiving = giving.filter(g=>(g.date||"").startsWith(ym));
     rangeLabel = today.toLocaleDateString("en-US",{month:"long",year:"numeric"});
   } else if(range==="ytd"){
@@ -10484,7 +10489,7 @@ function GivingHistory({giving,members,visitors}){
   const today=new Date();
   let filteredGifts=selected?[...selected.gifts]:[];
   if(selected){
-    if(timeFilter==="month"){const ym=today.toISOString().slice(0,7);filteredGifts=filteredGifts.filter(g=>(g.date||"").startsWith(ym));}
+    if(timeFilter==="month"){const ym=td().slice(0,7);filteredGifts=filteredGifts.filter(g=>(g.date||"").startsWith(ym));}
     else if(timeFilter==="ytd"){const yr=today.getFullYear()+"";filteredGifts=filteredGifts.filter(g=>(g.date||"").startsWith(yr));}
     else if(timeFilter==="custom"){
       if(customStart) filteredGifts=filteredGifts.filter(g=>g.date>=customStart);
@@ -10682,7 +10687,7 @@ function GivingCategory({giving,members,visitors}){
   let filteredGiving = [...giving];
   let rangeLabel = "All Time";
   if(range==="month"){
-    const ym = today.toISOString().slice(0,7);
+    const ym = td().slice(0,7);
     filteredGiving = filteredGiving.filter(g=>(g.date||"").startsWith(ym));
     rangeLabel = today.toLocaleDateString("en-US",{month:"long",year:"numeric"});
   } else if(range==="ytd"){
@@ -10804,7 +10809,7 @@ function GivingCategory({giving,members,visitors}){
 function GivingStatements({giving,members,visitors}:any){
   const [scopeMode,setScopeMode] = useState<"member"|"household">("member");
   const [periodMode,setPeriodMode] = useState<"monthly"|"yearly"|"custom">("monthly");
-  const [monthValue,setMonthValue] = useState(()=>new Date().toISOString().slice(0,7));
+  const [monthValue,setMonthValue] = useState(()=>td().slice(0,7));
   const [yearValue,setYearValue] = useState(()=>String(new Date().getFullYear()));
   const [customStart,setCustomStart] = useState("");
   const [customEnd,setCustomEnd] = useState("");
@@ -13337,7 +13342,7 @@ function ClassroomsManager({classrooms,setClassrooms,teacherSchedule,users,membe
 }
 
 function TeacherScheduleMgr({classrooms,teacherSchedule,setTeacherSchedule,users,members,roles}){
-  const getNextSundays=()=>{const t=new Date();const d=t.getDay();const days=d===0?0:7-d;const base=new Date(t);base.setDate(t.getDate()+days);const r=[];for(let i=-6;i<=2;i++){const dt=new Date(base);dt.setDate(base.getDate()+(i*7));r.push(dt.toISOString().split("T")[0]);}return r;};
+  const getNextSundays=()=>{const t=new Date();const d=t.getDay();const days=d===0?0:7-d;const base=new Date(t);base.setDate(t.getDate()+days);const r=[];for(let i=-6;i<=2;i++){const dt=new Date(base);dt.setDate(base.getDate()+(i*7));r.push(ymd(dt));}return r;};
   const [selDate,setSelDate]=useState(td());
   const [mode,setMode]=useState('plan'); // 'plan' = scheduled · 'actual' = who actually taught
   const sundays=getNextSundays();
@@ -15775,7 +15780,7 @@ function AlertPage({members,visitors,giving,checkIns,kidsCheckIns,rollCalls=[],c
 
   // ── helpers ──
   const today = new Date();
-  const todayStr = today.toISOString().split("T")[0];
+  const todayStr = td();
 
   // CSV export helper
   const exportCSV = (rows:string[][], filename:string) => {
@@ -18528,7 +18533,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   const fu = visitors.filter(v=>v.stage==="Follow-Up Needed").length;
   const inVis = visitRecords.filter(r=>r.stage!=="Complete").length;
   const maintAlerts = computeMaintAlerts(equipment, schedMaint);
-  const todayStr=new Date().toISOString().split('T')[0];
+  const todayStr=td();
   const maintAlertCount = maintAlerts.overdue.length + maintAlerts.urgent.length + maintAlerts.warrantyExpired.length + maintAlerts.warrantyExpiringSoon.length + (supplies||[]).filter((s:any)=>s.maxQty>0&&s.quantity<=Math.round(s.maxQty*0.25)).length + (checkouts||[]).filter((c:any)=>c.status==='Out'&&c.expectedReturnDate&&c.expectedReturnDate<todayStr).length;
   // Alerts page badge counts
   // Per-person Sunday-Morning absence clock (matches AlertPage): flag Active members who've missed >= threshold
