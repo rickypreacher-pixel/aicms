@@ -9324,10 +9324,23 @@ function Attendance({attendance,setAttendance,setView,checkIns=[],setCheckIns=()
     return out;
   };
   const rCount = (r:any[])=>({count:r.length,members:r.filter(x=>x.ptype==="member").length,visitors:r.filter(x=>x.ptype!=="member").length});
-  const openDetail = (rec:any)=>{const _saved=Array.isArray(rec.attendees)?rec.attendees:[];const _ci=checkinAttendeesFor(rec);const _sp=new Set(_saved.map((a:any)=>String(a.pid)));const base=[..._saved,..._ci.filter((a:any)=>!_sp.has(String(a.pid)))];setDetail(rec);setDForm({date:rec.date,service:rec.service||"Sunday Morning Worship",notes:rec.notes||""});setRoster(base.map((a:any)=>({...a,ptype:curPtype(a)})));setPick("");};
+  const openDetail = (rec:any)=>{
+    setDetail(rec);
+    setDForm({date:rec.date,service:rec.service||"Sunday Morning Worship",notes:rec.notes||""});
+    setPick("");
+    if(isKidsSvc(rec.service)){
+      // Education/Sunday School is children-only: roster = distinct children from kids check-in.
+      const _dk=nk(rec.date);const seen=new Set();const kids:any[]=[];
+      (kidsCheckIns||[]).forEach((c:any)=>{if(c&&nk(c.date)===_dk&&c.childId!=null&&!seen.has(String(c.childId))){seen.add(String(c.childId));const ch=(children||[]).find((k:any)=>String(k.id)===String(c.childId));kids.push({pid:c.childId,ptype:"child",first:ch?ch.first:"",last:ch?ch.last:""});}});
+      setRoster(kids);
+      return;
+    }
+    const _saved=Array.isArray(rec.attendees)?rec.attendees:[];const _ci=checkinAttendeesFor(rec);const _sp=new Set(_saved.map((a:any)=>String(a.pid)));const base=[..._saved,..._ci.filter((a:any)=>!_sp.has(String(a.pid)))];
+    setRoster(base.map((a:any)=>({...a,ptype:curPtype(a)})));
+  };
   const addAtt = (p:any)=>{if(roster.some(x=>String(x.pid)===String(p.id)))return;setRoster([...roster,{pid:p.id,ptype:p.ptype,first:p.first,last:p.last}]);setPick("");};
   const remAtt = (pid:any)=>setRoster(roster.filter(x=>String(x.pid)!==String(pid)));
-  const saveDetail = ()=>{if(!dForm.date){alert("Date required.");return;}const c=rCount(roster);const dk=nk(dForm.date),sk=nk(dForm.service);setAttendance((arr:any[])=>{const all=Array.isArray(arr)?arr:[];const matches=(a:any)=>(detail&&detail.id!=null&&!detail._virtual&&a.id===detail.id)||(nk(a.date)===dk&&nk(a.service)===sk);const prev=all.find(matches)||detail||{};const cnt=roster.length?c:{count:prev.count||0,members:prev.members||0,visitors:prev.visitors||0};const id=(prev&&prev.id!=null&&!prev._virtual)?prev.id:(Date.now()+Math.random());const rest=all.filter((a:any)=>!matches(a));return [{date:dForm.date,service:dForm.service,notes:dForm.notes,attendees:roster,count:cnt.count,members:cnt.members,visitors:cnt.visitors,id},...rest];});const _rp=new Set(roster.map((x:any)=>String(x.pid)));const _dm=(checkIns||[]).filter((ci:any)=>nk(ci.date)===nk(dForm.date));const _svc=_dm.some((ci:any)=>nk(ci.ename)===nk(dForm.service));if(_svc){setCheckIns((cis:any[])=>(cis||[]).filter((ci:any)=>!(nk(ci.date)===nk(dForm.date)&&nk(ci.ename)===nk(dForm.service)&&ci.pid!=null&&!_rp.has(String(ci.pid)))));}setDetail(null);};
+  const saveDetail = ()=>{if(!dForm.date){alert("Date required.");return;}const isKids=isKidsSvc(dForm.service);const c=rCount(roster);const dk=nk(dForm.date),sk=nk(dForm.service);setAttendance((arr:any[])=>{const all=Array.isArray(arr)?arr:[];const matches=(a:any)=>(detail&&detail.id!=null&&!detail._virtual&&a.id===detail.id)||(nk(a.date)===dk&&nk(a.service)===sk);const prev=all.find(matches)||detail||{};const cnt=isKids?{count:roster.length,members:0,visitors:0}:(roster.length?c:{count:prev.count||0,members:prev.members||0,visitors:prev.visitors||0});const id=(prev&&prev.id!=null&&!prev._virtual)?prev.id:(Date.now()+Math.random());const rest=all.filter((a:any)=>!matches(a));return [{date:dForm.date,service:dForm.service,notes:dForm.notes,attendees:isKids?[]:roster,count:cnt.count,members:cnt.members,visitors:cnt.visitors,id},...rest];});if(!isKids){const _rp=new Set(roster.map((x:any)=>String(x.pid)));const _dm=(checkIns||[]).filter((ci:any)=>nk(ci.date)===nk(dForm.date));const _svc=_dm.some((ci:any)=>nk(ci.ename)===nk(dForm.service));if(_svc){setCheckIns((cis:any[])=>(cis||[]).filter((ci:any)=>!(nk(ci.date)===nk(dForm.date)&&nk(ci.ename)===nk(dForm.service)&&ci.pid!=null&&!_rp.has(String(ci.pid)))));}}setDetail(null);};
   const pickResults = pick.trim().length>0?allPeople.filter((p:any)=>!roster.some(x=>String(x.pid)===String(p.id))&&((p.first||"")+" "+(p.last||"")).toLowerCase().includes(pick.toLowerCase())).slice(0,6):[];
   const save = () => {
     if(!form.date||!form.count){alert("Date and count required.");return;}
@@ -9386,6 +9399,9 @@ function Attendance({attendance,setAttendance,setView,checkIns=[],setCheckIns=()
     const groups:any = {};
     (checkIns||[]).forEach((c:any)=>{
       if(c.pid==null) return;
+      // Education is children-only (counted from kids check-in). Don't let adults who tapped the
+      // "Education Department" event create a members/visitors row under Education.
+      if(isKidsSvc(c.ename)) return;
       const key = nk(c.date)+"||"+nk(c.ename);
       if(!groups[key]) groups[key]={date:c.date,service:c.ename||"Service",members:0,visitors:0,attendees:[] as any[],seen:new Set()};
       const g=groups[key];const pk=String(c.pid);
@@ -9524,9 +9540,7 @@ function Attendance({attendance,setAttendance,setView,checkIns=[],setCheckIns=()
               if(detail && isKidsSvc(detail.service)){
                 const _dk=nk(detail.date);
                 const n=new Set((kidsCheckIns||[]).filter((c:any)=>nk(c.date)===_dk&&c.childId!=null).map((c:any)=>String(c.childId))).size;
-                const rc=roster.length?rCount(roster):{members:detail.members||0,visitors:detail.visitors||0};
-                const mem=rc.members||0,vis=rc.visitors||0;
-                return [["Total",n+mem+vis,N],["Members",mem,GR],["Visitors",vis,AM],["Children",n,"#2563eb"]].map(([l,val,col]:any)=>(<div key={l} style={{flex:1,background:BG,border:"0.5px solid "+BR,borderRadius:8,padding:"8px 6px",textAlign:"center"}}><div style={{fontSize:18,fontWeight:700,color:col}}>{val}</div><div style={{fontSize:9,color:MU,textTransform:"uppercase",letterSpacing:0.3}}>{l}</div></div>));
+                return [["Total",n,N],["Children",n,"#2563eb"]].map(([l,val,col]:any)=>(<div key={l} style={{flex:1,background:BG,border:"0.5px solid "+BR,borderRadius:8,padding:"8px 6px",textAlign:"center"}}><div style={{fontSize:18,fontWeight:700,color:col}}>{val}</div><div style={{fontSize:9,color:MU,textTransform:"uppercase",letterSpacing:0.3}}>{l}</div></div>));
               }
               const c=roster.length?rCount(roster):{count:detail.count||0,members:detail.members||0,visitors:detail.visitors||0};return [["Total",c.count,N],["Members",c.members,GR],["Visitors",c.visitors,AM]].map(([l,val,col]:any)=>(<div key={l} style={{flex:1,background:BG,border:"0.5px solid "+BR,borderRadius:8,padding:"8px 10px",textAlign:"center"}}><div style={{fontSize:18,fontWeight:700,color:col}}>{val}</div><div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:0.5}}>{l}</div></div>));})()}
           </div>
@@ -12492,7 +12506,9 @@ function EdDashboard({classrooms,children,kidsCheckIns,teacherSchedule,users,mem
   // honest. Education-event check-ins are pulled OUT of the chapel count so they aren't double-fed.
   const lcE=(s:any)=>String(s||"").trim().toLowerCase();
   const isEduEvent=(c:any)=>lcE(c?.ename).includes("education")||lcE(c?.ename).includes("sunday school");
-  const eduCountFor=(d:any)=>{const p=new Set((kidsCheckIns||[]).filter((c:any)=>c.date===d&&c.childId!=null).map((c:any)=>String(c.childId)));const e=new Set((checkIns||[]).filter((c:any)=>c.date===d&&isEduEvent(c)&&c.pid!=null).map((c:any)=>String(c.pid)));return Math.max(p.size,e.size);};
+  // Education attendance = DISTINCT CHILDREN checked in (kids check-in) ONLY. Adults who tap the
+  // "Education Department" event (members/visitors) are NOT counted as Education attendance.
+  const eduCountFor=(d:any)=>new Set((kidsCheckIns||[]).filter((c:any)=>c.date===d&&c.childId!=null).map((c:any)=>String(c.childId))).size;
   const chapelCountFor=(d:any)=>new Set((checkIns||[]).filter((c:any)=>c.date===d&&!isEduEvent(c)&&c.pid!=null).map((c:any)=>String(c.pid))).size;
   const chapel=chapelCountFor(today);
   const eduToday=eduCountFor(today);
