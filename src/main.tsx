@@ -5,12 +5,86 @@ import App from './App';
 import AuthScreen from './AuthScreen';
 import ErrorBoundary from './ErrorBoundary';
 
+// ── Set-a-new-password screen, shown when a "Forgot password?" recovery link is opened.
+//    The recovery session is already active (Supabase established it from the link), so
+//    updateUser() sets the new password on the current account.
+function ResetPasswordScreen({ onDone }: { onDone: () => void }) {
+  const [pw, setPw] = useState('');
+  const [pw2, setPw2] = useState('');
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const submit = async () => {
+    if (pw.length < 8) { setErr('Password must be at least 8 characters.'); return; }
+    if (pw !== pw2) { setErr('Passwords do not match.'); return; }
+    setBusy(true); setErr('');
+    const { error } = await supabase.auth.updateUser({ password: pw });
+    setBusy(false);
+    if (error) {
+      setErr(error.message || 'Could not update your password. The reset link may have expired — request a new one.');
+      return;
+    }
+    setDone(true);
+    try { history.replaceState(null, '', window.location.pathname); } catch { /* ignore */ }
+  };
+
+  const N = '#1a2e5a', G = '#c9a84c', W = '#fff', BR = '#e2e5ec', MU = '#6b7280', TX = '#1f2937', RE = '#dc2626';
+  const input: React.CSSProperties = { width: '100%', padding: '10px 12px', border: `1px solid ${BR}`, borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', color: TX, background: W };
+
+  return (
+    <div style={{ minHeight: '100vh', background: `linear-gradient(145deg, ${N} 0%, #112347 60%, #0e1d3a 100%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
+      <div style={{ width: '100%', maxWidth: 420 }}>
+        <div style={{ textAlign: 'center', marginBottom: 32 }}>
+          <div style={{ width: 64, height: 64, borderRadius: 16, background: `linear-gradient(135deg, ${G} 0%, #a87d32 100%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 30, margin: '0 auto 14px', boxShadow: '0 8px 24px rgba(201,168,76,0.3)' }}>⛪</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: W, marginBottom: 4 }}>ChurchOS</div>
+          <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)' }}>Church Management Platform</div>
+        </div>
+        <div style={{ background: W, borderRadius: 16, padding: '28px 28px 24px', boxShadow: '0 24px 60px rgba(0,0,0,0.35)' }}>
+          {done ? (
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: 48, marginBottom: 10 }}>✅</div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: N, marginBottom: 6 }}>Password updated</div>
+              <div style={{ fontSize: 13, color: MU, marginBottom: 20, lineHeight: 1.5 }}>Your new password is set. You're all signed in — continue to your church.</div>
+              <button onClick={onDone} style={{ width: '100%', padding: '11px 16px', borderRadius: 9, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', background: G, color: N, border: 'none' }}>Continue →</button>
+            </div>
+          ) : (
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: N, marginBottom: 6 }}>Set a new password</div>
+              <div style={{ fontSize: 13, color: MU, marginBottom: 18, lineHeight: 1.5 }}>Choose a new password for your account. Minimum 8 characters.</div>
+              {err && <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: RE }}>{err}</div>}
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 11, fontWeight: 500, color: MU, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 5 }}>New Password</div>
+                <input type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="Min. 8 characters" autoComplete="new-password" style={input} />
+              </div>
+              <div style={{ marginBottom: 18 }}>
+                <div style={{ fontSize: 11, fontWeight: 500, color: MU, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 5 }}>Confirm New Password</div>
+                <input type="password" value={pw2} onChange={(e) => setPw2(e.target.value)} placeholder="Repeat password" autoComplete="new-password" onKeyDown={(e) => { if (e.key === 'Enter') submit(); }} style={input} />
+              </div>
+              <button onClick={submit} disabled={busy} style={{ width: '100%', padding: '11px 16px', borderRadius: 9, fontSize: 14, fontWeight: 600, cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.7 : 1, fontFamily: 'inherit', background: N, color: W, border: 'none' }}>{busy ? '...' : 'Update Password'}</button>
+              <div style={{ textAlign: 'center', marginTop: 16 }}>
+                <button onClick={() => { supabase.auth.signOut(); onDone(); }} style={{ background: 'none', border: 'none', color: N, fontSize: 12, cursor: 'pointer', textDecoration: 'underline', fontFamily: 'inherit' }}>Cancel and sign in normally</button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Root() {
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showWelcome, setShowWelcome] = useState(false);
+  // Password-recovery deep link ("Forgot password?" email): intercept it and show a
+  // set-new-password screen, else the app routes past it and nothing lets the user reset.
+  const [recovery, setRecovery] = useState(false);
 
   useEffect(() => {
+    // A recovery link lands with `type=recovery` in the URL hash — catch it right away.
+    try { if ((window.location.hash || '').includes('type=recovery')) setRecovery(true); } catch { /* ignore */ }
+
     // Load current session on mount
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
@@ -20,6 +94,8 @@ function Root() {
     // Listen for login / logout
     const { data: listener } = supabase.auth.onAuthStateChange((event, s) => {
       setSession(s);
+      // Password reset: the recovery link fires this event. Show the set-new-password screen.
+      if (event === 'PASSWORD_RECOVERY') { setRecovery(true); setLoading(false); }
       // Show welcome modal on a staff member's very first login
       if (event === 'SIGNED_IN' && s?.user) {
         const meta = s.user.user_metadata || {};
@@ -62,10 +138,15 @@ function Root() {
     );
   }
 
+  // Password-recovery link opened → let the user set a new password before anything else.
+  if (recovery) {
+    return <ResetPasswordScreen onDone={() => setRecovery(false)} />;
+  }
+
   if (!session) {
     return (
       <AuthScreen
-        onAuth={(userId, meta) => {
+        onAuth={() => {
           // Session will update automatically via onAuthStateChange
         }}
       />
