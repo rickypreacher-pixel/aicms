@@ -17597,13 +17597,27 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   const [chatUnread,setChatUnread] = useState(0);
   const chatViewRef = useRef("dashboard");
   const chatMyIdRef = useRef<any>(null);
-  useEffect(()=>{ chatViewRef.current = view; if(view==='chat') setChatUnread(0); },[view]);
+  const chatAudioRef = useRef<any>(null);
+  useEffect(()=>{ chatViewRef.current = view; if(view==='chat'){ setChatUnread(0);
+    // First time Staff Chat is opened, ask to enable desktop/phone notifications.
+    try{ if('Notification' in window && Notification.permission==='default'){ const r:any=Notification.requestPermission(); if(r&&r.then) r.catch(()=>{}); } }catch(e){}
+  } },[view]);
   useEffect(()=>{
     if(!churchId) return;
     supabase.auth.getUser().then(({data}:any)=>{ chatMyIdRef.current = data?.user?.id||null; },()=>{});
     const ch=supabase.channel('chatbadge:'+churchId)
       .on('postgres_changes',{event:'INSERT',schema:'public',table:'chat_messages',filter:'church_id=eq.'+churchId},(p:any)=>{
-        if(p?.new && p.new.user_id!==chatMyIdRef.current && chatViewRef.current!=='chat') setChatUnread((n:number)=>n+1);
+        const m=p?.new; if(!m) return;
+        if(m.user_id===chatMyIdRef.current) return;                    // don't notify me of my own message
+        if(m.recipient_id && m.recipient_id!==chatMyIdRef.current) return; // a DM addressed to someone else
+        if(chatViewRef.current!=='chat') setChatUnread((n:number)=>n+1);
+        // Notify staff of the new message unless they're actively looking at the chat.
+        const active = chatViewRef.current==='chat' && !document.hidden;
+        if(active) return;
+        // Soft chime (best-effort — browsers may block audio until a user gesture).
+        try{ const AC:any=window.AudioContext||(window as any).webkitAudioContext; if(AC){ let ctx=chatAudioRef.current; if(!ctx){ ctx=new AC(); chatAudioRef.current=ctx; } if(ctx.state==='suspended') ctx.resume(); const o=ctx.createOscillator(),g=ctx.createGain(); o.type='sine'; o.frequency.value=880; o.connect(g); g.connect(ctx.destination); const t=ctx.currentTime; g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.15,t+0.02); g.gain.exponentialRampToValueAtTime(0.0001,t+0.35); o.start(t); o.stop(t+0.37); } }catch(e){}
+        // Desktop/phone banner notification.
+        try{ if('Notification' in window && Notification.permission==='granted'){ const who=m.author_name||'Staff'; const isDm=!!m.recipient_id; const chan=(m.channel&&m.channel!=='staff'&&!isDm)?(' · '+m.channel):''; const title=(isDm?'💬 '+who+' (direct message)':'💬 '+who+chan); const n=new Notification(title,{body:String(m.body||'').slice(0,140),tag:'ntcc-chat'}); n.onclick=()=>{ try{window.focus();}catch(e){} setView('chat'); try{n.close();}catch(e){} }; } }catch(e){}
       })
       .subscribe();
     return ()=>{ try{supabase.removeChannel(ch);}catch(e){} };
