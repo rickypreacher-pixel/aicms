@@ -17076,10 +17076,9 @@ function MemberProfilePortal({member,setMembers,giving,onSignOut,staffMode=false
   const efa = (k:string) => (v:any) => setForm((f:any)=>({...f,address:{...(f.address||{}),[k]:v}}));
   const save = () => {
     if(!form.first||!form.last){alert("Name required.");return;}
-    setMembers((ms:any[])=>ms.map((m:any)=>m.id===member.id?{...m,...form}:m));
-    if(setUsers && permRoleId && linkedUser) {
-      setUsers((us:any[])=>us.map((u:any)=>u.id===linkedUser.id?{...u,roleId:permRoleId}:u));
-    }
+    setMembers((ms:any[])=>ms.map((m:any)=>m.id===member.id?{...m,...form,role:member.role}:m));
+    // Permission level (users[].roleId) is NOT changed from My Profile — it is managed only via
+    // Access Control by Super Admin / Admin / Pastor. Self-service editing must never escalate access.
     setEditMode(false);
   };
   const addChild = () => setForm((f:any)=>({...f,children:[...(f.children||[]),{name:"",birthday:""}]}));
@@ -17235,27 +17234,10 @@ function MemberProfilePortal({member,setMembers,giving,onSignOut,staffMode=false
                 <Fld label="Baptism Date"><Inp type="date" value={form.baptismDate||""} onChange={ef("baptismDate")}/></Fld>
                 <Fld label="Salvation Date"><Inp type="date" value={form.salvationDate||""} onChange={ef("salvationDate")}/></Fld>
               </div>
-              {/* Role / Title */}
-              <Fld label="Role / Title">
-                <select value={form.role||""} onChange={e=>ef("role")(e.target.value)} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",fontFamily:"inherit",color:TX,background:W,boxSizing:"border-box" as any}}>
-                  <option value="">— Select Role / Title —</option>
-                  {(roles.length>0?roles:SEED_ROLES).map((r:any)=>(
-                    <option key={r.id} value={r.name}>{r.name}</option>
-                  ))}
-                </select>
-              </Fld>
-              {/* Permission Level — only show if member has a linked login account */}
-              {linkedUser && (
-                <Fld label="Permission Level (Access Control)">
-                  <select value={permRoleId} onChange={e=>setPermRoleId(e.target.value)} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",fontFamily:"inherit",color:TX,background:W,boxSizing:"border-box" as any}}>
-                    <option value="">— Select Permission Level —</option>
-                    {(roles.length>0?roles:SEED_ROLES).map((r:any)=>(
-                      <option key={r.id} value={r.id}>{r.name}</option>
-                    ))}
-                  </select>
-                  <div style={{fontSize:11,color:MU,marginTop:4}}>Linked account: {linkedUser.email||"(no email)"}</div>
-                </Fld>
-              )}
+              {/* Role / Title and Permission Level are intentionally NOT editable here. A person must not
+                  be able to change their own role or access level from My Profile (privilege escalation).
+                  These are managed only by Super Admin / Admin / Pastor via the Access Control page.
+                  The read-only view below still shows the person their current role for reference. */}
               <Fld label="Street Address"><Inp value={form.address?.street||""} onChange={efa("street")}/></Fld>
               <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr",gap:10}}>
                 <Fld label="City"><Inp value={form.address?.city||""} onChange={efa("city")}/></Fld>
