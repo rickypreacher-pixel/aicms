@@ -17812,6 +17812,29 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   const [custom,setCustom] = useState(lsGet('custom') ?? []);
   const [servicePlans,setServicePlans] = useState(lsGet('servicePlans') ?? {});
   const [checkIns,setCheckIns] = useState(lsGet('checkIns') ?? []);
+  // ── Event check-ins live in their OWN table (public.event_checkins), NOT the shared church_data blob. ──
+  // Keyed by (iid, pid): one row per person per event instance per day (iid encodes the date). Reads use
+  // this state array (loaded from the table + realtime); every write goes through setCheckInsSynced, which
+  // diffs prev→next by iid|pid and issues the matching per-row upsert / soft-delete. Independent rows can't
+  // be clobbered by whole-blob last-write-wins, so two devices checking members in never drop anyone.
+  const ciRef = useRef(checkIns);
+  useEffect(()=>{ ciRef.current = checkIns; },[checkIns]);
+  const rowToCheckIn = (r:any)=>({ ...(r.data||{}), id:r.id, iid:r.iid, pid:r.pid });
+  const ciRowFor = (c:any)=>({ church_id:churchId, iid:String(c.iid), pid:String(c.pid), date:(c.date!=null?String(c.date):null), data:c, deleted:false, updated_at:new Date().toISOString() });
+  const upsertCiRow = (c:any)=>{ if(!churchId||c?.iid==null||c?.pid==null) return; supabase.from('event_checkins').upsert(ciRowFor(c),{onConflict:'church_id,iid,pid'}).then(()=>{},()=>{}); };
+  const softDeleteCiRow = (c:any)=>{ if(!churchId||c?.iid==null||c?.pid==null) return; supabase.from('event_checkins').update({deleted:true,updated_at:new Date().toISOString()}).eq('church_id',churchId).eq('iid',String(c.iid)).eq('pid',String(c.pid)).then(()=>{},()=>{}); };
+  const setCheckInsSynced = (updater:any)=>{
+    const prev = Array.isArray(ciRef.current)?ciRef.current:[];
+    const next = (typeof updater==='function') ? updater(prev) : updater;
+    ciRef.current = next;
+    setCheckIns(next);
+    const k=(c:any)=>String(c?.iid)+"|"+String(c?.pid);
+    const sig=(c:any)=>{ const {id,...rest}=c||{}; return JSON.stringify(rest); };
+    const pMap=new Map(prev.filter((c:any)=>c&&c.iid!=null&&c.pid!=null).map((c:any)=>[k(c),c]));
+    const nMap=new Map((Array.isArray(next)?next:[]).filter((c:any)=>c&&c.iid!=null&&c.pid!=null).map((c:any)=>[k(c),c]));
+    nMap.forEach((c:any,key:any)=>{ const p=pMap.get(key); if(!p||sig(p)!==sig(c)) upsertCiRow(c); });
+    pMap.forEach((c:any,key:any)=>{ if(!nMap.has(key)) softDeleteCiRow(c); });
+  };
   const [careContacted,setCareContacted] = useState(lsGet('careContacted') ?? {}); // Care Pulse: {memberId: ISODate last reached out}
   useEffect(()=>{ lsSave('careContacted',careContacted); },[careContacted]);
   const _storedCL=lsGet('classrooms')||_I.classrooms;const _hasOldCL=_storedCL&&(_storedCL.length>7||_storedCL.some((c:any)=>["","1st","2nd","3rd","4th","5th","6th","7th"].includes(c.grade)));
@@ -18074,7 +18097,24 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       if(d.emailConfig?.provider!==undefined) setEmailConfig(d.emailConfig);
       if(Array.isArray(d.recurring)&&d.recurring.length) setRecurring(d.recurring);
       if(Array.isArray(d.custom)&&d.custom.length) setCustom(d.custom);
-      if(Array.isArray(d.checkIns)&&d.checkIns.length) setCheckIns(d.checkIns);
+      // Event check-ins load from their dedicated table (authoritative), NOT the blob. One-time migrate
+      // any check-in still only in the blob (older app version), never resurrecting a soft-deleted key.
+      try {
+        const { data: ciRows } = await supabase.from('event_checkins').select('*').eq('church_id',churchId).eq('deleted',false);
+        if(ciRows){
+          const tableCis = ciRows.map(rowToCheckIn);
+          const tKeys = new Set(tableCis.map((c:any)=>String(c.iid)+"|"+String(c.pid)));
+          const { data: ciAll } = await supabase.from('event_checkins').select('iid,pid').eq('church_id',churchId);
+          const allKeys = new Set((ciAll||[]).map((r:any)=>String(r.iid)+"|"+String(r.pid)));
+          (Array.isArray(d.checkIns)?d.checkIns:[]).forEach((c:any)=>{
+            if(c&&c.iid!=null&&c.pid!=null && !allKeys.has(String(c.iid)+"|"+String(c.pid))) upsertCiRow(c);
+          });
+          const recentCut=(Date.now()-15000)*1000;
+          const pending=(Array.isArray(ciRef.current)?ciRef.current:[]).filter((c:any)=>c&&c.iid!=null&&c.pid!=null&&!tKeys.has(String(c.iid)+"|"+String(c.pid)) && Number(c.id)>recentCut);
+          const merged=[...tableCis,...pending];
+          setCheckIns(merged); ciRef.current=merged;
+        }
+      } catch(e){}
       // incidents load from the role-gated church_confidential table, not the blob
       if(Array.isArray(d.rollCalls)&&d.rollCalls.length) setRollCalls(d.rollCalls);
       // progressNotes load from the role-gated church_confidential table, not the blob
@@ -18198,6 +18238,26 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           const without=arr.filter((c:any)=>String(c.childId)+"|"+String(c.date)!==key);
           const nextArr = removed ? without : [...without, rowToKid(rowNew)];
           kidsRef.current=nextArr; return nextArr;
+        });
+      })
+      .subscribe();
+    return ()=>{ try{supabase.removeChannel(ch);}catch(e){} };
+  },[churchId]);
+
+  // ── Event check-ins: live realtime sync from the dedicated table (same pattern as kids). Any
+  //    check-in or removal on another device updates this device instantly, reconciled by iid|pid. ──
+  useEffect(()=>{
+    if(!churchId) return;
+    const ch=supabase.channel('eventci:'+churchId)
+      .on('postgres_changes',{event:'*',schema:'public',table:'event_checkins',filter:'church_id=eq.'+churchId},(p:any)=>{
+        const rowNew=p?.new, rowOld=p?.old, row=rowNew||rowOld; if(!row) return;
+        const key=String(row.iid)+"|"+String(row.pid);
+        const removed = p.eventType==='DELETE' || (rowNew && rowNew.deleted);
+        setCheckIns((cur:any[])=>{
+          const arr=Array.isArray(cur)?cur:[];
+          const without=arr.filter((c:any)=>String(c.iid)+"|"+String(c.pid)!==key);
+          const nextArr = removed ? without : [...without, rowToCheckIn(rowNew)];
+          ciRef.current=nextArr; return nextArr;
         });
       })
       .subscribe();
@@ -18827,7 +18887,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           />}
           {!isMemberPortal && view==="dashboard" && <Dashboard members={members} visitors={visitors} attendance={attendance} giving={giving} prayers={prayers} setView={setView} canViewGiving={canViewGiving} isRestrictedUser={isRestrictedUser} canAddPerson={canAddPerson} checkIns={checkIns} careContacted={careContacted} setCareContacted={setCareContacted} isAdmin={isAdminUser}/>}
           {!isMemberPortal && view==="addperson" && <AddMemberPage members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} currentUser={currentUser} roles={roles} permissions={permissions} setView={setView} prospects={prospects} setProspects={setProspects} children={children} setChildren={setChildren} classrooms={classrooms}/>}
-          {!isMemberPortal && view==="people" && <People members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} setGiving={setGiving} prayers={prayers} setPrayers={setPrayers} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings} visitRecords={visitRecords} setVisitRecords={setVisitRecords} checkIns={checkIns} setCheckIns={setCheckIns} setView={setView} canViewGiving={canViewGiving} currentUser={currentUser} roles={roles} children={children} setChildren={setChildren} churchId={churchId} classrooms={classrooms}/>}
+          {!isMemberPortal && view==="people" && <People members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} setGiving={setGiving} prayers={prayers} setPrayers={setPrayers} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings} visitRecords={visitRecords} setVisitRecords={setVisitRecords} checkIns={checkIns} setCheckIns={setCheckInsSynced} setView={setView} canViewGiving={canViewGiving} currentUser={currentUser} roles={roles} children={children} setChildren={setChildren} churchId={churchId} classrooms={classrooms}/>}
           {!isMemberPortal && view==="groups" && <Groups members={members} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings} currentUser={currentUser} roles={roles}/>}
           {!isMemberPortal && view==="education" && <Education members={members} setMembers={setMembers} visitors={visitors} attendance={attendance} setAttendance={setAttendance} users={users} roles={roles} currentUser={currentUser} children={children} setChildren={setChildren} classrooms={classrooms} setClassrooms={setClassrooms} teacherSchedule={teacherSchedule} setTeacherSchedule={setTeacherSchedule} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckInsSynced} checkIns={checkIns} incidents={incidents} setIncidents={setIncidents} rollCalls={rollCalls} setRollCalls={setRollCalls} progressNotes={progressNotes} setProgressNotes={setProgressNotes} teacherFollowups={teacherFollowups} setTeacherFollowups={setTeacherFollowups} followupDismissedChildIds={followupDismissedChildIds} setFollowupDismissedChildIds={setFollowupDismissedChildIds} cs={churchSettings} setCs={setChurchSettings} addConfidential={addConfidential} printerConfig={printerConfig} setPrinterConfig={setPrinterConfig}/>}
           {!isMemberPortal && view==="maintenance" && <Maintenance users={users} members={members} currentUser={currentUser} roles={roles} permissions={permissions} equipment={equipment} setEquipment={setEquipment} workOrders={workOrders} setWorkOrders={setWorkOrders} schedMaint={schedMaint} setSchedMaint={setSchedMaint} supplies={supplies} setSupplies={setSupplies} checkoutItems={checkoutItems} setCheckoutItems={setCheckoutItems} checkouts={checkouts} setCheckouts={setCheckouts} cleaningSchedule={cleaningSchedule} setCleaningSchedule={setCleaningSchedule}/>}
@@ -18843,7 +18903,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
                 custom={custom}
                 setCustom={setCustom}
                 checkIns={checkIns}
-                setCheckIns={setCheckIns}
+                setCheckIns={setCheckInsSynced}
                 children={children}
                 kidsCheckIns={kidsCheckIns}
                 setKidsCheckIns={setKidsCheckInsSynced}
@@ -18866,7 +18926,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           {!isMemberPortal && view==="benevolencefund" && <BenevolencePage members={members} visitors={visitors} benevolence={benevolence} setBenevolence={setBenevolence}/>}
           {!isMemberPortal && view==="counselinglog" && canAccessCounseling && <CounselingLog members={members} visitors={visitors} counselingLogs={counselingLogs} setCounselingLogs={setCounselingLogs}/>}
           {!isMemberPortal && view==="hospitalityfund" && <HospitalityFund members={members} hospitalityFund={hospitalityFund} setHospitalityFund={setHospitalityFund} hospStartBalance={hospStartBalance} setHospStartBalance={(v:any)=>{hospStartReady.current=true;setHospStartBalance(v);}}/>}
-          {!isMemberPortal && view==="attendance" && <Attendance attendance={attendance} setAttendance={setAttendance} setView={setView} checkIns={checkIns} setCheckIns={setCheckIns} members={members} visitors={visitors} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckInsSynced} children={children}/>}
+          {!isMemberPortal && view==="attendance" && <Attendance attendance={attendance} setAttendance={setAttendance} setView={setView} checkIns={checkIns} setCheckIns={setCheckInsSynced} members={members} visitors={visitors} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckInsSynced} children={children}/>}
           {!isMemberPortal && view==="giving" && canViewGiving && <Giving giving={giving} setGiving={setGiving} pledgeDrives={pledgeDrives} setPledgeDrives={setPledgeDrives} pledges={pledges} setPledges={setPledges} members={members} visitors={visitors} weeklyReports={weeklyReports} setWeeklyReports={setWeeklyReports} emailTemplates={emailTemplates} currentUser={currentUser} roles={roles} churchId={churchId} onTxnDeleted={(rec:any)=>{ if(rec&&rec.txnId) givingDeletedTxns.current.add(String(rec.txnId)); }}/>}
           {!isMemberPortal && view==="prayer" && <Prayer prayers={prayers} setPrayers={setPrayers}/>}
           {/* ── Member Portal hard-gate: only myprofile, media, and prayer allowed ── */}
