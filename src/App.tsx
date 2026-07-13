@@ -6244,7 +6244,14 @@ function CalendarView({members,visitors,setVisitors,groups,recurring,setRecurrin
   const remAnn=(ai:number)=>setPlan({...plan,announcements:plan.announcements.filter((_:any,j:number)=>j!==ai)});
   const setAnn=(ai:number,val:string)=>setPlan({...plan,announcements:plan.announcements.map((a:any,j:number)=>j===ai?val:a)});
   const setSermon=(field:string,val:string)=>setPlan({...plan,[field]:val});
-  const nid=useRef(Math.max(899,...checkIns.map((c:any)=>+(c.id)||0))+1);const ef=k=>v=>setEvtForm(f=>({...f,[k]:v}));
+  const nid=useRef(Math.max(899,...checkIns.map((c:any)=>+(c.id)||0))+1);
+  // Globally-unique, monotonic id for check-ins / new visitors / meeting logs. A per-device counter
+  // (nid) hands the SAME id to different people on two devices checking into the same event, so the
+  // cloud merge collapses them and a member disappears. Date.now()*1000+random makes ids unique across
+  // devices; the max() keeps successive ids in the same millisecond distinct (family batch check-ins).
+  const cidRef=useRef(0);
+  const newCid=()=>{ const b=Math.floor(Date.now()*1000+Math.random()*1000); cidRef.current=Math.max(cidRef.current+1,b); return cidRef.current; };
+  const ef=k=>v=>setEvtForm(f=>({...f,[k]:v}));
   const todayStr=td();const grid=buildCGrid(yr,mo);
   const calGroups=groups.filter(g=>g.showOnCalendar);
   const dayEvts=selDate?cEventsFor(selDate,recurring,custom,[]):[];
@@ -6276,7 +6283,7 @@ function CalendarView({members,visitors,setVisitors,groups,recurring,setRecurrin
   const [rsvpGuests,setRsvpGuests] = useState(0);
 
   const performCI=(person:any)=>{
-    setCheckIns(cs=>[...cs,{id:nid.current++,iid:selEvt.iid,eid:selEvt.id,ename:selEvt.name,date:selEvt.date,time:selEvt.time,pid:person.id,ptype:person.ptype,first:person.first,last:person.last,phone:person.phone||"",isNew:false,role:"",family:person.family||"",broughtBy:"",dob:"",age:"",allergies:[],medical:[],medNotes:"",at:new Date().toLocaleTimeString()}]);
+    setCheckIns(cs=>[...cs,{id:newCid(),iid:selEvt.iid,eid:selEvt.id,ename:selEvt.name,date:selEvt.date,time:selEvt.time,pid:person.id,ptype:person.ptype,first:person.first,last:person.last,phone:person.phone||"",isNew:false,role:"",family:person.family||"",broughtBy:"",dob:"",age:"",allergies:[],medical:[],medNotes:"",at:new Date().toLocaleTimeString()}]);
   };
 
   const doCI=person=>{
@@ -6298,7 +6305,7 @@ function CalendarView({members,visitors,setVisitors,groups,recurring,setRecurrin
     if(grpCheckedIds.has(member.id))return;
     const grp=selGrpEvt;
     // Add to calendar check-ins
-    setCheckIns(cs=>[...cs,{id:nid.current++,iid:grp.iid,eid:"g"+grp.id,ename:grp.name,date:grp.date,time:grp.time,pid:member.id,ptype:"member",first:member.first,last:member.last,phone:member.phone||"",isNew:false,role:member.role||"Member",family:"",broughtBy:"",dob:"",age:"",allergies:[],medical:[],medNotes:"",at:new Date().toLocaleTimeString(),isGroupCI:true,groupId:grp.id}]);
+    setCheckIns(cs=>[...cs,{id:newCid(),iid:grp.iid,eid:"g"+grp.id,ename:grp.name,date:grp.date,time:grp.time,pid:member.id,ptype:"member",first:member.first,last:member.last,phone:member.phone||"",isNew:false,role:member.role||"Member",family:"",broughtBy:"",dob:"",age:"",allergies:[],medical:[],medNotes:"",at:new Date().toLocaleTimeString(),isGroupCI:true,groupId:grp.id}]);
     // Auto-log to Groups Ministry attendance
     const existingMeet=grpMeetings.find(m=>m.groupId===grp.id&&m.date===grp.date);
     if(existingMeet){
@@ -6306,23 +6313,23 @@ function CalendarView({members,visitors,setVisitors,groups,recurring,setRecurrin
         setGrpMeetings(ms=>ms.map(m=>m.id===existingMeet.id?{...m,presentIds:[...m.presentIds,member.id],absentIds:m.absentIds.filter(id=>id!==member.id),total:m.total+1}:m));
       }
     } else {
-      setGrpMeetings(ms=>[...ms,{id:nid.current++,groupId:grp.id,date:grp.date,presentIds:[member.id],absentIds:grp.memberIds.filter(id=>id!==member.id),walkIns:0,notes:"Auto-logged from calendar check-in",total:1}]);
+      setGrpMeetings(ms=>[...ms,{id:newCid(),groupId:grp.id,date:grp.date,presentIds:[member.id],absentIds:grp.memberIds.filter(id=>id!==member.id),walkIns:0,notes:"Auto-logged from calendar check-in",total:1}]);
     }
   };
   const doCIFam=()=>{
     if(!newVis||!newVis.first||!newVis.last){alert("First and last name required.");return;}
     const fam=newVis.familyName||(newVis.last+" Family");const bb=newVis.broughtBy||"";const entries=[];
-    entries.push({id:nid.current++,first:newVis.first,last:newVis.last,phone:newVis.phone||"",email:newVis.email||"",dob:newVis.dob||"",age:calcAge(newVis.dob)||"",stage:"First Visit",family:fam,role:"Head of Household",broughtBy:bb,allergies:newVis.allergies||[],medical:newVis.medical||[],medNotes:newVis.medNotes||""});
-    if(newVis.spouseFirst&&newVis.spouseLast)entries.push({id:nid.current++,first:newVis.spouseFirst,last:newVis.spouseLast,phone:newVis.phone||"",email:"",dob:newVis.spouseDob||"",age:calcAge(newVis.spouseDob)||"",stage:"First Visit",family:fam,role:"Spouse",broughtBy:bb,allergies:newVis.spouseAllergies||[],medical:newVis.spouseMedical||[],medNotes:newVis.spouseMedNotes||""});
-    (newVis.children||[]).filter(c=>c.first).forEach(c=>entries.push({id:nid.current++,first:c.first,last:c.last,phone:"",email:"",dob:c.dob||"",age:calcAge(c.dob)||"",stage:"First Visit",family:fam,role:"Child",broughtBy:bb,allergies:c.allergies||[],medical:c.medical||[],medNotes:c.medNotes||""}));
+    entries.push({id:newCid(),first:newVis.first,last:newVis.last,phone:newVis.phone||"",email:newVis.email||"",dob:newVis.dob||"",age:calcAge(newVis.dob)||"",stage:"First Visit",family:fam,role:"Head of Household",broughtBy:bb,allergies:newVis.allergies||[],medical:newVis.medical||[],medNotes:newVis.medNotes||""});
+    if(newVis.spouseFirst&&newVis.spouseLast)entries.push({id:newCid(),first:newVis.spouseFirst,last:newVis.spouseLast,phone:newVis.phone||"",email:"",dob:newVis.spouseDob||"",age:calcAge(newVis.spouseDob)||"",stage:"First Visit",family:fam,role:"Spouse",broughtBy:bb,allergies:newVis.spouseAllergies||[],medical:newVis.spouseMedical||[],medNotes:newVis.spouseMedNotes||""});
+    (newVis.children||[]).filter(c=>c.first).forEach(c=>entries.push({id:newCid(),first:c.first,last:c.last,phone:"",email:"",dob:c.dob||"",age:calcAge(c.dob)||"",stage:"First Visit",family:fam,role:"Child",broughtBy:bb,allergies:c.allergies||[],medical:c.medical||[],medNotes:c.medNotes||""}));
     setVisitors(vs=>[...vs,...entries]);
     // Auto-remove any matching prospect (same first+last, case-insensitive)
     if(setProspects) setProspects((ps:any[])=>ps.filter((p:any)=>!entries.some((e:any)=>p.first.toLowerCase()===e.first.toLowerCase()&&p.last.toLowerCase()===e.last.toLowerCase())));
     const base={iid:selEvt.iid,eid:selEvt.id,ename:selEvt.name,date:selEvt.date,time:selEvt.time,ptype:"visitor",isNew:true,at:new Date().toLocaleTimeString()};
-    setCheckIns(cs=>[...cs,...entries.map(e=>({id:nid.current++,...base,pid:e.id,first:e.first,last:e.last,phone:e.phone||"",role:e.role,family:fam,broughtBy:bb,dob:e.dob,age:e.age,allergies:e.allergies,medical:e.medical,medNotes:e.medNotes}))]);
+    setCheckIns(cs=>[...cs,...entries.map(e=>({id:newCid(),...base,pid:e.id,first:e.first,last:e.last,phone:e.phone||"",role:e.role,family:fam,broughtBy:bb,dob:e.dob,age:e.age,allergies:e.allergies,medical:e.medical,medNotes:e.medNotes}))]);
     setNewVis(null);setSearch("");
   };
-  const saveEvt=()=>{if(!evtForm.name.trim()){alert("Event name required.");return;}if(editEvt){if(editEvt.dow!==undefined)setRecurring(rs=>rs.map(r=>r.id===editEvt.id?{...evtForm,id:editEvt.id,dow:+evtForm.dow,recurring:true}:r));else setCustom(cs=>cs.map(c=>c.id===editEvt.id?{...evtForm,id:editEvt.id}:c));}else{const id="ce"+nid.current++;if(evtForm.recurring)setRecurring(rs=>[...rs,{...evtForm,id,dow:+evtForm.dow}]);else setCustom(cs=>[...cs,{...evtForm,id}]);}setEvtModal(false);setEditEvt(null);};
+  const saveEvt=()=>{if(!evtForm.name.trim()){alert("Event name required.");return;}if(editEvt){if(editEvt.dow!==undefined)setRecurring(rs=>rs.map(r=>r.id===editEvt.id?{...evtForm,id:editEvt.id,dow:+evtForm.dow,recurring:true}:r));else setCustom(cs=>cs.map(c=>c.id===editEvt.id?{...evtForm,id:editEvt.id}:c));}else{const id="ce"+newCid();if(evtForm.recurring)setRecurring(rs=>[...rs,{...evtForm,id,dow:+evtForm.dow}]);else setCustom(cs=>[...cs,{...evtForm,id}]);}setEvtModal(false);setEditEvt(null);};
   const openAdd=()=>{setEditEvt(null);setEvtForm({name:"",type:"Worship",time:"11:00 AM",location:"",color:N,recurring:true,dow:0,date:td(),rsvp:false,image:""});setEvtModal(true);};
   // Accept a .jpg/.png flyer for an event, downscale (max 1280px) + compress to a data URL stored on the event.
   const onPickEvtImage=(file:File)=>{if(!file)return;if(!/image\/(png|jpe?g)/i.test(file.type)){alert("Please choose a .jpg or .png image.");return;}const reader=new FileReader();reader.onload=()=>{const img=new Image();img.onload=()=>{const maxW=1280;const ratio=Math.min(1,maxW/(img.width||maxW));const w=Math.max(1,Math.round((img.width||maxW)*ratio)),h=Math.max(1,Math.round((img.height||maxW)*ratio));const cvs=document.createElement("canvas");cvs.width=w;cvs.height=h;const ctx=cvs.getContext("2d");if(!ctx)return;ctx.drawImage(img,0,0,w,h);const isPng=/png/i.test(file.type);let dataUrl=cvs.toDataURL(isPng?"image/png":"image/jpeg",0.82);if(dataUrl.length>1600000)dataUrl=cvs.toDataURL("image/jpeg",0.8);ef("image")(dataUrl);};img.src=String(reader.result||"");};reader.readAsDataURL(file);};
