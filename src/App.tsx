@@ -17851,7 +17851,11 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   // be clobbered by whole-blob last-write-wins, so two devices checking members in never drop anyone.
   const ciRef = useRef(checkIns);
   useEffect(()=>{ ciRef.current = checkIns; },[checkIns]);
-  const rowToCheckIn = (r:any)=>({ ...(r.data||{}), id:r.id, iid:r.iid, pid:r.pid });
+  // Rebuild the check-in record from the stored JSON (which preserves pid/iid ORIGINAL types —
+  // member ids are numbers). Do NOT override pid/iid from the text columns, or membership checks
+  // like presentIds/grpCheckedIds.has(member.id) (number) would miss the string pid and every
+  // checked-in person would revert to "not checked in" (group-ministry check-ins disappearing).
+  const rowToCheckIn = (r:any)=>({ ...(r.data||{}), id:r.id });
   const ciRowFor = (c:any)=>({ church_id:churchId, iid:String(c.iid), pid:String(c.pid), date:(c.date!=null?String(c.date):null), data:c, deleted:false, updated_at:new Date().toISOString() });
   const upsertCiRow = (c:any)=>{ if(!churchId||c?.iid==null||c?.pid==null) return; supabase.from('event_checkins').upsert(ciRowFor(c),{onConflict:'church_id,iid,pid'}).then(()=>{},()=>{}); };
   const softDeleteCiRow = (c:any)=>{ if(!churchId||c?.iid==null||c?.pid==null) return; supabase.from('event_checkins').update({deleted:true,updated_at:new Date().toISOString()}).eq('church_id',churchId).eq('iid',String(c.iid)).eq('pid',String(c.pid)).then(()=>{},()=>{}); };
