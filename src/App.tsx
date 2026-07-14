@@ -6437,7 +6437,7 @@ function CalendarView({members,visitors,setVisitors,groups,recurring,setRecurrin
                     <div style={{marginBottom:10}}>
                       <div style={{fontSize:10,fontWeight:600,color:N,textTransform:"uppercase",letterSpacing:0.5,marginBottom:6,padding:"4px 8px",background:N+"08",borderRadius:5}}>Church Events</div>
                       {dayEvts.map(evt=>{
-                        const eci=checkIns.filter(c=>c.iid===evt.iid);const isSel=selEvt?.iid===evt.iid;
+                        const eci=Array.from(new Map(checkIns.filter((c:any)=>c.iid===evt.iid&&c.pid!=null).map((c:any)=>[String(c.pid),c])).values());const isSel=selEvt?.iid===evt.iid;
                         return(<div key={evt.iid} style={{marginBottom:6,border:"0.5px solid "+(isSel?evt.color:BR),borderRadius:10,overflow:"hidden"}}>
                           <div onClick={()=>{setSelEvt(isSel?null:evt);setSelGrpEvt(null);setSearch("");setNewVis(null);}} style={{padding:"9px 12px",cursor:"pointer",display:"flex",alignItems:"center",gap:8,background:isSel?evt.color+"14":BG}}>
                             <div style={{width:4,height:34,borderRadius:2,background:evt.color,flexShrink:0}}></div>
