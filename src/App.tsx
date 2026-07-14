@@ -3714,8 +3714,9 @@ function EmailCenter({emailLog,setEmailLog,emailTemplates,setEmailTemplates,emai
 }
 
 // ── EMAIL COMPOSER (Reusable Modal) ──
-function EmailComposer({open,onClose,initialTo,initialToName,initialSubject,initialBody,initialCategory,relatedType,relatedId,cs,templates,onSend,emailConfig}){
+function EmailComposer({open,onClose,initialTo,initialToName,initialSubject,initialBody,initialCategory,relatedType,relatedId,cs,templates,onSend,emailConfig,members=[],visitors=[]}){
   const [mode,setMode] = useState("mailto");
+  const [toOpen,setToOpen] = useState(false);
   const [htmlMode,setHtmlMode] = useState(false);
   const [to,setTo] = useState("");
   const [cc,setCc] = useState("");
@@ -3828,7 +3829,38 @@ function EmailComposer({open,onClose,initialTo,initialToName,initialSubject,init
           </div>
         )}
 
-        <Fld label="To *"><Inp value={to} onChange={setTo} placeholder="recipient@example.com"/></Fld>
+        <Fld label="To *">
+          <div style={{position:"relative"}}>
+            <input type="text" value={to} placeholder="Type a name or email…"
+              onChange={e=>{setTo(e.target.value);setToOpen(true);}}
+              onFocus={()=>setToOpen(true)}
+              onBlur={()=>setTimeout(()=>setToOpen(false),120)}
+              style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",boxSizing:"border-box",fontFamily:"inherit"}}/>
+            {toOpen && to.trim().length>0 && (()=>{
+              const q=to.trim().toLowerCase();
+              const people=[...(members||[]).map((m:any)=>({first:m.first,last:m.last,email:m.email,_t:"Member"})),...(visitors||[]).map((v:any)=>({first:v.first,last:v.last,email:v.email,_t:"Visitor"}))]
+                .filter((p:any)=>p.email&&String(p.email).trim())
+                .filter((p:any)=>{const nm=((p.first||"")+" "+(p.last||"")).toLowerCase();return nm.includes(q)||String(p.email).toLowerCase().includes(q);})
+                .filter((p:any)=>String(p.email).toLowerCase()!==q)
+                .slice(0,8);
+              if(!people.length) return null;
+              return (
+                <div style={{position:"absolute",top:"100%",left:0,right:0,zIndex:60,background:W,border:"0.5px solid "+BR,borderRadius:8,marginTop:4,boxShadow:"0 8px 24px rgba(0,0,0,0.14)",maxHeight:240,overflowY:"auto"}}>
+                  {people.map((p:any,i:number)=>(
+                    <div key={i} onMouseDown={e=>{e.preventDefault();setTo(p.email);setToName(((p.first||"")+" "+(p.last||"")).trim());setToOpen(false);}}
+                      style={{padding:"8px 12px",cursor:"pointer",borderBottom:i<people.length-1?"0.5px solid "+BR:"none",display:"flex",alignItems:"center",gap:8}}>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:13,fontWeight:500,color:N,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{((p.first||"")+" "+(p.last||"")).trim()||"(no name)"}</div>
+                        <div style={{fontSize:11,color:MU,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{p.email}</div>
+                      </div>
+                      <span style={{fontSize:10,color:p._t==="Member"?GR:AM,background:p._t==="Member"?"#dcfce7":"#fff3e0",borderRadius:10,padding:"2px 7px",flexShrink:0}}>{p._t}</span>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+          </div>
+        </Fld>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
           <Fld label="CC (optional)"><Inp value={cc} onChange={setCc} placeholder="cc@example.com"/></Fld>
           <Fld label="BCC (optional)"><Inp value={bcc} onChange={setBcc} placeholder="bcc@example.com"/></Fld>
@@ -18978,6 +19010,8 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
         templates={emailTemplates}
         onSend={logEmail}
         emailConfig={emailConfig}
+        members={members}
+        visitors={visitors}
       />
       <BulkEmailComposer
         open={bulkComposerOpen}
