@@ -18153,12 +18153,15 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       // Event check-ins load from their dedicated table (authoritative), NOT the blob. One-time migrate
       // any check-in still only in the blob (older app version), never resurrecting a soft-deleted key.
       try {
-        const ciRows = await fetchAllRows('event_checkins');
+        // NOTE: intentionally a single (capped) load into the calendar state — loading the full several-
+        // thousand-row history into React state crashed the app on this church's data. Accurate per-member
+        // last-attendance for the Stopped-Attending trigger is computed separately from the DB (see below).
+        const { data: ciRows } = await supabase.from('event_checkins').select('*').eq('church_id',churchId).eq('deleted',false);
         if(ciRows){
           const tableCis = ciRows.map(rowToCheckIn);
           const tKeys = new Set(tableCis.map((c:any)=>String(c.iid)+"|"+String(c.pid)));
-          const ciAll = await fetchAllRows('event_checkins','iid,pid',false);
-          const allKeys = new Set(ciAll.map((r:any)=>String(r.iid)+"|"+String(r.pid)));
+          const { data: ciAll } = await supabase.from('event_checkins').select('iid,pid').eq('church_id',churchId);
+          const allKeys = new Set((ciAll||[]).map((r:any)=>String(r.iid)+"|"+String(r.pid)));
           (Array.isArray(d.checkIns)?d.checkIns:[]).forEach((c:any)=>{
             if(c&&c.iid!=null&&c.pid!=null && !allKeys.has(String(c.iid)+"|"+String(c.pid))) upsertCiRow(c);
           });
@@ -18373,49 +18376,58 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     if(stoppedAttendingRan.current) return;          // once per session
     if(!lastSyncedBlob.current) return;               // wait for a genuine cloud load
     if(!Array.isArray(members)||!members.length) return;
-    if(!Array.isArray(checkIns)) return;
-    const thWeeks = Math.max(1, Number(churchSettings?.absentMembersThreshold)||4);
-    const cutoffMs = thWeeks*7*24*60*60*1000;         // 4 weeks = 28 days
-    const isMonitored = (en:any)=>{ const s=String(en||"").toLowerCase(); return s.includes("sunday morning")||s.includes("sunday night")||s.includes("sunday evening")||s.includes("thursday"); };
-    // Each member's most-recent check-in date to any of the three monitored services.
-    const lastByMember:Record<string,string> = {};
-    checkIns.forEach((c:any)=>{ if(c?.ptype!=="member") return; if(!isMonitored(c?.ename)) return; const k=String(c?.pid); const d=String(c?.date||""); if(!k||!d) return; if(!lastByMember[k]||d>lastByMember[k]) lastByMember[k]=d; });
-    const alreadyInFU = new Set((visitors||[]).filter((v:any)=>v?.fromMemberId!=null).map((v:any)=>String(v.fromMemberId)));
-    const overdue = members.filter((m:any)=>{
-      if(m?.status!=="Active") return false;
-      if(m?.inFollowUp) return false;
-      if(alreadyInFU.has(String(m.id))) return false;
-      const last = lastByMember[String(m.id)];
-      if(!last) return false;                          // never checked in → no clock to start
-      return (Date.now()-new Date(last+"T00:00:00").getTime()) >= cutoffMs;
-    });
-    stoppedAttendingRan.current = true;                // evaluated this session — don't re-run
-    if(!overdue.length) return;
-    // Expand each overdue member to their whole household; dedupe so a household moves once.
-    const hhKey = (p:any)=> p.familyId?("fid:"+p.familyId) : (p.family&&String(p.family).trim()!==""?("fam:"+String(p.family).trim().toLowerCase()) : ("id:"+p.id));
-    const moveIds = new Set<string>();
-    const moves:any[] = [];
-    const seenHH = new Set<string>();
-    overdue.forEach((m:any)=>{
-      const key=hhKey(m); if(seenHH.has(key)) return; seenHH.add(key);
-      const household = members.filter((x:any)=> String(x.id)===String(m.id) || (m.familyId&&x.familyId===m.familyId) || (m.family&&String(m.family).trim()!==""&&x.family===m.family));
-      household.forEach((p:any)=>{ if(p.inFollowUp||alreadyInFU.has(String(p.id))||moveIds.has(String(p.id))) return; moveIds.add(String(p.id)); moves.push({p, last:lastByMember[String(m.id)]}); });
-    });
-    if(!moves.length) return;
-    const baseId = Date.now();
-    const newVisitors:any[] = []; const newRecs:any[] = [];
-    moves.forEach((mv:any,i:number)=>{
-      const p=mv.p; const vid=baseId+i;
-      const rsn = "Stopped attending — auto: "+thWeeks+"+ weeks since last check-in"+(mv.last?(" (last attended "+mv.last+")"):"");
-      const {status,role,joined,type,_type,inFollowUp,followUpVisitorId,...rest} = p;
-      newVisitors.push({...rest, id:vid, stage:"Returning", firstVisit:td(), fromMemberId:p.id, followUpReason:rsn,
-        notes:((p.notes?p.notes+" · ":"") + "Returning member · auto follow-up "+td()+": "+rsn)});
-      newRecs.push({id:baseId+5000+i, visitorId:vid, stage:"Pastor", createdDate:td(), contacts:[], teamSupervisorUserId:null, teamLeaderUserId:null, sponsorUserId:null, fromMemberId:p.id, followUpReason:rsn});
-    });
-    setVisitors((vs:any[])=>[...(Array.isArray(vs)?vs:[]), ...newVisitors]);
-    setVisitRecords((rs:any[])=>[...(Array.isArray(rs)?rs:[]), ...newRecs]);
-    setMembers((ms:any[])=>ms.map((x:any)=> moveIds.has(String(x.id)) ? {...x, inFollowUp:true, followUpVisitorId:baseId} : x));
-  },[members, checkIns, visitors, churchSettings?.absentMembersThreshold, syncTrigger]);
+    if(!churchId) return;
+    stoppedAttendingRan.current = true;                // evaluate once per session (set before the async so we never double-run)
+    (async()=>{
+      const thWeeks = Math.max(1, Number(churchSettings?.absentMembersThreshold)||4);
+      const cutoffMs = thWeeks*7*24*60*60*1000;         // 4 weeks = 28 days
+      const isMonitored = (en:any)=>{ const s=String(en||"").toLowerCase(); return s.includes("sunday morning")||s.includes("sunday night")||s.includes("sunday evening")||s.includes("thursday"); };
+      // Each member's most-recent MONITORED check-in — read from the check-in TABLE directly (the FULL
+      // history, not just the slice the calendar loads), so who gets flagged never depends on how many
+      // check-ins happen to be in memory. Falls back to the in-memory check-ins if the query fails.
+      const lastByMember:Record<string,string> = {};
+      let src:any[];
+      try {
+        const rows = await fetchAllRows('event_checkins','pid,date,data');
+        src = rows.map((r:any)=>({pid:r.pid, date:r.date, ename:r?.data?.ename, ptype:r?.data?.ptype}));
+      } catch(e){ src = Array.isArray(checkIns)?checkIns:[]; }
+      src.forEach((c:any)=>{ if(c?.ptype!=="member") return; if(!isMonitored(c?.ename)) return; const k=String(c?.pid); const d=String(c?.date||""); if(!k||!d) return; if(!lastByMember[k]||d>lastByMember[k]) lastByMember[k]=d; });
+      const alreadyInFU = new Set((visitors||[]).filter((v:any)=>v?.fromMemberId!=null).map((v:any)=>String(v.fromMemberId)));
+      const overdue = members.filter((m:any)=>{
+        if(m?.status!=="Active") return false;
+        if(m?.inFollowUp) return false;
+        if(alreadyInFU.has(String(m.id))) return false;
+        const last = lastByMember[String(m.id)];
+        if(!last) return false;                          // never checked in → no clock to start
+        return (Date.now()-new Date(last+"T00:00:00").getTime()) >= cutoffMs;
+      });
+      if(!overdue.length) return;
+      // Expand each overdue member to their whole household; dedupe so a household moves once.
+      const hhKey = (p:any)=> p.familyId?("fid:"+p.familyId) : (p.family&&String(p.family).trim()!==""?("fam:"+String(p.family).trim().toLowerCase()) : ("id:"+p.id));
+      const moveIds = new Set<string>();
+      const moves:any[] = [];
+      const seenHH = new Set<string>();
+      overdue.forEach((m:any)=>{
+        const key=hhKey(m); if(seenHH.has(key)) return; seenHH.add(key);
+        const household = members.filter((x:any)=> String(x.id)===String(m.id) || (m.familyId&&x.familyId===m.familyId) || (m.family&&String(m.family).trim()!==""&&x.family===m.family));
+        household.forEach((p:any)=>{ if(p.inFollowUp||alreadyInFU.has(String(p.id))||moveIds.has(String(p.id))) return; moveIds.add(String(p.id)); moves.push({p, last:lastByMember[String(m.id)]}); });
+      });
+      if(!moves.length) return;
+      const baseId = Date.now();
+      const newVisitors:any[] = []; const newRecs:any[] = [];
+      moves.forEach((mv:any,i:number)=>{
+        const p=mv.p; const vid=baseId+i;
+        const rsn = "Stopped attending — auto: "+thWeeks+"+ weeks since last check-in"+(mv.last?(" (last attended "+mv.last+")"):"");
+        const {status,role,joined,type,_type,inFollowUp,followUpVisitorId,...rest} = p;
+        newVisitors.push({...rest, id:vid, stage:"Returning", firstVisit:td(), fromMemberId:p.id, followUpReason:rsn,
+          notes:((p.notes?p.notes+" · ":"") + "Returning member · auto follow-up "+td()+": "+rsn)});
+        newRecs.push({id:baseId+5000+i, visitorId:vid, stage:"Pastor", createdDate:td(), contacts:[], teamSupervisorUserId:null, teamLeaderUserId:null, sponsorUserId:null, fromMemberId:p.id, followUpReason:rsn});
+      });
+      setVisitors((vs:any[])=>[...(Array.isArray(vs)?vs:[]), ...newVisitors]);
+      setVisitRecords((rs:any[])=>[...(Array.isArray(rs)?rs:[]), ...newRecs]);
+      setMembers((ms:any[])=>ms.map((x:any)=> moveIds.has(String(x.id)) ? {...x, inFollowUp:true, followUpVisitorId:baseId} : x));
+    })();
+  },[members, churchId, churchSettings?.absentMembersThreshold, syncTrigger]);
 
   // ── Keep all devices in sync: poll every 60 s + re-sync when tab becomes visible ──
   useEffect(()=>{
