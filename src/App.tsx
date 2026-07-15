@@ -17871,6 +17871,23 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     nMap.forEach((c:any,key:any)=>{ const p=pMap.get(key); if(!p||sig(p)!==sig(c)) upsertCiRow(c); });
     pMap.forEach((c:any,key:any)=>{ if(!nMap.has(key)) softDeleteCiRow(c); });
   };
+  // Fetch ALL rows of a check-in table, PAGINATED. Supabase caps a single select at 1000 rows, and an
+  // active church can have several thousand event check-ins — a one-shot select silently dropped the
+  // rest, so attendance counts came out far too low and inconsistent between the calendar and the
+  // Attendance page. Page through 1000 at a time (ordered by id) until a short page ends it.
+  const fetchAllRows = async (table:string, cols:string="*", onlyActive:boolean=true)=>{
+    const out:any[]=[];
+    for(let from=0; from<500000; from+=1000){
+      let q:any = supabase.from(table).select(cols).eq('church_id',churchId);
+      if(onlyActive) q = q.eq('deleted',false);
+      q = q.order('id',{ascending:true}).range(from, from+999);
+      const { data, error } = await q;
+      if(error||!data||!data.length) break;
+      out.push(...data);
+      if(data.length<1000) break;
+    }
+    return out;
+  };
   const [careContacted,setCareContacted] = useState(lsGet('careContacted') ?? {}); // Care Pulse: {memberId: ISODate last reached out}
   useEffect(()=>{ lsSave('careContacted',careContacted); },[careContacted]);
   const _storedCL=lsGet('classrooms')||_I.classrooms;const _hasOldCL=_storedCL&&(_storedCL.length>7||_storedCL.some((c:any)=>["","1st","2nd","3rd","4th","5th","6th","7th"].includes(c.grade)));
@@ -18136,12 +18153,12 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       // Event check-ins load from their dedicated table (authoritative), NOT the blob. One-time migrate
       // any check-in still only in the blob (older app version), never resurrecting a soft-deleted key.
       try {
-        const { data: ciRows } = await supabase.from('event_checkins').select('*').eq('church_id',churchId).eq('deleted',false);
+        const ciRows = await fetchAllRows('event_checkins');
         if(ciRows){
           const tableCis = ciRows.map(rowToCheckIn);
           const tKeys = new Set(tableCis.map((c:any)=>String(c.iid)+"|"+String(c.pid)));
-          const { data: ciAll } = await supabase.from('event_checkins').select('iid,pid').eq('church_id',churchId);
-          const allKeys = new Set((ciAll||[]).map((r:any)=>String(r.iid)+"|"+String(r.pid)));
+          const ciAll = await fetchAllRows('event_checkins','iid,pid',false);
+          const allKeys = new Set(ciAll.map((r:any)=>String(r.iid)+"|"+String(r.pid)));
           (Array.isArray(d.checkIns)?d.checkIns:[]).forEach((c:any)=>{
             if(c&&c.iid!=null&&c.pid!=null && !allKeys.has(String(c.iid)+"|"+String(c.pid))) upsertCiRow(c);
           });
@@ -18170,12 +18187,12 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       // deletion is never resurrected. Very-recent local check-ins (id encodes creation time) are
       // preserved in case their upsert hasn't landed yet.
       try {
-        const { data: kidRows } = await supabase.from('kids_checkins').select('*').eq('church_id',churchId).eq('deleted',false);
+        const kidRows = await fetchAllRows('kids_checkins');
         if(kidRows){
           const tableKids = kidRows.map(rowToKid);
           const tKeys = new Set(tableKids.map((c:any)=>String(c.childId)+"|"+String(c.date)));
-          const { data: kidAll } = await supabase.from('kids_checkins').select('child_id,date').eq('church_id',churchId);
-          const allKeys = new Set((kidAll||[]).map((r:any)=>String(r.child_id)+"|"+String(r.date)));
+          const kidAll = await fetchAllRows('kids_checkins','child_id,date',false);
+          const allKeys = new Set(kidAll.map((r:any)=>String(r.child_id)+"|"+String(r.date)));
           (Array.isArray(d.kidsCheckIns)?d.kidsCheckIns:[]).forEach((c:any)=>{
             if(c&&c.childId!=null&&c.date!=null && !allKeys.has(String(c.childId)+"|"+String(c.date))) upsertKidRow(c);
           });
