@@ -18390,13 +18390,14 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       // Each member's most-recent MONITORED check-in — read from the check-in TABLE directly (the FULL
       // history, not just the slice the calendar loads), so who gets flagged never depends on how many
       // check-ins happen to be in memory. Falls back to the in-memory check-ins if the query fails.
-      const lastByMember:Record<string,string> = {};
+      const lastByMember:Record<string,string> = {};   // member check-ins → used by the FLAG
+      const lastAnyId:Record<string,string> = {};        // ANY check-in (incl. a pipeline visitor copy) → used by the RETURN
       let src:any[];
       try {
         const rows = await fetchAllRows('event_checkins','pid,date,data');
         src = rows.map((r:any)=>({pid:r.pid, date:r.date, ename:r?.data?.ename, ptype:r?.data?.ptype}));
       } catch(e){ src = Array.isArray(checkIns)?checkIns:[]; }
-      src.forEach((c:any)=>{ if(c?.ptype!=="member") return; if(!isMonitored(c?.ename)) return; const k=String(c?.pid); const d=String(c?.date||""); if(!k||!d) return; if(!lastByMember[k]||d>lastByMember[k]) lastByMember[k]=d; });
+      src.forEach((c:any)=>{ if(!isMonitored(c?.ename)) return; const k=String(c?.pid); const d=String(c?.date||""); if(!k||!d) return; if(!lastAnyId[k]||d>lastAnyId[k]) lastAnyId[k]=d; if(c?.ptype==="member" && (!lastByMember[k]||d>lastByMember[k])) lastByMember[k]=d; });
       const alreadyInFU = new Set((visitors||[]).filter((v:any)=>v?.fromMemberId!=null).map((v:any)=>String(v.fromMemberId)));
 
       // ── AUTO-RETURN: a member who was auto-flagged into Pastor Visit but has since ATTENDED a
@@ -18406,7 +18407,8 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       //    so the 60s sync never resurrects them. Only touches auto-flag (fromMemberId) pipeline entries.
       const activeFU = (visitors||[]).filter((v:any)=>v?.fromMemberId!=null && v.stage!=="Member" && !v.convertedMemberId);
       const returnMemIds = new Set<string>();
-      activeFU.forEach((v:any)=>{ const last=lastByMember[String(v.fromMemberId)]; if(last && (Date.now()-new Date(last+"T00:00:00").getTime()) < cutoffMs) returnMemIds.add(String(v.fromMemberId)); });
+      const _within=(d:any)=> d && (Date.now()-new Date(d+"T00:00:00").getTime()) < cutoffMs;
+      activeFU.forEach((v:any)=>{ if(_within(lastAnyId[String(v.fromMemberId)]) || _within(lastAnyId[String(v.id)])) returnMemIds.add(String(v.fromMemberId)); });
       if(returnMemIds.size){
         const retVisIds = new Set(activeFU.filter((v:any)=>returnMemIds.has(String(v.fromMemberId))).map((v:any)=>String(v.id)));
         setMembers((ms:any[])=>(Array.isArray(ms)?ms:[]).map((m:any)=>returnMemIds.has(String(m.id))?{...m,inFollowUp:false,followUpVisitorId:undefined}:m));
@@ -18450,6 +18452,30 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       setMembers((ms:any[])=>ms.map((x:any)=> moveIds.has(String(x.id)) ? {...x, inFollowUp:true, followUpVisitorId:baseId} : x));
     })();
   },[members, churchId, churchSettings?.absentMembersThreshold, syncTrigger]);
+
+  // ── Responsive AUTO-RETURN ── runs the moment check-ins change (a member checked in mid-session),
+  //    unlike the once-per-session flag trigger. If an auto-flagged member (or their pipeline copy)
+  //    has a monitored check-in within the window, pull them back to Members immediately. Uses the
+  //    in-memory check-ins — a just-made check-in is always here — and matches on BOTH the member id
+  //    and the returning-visitor id (a pipeline check-in records under the visitor). Idempotent:
+  //    once returned (stage "Member") they drop out of activeFU, so this can't loop.
+  useEffect(()=>{
+    if(!Array.isArray(visitors)) return;
+    const activeFU = visitors.filter((v:any)=>v?.fromMemberId!=null && v.stage!=="Member" && !v.convertedMemberId);
+    if(!activeFU.length) return;
+    const thWeeks = Math.max(1, Number(churchSettings?.absentMembersThreshold)||4);
+    const cutoffMs = thWeeks*7*24*60*60*1000;
+    const isMonitored = (en:any)=>{ const s=String(en||"").toLowerCase(); return s.includes("sunday morning")||s.includes("sunday night")||s.includes("sunday evening")||s.includes("thursday")||s.includes("bible"); };
+    const lastByPid:Record<string,string> = {};
+    (Array.isArray(checkIns)?checkIns:[]).forEach((c:any)=>{ if(!isMonitored(c?.ename)) return; const k=String(c?.pid); const d=String(c?.date||""); if(!k||!d) return; if(!lastByPid[k]||d>lastByPid[k]) lastByPid[k]=d; });
+    const _within=(d:any)=> d && (Date.now()-new Date(d+"T00:00:00").getTime()) < cutoffMs;
+    const returnMemIds = new Set<string>(); const retVisIds = new Set<string>();
+    activeFU.forEach((v:any)=>{ if(_within(lastByPid[String(v.fromMemberId)]) || _within(lastByPid[String(v.id)])){ returnMemIds.add(String(v.fromMemberId)); retVisIds.add(String(v.id)); } });
+    if(!returnMemIds.size) return;
+    setMembers((ms:any[])=>(Array.isArray(ms)?ms:[]).map((m:any)=>returnMemIds.has(String(m.id))?{...m,inFollowUp:false,followUpVisitorId:undefined}:m));
+    setVisitors((vs:any[])=>(Array.isArray(vs)?vs:[]).map((x:any)=>retVisIds.has(String(x.id))?{...x,stage:"Member"}:x));
+    setVisitRecords((rs:any[])=>(Array.isArray(rs)?rs:[]).map((r:any)=>retVisIds.has(String(r.visitorId))?{...r,stage:"Converted",completedDate:td(),completionReason:"Auto-returned — attended within "+thWeeks+" weeks"}:r));
+  },[checkIns, visitors, churchSettings?.absentMembersThreshold]);
 
   // ── Keep all devices in sync: poll every 60 s + re-sync when tab becomes visible ──
   useEffect(()=>{
