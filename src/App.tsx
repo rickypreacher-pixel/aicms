@@ -11495,6 +11495,12 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
           .filter((g:any)=>inBatch(String(g?.date||""), currentBatchStart))
           .map((g:any)=>dedupeKey(g))
       );
+      // Transaction-id dedupe: OG gifts already recorded (via the live webhook OR a prior CSV)
+      // carry a txnId; skip any CSV row whose txn is already present so reconciling a full export
+      // never double-imports what came in automatically. Global — a txn maps to one date/batch.
+      const existingTxns = new Set(
+        (giving||[]).map((g:any)=>String(g?.txnId||"")).filter(Boolean)
+      );
 
       let imported = 0;
       let skipped = 0;
@@ -11535,14 +11541,23 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
           // Priority per request: Gross amount.
           const amountRaw = pickVal(row,["Gross Amount","Amount"]);
           const notes = "Imported from onlinegiving.cc CSV";
+          // OG's transaction id (TXN#) — lets us dedupe against gifts the live webhook already
+          // recorded, which carry the same id but a different method/category so the composite
+          // key alone would miss them (and re-import duplicates on reconciliation).
+          const txnId = pickVal(row,["Transaction ID","Transaction Id","transaction_id","txn_id","txn id","txn#","txn","Charge ID","charge_id","gateway_txn_id"]);
 
           const amount = toAmount(amountRaw);
           if(!name || !amount || amount<=0){ errors++; return; }
 
           if(!inBatch(parsedDate,currentBatchStart)){ outOfBatch++; return; }
-          const rec = {id:Date.now()+Math.random(),date:parsedDate,name,category,amount,method,notes};
+          const rec:any = {id:Date.now()+Math.random(),date:parsedDate,name,category,amount,method,notes};
+          if(txnId){ rec.txnId = txnId; rec.source = "onlinegiving"; }
+          // Skip if this txn is already recorded (webhook or prior import), OR the composite key
+          // matches a gift already in this batch (catches pre-txnId CSV rows without an id).
+          if(txnId && existingTxns.has(String(txnId))){ skipped++; return; }
           const key = dedupeKey(rec);
           if(existing.has(key)){ skipped++; return; }
+          if(txnId) existingTxns.add(String(txnId));
           existing.add(key);
           additions.push(rec);
           imported++;
