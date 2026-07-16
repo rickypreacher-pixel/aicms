@@ -18386,7 +18386,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     (async()=>{
       const thWeeks = Math.max(1, Number(churchSettings?.absentMembersThreshold)||4);
       const cutoffMs = thWeeks*7*24*60*60*1000;         // 4 weeks = 28 days
-      const isMonitored = (en:any)=>{ const s=String(en||"").toLowerCase(); return s.includes("sunday morning")||s.includes("sunday night")||s.includes("sunday evening")||s.includes("thursday"); };
+      const isMonitored = (en:any)=>{ const s=String(en||"").toLowerCase(); return s.includes("sunday morning")||s.includes("sunday night")||s.includes("sunday evening")||s.includes("thursday")||s.includes("bible"); };
       // Each member's most-recent MONITORED check-in — read from the check-in TABLE directly (the FULL
       // history, not just the slice the calendar loads), so who gets flagged never depends on how many
       // check-ins happen to be in memory. Falls back to the in-memory check-ins if the query fails.
@@ -18398,6 +18398,23 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       } catch(e){ src = Array.isArray(checkIns)?checkIns:[]; }
       src.forEach((c:any)=>{ if(c?.ptype!=="member") return; if(!isMonitored(c?.ename)) return; const k=String(c?.pid); const d=String(c?.date||""); if(!k||!d) return; if(!lastByMember[k]||d>lastByMember[k]) lastByMember[k]=d; });
       const alreadyInFU = new Set((visitors||[]).filter((v:any)=>v?.fromMemberId!=null).map((v:any)=>String(v.fromMemberId)));
+
+      // ── AUTO-RETURN: a member who was auto-flagged into Pastor Visit but has since ATTENDED a
+      //    monitored service (Sunday Morning / Sunday Night / Thursday / Bible Study) WITHIN the window
+      //    comes back OUT to the Members directory. Mirrors the manual "Return to Members" exactly:
+      //    visitor → stage "Member", its record → "Converted", member.inFollowUp = false — all tombstoned
+      //    so the 60s sync never resurrects them. Only touches auto-flag (fromMemberId) pipeline entries.
+      const activeFU = (visitors||[]).filter((v:any)=>v?.fromMemberId!=null && v.stage!=="Member" && !v.convertedMemberId);
+      const returnMemIds = new Set<string>();
+      activeFU.forEach((v:any)=>{ const last=lastByMember[String(v.fromMemberId)]; if(last && (Date.now()-new Date(last+"T00:00:00").getTime()) < cutoffMs) returnMemIds.add(String(v.fromMemberId)); });
+      if(returnMemIds.size){
+        const retVisIds = new Set(activeFU.filter((v:any)=>returnMemIds.has(String(v.fromMemberId))).map((v:any)=>String(v.id)));
+        setMembers((ms:any[])=>(Array.isArray(ms)?ms:[]).map((m:any)=>returnMemIds.has(String(m.id))?{...m,inFollowUp:false,followUpVisitorId:undefined}:m));
+        setVisitors((vs:any[])=>(Array.isArray(vs)?vs:[]).map((x:any)=>retVisIds.has(String(x.id))?{...x,stage:"Member"}:x));
+        setVisitRecords((rs:any[])=>(Array.isArray(rs)?rs:[]).map((r:any)=>retVisIds.has(String(r.visitorId))?{...r,stage:"Converted",completedDate:td(),completionReason:"Auto-returned — attended within "+thWeeks+" weeks"}:r));
+      }
+
+      // ── FLAG: active members who missed the whole window → Pastor Visit ("Member Missed 4 Weeks"). ──
       const overdue = members.filter((m:any)=>{
         if(m?.status!=="Active") return false;
         if(m?.inFollowUp) return false;
