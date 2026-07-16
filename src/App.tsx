@@ -17902,7 +17902,11 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       if(onlyActive) q = q.eq('deleted',false);
       q = q.order('id',{ascending:true}).range(from, from+999);
       const { data, error } = await q;
-      if(error||!data||!data.length) break;
+      // A mid-pagination error must THROW, never silently return the partial rows gathered so far —
+      // a truncated check-in history makes attending members look absent and get wrongly flagged as
+      // "stopped attending". Callers wrap this in try/catch and skip flagging when it fails.
+      if(error) throw new Error('fetchAllRows('+table+') failed: '+(error.message||String(error)));
+      if(!data||!data.length) break;
       out.push(...data);
       if(data.length<1000) break;
     }
@@ -18412,11 +18416,11 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       // check-ins happen to be in memory. Falls back to the in-memory check-ins if the query fails.
       const lastByMember:Record<string,string> = {};   // member check-ins → used by the FLAG
       const lastAnyId:Record<string,string> = {};        // ANY check-in (incl. a pipeline visitor copy) → used by the RETURN
-      let src:any[];
+      let src:any[]; let historyOk = true;
       try {
         const rows = await fetchAllRows('event_checkins','pid,date,data');
         src = rows.map((r:any)=>({pid:r.pid, date:r.date, ename:r?.data?.ename, ptype:r?.data?.ptype}));
-      } catch(e){ src = Array.isArray(checkIns)?checkIns:[]; }
+      } catch(e){ src = Array.isArray(checkIns)?checkIns:[]; historyOk = false; }
       src.forEach((c:any)=>{ if(!isMonitored(c?.ename)) return; const k=String(c?.pid); const d=String(c?.date||""); if(!k||!d) return; if(!lastAnyId[k]||d>lastAnyId[k]) lastAnyId[k]=d; if(c?.ptype==="member" && (!lastByMember[k]||d>lastByMember[k])) lastByMember[k]=d; });
       const alreadyInFU = new Set((visitors||[]).filter((v:any)=>v?.fromMemberId!=null).map((v:any)=>String(v.fromMemberId)));
 
@@ -18437,6 +18441,10 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       }
 
       // ── FLAG: active members who missed the whole window → Pastor Visit ("Member Missed 4 Weeks"). ──
+      // NEVER flag from an incomplete check-in history: if the full-history load failed (network/DB
+      // hiccup), a member who actually attended would look absent and get wrongly flagged. Auto-return
+      // above is safe to keep (it can only pull people OUT); we just skip CREATING flags this session.
+      if(!historyOk) return;
       const overdue = members.filter((m:any)=>{
         if(m?.status!=="Active") return false;
         if(m?.inFollowUp) return false;
