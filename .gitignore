@@ -37,3 +37,9 @@ yarn-error.log*
 
 # electron-builder cache
 .electron-builder.cache/
+
+# local scratch / secrets (do not commit)
+_twilio.env
+_mergedlog_test.mjs
+build_err.log
+*.env
