@@ -18097,9 +18097,13 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   };
 
   // ── Load from Supabase on mount — cloud is source of truth across devices ──
+  const initialLoadDone = useRef(false);
   useEffect(()=>{
     if(!churchId) return;
-    setCloudSync('loading');
+    // Only the FIRST load shows the "Loading…" badge. The 60-second background re-sync (and the
+    // re-pull after a merge) run SILENTLY so the indicator doesn't flash "Loading" every minute.
+    const isInitialLoad = !initialLoadDone.current;
+    if(isInitialLoad) setCloudSync('loading');
     (async()=>{
       // Ensure a server-validated membership row exists for this user before reading.
       // Owners are authorized by RLS directly (auth.uid() = church_id). Staff are granted
@@ -18107,7 +18111,8 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       // Idempotent and safe to call on every load.
       try { await supabase.rpc('claim_membership', { p_church_id: churchId }); } catch {}
       const {data:row,error} = await supabase.from('church_data').select('data,updated_at').eq('church_id',churchId).maybeSingle();
-      setCloudSync('idle');
+      if(isInitialLoad) setCloudSync('idle');
+      initialLoadDone.current = true;
       if(error||!row?.data) return;
       // Record when we last loaded from cloud so the save guard can compare
       if(row.updated_at) lastSyncAt.current = new Date(row.updated_at).getTime();
