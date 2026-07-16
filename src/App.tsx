@@ -16311,7 +16311,7 @@ function ManualPage(){
         <div style={{background:N,borderRadius:12,padding:'20px 24px',marginBottom:20}}>
           <div style={{color:'#fff',fontSize:21,fontWeight:600,letterSpacing:0.3}}>ChurchOS Staff Manual</div>
           <div style={{color:G,fontSize:13,marginTop:4}}>New Testament Christian Church — Administrator Guide</div>
-          <div style={{color:'#7a9acc',fontSize:12,marginTop:6}}>Version 6.8 · July 2026 · For internal staff use</div>
+          <div style={{color:'#7a9acc',fontSize:12,marginTop:6}}>Version 6.9 · July 2026 · For internal staff use</div>
         </div>
 
         <Sec><H id="s1">1. Getting Started</H>
@@ -16896,6 +16896,11 @@ function ManualPage(){
           <Ul><Li>When a member gives online, the donation flows into ChurchOS and appears in <B>Giving → Record Giving</B> with a method of <B>Online</B>, in the correct week</Li><Li>Imports are <B>de-duplicated</B>, so the same gift is never counted twice</Li><Li>Manual gift entry is unchanged — online gifts simply post alongside them</Li></Ul>
           <H3>Mapping Funds</H3>
           <Ol><Li>In <B>Giving</B>, click <B>🔗 Online Giving Funds</B></Li><Li>For each fund received from your Online Giving account, pick the matching <B>Record Giving category</B> (or leave it "use fund name as-is")</Li><Li>Saving also re-categorizes gifts already received, and keeps your tithe/Pastor's Draw math correct</Li></Ol>
+          <H3>Weekly Reconciliation — Catch Any Missed Gifts</H3>
+          <P>Online Giving's automatic feed is <B>best-effort</B> and occasionally drops a gift (most often a <B>one-time</B> donation) without retrying. To guarantee nothing is ever missed, reconcile against the full report:</P>
+          <Ol><Li>In your Online Giving account, <B>export the transaction report as a CSV</B> for the period</Li><Li>In <B>Giving</B>, make sure the <B>current week's batch</B> is selected, then click <B>Import onlinegiving.cc CSV</B></Li><Li>Choose the file — any approved gift not already recorded is added; everything already posted is <B>skipped automatically</B></Li></Ol>
+          <Note>The importer now de-duplicates by each gift's <B>transaction ID</B>, so it matches gifts that already came in through the automatic feed. You can safely import the full report every week without creating duplicates. Declined transactions are never imported.</Note>
+          <Tip>Do this once a week (for example, every Monday) as a quick safety check. It only ever <B>adds what's missing</B> — it never removes or double-counts anything.</Tip>
           <H3>For Members</H3>
           <P>Members with a portal login see a <B>💝 Give</B> button that opens your online giving page in a new tab.</P>
         </Sec>
