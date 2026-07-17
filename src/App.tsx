@@ -6294,7 +6294,10 @@ function CalendarView({members,visitors,setVisitors,groups,recurring,setRecurrin
   const grpEvtCIs=selGrpEvt?checkIns.filter(c=>c.iid===selGrpEvt.iid):[];
   const grpCheckedIds=new Set(grpEvtCIs.map(c=>c.pid));
   const checkedIds=new Set(evtCIs.map(c=>c.pid));
-  const allPeople=[...members.map(m=>({...m,ptype:"member"})),...visitors.map(v=>({...v,ptype:"visitor"}))];
+  // Visitors carrying a `fromMemberId` are follow-up "shadow" records of an existing member (created
+  // by the Visitation pipeline) — the real person is already in `members`, so including them made the
+  // same name appear twice (member + visitor) in the check-in search. Exclude these shadows here.
+  const allPeople=[...members.map(m=>({...m,ptype:"member"})),...visitors.filter(v=>v.fromMemberId==null).map(v=>({...v,ptype:"visitor"}))];
   const results=search.trim().length>1?allPeople.filter(p=>(p.first+" "+p.last).toLowerCase().includes(search.toLowerCase())).slice(0,8):[];
   const totalCI=checkIns.length;const memCI=checkIns.filter(c=>c.ptype==="member").length;const visCI=checkIns.filter(c=>c.ptype==="visitor"&&!c.isNew).length;const newCI=checkIns.filter(c=>c.isNew).length;
   // ── Education / Sunday School check-in shares ONE store (kidsCheckIns) with the Education page portal,
