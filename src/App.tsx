@@ -11537,10 +11537,12 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
             }
           }
           const category = pickVal(row,["Gift Fund"]) || "Online Giving";
-          const method = pickVal(row,["Payment Type"]) || "Online";
+          // Every onlinegiving.cc import posts with method "Online" and a uniform note, matching the
+          // live webhook auto-import — the raw CSV "Payment Type" (creditcard/ach/etc.) is ignored.
+          const method = "Online";
           // Priority per request: Gross amount.
           const amountRaw = pickVal(row,["Gross Amount","Amount"]);
-          const notes = "Imported from onlinegiving.cc CSV";
+          const notes = "Imported from Online Giving";
           // OG's transaction id (TXN#) — lets us dedupe against gifts the live webhook already
           // recorded, which carry the same id but a different method/category so the composite
           // key alone would miss them (and re-import duplicates on reconciliation).
@@ -11843,7 +11845,7 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
             style={{display:"none"}}
             onChange={e=>{const f=(e.target as any).files?.[0]; if(f) importOnlineGivingCsv(f); (e.target as any).value='';}}
           />
-          <Btn v="ghost" onClick={()=>onlineGivingFileRef.current?.click?.()} style={{fontSize:12,opacity:selectedBatchStart===currentBatchStart?1:0.5,pointerEvents:selectedBatchStart===currentBatchStart?"auto":"none"}}>Import onlinegiving.cc CSV</Btn>
+          <Btn v="ghost" onClick={()=>onlineGivingFileRef.current?.click?.()} style={{fontSize:12,opacity:selectedBatchStart===currentBatchStart?1:0.5,pointerEvents:selectedBatchStart===currentBatchStart?"auto":"none"}}>Imported from Online Giving</Btn>
           <input
             ref={blackbaudFileRef}
             type="file"
@@ -16898,7 +16900,7 @@ function ManualPage(){
           <Ol><Li>In <B>Giving</B>, click <B>🔗 Online Giving Funds</B></Li><Li>For each fund received from your Online Giving account, pick the matching <B>Record Giving category</B> (or leave it "use fund name as-is")</Li><Li>Saving also re-categorizes gifts already received, and keeps your tithe/Pastor's Draw math correct</Li></Ol>
           <H3>Weekly Reconciliation — Catch Any Missed Gifts</H3>
           <P>Online Giving's automatic feed is <B>best-effort</B> and occasionally drops a gift (most often a <B>one-time</B> donation) without retrying. To guarantee nothing is ever missed, reconcile against the full report:</P>
-          <Ol><Li>In your Online Giving account, <B>export the transaction report as a CSV</B> for the period</Li><Li>In <B>Giving</B>, make sure the <B>current week's batch</B> is selected, then click <B>Import onlinegiving.cc CSV</B></Li><Li>Choose the file — any approved gift not already recorded is added; everything already posted is <B>skipped automatically</B></Li></Ol>
+          <Ol><Li>In your Online Giving account, <B>export the transaction report as a CSV</B> for the period</Li><Li>In <B>Giving</B>, make sure the <B>current week's batch</B> is selected, then click <B>Imported from Online Giving</B></Li><Li>Choose the file — any approved gift not already recorded is added; everything already posted is <B>skipped automatically</B></Li></Ol>
           <Note>The importer now de-duplicates by each gift's <B>transaction ID</B>, so it matches gifts that already came in through the automatic feed. You can safely import the full report every week without creating duplicates. Declined transactions are never imported.</Note>
           <Tip>Do this once a week (for example, every Monday) as a quick safety check. It only ever <B>adds what's missing</B> — it never removes or double-counts anything.</Tip>
           <H3>For Members</H3>
