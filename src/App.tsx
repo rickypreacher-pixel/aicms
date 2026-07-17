@@ -6948,9 +6948,15 @@ function Dashboard({members,visitors,attendance,giving,prayers,setView,canViewGi
     const now=Date.now(), wkMs=7*86400000, dayMs=86400000;
     const t=(s:string)=>new Date(s+"T00:00:00").getTime();
     const cm=careContacted||{};
+    // Care Pulse is a pastoral-outreach signal for ADULTS only — children (kids check-in) don't
+    // belong here. A member counts as a child if their known age is under 18, they carry a school
+    // grade, or their role is "Child" (same test used elsewhere for household kids).
+    const ageOf=(m:any)=>{ const a=calcAge(m.dob||m.birthday||""); if(a!=="") return a as number; const n=Number(m.age); return (m.age!==undefined&&m.age!==""&&!isNaN(n))?n:null; };
+    const isChild=(m:any)=>{ const a=ageOf(m); if(a!==null && (a as number)<18) return true; if(m.grade) return true; if(String(m.role||"").toLowerCase()==="child") return true; return false; };
     const out:any[]=[];
     (members||[]).forEach((m:any)=>{
       if(m.status!=="Active") return;
+      if(isChild(m)) return; // adults only
       const ct=cm[m.id];
       if(ct && (now-t(ct))<30*dayMs) return; // recently contacted → snoozed 30 days
       const cis=(checkIns||[]).filter((c:any)=>c.ptype==="member" && String(c.pid)===String(m.id) && c.date);
