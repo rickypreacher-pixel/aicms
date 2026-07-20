@@ -5631,10 +5631,12 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
                 <select value={assignUid} onChange={e=>setAssignUid(e.target.value)} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}>
                   <option value="">Select a user</option>
                   {activeUsers.filter(u=>{
-                    const r=roles.find((x:any)=>x.id===u.roleId);
-                    if(isTS) return r?.name==="Team Supervisor";
-                    if(isTL) return r?.name==="Team Leader";
-                    return r?.name==="Sponsor";
+                    // Match on EITHER the primary OR secondary role so combined/dual-role users
+                    // (e.g. Check-In + Sponsor) still appear in the right assignment list.
+                    const names=[u.roleId,u.secondaryRoleId].map((rid:any)=>roles.find((x:any)=>x.id===rid)?.name);
+                    if(isTS) return names.includes("Team Supervisor");
+                    if(isTL) return names.includes("Team Leader");
+                    return names.includes("Sponsor");
                   }).map(u=>{
                     const m = members.find(x=>x.id===u.memberId);
                     return m ? <option key={u.id} value={u.id}>{m.first} {m.last}</option> : null;
