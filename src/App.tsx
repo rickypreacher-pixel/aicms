@@ -6276,7 +6276,9 @@ function CalendarView({members,visitors,setVisitors,groups,recurring,setRecurrin
   const remAnn=(ai:number)=>setPlan({...plan,announcements:plan.announcements.filter((_:any,j:number)=>j!==ai)});
   const setAnn=(ai:number,val:string)=>setPlan({...plan,announcements:plan.announcements.map((a:any,j:number)=>j===ai?val:a)});
   const setSermon=(field:string,val:string)=>setPlan({...plan,[field]:val});
-  const nid=useRef(Math.max(899,...checkIns.map((c:any)=>+(c.id)||0))+1);
+  // Reduce (not Math.max(...spread)) — spreading a several-thousand-row check-in array as function
+  // args blows the JS argument-count limit and crashes; reduce is safe for any size.
+  const nid=useRef((Array.isArray(checkIns)?checkIns:[]).reduce((mx:number,c:any)=>Math.max(mx,+(c.id)||0),899)+1);
   // Globally-unique, monotonic id for check-ins / new visitors / meeting logs. A per-device counter
   // (nid) hands the SAME id to different people on two devices checking into the same event, so the
   // cloud merge collapses them and a member disappears. Date.now()*1000+random makes ids unique across
@@ -11371,7 +11373,7 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
     if(!editingId && !inBatch(form.date,currentBatchStart)){alert("New records must be inside the current open batch week.");return;}
     if(viewingClosedBatch && !canEditClosedBatch){alert("Closed batches are read-only for non-admin users.");return;}
     if(editingId) {
-      setGiving(giving.map(r=>r.id===editingId ? {...r,category:form.category,amount:+form.amount,method:form.method,notes:form.notes} : r));
+      setGiving(giving.map(r=>r.id===editingId ? {...r,date:form.date,category:form.category,amount:+form.amount,method:form.method,notes:form.notes} : r));
     } else {
       setGiving([{...form,amount:+form.amount,id:nid.current++},...giving]);
     }
@@ -11947,7 +11949,7 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
       </Modal>
       <Modal open={modal} onClose={()=>{setModal(false);setEditingId(null);setForm({date:td(),name:"",category:"Tithe",amount:"",method:"Cash",notes:""}); }} title={editingId?"Edit Giving Record":"Record Giving"}>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-          <Fld label="Date">{editingId ? <div style={{padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,background:BG,color:MU}}>{fd(form.date)}</div> : <Inp type="date" value={form.date} onChange={sf("date")}/>}</Fld>
+          <Fld label="Date"><Inp type="date" value={form.date} onChange={sf("date")}/>{editingId && <div style={{fontSize:10,color:MU,marginTop:3}}>Changing the date moves this gift into that week's batch.</div>}</Fld>
           <div style={{marginBottom:12}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
               <span style={{fontSize:12,color:MU}}>Category</span>
@@ -16549,6 +16551,9 @@ function ManualPage(){
           <P>Each weekly report automatically calculates the <B>Pastor's Draw</B> — the pastor's portion of combined tithes and Sunday Morning Offering. The draw percentage can be set globally in Giving settings (default 60%) and overridden per individual report using the dropdown on the report card.</P>
           <Ul><Li><B>0% — No Draw</B> — the pastor receives nothing from that week's tithes ($0.00). Useful for special services, missions weeks, or weeks where the pastor waives their draw.</Li><Li><B>10%–60%</B> — standard percentage options. The current global default is marked <B>(default)</B> in the dropdown.</Li></Ul>
           <Tip>When a per-report override is set, the report card shows an <B>overridden</B> badge in amber so it is easy to identify reports that differ from the global default.</Tip>
+          <H3>Editing a Gift — and Moving It to Another Week</H3>
+          <P>To correct a saved gift, click <B>Edit</B> on its row in the <B>Giving Records</B> table. You can change the amount, fund/category, payment method, notes — and the <B>date</B>. Changing the date automatically <B>rolls the gift into that week's batch</B>, so a gift entered under the wrong week can be moved to the correct one.</P>
+          <Note>Only staff who can edit a batch see the Edit option. If you move a gift into a week whose batch is already <B>closed</B>, that closed week's totals will change — double-check the date before saving.</Note>
           <H3>Deleting a Giving Record</H3>
           <Ol>
             <Li>Locate the record in the <B>Giving Records</B> table on the Giving tab</Li>
@@ -18193,14 +18198,17 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       // Event check-ins load from their dedicated table (authoritative), NOT the blob. One-time migrate
       // any check-in still only in the blob (older app version), never resurrecting a soft-deleted key.
       try {
-        // NOTE: intentionally a single (capped) load into the calendar state — loading the full several-
-        // thousand-row history into React state crashed the app on this church's data. Accurate per-member
-        // last-attendance for the Stopped-Attending trigger is computed separately from the DB (see below).
-        const { data: ciRows } = await supabase.from('event_checkins').select('*').eq('church_id',churchId).eq('deleted',false);
+        // Load the FULL check-in history (paginated) so the calendar/attendance are complete and
+        // DETERMINISTIC. The old capped `.select('*')` (no ORDER BY) returned an ARBITRARY 1,000 of
+        // the ~2,500 rows, so a different subset came back on each load — recently-entered check-ins
+        // (especially group meetings like Choir) appeared to "disappear later". The earlier crash
+        // blamed on row count was actually the Math.max(...spread) over the array (now fixed); the
+        // Stopped-Attending trigger already fetchAllRows()'s this whole table every session fine.
+        const ciRows = await fetchAllRows('event_checkins','*');
         if(ciRows){
           const tableCis = ciRows.map(rowToCheckIn);
           const tKeys = new Set(tableCis.map((c:any)=>String(c.iid)+"|"+String(c.pid)));
-          const { data: ciAll } = await supabase.from('event_checkins').select('iid,pid').eq('church_id',churchId);
+          const ciAll = await fetchAllRows('event_checkins','iid,pid',false);
           const allKeys = new Set((ciAll||[]).map((r:any)=>String(r.iid)+"|"+String(r.pid)));
           (Array.isArray(d.checkIns)?d.checkIns:[]).forEach((c:any)=>{
             if(c&&c.iid!=null&&c.pid!=null && !allKeys.has(String(c.iid)+"|"+String(c.pid))) upsertCiRow(c);
@@ -18575,8 +18583,12 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
         : (typeof lastSyncedBlob.current?.hospStartBalance==='number' ? lastSyncedBlob.current.hospStartBalance : hospStartBalance);
       const blob = {members,visitors,attendance,prayers,groups,grpMeetings,visitRecords,
         children,classrooms,equipment,workOrders,schedMaint,supplies,checkoutItems,checkouts,
-        emailLog,emailTemplates,emailConfig:safeEmailConfig,recurring,custom,checkIns,rollCalls,
-        teacherSchedule,kidsCheckIns,teacherFollowups,eventRsvps,announcements,roles,permissions,churchSettings,users:safeUsers,prospects,
+        emailLog,emailTemplates,emailConfig:safeEmailConfig,recurring,custom,rollCalls,
+        // checkIns + kidsCheckIns are NO LONGER written to the blob — they live in their dedicated
+        // tables (event_checkins / kids_checkins), loaded authoritatively on mount. With the full
+        // check-in history now loaded into state, dual-writing them ballooned the blob (~4.1MB) and
+        // caused intermittent save failures ("sync error"); dropping the duplicates fixes that.
+        teacherSchedule,teacherFollowups,eventRsvps,announcements,roles,permissions,churchSettings,users:safeUsers,prospects,
         followupDismissedChildIds,
         sickVisits,benevolence,hospitalityFund,hospStartBalance:_hospBal,cleaningSchedule,eventSchedule,adminNotesRead,careContacted,servicePlans,
         // Tell the DB no-shrink guard (trg_guard_no_shrink_kids) this client does a correct
@@ -18593,6 +18605,9 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
         const {data:remoteRow} = await supabase.from('church_data').select('data').eq('church_id',churchId).maybeSingle();
         if(remoteRow?.data){
           const merged = mergeChurchData(lastSyncedBlob.current||{}, blob, remoteRow.data);
+          // Blob no longer carries these (they're in dedicated tables); strip any copy the remote
+          // still has so the merged blob shrinks and never resurrects stale check-in duplicates.
+          delete (merged as any).checkIns; delete (merged as any).kidsCheckIns;
           const {error:mErr} = await supabase.from('church_data').upsert(
             {church_id:churchId,data:merged,updated_at:new Date().toISOString()},
             {onConflict:'church_id'}
@@ -18619,8 +18634,8 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     // entire database on every render — eliminates per-keystroke serialization lag.
   },[members,visitors,attendance,prayers,groups,grpMeetings,visitRecords,
     children,classrooms,equipment,workOrders,schedMaint,supplies,checkoutItems,checkouts,
-    emailLog,emailTemplates,emailConfig,recurring,custom,checkIns,rollCalls,
-    teacherSchedule,kidsCheckIns,teacherFollowups,eventRsvps,announcements,roles,permissions,churchSettings,users,prospects,
+    emailLog,emailTemplates,emailConfig,recurring,custom,rollCalls,
+    teacherSchedule,teacherFollowups,eventRsvps,announcements,roles,permissions,churchSettings,users,prospects,
     followupDismissedChildIds,
     sickVisits,benevolence,hospitalityFund,hospStartBalance,cleaningSchedule,eventSchedule,adminNotesRead,careContacted,servicePlans]);
 
