@@ -16339,7 +16339,7 @@ function ManualPage(){
           <H3>First-Time Setup</H3>
           <Ol><Li>After logging in for the first time, click <B>Settings</B> in the left sidebar</Li><Li>Under the <B>General</B> tab, fill in church name, pastor name, address, phone, email, and logo URL</Li><Li>Click <B>Save Settings</B></Li><Li>Your church name and logo will now appear throughout the entire application</Li></Ol>
           <H3>Navigating the App</H3>
-          <P>All major sections are listed in the <B>left sidebar</B>. Click any item to open that section instantly. On mobile devices, tap the <B>☰ menu button</B> in the top-left corner to open the sidebar. The active section is highlighted in white.</P>
+          <P>The <B>left sidebar</B> is organized into <B>category headings</B> (Core, Pastoral Care, Operations, Finances, Communication, Tools, etc.). Click a category and a small <B>box opens with the pages inside it</B> — click the page you want and the box closes and the page opens. This keeps the sidebar short and uncluttered. A red number on a category means one of its pages needs attention (e.g. pending approvals or follow-ups); open the category to see which. On mobile devices, tap the <B>☰ menu button</B> in the top-left corner to open the sidebar first.</P>
           <H3>Data Saving</H3>
           <P>ChurchOS saves data automatically — you do not need to press a global Save button. Data is stored in two places: your browser's local storage (instant, works offline) and Supabase cloud (synced when internet is available). The header shows <B>Saving…</B> and <B>Saved ✓</B> status indicators.</P>
           <H3>Multi-Device & Staff Access</H3>
@@ -18812,6 +18812,8 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       })();
   const navGroupStorageKey = LS(`nav_groups_${isMemberPortal ? `portal_${portalMember?.id || 'anon'}` : (currentUser ? `user_${currentUser.id}` : 'global')}`);
   const [openNavGroups,setOpenNavGroups] = useState<Record<string,boolean>>({});
+  // Sidebar is minimized to category headings; clicking one opens a floating box of its items.
+  const [navFlyout,setNavFlyout] = useState<any>(null);
   useEffect(()=>{
     const defaults = Object.fromEntries(NAV_GROUP_ORDER.map(g=>[g,true]));
     try{
@@ -18860,6 +18862,17 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   _last4kid.forEach((d:string)=>{_kidPresent[d]=new Set((kidsCheckIns||[]).filter((c:any)=>c.date===d).map((c:any)=>c.childId));});
   const absentChildren=(children||[]).filter((ch:any)=>ch.status==="Active"&&_kidEver.has(String(ch.id))&&_last4kid.length>0&&_last4kid.every((d:string)=>!_kidPresent[d]?.has(ch.id)));
   const outstandingVisits=(visitRecords||[]).filter((r:any)=>r.stage!=="Complete"&&r.stage!=="Converted"&&(visitors||[]).some((v:any)=>v.id===r.visitorId));
+  // Alert count for a nav item (0 = none). Summed onto its category heading so alerts aren't hidden
+  // when the sidebar is minimized, and shown again on the item inside the flyout box.
+  const navBadge=(id:string):number=>{
+    if(id==="people")return fu;
+    if(id==="access")return pending;
+    if(id==="visitation")return inVis;
+    if(id==="maintenance")return maintAlertCount;
+    if(id==="alerts")return absentMembers.length+lowGivers.length+absentChildren.length+outstandingVisits.length;
+    if(id==="adminnotes")return adminNotesUnread;
+    return 0;
+  };
   const LogoEl=()=>churchSettings.logoUrl
     ?<img src={churchSettings.logoUrl} style={{width:36,height:36,borderRadius:8,objectFit:"cover",flexShrink:0,border:"1px solid #ffffff33"}} alt="logo" onError={e=>e.target.style.display="none"}/>
     :<div style={{width:36,height:36,borderRadius:8,background:G,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:"#fff",flexShrink:0}}>{logoInitials}</div>;
@@ -18877,30 +18890,25 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       </div>
       <div style={{flex:1,padding:"10px 8px",overflowY:"auto"}}>
         {visibleByGroup.map(({group,items})=>{
-          const isOpen = openNavGroups[group] ?? true;
+          const groupActive = items.some((it:any)=>it.id===view);
+          const groupBadge = items.reduce((a:number,it:any)=>a+navBadge(it.id),0);
+          const isFlyoutOpen = navFlyout?.group===group;
           return (
-            <div key={`grp-${group}`}>
-              <button
-                onClick={()=>setOpenNavGroups((cur)=>({...cur,[group]:!(cur[group] ?? true)}))}
-                style={{display:"flex",alignItems:"center",gap:8,width:"100%",padding:"10px 8px 6px",background:"transparent",border:"none",cursor:"pointer",fontSize:10,color:"#7a9acc",textTransform:"uppercase",letterSpacing:0.7,fontWeight:600,textAlign:"left"}}
-              >
-                <span style={{fontSize:10,minWidth:10}}>{isOpen?"▾":"▸"}</span>
-                <span>{group}</span>
-              </button>
-              {isOpen && items.map((item:any)=>(
-                <button key={item.id} onClick={()=>{setView(item.id);setNavOpen(false);}} style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"11px 12px",borderRadius:8,border:"none",cursor:"pointer",marginBottom:2,background:view===item.id?"#ffffff18":"transparent",color:view===item.id?"#fff":"#7a9acc",fontWeight:view===item.id?500:400,fontSize:13,textAlign:"left"}}>
-                  <span style={{fontSize:13,minWidth:18}}>{item.icon}</span>
-                  {item.label}
-                  {item.id==="ai"&&<span style={{marginLeft:"auto",width:7,height:7,borderRadius:"50%",background:G,flexShrink:0}}></span>}
-                  {item.id==="people"&&fu>0&&<span style={{marginLeft:"auto",background:RE,color:"#fff",borderRadius:10,fontSize:10,fontWeight:600,padding:"1px 6px"}}>{fu}</span>}
-                  {item.id==="access"&&pending>0&&<span style={{marginLeft:"auto",background:AM,color:"#fff",borderRadius:10,fontSize:10,fontWeight:600,padding:"1px 6px"}}>{pending}</span>}
-                  {item.id==="visitation"&&inVis>0&&<span style={{marginLeft:"auto",background:PU,color:"#fff",borderRadius:10,fontSize:10,fontWeight:600,padding:"1px 6px"}}>{inVis}</span>}
-                  {item.id==="maintenance"&&maintAlertCount>0&&<span style={{marginLeft:"auto",background:RE,color:"#fff",borderRadius:10,fontSize:10,fontWeight:600,padding:"1px 6px"}}>{maintAlertCount}</span>}
-                  {item.id==="alerts"&&(absentMembers.length+lowGivers.length+absentChildren.length+outstandingVisits.length)>0&&<span style={{marginLeft:"auto",background:RE,color:"#fff",borderRadius:10,fontSize:10,fontWeight:600,padding:"1px 6px"}}>{absentMembers.length+lowGivers.length+absentChildren.length+outstandingVisits.length}</span>}
-                  {item.id==="adminnotes"&&adminNotesUnread>0&&<span style={{marginLeft:"auto",background:RE,color:"#fff",borderRadius:10,fontSize:10,fontWeight:600,padding:"1px 6px"}}>{adminNotesUnread}</span>}
-                </button>
-              ))}
-            </div>
+            <button
+              key={`grp-${group}`}
+              onClick={(e:any)=>{
+                const r=e.currentTarget.getBoundingClientRect();
+                const pos = isMobile
+                  ? { top: r.bottom+2, left: Math.max(8, Math.min(r.left, window.innerWidth-244)) }
+                  : { top: Math.max(8, Math.min(r.top, window.innerHeight-360)), left: r.right+6 };
+                setNavFlyout((cur:any)=> cur && cur.group===group ? null : {group, ...pos});
+              }}
+              style={{display:"flex",alignItems:"center",gap:8,width:"100%",padding:"12px 12px",borderRadius:8,marginBottom:3,background:groupActive?"#ffffff18":(isFlyoutOpen?"#ffffff10":"transparent"),border:"none",cursor:"pointer",fontSize:13,color:groupActive?"#fff":"#c3d3ea",fontWeight:groupActive?500:400,textAlign:"left"}}
+            >
+              <span style={{flex:1}}>{group}</span>
+              {groupBadge>0 && <span style={{background:RE,color:"#fff",borderRadius:10,fontSize:10,fontWeight:600,padding:"1px 6px"}}>{groupBadge}</span>}
+              <span style={{fontSize:12,color:"#7a9acc"}}>{isFlyoutOpen?"⌄":"›"}</span>
+            </button>
           );
         })}
       </div>
@@ -18926,6 +18934,29 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
         </div>
         <button onClick={onSignOut} style={{marginTop:8,width:"100%",padding:"5px 0",background:"transparent",border:"0.5px solid #ffffff22",borderRadius:6,color:"#7a9acc",fontSize:11,cursor:"pointer"}}>Sign Out</button>
       </div>
+      {navFlyout && (()=>{
+        const entry=visibleByGroup.find((e:any)=>e.group===navFlyout.group);
+        if(!entry) return null;
+        return (
+          <div style={{position:"fixed",inset:0,zIndex:300}}>
+            <div onClick={()=>setNavFlyout(null)} style={{position:"absolute",inset:0}}/>
+            <div style={{position:"absolute",top:navFlyout.top,left:navFlyout.left,minWidth:222,maxWidth:242,maxHeight:"72vh",overflowY:"auto",background:navBg,border:"1px solid #ffffff22",borderRadius:12,padding:6,boxShadow:"0 16px 40px rgba(0,0,0,0.5)"}}>
+              <div style={{fontSize:10,color:"#7a9acc",textTransform:"uppercase",letterSpacing:0.7,fontWeight:600,padding:"6px 10px 8px"}}>{entry.group}</div>
+              {entry.items.map((item:any)=>{
+                const b=navBadge(item.id);
+                return (
+                  <button key={item.id} onClick={()=>{setView(item.id);setNavFlyout(null);setNavOpen(false);}} style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"11px 12px",borderRadius:8,border:"none",cursor:"pointer",marginBottom:2,background:view===item.id?"#ffffff18":"transparent",color:view===item.id?"#fff":"#c3d3ea",fontWeight:view===item.id?500:400,fontSize:13,textAlign:"left"}}>
+                    <span style={{fontSize:13,minWidth:18}}>{item.icon}</span>
+                    <span style={{flex:1}}>{item.label}</span>
+                    {item.id==="ai"&&<span style={{width:7,height:7,borderRadius:"50%",background:G,flexShrink:0}}></span>}
+                    {b>0&&<span style={{background:item.id==="access"?AM:(item.id==="visitation"?PU:RE),color:"#fff",borderRadius:10,fontSize:10,fontWeight:600,padding:"1px 6px"}}>{b}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
     </>
   );
 
