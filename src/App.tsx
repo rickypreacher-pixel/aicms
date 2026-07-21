@@ -16717,6 +16717,8 @@ function ManualPage(){
           <Warn>Settings is restricted to the <B>Super Administrator</B> and the <B>Administrator</B> role only. All other staff roles do not see Settings in the sidebar and cannot open it.</Warn>
           <H3>Refresh All Devices (Super Admin)</H3>
           <P>At the top of Settings, the <B>Super Administrator</B> sees a <B>🔄 Refresh All Devices</B> button. Click it after an update to reload the app on <B>every signed-in device</B> — phones, tablets, and computers — to the latest version automatically, within about a minute. No one has to refresh manually. Avoid using it mid-service, since anyone typing something unsaved could lose it.</P>
+          <H3>Device Status</H3>
+          <P>Just below that, the <B>📶 Device Status</B> panel shows every device signed in right now, who's on it, and which app version it's running. A green <B>✅</B> means that device is on the latest version; a <B>⚠️</B> means it still needs to reload. Use it to confirm everyone picked up an update: after clicking Refresh All Devices, watch the ⚠️ devices flip to ✅ as they reload. A device that stays offline simply isn't open right now — it will be current the next time someone opens it.</P>
           <H3>General Tab — Church Information</H3>
           <Ul><Li><B>Church Name</B> — displayed in the sidebar header, printed output, and email signatures</Li><Li><B>Pastor Name</B> — shown in the sidebar footer</Li><Li><B>Address</B> — appears in the app header subtitle on every page</Li><Li><B>Phone / Email</B> — church contact info stored in the system for communications</Li><Li><B>Logo URL</B> — URL to your church logo image (use <B>/logo.png</B> if the logo file is placed in the app's public folder)</Li></Ul>
           <P>Click <B>Save Settings</B> after making any changes. Settings take effect immediately across the entire app.</P>
@@ -17695,6 +17697,27 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     setChurchSettings((cs:any)=>({...(cs||{}), forceReloadAt: nowIso, forceReloadBy: who }));
     alert("Refresh signal sent. All other signed-in devices will reload to the latest version within about a minute.");
   };
+  // ── Live "Device Status" (Supabase Realtime presence) ── every device announces {who, build, when}
+  // so a Super Admin can see in Settings which devices are online and what version they're on. When a
+  // device reloads (e.g. after Refresh All Devices) it rejoins with a fresh time + the new build.
+  const APP_BUILD = (typeof __APP_BUILD__!=='undefined' ? __APP_BUILD__ : 'dev');
+  const [deviceList,setDeviceList] = useState<any[]>([]);
+  useEffect(()=>{
+    if(!churchId) return;
+    let clientId=''; try{ clientId=localStorage.getItem('device_client_id')||''; if(!clientId){ clientId=Math.random().toString(36).slice(2)+Date.now().toString(36); localStorage.setItem('device_client_id',clientId); } }catch(e){ clientId='dev'+Math.floor(Math.random()*1e9); }
+    const label = (()=>{ try{ const cm=[...(members||[]),...(visitors||[])].find((m:any)=>String(m?.id)===String(currentUser?.memberId)); const nm=cm?((cm.first||'')+' '+(cm.last||'')).trim():''; if(nm) return nm; if(isMemberPortal&&portalMember) return ((portalMember.first||'')+' '+(portalMember.last||'')).trim(); return loggedInEmail || churchSettings?.pastorName || 'Device'; }catch(e){ return 'Device'; } })();
+    const role = isMemberPortal ? 'Member' : (isStaff ? 'Staff' : 'Super Admin');
+    const ch = supabase.channel('devpresence:'+churchId, {config:{presence:{key:clientId}}});
+    ch.on('presence',{event:'sync'},()=>{
+      try{ const st:any=ch.presenceState(); const rows:any[]=[];
+        Object.keys(st).forEach(k=>{ const metas=st[k]; const m=(metas&&metas[metas.length-1])||{}; rows.push({clientId:k,label:m.label,build:m.build,at:m.at,role:m.role}); });
+        rows.sort((a,b)=>String(a.label||'').localeCompare(String(b.label||'')));
+        setDeviceList(rows);
+      }catch(e){}
+    });
+    ch.subscribe(async (status:any)=>{ if(status==='SUBSCRIBED'){ try{ await ch.track({label,build:APP_BUILD,at:new Date().toISOString(),role}); }catch(e){} } });
+    return ()=>{ try{ supabase.removeChannel(ch); }catch(e){} };
+  },[churchId]);
   const [showSetup,setShowSetup] = useState(false);
   const [view,setView] = useState("dashboard");
   // Staff Chat sidebar badge: count chat messages (not mine) that arrive while you're elsewhere.
@@ -19159,6 +19182,29 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
                 {churchSettings?.forceReloadAt && <div style={{fontSize:11,color:MU,marginTop:6}}>Last refresh sent by <strong style={{color:TX}}>{churchSettings.forceReloadBy||"Super Admin"}</strong> · {(()=>{try{return new Date(churchSettings.forceReloadAt).toLocaleString();}catch(e){return String(churchSettings.forceReloadAt);}})()}</div>}
               </div>
               <button onClick={refreshAllDevices} style={{background:N,color:"#fff",border:"none",borderRadius:8,padding:"9px 16px",fontSize:13,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap" as any,flexShrink:0}}>Refresh All Devices</button>
+            </div>
+          )}
+          {!isMemberPortal && view==="settings" && isAdminUser && (
+            <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:"14px 16px",marginBottom:16}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:6}}>
+                <div style={{fontSize:14,fontWeight:600,color:N}}>📶 Device Status</div>
+                <div style={{fontSize:11,color:MU}}>{deviceList.length} online · {deviceList.filter((d:any)=>d.build===APP_BUILD).length} on latest</div>
+              </div>
+              <div style={{fontSize:12,color:MU,marginBottom:10,lineHeight:1.6}}>Devices signed in right now. <span>✅</span> means that device is on the latest version; <span>⚠️</span> means it still needs to reload — send a refresh, or ask them to reopen the app. Your current version: <strong style={{color:TX}}>v{APP_BUILD}</strong>.</div>
+              {deviceList.length===0
+                ? <div style={{fontSize:12,color:MU,fontStyle:"italic" as any}}>No devices detected yet…</div>
+                : <div style={{display:"flex",flexDirection:"column",gap:6,maxHeight:300,overflowY:"auto"}}>
+                    {deviceList.map((d:any)=>{ const up=d.build===APP_BUILD; return (
+                      <div key={d.clientId} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",background:BG,borderRadius:8,border:"0.5px solid "+BR}}>
+                        <span style={{fontSize:15}}>{up?"✅":"⚠️"}</span>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:13,fontWeight:500,color:TX,whiteSpace:"nowrap" as any,overflow:"hidden",textOverflow:"ellipsis"}}>{d.label||"Device"} <span style={{fontSize:10,color:MU,fontWeight:400}}>· {d.role||""}</span></div>
+                          <div style={{fontSize:10,color:up?GR:AM}}>{up?"Latest version":"Old version — needs reload"} · v{d.build||"?"}</div>
+                        </div>
+                        <div style={{fontSize:10,color:MU,whiteSpace:"nowrap" as any}}>{(()=>{try{return new Date(d.at).toLocaleTimeString([], {hour:"numeric",minute:"2-digit"});}catch(e){return "";}})()}</div>
+                      </div>
+                    );})}
+                  </div>}
             </div>
           )}
           {!isMemberPortal && view==="settings" && isAdminUser && <ChurchSettingsPage cs={churchSettings} setCs={setChurchSettings} churchId={churchId} members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} prayers={prayers} groups={groups} grpMeetings={grpMeetings} visitRecords={visitRecords} checkIns={checkIns} kidsCheckIns={kidsCheckIns} children={children} pledgeDrives={pledgeDrives} pledges={pledges} weeklyReports={weeklyReports} equipment={equipment} workOrders={workOrders} schedMaint={schedMaint}
