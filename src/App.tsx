@@ -2504,6 +2504,12 @@ const SEED_PERMS={
   role_nursery: makeEmptyPerms(),
 };
 
+// The built-in role_pastor was renamed "Pastor" → "Assistant Pastor". Stale localStorage/blob copies
+// on not-yet-refreshed devices still say "Pastor" and clobber the rename back through the sync merge
+// (the seed-merge only ADDS missing roles, it never updates a renamed role's name). Enforce the current
+// name on every init/load so it converges and stays renamed; the timestamp makes the merge favor it.
+const fixPastorRoleName = (rs:any) => Array.isArray(rs) ? rs.map((r:any)=> (r && r.id==='role_pastor' && r.name==='Pastor') ? {...r, name:'Assistant Pastor', updatedAt:new Date().toISOString()} : r) : rs;
+
 // Toggle Switch
 function Toggle({on,onChange,size="md",color=GR,disabled=false}){
   const w = size==="sm"?32:40;
@@ -2561,8 +2567,8 @@ function UsersTab({members,users,setUsers,roles,permissions,currentUser,churchId
   const save = () => {
     if(!form.memberId||!form.roleId){alert("Member and role are required.");return;}
     if(form.secondaryRoleId && form.secondaryRoleId===form.roleId){alert("Primary and secondary roles must be different.");return;}
-    if(editU) setUsers(us=>us.map(u=>u.id===editU.id?{...u,...form,memberId:+form.memberId,secondaryRoleId:form.secondaryRoleId||null}:u));
-    else setUsers(us=>[...us,{...form,memberId:+form.memberId,secondaryRoleId:form.secondaryRoleId||null,id:nid.current++,overrides:{}}]);
+    if(editU) setUsers(us=>us.map(u=>u.id===editU.id?{...u,...form,memberId:+form.memberId,secondaryRoleId:form.secondaryRoleId||null,updatedAt:new Date().toISOString()}:u));
+    else setUsers(us=>[...us,{...form,memberId:+form.memberId,secondaryRoleId:form.secondaryRoleId||null,id:nid.current++,overrides:{},updatedAt:new Date().toISOString()}]);
     setModal(false);
   };
   const doAction = (id,action) => {
@@ -2582,7 +2588,7 @@ function UsersTab({members,users,setUsers,roles,permissions,currentUser,churchId
       danger: action==="remove"||action==="suspend",
       onConfirm: () => {
         if(action==="remove") setUsers(us=>us.filter(x=>x.id!==id));
-        else setUsers(us=>us.map(x=>x.id===id?{...x,status:a.status}:x));
+        else setUsers(us=>us.map(x=>x.id===id?{...x,status:a.status,updatedAt:new Date().toISOString()}:x));
         setConfirmModal(null);
         if(detailU?.id===id && action==="remove") setDetailU(null);
       }
@@ -2997,7 +3003,7 @@ function RolesTab({roles,setRoles,permissions,setPermissions,users,currentUser})
   const openEdit = r => { if(!isAdmin){alert("Admin required.");return;} setEditR(r); setForm({name:r.name,description:r.description,color:r.color}); setModal(true); };
   const save = () => {
     if(!form.name.trim()){alert("Role name required.");return;}
-    if(editR) setRoles(rs=>rs.map(r=>r.id===editR.id?{...r,...form}:r));
+    if(editR) setRoles(rs=>rs.map(r=>r.id===editR.id?{...r,...form,updatedAt:new Date().toISOString()}:r));
     else { const id=genRoleId(); setRoles(rs=>[...rs,{...form,id,isSystem:false}]); setPermissions(p=>({...p,[id]:makeEmptyPerms()})); }
     setModal(false);
   };
@@ -17712,7 +17718,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     // Merge any new SEED_ROLES not already in saved list
     const savedIds = new Set(saved.map((r:any)=>r.id));
     const newOnes = SEED_ROLES.filter(r=>!savedIds.has(r.id));
-    return [...saved, ...newOnes];
+    return fixPastorRoleName([...saved, ...newOnes]);
   });
   const [permissions,setPermissions] = useState(()=>{
     const saved = lsGet('permissions');
@@ -18304,9 +18310,25 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
         [...curArr, ...d.announcements].forEach((r:any)=>{ const k=String(r?.id); const ex=byId.get(k); if(!ex||tsOf(r)>=tsOf(ex)) byId.set(k,r); });
         return Array.from(byId.values());
       });
-      if(Array.isArray(d.roles)&&d.roles.length) setRoles(d.roles);
+      if(Array.isArray(d.roles)&&d.roles.length) setRoles(fixPastorRoleName(d.roles));
       if(d.permissions&&Object.keys(d.permissions).length) setPermissions(d.permissions);
-      if(Array.isArray(d.users)&&d.users.length) setUsers(d.users);
+      if(Array.isArray(d.users)&&d.users.length) setUsers((cur:any)=>{
+        // MERGE (don't blind-replace): keep whichever copy of a user was edited most recently by
+        // updatedAt, so a role/status change made here isn't reverted by the 60s sync poll landing
+        // in the few seconds before it saves. Start from cloud (so removals + other-device edits
+        // propagate); keep a local copy only if it's newer, or a brand-new account not yet in cloud.
+        const curArr=Array.isArray(cur)?cur:[];
+        const ts=(u:any)=>new Date(u?.updatedAt||0).getTime()||0;
+        const byId=new Map<string,any>();
+        (d.users as any[]).forEach((u:any)=>byId.set(String(u.id),u));
+        const recentMs=Date.now()-3*60*1000;
+        curArr.forEach((lu:any)=>{
+          const cu=byId.get(String(lu.id));
+          if(!cu){ if(ts(lu)>recentMs) byId.set(String(lu.id),lu); }
+          else if(ts(lu)>ts(cu)) byId.set(String(lu.id),lu);
+        });
+        return Array.from(byId.values());
+      });
       if(Array.isArray(d.prospects)) setProspects(d.prospects); // trust empty array — removal on another device must propagate
       if(Array.isArray(d.sickVisits)) setSickVisits(d.sickVisits);
       if(Array.isArray(d.benevolence)) setBenevolence(d.benevolence);
