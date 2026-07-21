@@ -4866,8 +4866,10 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
   };
   const activeUsers = users.filter(u=>u.status==="Active"&&!u.superAdmin);
 
-  // Role-based visibility: Super Admin and Administrator see all visits; others only see visits assigned to them
-  const isAdmin = currentUser?.superAdmin || !!(currentUser?.roleId && roles?.find((r:any)=>r.id===currentUser.roleId)?.name==="Administrator");
+  // Role-based visibility: Super Admin, Administrator, and Pastor see ALL visits (checks BOTH the
+  // primary and secondary role); everyone else only sees visits assigned to them.
+  const _visFullNames = [currentUser?.roleId, currentUser?.secondaryRoleId].map((rid:any)=>roles?.find((r:any)=>r.id===rid)?.name);
+  const isAdmin = !!currentUser?.superAdmin || _visFullNames.includes("Administrator") || _visFullNames.includes("Pastor");
   // Converted-to-member people are no longer in visitation — exclude their records from EVERY view
   // (tracker, reports, pipeline, ongoing all derive from visibleRecords / getRec).
   const visibleRecords = (isAdmin ? visitRecords : visitRecords.filter((r:any) => r.teamSupervisorUserId===currentUser?.id || r.teamLeaderUserId===currentUser?.id || r.sponsorUserId===currentUser?.id)).filter((r:any)=>r.stage!=="Converted");
@@ -14284,7 +14286,9 @@ function TeacherFollowPipeline({children,kidsCheckIns,rollCalls,users,members,cu
 
   const roleName = safeRoles.find((r:any)=>r.id===currentUser?.roleId)?.name || "";
   const roleNameLc = String(roleName||"").toLowerCase();
-  const isAdmin = !!currentUser?.superAdmin || roleNameLc==="administrator" || roleNameLc==="admin" || roleNameLc.includes("admin");
+  // Super Admin, any admin role, and Pastor see the FULL pipeline — checks BOTH primary + secondary role.
+  const _eduFullNamesLc = [currentUser?.roleId, currentUser?.secondaryRoleId].map((rid:any)=>String(safeRoles.find((r:any)=>r.id===rid)?.name||"").toLowerCase());
+  const isAdmin = !!currentUser?.superAdmin || _eduFullNamesLc.some((n:string)=>n==="administrator"||n==="admin"||n.includes("admin")||n==="pastor");
   const isStaff = ["Staff","Office","Team Supervisor","Team Leader"].includes(roleName);
   const canAssign = isAdmin || isStaff;
   // Only Admins / Super-Admins see the FULL pipeline. Everyone else (staff + teachers) sees
@@ -16540,7 +16544,7 @@ function ManualPage(){
 
         <Sec><H id="s10">10. Giving & Pledges</H>
           <P>The <B>Giving</B> section records all financial contributions, manages pledge drives, and stores weekly financial reports.</P>
-          <Note>Access to the Giving section is restricted to staff with the <B>Administrator</B>, <B>Office</B>, or <B>Pastor</B> role. Staff with other roles (Staff, Volunteer, Check-In, etc.) will not see Giving in the sidebar or on the Dashboard. Contact your Super Administrator to update a role's permissions if access is needed.</Note>
+          <Note>Access to the Giving section is restricted to staff with the <B>Administrator</B> or <B>Office</B> role. The <B>Pastor</B> role does <B>not</B> see Giving &amp; Finances (nor Counseling Log or Hospitality Fund). Staff with other roles (Staff, Volunteer, Check-In, etc.) will not see Giving in the sidebar or on the Dashboard. Contact your Super Administrator to update a role's permissions if access is needed.</Note>
           <H3>Recording a Donation</H3>
           <Ol><Li>Go to <B>Giving</B> in the sidebar and click <B>+ Record Gift</B></Li><Li>Select the donor (member or visitor), or enter a name manually for anonymous gifts</Li><Li>Enter the amount, date, fund (Tithe, Missions, Building, General, etc.), and payment method (Cash, Check, Card, Online)</Li><Li>Click <B>Save</B></Li></Ol>
           <H3>Managing Pledge Drives</H3>
@@ -16626,7 +16630,7 @@ function ManualPage(){
           <Tip>To see what a staff member can access, open their role in the <B>Roles</B> tab and review the enabled permissions. Adjust as needed — changes take effect on their next sign-in.</Tip>
           <H3>Built-In Roles</H3>
           <Ul><Li><B>Super Admin</B> — full unrestricted access including user management</Li><Li><B>Administrator</B> — full access to all features including Giving; excludes Access Control user management</Li><Li><B>Office</B> — full access to all features including Giving</Li><Li><B>Pastor</B> — directory, giving, prayer, visitation, email, AI</Li><Li><B>Staff</B> — directory, attendance, events, groups</Li><Li><B>Volunteer</B> — directory view and event calendar only</Li><Li><B>Check-In</B> — Education check-in portal only</Li><Li><B>Finance</B> — giving records and reports only</Li></Ul>
-          <Note>Access to the <B>Giving</B> section is limited to the <B>Administrator</B>, <B>Office</B>, and <B>Pastor</B> roles. All other roles cannot see Giving in the sidebar or on the Dashboard.</Note>
+          <Note>Access to the <B>Giving</B> section is limited to the <B>Administrator</B> and <B>Office</B> roles. The <B>Pastor</B> role is excluded from Giving &amp; Finances, Counseling Log, and Hospitality Fund — but it <B>does</B> get full visibility of every Visitation and Education follow-up pipeline (like an Administrator). All other roles cannot see Giving in the sidebar or on the Dashboard.</Note>
           <H3>Module-Level Permissions (Create / View / Edit / Delete)</H3>
           <P>Inside each role, permissions are set per module with four granular actions: <B>Create</B>, <B>View</B>, <B>Edit</B>, and <B>Delete</B>. Two modules use a single <B>Create</B> action only:</P>
           <Ul><Li><B>Add Person</B> — controls whether the staff member can add new members via the Add Person page. Restricted staff without this permission will not see the Add Person button.</Li><Li><B>Add Visitor</B> — controls whether the staff member can add new visitors via the Add Person page. Restricted staff without this permission will not see the Add Visitor button in the Visitation pipeline.</Li></Ul>
@@ -17725,9 +17729,9 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   const currentUser = isStaff
     ? (users.find(u => u.email && u.email.toLowerCase() === (loggedInEmail||'').toLowerCase() && u.status === 'Active') || null)
     : (users.find(u=>u.superAdmin) || users[0]);
-  // Giving visibility: only Administrator, Office, or Pastor roles can see giving.
+  // Giving visibility: only Administrator or Office roles can see giving (Pastor role is excluded).
   // Check by matching the logged-in email against Access Control user records.
-  const GIVING_ROLES = ['Administrator', 'Office', 'Pastor'];
+  const GIVING_ROLES = ['Administrator', 'Office']; // Pastor role intentionally EXCLUDED from Giving & Finances
   const _staffRecord = loggedInEmail
     ? users.find((u:any) => !u.superAdmin && u.email && u.email.toLowerCase() === (loggedInEmail||'').toLowerCase())
     : null;
@@ -17737,7 +17741,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       ? GIVING_ROLES.includes((roles.find((r:any) => r.id === _staffRecord.roleId)||{}).name||'')
       : false; // staff login but no linked record — deny by default
   // Counseling logs — owner + Pastor/Administrator only (church_counseling table, tightest).
-  const COUNSELING_ROLES = ['Pastor','Administrator'];
+  const COUNSELING_ROLES = ['Administrator']; // Pastor role intentionally EXCLUDED from Counseling Log
   const canAccessCounseling = !isStaff
     ? true
     : _staffRecord
@@ -18772,7 +18776,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     hospitalvisits:["Administrator","Pastor","Staff","Team Supervisor","Team Leader","Sponsor","Hospital & Visits"],
     benevolencefund:["Administrator","Pastor","Staff","Team Supervisor","Benevolence Fund"],
     counselinglog:["Administrator","Pastor","Counseling Log"],
-    hospitalityfund:["Administrator","Pastor","Staff","Team Leader","Hospitality Fund"],
+    hospitalityfund:["Administrator","Staff","Team Leader","Hospitality Fund"], // Pastor role intentionally EXCLUDED
   };
   // For staff, hide nav items they don't have "view" permission for
   // Additionally, restricted staff (non-Admin/non-SuperAdmin) always have maintenance/ai/email/sms hidden
@@ -18802,6 +18806,10 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
             currentUser?.roleId ? (roles.find((r:any)=>r.id===currentUser.roleId)?.name || "") : "",
             currentUser?.secondaryRoleId ? (roles.find((r:any)=>r.id===currentUser.secondaryRoleId)?.name || "") : "",
           ].filter(Boolean);
+          // Pastor role is explicitly barred from Hospitality Fund — the role ships with full default
+          // permissions, so a role-list/permission gate alone wouldn't stop it. (Giving/Finances/
+          // Counseling are already hard-gated above via canViewGiving/canAccessCounseling.)
+          if(item.id === 'hospitalityfund' && roleNames.includes("Pastor") && !currentUser?.superAdmin && !roleNames.includes("Administrator")) return false;
           const allowedByPastoralRole = (PASTORAL_CARE_SIDEBAR_ROLE_ACCESS[item.id] || []).some((name) => roleNames.includes(name));
           if(!mod) return true;
           const action = item.id === 'addperson' ? 'create' : 'view';
