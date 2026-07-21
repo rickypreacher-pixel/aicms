@@ -17962,7 +17962,11 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   // check-ins the way whole-blob last-write-wins did (the recurring 43<->0 flapping). See kids_checkins table.
   const kidsRef = useRef(kidsCheckIns);
   useEffect(()=>{ kidsRef.current = kidsCheckIns; },[kidsCheckIns]);
-  const rowToKid = (r:any)=>({ id:r.id, childId:r.child_id, classroomId:(r.classroom_id!=null?r.classroom_id:null), date:r.date, time:r.checkin_time||"", code:r.code||"", checkedOut:!!r.checked_out });
+  // classroom_id is stored as TEXT in the table; classroom .id values are NUMBERS. Coerce a numeric
+  // string back to a number so `checkIn.classroomId === classroom.id` matches again — otherwise the
+  // Ed Reports monthly competition (returning-children %/kid counts) and Sunday-snapshot per-classroom
+  // counts silently read 0 after the kids-table migration.
+  const rowToKid = (r:any)=>({ id:r.id, childId:r.child_id, classroomId:(r.classroom_id!=null&&r.classroom_id!==""?(isNaN(Number(r.classroom_id))?r.classroom_id:Number(r.classroom_id)):null), date:r.date, time:r.checkin_time||"", code:r.code||"", checkedOut:!!r.checked_out });
   const kidRowFor = (c:any)=>({ church_id:churchId, child_id:String(c.childId), date:String(c.date), classroom_id:(c.classroomId!=null?String(c.classroomId):null), checkin_time:c.time||null, code:c.code||null, checked_out:!!c.checkedOut, deleted:false, updated_at:new Date().toISOString() });
   const upsertKidRow = (c:any)=>{ if(!churchId||c?.childId==null||c?.date==null) return; supabase.from('kids_checkins').upsert(kidRowFor(c),{onConflict:'church_id,child_id,date'}).then(()=>{},()=>{}); };
   const softDeleteKidRow = (c:any)=>{ if(!churchId||c?.childId==null||c?.date==null) return; supabase.from('kids_checkins').update({deleted:true,updated_at:new Date().toISOString()}).eq('church_id',churchId).eq('child_id',String(c.childId)).eq('date',String(c.date)).then(()=>{},()=>{}); };
