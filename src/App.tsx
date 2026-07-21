@@ -16715,6 +16715,8 @@ function ManualPage(){
         <Sec><H id="s16">19. Settings</H>
           <P>The <B>Settings</B> section controls church-wide configuration, the church profile, and advanced data management tools.</P>
           <Warn>Settings is restricted to the <B>Super Administrator</B> and the <B>Administrator</B> role only. All other staff roles do not see Settings in the sidebar and cannot open it.</Warn>
+          <H3>Refresh All Devices (Super Admin)</H3>
+          <P>At the top of Settings, the <B>Super Administrator</B> sees a <B>🔄 Refresh All Devices</B> button. Click it after an update to reload the app on <B>every signed-in device</B> — phones, tablets, and computers — to the latest version automatically, within about a minute. No one has to refresh manually. Avoid using it mid-service, since anyone typing something unsaved could lose it.</P>
           <H3>General Tab — Church Information</H3>
           <Ul><Li><B>Church Name</B> — displayed in the sidebar header, printed output, and email signatures</Li><Li><B>Pastor Name</B> — shown in the sidebar footer</Li><Li><B>Address</B> — appears in the app header subtitle on every page</Li><Li><B>Phone / Email</B> — church contact info stored in the system for communications</Li><Li><B>Logo URL</B> — URL to your church logo image (use <B>/logo.png</B> if the logo file is placed in the app's public folder)</Li></Ul>
           <P>Click <B>Save Settings</B> after making any changes. Settings take effect immediately across the entire app.</P>
@@ -17674,6 +17676,24 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   },[]);
   useEffect(()=>{try{localStorage.setItem('ntcc_theme',theme);}catch{}},[theme]);
   const [churchSettings,setChurchSettings] = useState(_I.churchSettings || DEFAULT_CS);
+  // ── "Refresh All Devices" (Super Admin) ──────────────────────────────────────────────────────────
+  // A Super Admin can reload every signed-in device to the latest build+data without anyone doing it
+  // manually. The signal is a timestamp stored in churchSettings.forceReloadAt (syncs to all devices
+  // via the 60s cloud poll). When a device sees a signal NEWER than the moment its own tab loaded, it
+  // reloads once. After reloading, the new session start is later than the signal, so it never loops;
+  // a device coming online later just loads fresh (already the new build) and won't reload again.
+  const appStart = useRef(Date.now());
+  useEffect(()=>{
+    const ts = churchSettings?.forceReloadAt ? new Date(churchSettings.forceReloadAt).getTime() : 0;
+    if(ts && ts > appStart.current){ try{ window.location.reload(); }catch(e){} }
+  },[churchSettings?.forceReloadAt]);
+  const refreshAllDevices = ()=>{
+    if(!confirm("Reload the app on ALL signed-in devices now?\n\nEvery phone, tablet, and computer will refresh to the latest version within about a minute — no one has to do it themselves. Anyone typing something unsaved could lose it, so avoid doing this mid-service.")) return;
+    const nowIso = new Date().toISOString();
+    appStart.current = new Date(nowIso).getTime(); // don't reload THIS device (the one sending the signal)
+    setChurchSettings((cs:any)=>({...(cs||{}), forceReloadAt: nowIso}));
+    alert("Refresh signal sent. All other signed-in devices will reload to the latest version within about a minute.");
+  };
   const [showSetup,setShowSetup] = useState(false);
   const [view,setView] = useState("dashboard");
   // Staff Chat sidebar badge: count chat messages (not mine) that arrive while you're elsewhere.
@@ -19130,6 +19150,15 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
         <div style={{flex:1,padding:isMobile?12:24,overflow:"auto"}}>
           {!isStaff && showSetup && <SetupModal onSave={s=>{setChurchSettings(s);setShowSetup(false);}} initialName={churchName||''} initialPastorName={(adminFirst||adminLast)?`Pastor ${[adminFirst,adminLast].filter(Boolean).join(' ')}`:''}/>}
           {!isMemberPortal && view==="settings" && !isAdminUser && <div style={{maxWidth:520,margin:"40px auto",background:W,border:"0.5px solid "+BR,borderRadius:12,padding:"28px 24px",textAlign:"center" as any}}><div style={{fontSize:36,marginBottom:10}}>🔒</div><div style={{fontSize:16,fontWeight:600,color:N,marginBottom:6}}>Settings is restricted</div><div style={{fontSize:13,color:MU,lineHeight:1.7}}>Only the <strong>Super Administrator</strong> and <strong>Administrator</strong> role can open Settings. Contact your administrator if you need a change made here.</div></div>}
+          {!isMemberPortal && view==="settings" && isAdminUser && (!isStaff || currentUser?.superAdmin) && (
+            <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:"14px 16px",marginBottom:16,display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap" as any}}>
+              <div style={{minWidth:0}}>
+                <div style={{fontSize:14,fontWeight:600,color:N}}>🔄 Refresh All Devices</div>
+                <div style={{fontSize:12,color:MU,marginTop:2,maxWidth:560,lineHeight:1.6}}>Reload the app on every signed-in phone, tablet, and computer to the latest version — no one has to do it manually. Devices refresh within about a minute. Use this after an update so nobody is left on an old version.</div>
+              </div>
+              <button onClick={refreshAllDevices} style={{background:N,color:"#fff",border:"none",borderRadius:8,padding:"9px 16px",fontSize:13,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap" as any,flexShrink:0}}>Refresh All Devices</button>
+            </div>
+          )}
           {!isMemberPortal && view==="settings" && isAdminUser && <ChurchSettingsPage cs={churchSettings} setCs={setChurchSettings} churchId={churchId} members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} prayers={prayers} groups={groups} grpMeetings={grpMeetings} visitRecords={visitRecords} checkIns={checkIns} kidsCheckIns={kidsCheckIns} children={children} pledgeDrives={pledgeDrives} pledges={pledges} weeklyReports={weeklyReports} equipment={equipment} workOrders={workOrders} schedMaint={schedMaint}
             backupData={{members,visitors,attendance,giving,expenses,budgets,openingBalances,prayers,groups,grpMeetings,visitRecords,sickVisits,checkIns,kidsCheckIns,teacherFollowups,followupDismissedChildIds,eventRsvps,eventSchedule,servicePlans,cleaningSchedule,announcements,children,classrooms,prospects,pledgeDrives,pledges,weeklyReports,equipment,workOrders,schedMaint,supplies,checkoutItems,checkouts,users:(users||[]).map((u:any)=>{const{password,pin,...r}=u||{};return r;}),roles,permissions,portalMembers,recurring,custom,emailLog,emailTemplates,emailConfig:(()=>{const{apiKey,...r}=(emailConfig||{});return r;})(),smsLog,smsTemplates,smsConfig,incidents,rollCalls,progressNotes,teacherSchedule,churchSettings,benevolence,hospitalityFund,hospStartBalance,counselingLogs,careContacted,adminNotesRead}}
             onRestore={(d:any,mode:string)=>{
