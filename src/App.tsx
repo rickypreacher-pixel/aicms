@@ -17690,8 +17690,9 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   const refreshAllDevices = ()=>{
     if(!confirm("Reload the app on ALL signed-in devices now?\n\nEvery phone, tablet, and computer will refresh to the latest version within about a minute — no one has to do it themselves. Anyone typing something unsaved could lose it, so avoid doing this mid-service.")) return;
     const nowIso = new Date().toISOString();
+    const who = (()=>{ const cm=[...members,...(visitors||[])].find((m:any)=>String(m?.id)===String(currentUser?.memberId)); const nm=cm?((cm.first||'')+' '+(cm.last||'')).trim():''; return nm || churchSettings?.pastorName || loggedInEmail || 'Super Admin'; })();
     appStart.current = new Date(nowIso).getTime(); // don't reload THIS device (the one sending the signal)
-    setChurchSettings((cs:any)=>({...(cs||{}), forceReloadAt: nowIso}));
+    setChurchSettings((cs:any)=>({...(cs||{}), forceReloadAt: nowIso, forceReloadBy: who }));
     alert("Refresh signal sent. All other signed-in devices will reload to the latest version within about a minute.");
   };
   const [showSetup,setShowSetup] = useState(false);
@@ -19155,6 +19156,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
               <div style={{minWidth:0}}>
                 <div style={{fontSize:14,fontWeight:600,color:N}}>🔄 Refresh All Devices</div>
                 <div style={{fontSize:12,color:MU,marginTop:2,maxWidth:560,lineHeight:1.6}}>Reload the app on every signed-in phone, tablet, and computer to the latest version — no one has to do it manually. Devices refresh within about a minute. Use this after an update so nobody is left on an old version.</div>
+                {churchSettings?.forceReloadAt && <div style={{fontSize:11,color:MU,marginTop:6}}>Last refresh sent by <strong style={{color:TX}}>{churchSettings.forceReloadBy||"Super Admin"}</strong> · {(()=>{try{return new Date(churchSettings.forceReloadAt).toLocaleString();}catch(e){return String(churchSettings.forceReloadAt);}})()}</div>}
               </div>
               <button onClick={refreshAllDevices} style={{background:N,color:"#fff",border:"none",borderRadius:8,padding:"9px 16px",fontSize:13,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap" as any,flexShrink:0}}>Refresh All Devices</button>
             </div>
