@@ -6964,7 +6964,7 @@ function Dashboard({members,visitors,attendance,giving,prayers,setView,canViewGi
   };
 
   const pc = (p:string) => p==="high"?RE:p==="medium"?AM:GR;
-  const qnav=[['Directory','people'],['Visitation','visitation'],['Attendance','attendance'],['Prayer Wall','prayer'],['Access Control','access'],['AI Assistant','ai'],['Settings','settings']];
+  const qnav=[['Directory','people'],['Visitation','visitation'],['Attendance','attendance'],['Prayer Wall','prayer'],['Access Control','access'],['AI Assistant','ai'],...(isAdmin?[['Settings','settings']]:[])];
   if(canViewGiving) qnav.splice(3,0,['Giving','giving']);
 
   // --- Care Pulse: active members whose check-in attendance has dropped off ---
@@ -16714,6 +16714,7 @@ function ManualPage(){
 
         <Sec><H id="s16">19. Settings</H>
           <P>The <B>Settings</B> section controls church-wide configuration, the church profile, and advanced data management tools.</P>
+          <Warn>Settings is restricted to the <B>Super Administrator</B> and the <B>Administrator</B> role only. All other staff roles do not see Settings in the sidebar and cannot open it.</Warn>
           <H3>General Tab — Church Information</H3>
           <Ul><Li><B>Church Name</B> — displayed in the sidebar header, printed output, and email signatures</Li><Li><B>Pastor Name</B> — shown in the sidebar footer</Li><Li><B>Address</B> — appears in the app header subtitle on every page</Li><Li><B>Phone / Email</B> — church contact info stored in the system for communications</Li><Li><B>Logo URL</B> — URL to your church logo image (use <B>/logo.png</B> if the logo file is placed in the app's public folder)</Li></Ul>
           <P>Click <B>Save Settings</B> after making any changes. Settings take effect immediately across the entire app.</P>
@@ -18840,6 +18841,9 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           if(item.id === 'giving' && !canViewGiving) return false;
           if(item.id === 'finances' && !canViewGiving) return false;
           if(item.id === 'counselinglog' && !canAccessCounseling) return false;
+          // Settings is restricted to Super Admin + Administrator only (this filter runs for
+          // non-super-admin staff, so gate on the Administrator role here).
+          if(item.id === 'settings' && !isAdminUser) return false;
           const mod = NAV_MOD_MAP[item.id];
           const roleNames = [
             currentUser?.roleId ? (roles.find((r:any)=>r.id===currentUser.roleId)?.name || "") : "",
@@ -19125,7 +19129,8 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
         {/* Page content */}
         <div style={{flex:1,padding:isMobile?12:24,overflow:"auto"}}>
           {!isStaff && showSetup && <SetupModal onSave={s=>{setChurchSettings(s);setShowSetup(false);}} initialName={churchName||''} initialPastorName={(adminFirst||adminLast)?`Pastor ${[adminFirst,adminLast].filter(Boolean).join(' ')}`:''}/>}
-          {!isMemberPortal && view==="settings" && <ChurchSettingsPage cs={churchSettings} setCs={setChurchSettings} churchId={churchId} members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} prayers={prayers} groups={groups} grpMeetings={grpMeetings} visitRecords={visitRecords} checkIns={checkIns} kidsCheckIns={kidsCheckIns} children={children} pledgeDrives={pledgeDrives} pledges={pledges} weeklyReports={weeklyReports} equipment={equipment} workOrders={workOrders} schedMaint={schedMaint}
+          {!isMemberPortal && view==="settings" && !isAdminUser && <div style={{maxWidth:520,margin:"40px auto",background:W,border:"0.5px solid "+BR,borderRadius:12,padding:"28px 24px",textAlign:"center" as any}}><div style={{fontSize:36,marginBottom:10}}>🔒</div><div style={{fontSize:16,fontWeight:600,color:N,marginBottom:6}}>Settings is restricted</div><div style={{fontSize:13,color:MU,lineHeight:1.7}}>Only the <strong>Super Administrator</strong> and <strong>Administrator</strong> role can open Settings. Contact your administrator if you need a change made here.</div></div>}
+          {!isMemberPortal && view==="settings" && isAdminUser && <ChurchSettingsPage cs={churchSettings} setCs={setChurchSettings} churchId={churchId} members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} prayers={prayers} groups={groups} grpMeetings={grpMeetings} visitRecords={visitRecords} checkIns={checkIns} kidsCheckIns={kidsCheckIns} children={children} pledgeDrives={pledgeDrives} pledges={pledges} weeklyReports={weeklyReports} equipment={equipment} workOrders={workOrders} schedMaint={schedMaint}
             backupData={{members,visitors,attendance,giving,expenses,budgets,openingBalances,prayers,groups,grpMeetings,visitRecords,sickVisits,checkIns,kidsCheckIns,teacherFollowups,followupDismissedChildIds,eventRsvps,eventSchedule,servicePlans,cleaningSchedule,announcements,children,classrooms,prospects,pledgeDrives,pledges,weeklyReports,equipment,workOrders,schedMaint,supplies,checkoutItems,checkouts,users:(users||[]).map((u:any)=>{const{password,pin,...r}=u||{};return r;}),roles,permissions,portalMembers,recurring,custom,emailLog,emailTemplates,emailConfig:(()=>{const{apiKey,...r}=(emailConfig||{});return r;})(),smsLog,smsTemplates,smsConfig,incidents,rollCalls,progressNotes,teacherSchedule,churchSettings,benevolence,hospitalityFund,hospStartBalance,counselingLogs,careContacted,adminNotesRead}}
             onRestore={(d:any,mode:string)=>{
               const s=(setter:any,key:string,isArr=true)=>{if(d[key]===undefined)return;if(mode==='replace'){setter(d[key]);}else{if(isArr&&Array.isArray(d[key])){setter((cur:any[])=>[...cur,...d[key].filter((n:any)=>!cur.find(x=>String(x.id)===String(n.id)))]);}else{setter(d[key]);}}};
