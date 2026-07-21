@@ -5151,6 +5151,18 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
                             {v.fromMemberId && <div title={v.followUpReason||"Member Missed 4 Weeks"} style={{fontSize:9.5,marginTop:3,display:"inline-block",background:"#fef3c7",color:"#92400e",borderRadius:10,padding:"1px 7px",fontWeight:600}}>↩ Member Missed 4 Weeks</div>}
                           </div>
                         </div>
+                        {stage==="Pastor" && (
+                          <div style={{display:"flex",gap:14,alignItems:"center",marginBottom:8,padding:"6px 9px",background:BG,border:"0.5px solid "+BR,borderRadius:6}}>
+                            <label style={{display:"flex",alignItems:"center",gap:5,fontSize:11,fontWeight:500,color:TX,cursor:"pointer"}}>
+                              <input type="checkbox" checked={!!rec.pastorCheck} onChange={e=>setVisitRecords((rs:any[])=>(Array.isArray(rs)?rs:[]).map((r:any)=>r.id===rec.id?{...r,pastorCheck:e.target.checked}:r))} style={{cursor:"pointer",width:14,height:14}}/>
+                              Pastor
+                            </label>
+                            <label style={{display:"flex",alignItems:"center",gap:5,fontSize:11,fontWeight:500,color:TX,cursor:"pointer"}}>
+                              <input type="checkbox" checked={!!rec.assistantPastorCheck} onChange={e=>setVisitRecords((rs:any[])=>(Array.isArray(rs)?rs:[]).map((r:any)=>r.id===rec.id?{...r,assistantPastorCheck:e.target.checked}:r))} style={{cursor:"pointer",width:14,height:14}}/>
+                              Assistant Pastor
+                            </label>
+                          </div>
+                        )}
                         {(()=>{
                           const household = v.familyId ? visitors.filter((x:any)=>x.familyId===v.familyId && String(x.id)!==String(v.id)) : [];
                           const fullName=(p:any)=>((p.first||"")+" "+(p.last||"")).trim().toLowerCase();
@@ -16450,6 +16462,7 @@ function ManualPage(){
           <Ul><Li><B>Pipeline</B> — a kanban board with a column per stage; <B>one card per family</B>, showing spouse and children</Li><Li><B>Ongoing Care</B> — visitors in the recurring sponsor-care cycle, with due / overdue indicators</Li><Li><B>Visitor Tracker</B> — a table of every active visitor with stage, who's assigned, and last contact</Li><Li><B>Reports</B> — totals by stage plus an AI-generated outreach summary</Li></Ul>
           <H3>The Stages</H3>
           <Ul><Li><B>Pastor Visit</B> — the pastor makes the first contact, then hands off</Li><Li><B>Team Supervisor → Team Leader → Sponsor</B> — at each step the visitor is assigned to a person who works the contact and advances them</Li><Li><B>Ongoing Care</B> — a recurring sponsor check-in cycle until the visitor is ready for membership</Li></Ul>
+          <Note>Each card in the <B>Pastor Visit</B> column has two checkboxes — <B>Pastor</B> and <B>Assistant Pastor</B> — to mark who will make that first visit. Tick either (or both); the choice is saved on the card. These checkboxes appear only on Pastor Visit cards.</Note>
           <P>Visitors enter the pipeline from the <B>Add Person</B> form (Section 3). People at the <B>same address</B> are automatically linked into one household, so the pipeline shows a single card for the family rather than one per person.</P>
           <H3>Logging Contact &amp; Advancing Stages</H3>
           <Ol><Li>On a pipeline card, click <B>Log Contact</B></Li><Li>Choose the method (Call / Text / Visit), date, and notes</Li><Li>Tick <B>Completed</B> to advance the visitor — the app then prompts you to assign the next person (Team Supervisor, Team Leader, or Sponsor)</Li></Ol>
