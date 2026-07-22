@@ -17040,9 +17040,14 @@ function MediaPage({cs}:any){
 // Live staff-only chat — topic channels + direct messages + presence, on the real-time
 // chat_messages table (gated by is_chat_staff RLS). Not in the synced blob → instant, never clobbered.
 const CHAT_CHANNELS = [
-  {id:'staff',  label:'Staff',  icon:'💬'},
-  {id:'prayer', label:'Prayer', icon:'🙏'},
-  {id:'youth',  label:'Youth',  icon:'🧑'},
+  {id:'staff',      label:'Staff',            icon:'💬'},
+  {id:'leadership', label:'Leadership',       icon:'⭐'},
+  {id:'teachers',   label:'Teachers',         icon:'📚'},
+  {id:'outreach1',  label:'Outreach Team 1',  icon:'📣'},
+  {id:'outreach2',  label:'Outreach Team 2',  icon:'🤝'},
+  {id:'band',       label:'Band',             icon:'🎸'},
+  {id:'prayer',     label:'Prayer',           icon:'🙏'},
+  {id:'youth',      label:'Youth',            icon:'🧑'},
 ];
 function StaffChat({churchId,currentUserName,isAdmin}:any){
   const [msgs,setMsgs]=useState<any[]>([]);
