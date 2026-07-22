@@ -16978,7 +16978,7 @@ function ManualPage(){
         <Sec><H id="s36">36. Staff Chat</H>
           <P><B>Staff Chat</B> is a live, real-time chat for your staff team — topic channels, direct messages, and presence. Congregants can never see it; it&rsquo;s restricted to staff at the database level.</P>
           <H3>Channels &amp; Direct Messages</H3>
-          <Ul><Li><B>Channels</B> — switch between <B># Staff</B>, <B># Prayer</B>, and <B># Youth</B> in the left rail; channel messages are seen by all staff.</Li><Li><B>Direct Messages</B> — click a name under <B>Direct Messages</B> for a private 1:1 thread only you and that person can see.</Li></Ul>
+          <Ul><Li><B>Open channels</B> — <B># Staff</B>, <B># Prayer</B>, and <B># Youth</B> are seen by all staff.</Li><Li><B>Private channels</B> — <B># Leadership</B>, <B># Teachers</B>, <B># Outreach Team 1</B>, <B># Outreach Team 2</B>, and <B># Band</B> (marked <B>🔒</B>) are seen only by the people added to them. A Super Admin / Administrator opens the channel, clicks <B>👥 Members</B>, and searches staff by name to add or remove them. Only added members see the channel and get its notifications.</Li><Li><B>Direct Messages</B> — click a name under <B>Direct Messages</B> for a private 1:1 thread only you and that person can see (unaffected by channel membership).</Li></Ul>
           <H3>Who&rsquo;s Online &amp; Unread</H3>
           <Ul><Li>Green dots show who&rsquo;s <B>online now</B>, with a live count.</Li><Li>Red badges show <B>unread</B> counts per conversation and a total on the sidebar <B>Staff Chat</B> item, which clears when you open chat.</Li></Ul>
           <H3>Who Can Use It</H3>
@@ -17041,15 +17041,15 @@ function MediaPage({cs}:any){
 // chat_messages table (gated by is_chat_staff RLS). Not in the synced blob → instant, never clobbered.
 const CHAT_CHANNELS = [
   {id:'staff',      label:'Staff',            icon:'💬'},
-  {id:'leadership', label:'Leadership',       icon:'⭐'},
-  {id:'teachers',   label:'Teachers',         icon:'📚'},
-  {id:'outreach1',  label:'Outreach Team 1',  icon:'📣'},
-  {id:'outreach2',  label:'Outreach Team 2',  icon:'🤝'},
-  {id:'band',       label:'Band',             icon:'🎸'},
+  {id:'leadership', label:'Leadership',       icon:'⭐', private:true},
+  {id:'teachers',   label:'Teachers',         icon:'📚', private:true},
+  {id:'outreach1',  label:'Outreach Team 1',  icon:'📣', private:true},
+  {id:'outreach2',  label:'Outreach Team 2',  icon:'🤝', private:true},
+  {id:'band',       label:'Band',             icon:'🎸', private:true},
   {id:'prayer',     label:'Prayer',           icon:'🙏'},
   {id:'youth',      label:'Youth',            icon:'🧑'},
 ];
-function StaffChat({churchId,currentUserName,isAdmin}:any){
+function StaffChat({churchId,currentUserName,isAdmin,channelMembers={},setChannelMembers=(_c:any,_a:any)=>{},staffUsers=[],currentUserId=null}:any){
   const [msgs,setMsgs]=useState<any[]>([]);
   const [text,setText]=useState("");
   const [myId,setMyId]=useState<string|null>(null);
@@ -17058,9 +17058,17 @@ function StaffChat({churchId,currentUserName,isAdmin}:any){
   const [conv,setConv]=useState<any>({type:'channel',id:'staff'});
   const [online,setOnline]=useState<any[]>([]);
   const [reads,setReads]=useState<any>({});
+  const [showMembers,setShowMembers]=useState(false);
+  const [memberSearch,setMemberSearch]=useState("");
   const scrollRef=useRef<any>(null);
   const name=(currentUserName||"").trim()||"Staff";
   const rkPrefix='ntcc_chat_read_'+churchId+'_';
+  // Channel membership: a PRIVATE channel (Leadership/Teachers/Outreach/Band) is visible only to users
+  // added to it (by Access Control user id); admins see all to manage. Non-private channels stay open.
+  // Direct messages are unaffected. Membership lives in churchSettings.chatChannelMembers (syncs).
+  const memList=(cid:string)=> (channelMembers?.[cid]||[]).map((x:any)=>String(x));
+  const canSee=(c:any)=>{ if(isAdmin||c.id==='staff') return true; if(c.private) return memList(c.id).includes(String(currentUserId)); const m=channelMembers?.[c.id]; return !m || m.map((x:any)=>String(x)).includes(String(currentUserId)); };
+  const visibleChannels=CHAT_CHANNELS.filter(canSee);
 
   useEffect(()=>{ let c=false; supabase.auth.getUser().then(({data}:any)=>{ if(!c) setMyId(data?.user?.id||null); },()=>{}); return ()=>{c=true;}; },[]);
   useEffect(()=>{ try{ const o:any={}; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k&&k.startsWith(rkPrefix)) o[k.slice(rkPrefix.length)]=+(localStorage.getItem(k)||'0'); } setReads(o); }catch(e){} },[churchId]);
@@ -17095,6 +17103,8 @@ function StaffChat({churchId,currentUserName,isAdmin}:any){
 
   useEffect(()=>{ if(scrollRef.current) scrollRef.current.scrollTop=scrollRef.current.scrollHeight; },[shown.length, convKey]);
   useEffect(()=>{ const now=Date.now(); setReads((r:any)=>({...r,[convKey]:now})); try{ localStorage.setItem(rkPrefix+convKey,String(now)); }catch(e){} },[convKey, msgs.length]);
+  // If the selected channel is no longer visible to this user (e.g. removed from a private channel), fall back to Staff.
+  useEffect(()=>{ if(conv.type==='channel' && !visibleChannels.some((c:any)=>c.id===conv.id)) setConv({type:'channel',id:'staff'}); },[visibleChannels.map((c:any)=>c.id).join(','), conv.type, conv.id]);
 
   const onlineSet=new Set(online.map((o:any)=>o.uid));
   const lastRead=(ck:string)=> reads[ck]||0;
@@ -17126,8 +17136,8 @@ function StaffChat({churchId,currentUserName,isAdmin}:any){
       <div style={{display:"flex",gap:14,maxWidth:1000,alignItems:"stretch",flexWrap:"wrap"}}>
         <div style={{width:230,flexShrink:0,background:W,border:"0.5px solid "+BR,borderRadius:12,padding:12,display:"flex",flexDirection:"column",gap:3,maxHeight:"min(70vh,660px)",overflowY:"auto"}}>
           <div style={{fontSize:10.5,fontWeight:700,color:MU,textTransform:"uppercase" as any,letterSpacing:0.5,padding:"4px 8px"}}>Channels</div>
-          {CHAT_CHANNELS.map(c=>{ const u=unreadChannel(c.id); const act=conv.type==='channel'&&conv.id===c.id; return (
-            <button key={c.id} onClick={()=>setConv({type:'channel',id:c.id})} style={railBtn(act)}><span style={{opacity:0.9}}>{c.icon}</span><span style={{flex:1}}>{c.label}</span><Badge n={u}/></button>
+          {visibleChannels.map(c=>{ const u=unreadChannel(c.id); const act=conv.type==='channel'&&conv.id===c.id; return (
+            <button key={c.id} onClick={()=>setConv({type:'channel',id:c.id})} style={railBtn(act)}><span style={{opacity:0.9}}>{c.icon}</span><span style={{flex:1}}>{c.label}</span>{c.private&&<span title="Private channel" style={{fontSize:10,opacity:0.6}}>🔒</span>}<Badge n={u}/></button>
           );})}
           <div style={{fontSize:10.5,fontWeight:700,color:MU,textTransform:"uppercase" as any,letterSpacing:0.5,padding:"12px 8px 4px"}}>Direct Messages</div>
           {people.length===0 ? <div style={{fontSize:11.5,color:MU,padding:"2px 10px",lineHeight:1.5}}>People appear here once they&rsquo;re online or have chatted.</div>
@@ -17145,7 +17155,30 @@ function StaffChat({churchId,currentUserName,isAdmin}:any){
           <div style={{padding:"10px 14px",borderBottom:"0.5px solid "+BR,display:"flex",alignItems:"center",gap:8}}>
             <span style={{fontSize:14,fontWeight:600,color:N}}>{convTitle}</span>
             {conv.type==='dm' && <span style={{fontSize:11,color:onlineSet.has(conv.uid)?GR:MU}}>{onlineSet.has(conv.uid)?'● online':'offline'}</span>}
+            {isAdmin && conv.type==='channel' && (CHAT_CHANNELS.find(c=>c.id===conv.id) as any)?.private && <button onClick={()=>setShowMembers(s=>!s)} style={{marginLeft:"auto",background:showMembers?N+"14":"transparent",border:"0.5px solid "+BR,borderRadius:8,padding:"4px 10px",fontSize:12,fontWeight:500,color:N,cursor:"pointer"}}>👥 Members ({memList(conv.id).length})</button>}
           </div>
+          {isAdmin && showMembers && conv.type==='channel' && (CHAT_CHANNELS.find(c=>c.id===conv.id) as any)?.private && (()=>{
+            const cur=memList(conv.id);
+            const q=(memberSearch||"").trim().toLowerCase();
+            const sugg=(staffUsers||[]).filter((u:any)=>!cur.includes(String(u.id)) && q.length>0 && String(u.name||"").toLowerCase().includes(q)).slice(0,8);
+            const nameOf=(uid:string)=>{ const u=(staffUsers||[]).find((x:any)=>String(x.id)===String(uid)); return u?u.name:('User '+uid); };
+            return (
+              <div style={{borderBottom:"0.5px solid "+BR,background:BG,padding:"12px 14px"}}>
+                <div style={{fontSize:12,fontWeight:600,color:N,marginBottom:8}}>Who can see {convTitle}</div>
+                <div style={{position:"relative",marginBottom:cur.length?10:0}}>
+                  <input value={memberSearch} onChange={e=>setMemberSearch(e.target.value)} placeholder="Search staff by name to add…" style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",boxSizing:"border-box" as any,background:W}}/>
+                  {sugg.length>0 && <div style={{position:"absolute",top:"100%",left:0,right:0,zIndex:5,background:W,border:"0.5px solid "+BR,borderRadius:8,marginTop:4,maxHeight:220,overflowY:"auto",boxShadow:"0 8px 20px rgba(0,0,0,0.14)"}}>
+                    {sugg.map((u:any)=><div key={u.id} onMouseDown={e=>{e.preventDefault(); setChannelMembers(conv.id,[...cur,String(u.id)]); setMemberSearch(""); }} style={{padding:"8px 12px",cursor:"pointer",fontSize:13,borderBottom:"0.5px solid "+BR+"55"}} onMouseEnter={e=>((e.currentTarget as any).style.background=BG)} onMouseLeave={e=>((e.currentTarget as any).style.background=W)}>{u.name}</div>)}
+                  </div>}
+                </div>
+                {cur.length===0
+                  ? <div style={{fontSize:12,color:MU,fontStyle:"italic" as any,marginTop:8}}>No one added yet — only people you add here will see this channel.</div>
+                  : <div style={{display:"flex",flexWrap:"wrap" as any,gap:6}}>
+                      {cur.map((uid:string)=><span key={uid} style={{display:"inline-flex",alignItems:"center",gap:6,background:W,border:"0.5px solid "+BR,borderRadius:20,padding:"4px 6px 4px 12px",fontSize:12,color:TX}}>{nameOf(uid)}<button onClick={()=>setChannelMembers(conv.id,cur.filter((x:string)=>x!==String(uid)))} title="Remove" style={{background:"none",border:"none",color:MU,cursor:"pointer",fontSize:14,lineHeight:1,padding:"0 2px"}}>&times;</button></span>)}
+                    </div>}
+              </div>
+            );
+          })()}
           <div ref={scrollRef} style={{flex:1,overflowY:"auto",padding:"14px 16px 8px"}}>
             {loading ? <div style={{fontSize:13,color:MU,textAlign:"center",padding:20}}>Loading&hellip;</div>
              : shown.length===0 ? <div style={{fontSize:13,color:MU,textAlign:"center",padding:30}}>{conv.type==='dm'?('Start a conversation with '+(conv.name||'')):'No messages yet. Say hello 👋'}</div>
@@ -17732,6 +17765,13 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   const [chatUnread,setChatUnread] = useState(0);
   const chatViewRef = useRef("dashboard");
   const chatMyIdRef = useRef<any>(null);
+  // Can THIS user see a given chat channel? Used to avoid badging/notifying non-members of private
+  // channels. Kept in a ref so the badge subscription doesn't re-run when membership changes.
+  const chatCanSeeRef = useRef<(cid:string)=>boolean>(()=>true);
+  useEffect(()=>{
+    const cm = churchSettings?.chatChannelMembers||{}; const uid = currentUser?.id; const staff = isStaff;
+    chatCanSeeRef.current = (cid:string)=>{ const c=CHAT_CHANNELS.find((x:any)=>x.id===cid); if(!c) return true; if(!staff) return true; if(c.id==='staff') return true; if((c as any).private) return (cm[cid]||[]).map((x:any)=>String(x)).includes(String(uid)); const m=cm[cid]; return !m || m.map((x:any)=>String(x)).includes(String(uid)); };
+  },[JSON.stringify(churchSettings?.chatChannelMembers||{}), currentUser?.id, isStaff]);
   const chatAudioRef = useRef<any>(null);
   useEffect(()=>{ chatViewRef.current = view; if(view==='chat'){ setChatUnread(0);
     // First time Staff Chat is opened, ask to enable desktop/phone notifications.
@@ -17745,6 +17785,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
         const m=p?.new; if(!m) return;
         if(m.user_id===chatMyIdRef.current) return;                    // don't notify me of my own message
         if(m.recipient_id && m.recipient_id!==chatMyIdRef.current) return; // a DM addressed to someone else
+        if(!m.recipient_id && !chatCanSeeRef.current(m.channel||'staff')) return; // a private channel this user isn't in
         if(chatViewRef.current!=='chat') setChatUnread((n:number)=>n+1);
         // Notify staff of the new message unless they're actively looking at the chat.
         const active = chatViewRef.current==='chat' && !document.hidden;
@@ -19296,7 +19337,11 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           {!isMemberPortal && view==="announcements" && <Announcements announcements={announcements} setAnnouncements={setAnnouncements} currentUser={currentUser} roles={roles} permissions={permissions} recurring={recurring} custom={custom} churchId={churchId}/>}
           {!isMemberPortal && view==="finances" && canViewGiving && <Finances expenses={expenses} setExpenses={setExpenses} budgets={budgets} setBudgets={setBudgets} giving={giving} openingBalances={openingBalances} setOpeningBalances={setOpeningBalances}/>}
           {!isMemberPortal && view==="manual" && <ManualPage/>}
-          {!isMemberPortal && view==="chat" && <StaffChat churchId={churchId} currentUserName={staffMemberRecord ? (staffMemberRecord.first+" "+staffMemberRecord.last).trim() : (displayName || loggedInEmail || "")} isAdmin={!isStaff}/>}
+          {!isMemberPortal && view==="chat" && <StaffChat churchId={churchId} currentUserName={staffMemberRecord ? (staffMemberRecord.first+" "+staffMemberRecord.last).trim() : (displayName || loggedInEmail || "")} isAdmin={!isStaff}
+            channelMembers={churchSettings?.chatChannelMembers||{}}
+            setChannelMembers={(cid:any,arr:any)=>setChurchSettings((cs:any)=>({...(cs||{}), chatChannelMembers:{...(cs?.chatChannelMembers||{}), [cid]:arr}}))}
+            staffUsers={(users||[]).map((u:any)=>{ const cm=[...(members||[]),...(visitors||[])].find((m:any)=>String(m?.id)===String(u.memberId)); const nm=cm?((cm.first||'')+' '+(cm.last||'')).trim():''; return {id:u.id, name: nm || u.email || ('User '+u.id)}; })}
+            currentUserId={currentUser?.id ?? null}/>}
         </div>
       </div>
 
