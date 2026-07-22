@@ -11258,7 +11258,10 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
   };
   const batchStarts = Array.from(new Set([currentBatchStart,...(closedBatchStarts||[])]))
     .sort((a,b)=>b.localeCompare(a));
-  const visibleGiving = (giving||[]).filter((g:any)=>inBatch(g.date,selectedBatchStart));
+  // Sort the displayed rows by date (newest first) so a just-recorded gift lands in its correct spot
+  // immediately, instead of sitting at the top until a page refresh. Display-only — the filter/sort
+  // run on a copy, so the saved `giving` array is untouched. Stable sort keeps same-date entry order.
+  const visibleGiving = (giving||[]).filter((g:any)=>inBatch(g.date,selectedBatchStart)).sort((a:any,b:any)=>String(b.date||"").localeCompare(String(a.date||"")));
   const visibleWeeklyReports = (weeklyReports||[]).filter((r:any)=>inBatch(r.weekStart||"",selectedBatchStart));
   const selectedBatchAudit = batchAudit?.[selectedBatchStart]||null;
   const closedBatchRows = [...(closedBatchStarts||[])].sort((a,b)=>b.localeCompare(a)).map((s:string)=>{
