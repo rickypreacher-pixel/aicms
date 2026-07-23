@@ -11142,7 +11142,9 @@ function GivingStatements({giving,members,visitors}:any){
           </Fld>
         )}
 
-        <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:6}}>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:6,alignItems:"center"}}>
+          <Btn onClick={()=>{setPeriodMode("yearly");setYearValue(String(new Date().getFullYear()-1));}} v="ghost" style={{fontWeight:600}}>📄 Tax Statement {new Date().getFullYear()-1}</Btn>
+          <span style={{color:BR,fontSize:16}}>|</span>
           <Btn onClick={()=>openPrintWindow(true)} disabled={!selectedRecipient} v="primary">Print Statement</Btn>
           <Btn onClick={()=>openPrintWindow(true)} disabled={!selectedRecipient} v="gold">Download PDF</Btn>
           <Btn onClick={downloadCsv} disabled={!selectedRecipient} v="outline">Download CSV</Btn>
@@ -16619,7 +16621,7 @@ function ManualPage(){
           <H3>Individual Giving Totals</H3>
           <P>Each member's giving history is visible in their profile under the <B>Activity</B> tab — total given, number of gifts, and gift dates. This data is used for year-end giving statements.</P>
           <H3>Statements — Look Up a Member's Full Giving</H3>
-          <P>On the Giving page, open the <B>Statements</B> tab and use the <B>Search a member</B> box — start typing a name and pick them from the auto-fill list (it pulls from your whole member list). Their <B>entire giving history</B> loads (the period switches to <B>All Time</B> automatically), with the total, tax-deductible subtotal, and every gift. You can then narrow the period (Monthly / Yearly / Custom) or <B>Print</B>, <B>Download PDF</B>, or <B>Download CSV</B> for a tax statement. Click <B>✕ Clear</B> to look up someone else.</P>
+          <P>On the Giving page, open the <B>Statements</B> tab and use the <B>Search a member</B> box — start typing a name and pick them from the auto-fill list (it pulls from your whole member list). Their <B>entire giving history</B> loads (the period switches to <B>All Time</B> automatically), with the total, tax-deductible subtotal, and every gift. The <B>📄 Tax Statement {year}</B> button jumps straight to the prior calendar year — perfect for year-end statements. You can also narrow the period (Monthly / Yearly / Custom) or <B>Print</B>, <B>Download PDF</B>, or <B>Download CSV</B>. Click <B>✕ Clear</B> to look up someone else.</P>
           <H3>Weekly Reports</H3>
           <P>Use the <B>Weekly Reports</B> tab to record and store a weekly financial summary (offering total, expenses, notes) for board records and treasurer reports.</P>
           <H3>Pastor's Draw</H3>
