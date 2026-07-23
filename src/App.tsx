@@ -4898,28 +4898,28 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
     const newContacts = [...rec.contacts,contact];
     if(logForm.completed) {
       if(rec.stage==="Pastor") {
-        const upd = {...rec,contacts:newContacts,stage:"TeamSupervisor"};
+        const upd = {...rec,contacts:newContacts,stage:"TeamSupervisor",updatedAt:nowIso};
         setVisitRecords(rs=>rs.map(r=>r.id===rec.id?upd:r));
         setLogModal(null); setAssignModal({rec:upd,type:"TeamSupervisor"}); setAssignUid("");
       } else if(rec.stage==="TeamSupervisor") {
-        const upd = {...rec,contacts:newContacts,stage:"TeamLeader"};
+        const upd = {...rec,contacts:newContacts,stage:"TeamLeader",updatedAt:nowIso};
         setVisitRecords(rs=>rs.map(r=>r.id===rec.id?upd:r));
         setLogModal(null); setAssignModal({rec:upd,type:"TeamLeader"}); setAssignUid("");
       } else if(rec.stage==="TeamLeader") {
-        const upd = {...rec,contacts:newContacts,stage:"Sponsor"};
+        const upd = {...rec,contacts:newContacts,stage:"Sponsor",updatedAt:nowIso};
         setVisitRecords(rs=>rs.map(r=>r.id===rec.id?upd:r));
         setLogModal(null); setAssignModal({rec:upd,type:"Sponsor"}); setAssignUid("");
       } else if(rec.stage==="Sponsor") {
         // Initial sponsor visit complete → enter OngoingCare cycle
-        setVisitRecords(rs=>rs.map(r=>r.id===rec.id?{...r,contacts:newContacts,stage:"OngoingCare",ongoingStartDate:td(),sponsorInitialDate:td()}:r));
+        setVisitRecords(rs=>rs.map(r=>r.id===rec.id?{...r,contacts:newContacts,stage:"OngoingCare",ongoingStartDate:td(),sponsorInitialDate:td(),updatedAt:nowIso}:r));
         setLogModal(null);
       } else if(rec.stage==="OngoingCare") {
         // Each completed ongoing contact resets the 14-day cycle (via getNextDue)
-        setVisitRecords(rs=>rs.map(r=>r.id===rec.id?{...r,contacts:newContacts}:r));
+        setVisitRecords(rs=>rs.map(r=>r.id===rec.id?{...r,contacts:newContacts,updatedAt:nowIso}:r));
         setLogModal(null);
       }
     } else {
-      setVisitRecords(rs=>rs.map(r=>r.id===rec.id?{...r,contacts:newContacts}:r));
+      setVisitRecords(rs=>rs.map(r=>r.id===rec.id?{...r,contacts:newContacts,updatedAt:nowIso}:r));
       setLogModal(null);
     }
     setLogForm({method:"Call",date:td(),notes:"",completed:false});
@@ -18392,7 +18392,29 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       });
       if(Array.isArray(d.groups)&&d.groups.length) setGroups(d.groups);
       if(Array.isArray(d.grpMeetings)&&d.grpMeetings.length) setGrpMeetings(d.grpMeetings);
-      if(Array.isArray(d.visitRecords)&&d.visitRecords.length) setVisitRecords(d.visitRecords);
+      if(Array.isArray(d.visitRecords)&&d.visitRecords.length) setVisitRecords((cur:any)=>{
+        // MERGE by id (don't blind-replace): "Log Contact" advances a record's stage locally, but the
+        // 60s sync poll can land before that save reaches the cloud — a blind replace with the stale
+        // cloud copy snaps the card back to its old stage ("had to log twice", "reverted to Pastor
+        // Visit later"). Keep the copy that's FURTHER ALONG: newer updatedAt wins; if neither has one,
+        // the more-advanced pipeline stage wins; and ALWAYS union the contacts so no logged contact is
+        // lost. Deletes/other-device edits still propagate because cloud is the base.
+        const curArr=Array.isArray(cur)?cur:[];
+        const RANK:any={Pastor:0,TeamSupervisor:1,TeamLeader:2,Sponsor:3,OngoingCare:4,Complete:5,Converted:6};
+        const ts=(r:any)=>new Date(r?.updatedAt||0).getTime()||0;
+        const rank=(r:any)=>RANK[String(r?.stage||"")]??0;
+        const mergeContacts=(a:any,b:any)=>{ const m=new Map<string,any>(); [...(Array.isArray(a)?a:[]),...(Array.isArray(b)?b:[])].forEach((c:any)=>{ const k=String(c?.id); if(!m.has(k)) m.set(k,c); }); return Array.from(m.values()); };
+        const pick=(x:any,y:any)=>{ const tx=ts(x),ty=ts(y); const w=(tx||ty)?(tx>=ty?x:y):(rank(x)>=rank(y)?x:y); return {...w,contacts:mergeContacts(x.contacts,y.contacts)}; };
+        const byId=new Map<string,any>();
+        (d.visitRecords as any[]).forEach((r:any)=>byId.set(String(r.id),r));
+        const recentMs=Date.now()-5*60*1000;
+        curArr.forEach((lr:any)=>{
+          const cr=byId.get(String(lr.id));
+          if(!cr){ if(ts(lr)>recentMs) byId.set(String(lr.id),lr); } // pin a just-created local record not yet in cloud
+          else byId.set(String(lr.id),pick(cr,lr));
+        });
+        return Array.from(byId.values());
+      });
       if(Array.isArray(d.children)&&d.children.length) setChildren(d.children);
       if(Array.isArray(d.classrooms)&&d.classrooms.length) setClassrooms(d.classrooms);
       if(Array.isArray(d.equipment)&&d.equipment.length) setEquipment(d.equipment);
