@@ -3459,10 +3459,10 @@ function openMailto(to, subject, body, cc, bcc){
 async function sendDirectEmail(config, payload){
   // Real sending goes through the server proxy /api/send-email (Resend). The API key lives
   // only in the server env (RESEND_API_KEY) — never in the browser. `config` is unused now.
-  const {to,cc,bcc,subject,body,html,fromName,from}=payload||{};
+  const {to,cc,bcc,subject,body,html,fromName,from,attachments}=payload||{};
   if(!to) throw new Error("No recipient email address.");
   const res=await fetch("/api/send-email",{method:"POST",headers:{"Content-Type":"application/json", ...(await _authHeaders())},
-    body:JSON.stringify({to,cc:cc||undefined,bcc:bcc||undefined,subject:subject||"",html:html||undefined,text:html?undefined:(body||""),fromName:fromName||undefined,replyTo:from||undefined})});
+    body:JSON.stringify({to,cc:cc||undefined,bcc:bcc||undefined,subject:subject||"",html:html||undefined,text:html?undefined:(body||""),fromName:fromName||undefined,replyTo:from||undefined,attachments:(Array.isArray(attachments)&&attachments.length)?attachments:undefined})});
   const data=await res.json().catch(()=>({}));
   if(!res.ok||!data.success) throw new Error(data.error||("Email failed ("+res.status+")"));
   return data;
@@ -3734,9 +3734,30 @@ function EmailComposer({open,onClose,initialTo,initialToName,initialSubject,init
   const [showTemplates,setShowTemplates] = useState(false);
   const [sending,setSending] = useState(false);
   const [errorMsg,setErrorMsg] = useState("");
+  const [attachments,setAttachments] = useState<any[]>([]);  // [{filename, path(url)}] — photos, kept out of the sync blob
+  const [attachBusy,setAttachBusy] = useState(false);
+  // Attach a .jpg/.png photo: downscale + upload to Storage (church-images) and keep only the URL,
+  // so the image never enters the synced church_data blob. Resend fetches it at send time.
+  const onPickAttachments = async (files:FileList|null) => {
+    if(!files || !files.length) return;
+    setErrorMsg("");
+    const room = Math.max(0, 5 - attachments.length);
+    const chosen = Array.from(files).slice(0, room);
+    if(!chosen.length){ setErrorMsg("You can attach up to 5 photos per email."); return; }
+    setAttachBusy(true);
+    try{
+      for(const f of chosen){
+        if(!/image\/(png|jpe?g)/i.test(f.type)){ setErrorMsg("Only .jpg or .png photos can be attached."); continue; }
+        const url = await uploadImageToStorage(f, "email");
+        if(url && !url.startsWith("data:")) setAttachments((a:any[])=>[...a,{filename:(f.name||"photo").replace(/[^\w.\-]/g,"_"),path:url}]);
+        else setErrorMsg("Couldn't upload that photo (storage unavailable). Try again.");
+      }
+    } finally { setAttachBusy(false); }
+  };
 
   useEffect(()=>{
     if(open){
+      setAttachments([]); setAttachBusy(false);
       setTo(initialTo||"");
       setToName(initialToName||"");
       setSubject(initialSubject||"");
@@ -3771,7 +3792,9 @@ function EmailComposer({open,onClose,initialTo,initialToName,initialSubject,init
     if(!subject.trim()){ setErrorMsg("Subject required."); return; }
     if(!body.trim()){ setErrorMsg("Message body required."); return; }
     setErrorMsg("");
+    if(attachBusy){ setErrorMsg("A photo is still uploading — please wait a moment."); return; }
     if(mode === "mailto"){
+      if(attachments.length){ setErrorMsg('Photos can only be sent with "Send Directly from App". Switch the send method above, or remove the photos.'); return; }
       const finalBody = htmlMode ? body : body;
       openMailto(to, subject, finalBody, cc, bcc);
       if(onSend) onSend({to,toName,cc,bcc,subject,body,category,htmlMode,method:"mailto",status:"Opened in mail app",relatedType,relatedId});
@@ -3779,7 +3802,7 @@ function EmailComposer({open,onClose,initialTo,initialToName,initialSubject,init
     } else {
       setSending(true);
       try {
-        await sendDirectEmail(emailConfig, {to,cc,bcc,subject,body,html:htmlMode?buildHtmlEmail(subject,body,cs):null,from:cs?.email,fromName:cs?.name});
+        await sendDirectEmail(emailConfig, {to,cc,bcc,subject,body,html:htmlMode?buildHtmlEmail(subject,body,cs):null,from:cs?.email,fromName:cs?.name,attachments:attachments.length?attachments:undefined});
         if(onSend) onSend({to,toName,cc,bcc,subject,body,category,htmlMode,method:"direct",status:"Sent",relatedType,relatedId});
         setSending(false);
         onClose();
@@ -3881,10 +3904,31 @@ function EmailComposer({open,onClose,initialTo,initialToName,initialSubject,init
           <textarea value={body} onChange={e=>setBody(e.target.value)} rows={10} placeholder="Write your message..." style={{width:"100%",padding:"10px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",fontFamily:"inherit",resize:"vertical",boxSizing:"border-box",lineHeight:1.7}}/>
         </Fld>
 
+        {/* Photo attachments — only for "Send Directly from App" (mailto links can't carry files). */}
+        <div style={{marginBottom:14}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+            <label style={{display:"inline-flex",alignItems:"center",gap:6,fontSize:12,fontWeight:500,color:mode==="mailto"?MU:N,cursor:mode==="mailto"?"not-allowed":"pointer",background:mode==="mailto"?BG:"#eef2ff",border:"0.5px solid "+(mode==="mailto"?BR:"#c7d2fe"),borderRadius:8,padding:"7px 12px",opacity:mode==="mailto"?0.6:1}}>
+              📎 {attachBusy?"Uploading…":"Attach Photo"}
+              <input type="file" accept="image/jpeg,image/png" multiple disabled={mode==="mailto"||attachBusy||attachments.length>=5} onChange={e=>{ onPickAttachments(e.target.files); (e.target as any).value=""; }} style={{display:"none"}}/>
+            </label>
+            <span style={{fontSize:11,color:MU}}>{mode==="mailto"?'Switch to "Send Directly from App" to attach photos':`JPG or PNG · up to 5 · ${attachments.length}/5`}</span>
+          </div>
+          {attachments.length>0 && (
+            <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:10}}>
+              {attachments.map((a:any,i:number)=>(
+                <div key={i} style={{position:"relative"}}>
+                  <img src={a.path} alt={a.filename} style={{width:64,height:64,objectFit:"cover",borderRadius:8,border:"0.5px solid "+BR}}/>
+                  <button onClick={()=>setAttachments((arr:any[])=>arr.filter((_,j)=>j!==i))} title="Remove" style={{position:"absolute",top:-6,right:-6,width:20,height:20,borderRadius:"50%",border:"none",background:RE,color:"#fff",fontSize:12,lineHeight:"20px",cursor:"pointer",padding:0}}>×</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         {errorMsg && <div style={{background:"#fee2e2",border:"0.5px solid #fca5a5",borderRadius:8,padding:"10px 12px",marginBottom:12,fontSize:12,color:RE}}>{errorMsg}</div>}
 
         <div style={{display:"flex",gap:8}}>
-          <Btn onClick={doSend} v={mode==="mailto"?"primary":"success"} style={{flex:1,justifyContent:"center",padding:"11px"}} disabled={sending}>{sending?"Sending...":mode==="mailto"?"Open in Email App":"Send Now"}</Btn>
+          <Btn onClick={doSend} v={mode==="mailto"?"primary":"success"} style={{flex:1,justifyContent:"center",padding:"11px"}} disabled={sending||attachBusy}>{sending?"Sending...":mode==="mailto"?"Open in Email App":"Send Now"}</Btn>
           <Btn onClick={onClose} v="ghost" style={{padding:"11px 20px"}}>Cancel</Btn>
         </div>
       </div>
@@ -16699,6 +16743,8 @@ function ManualPage(){
           <Ol><Li>Click <B>Bulk Email</B></Li><Li>Recipients are pre-populated with all members who have an email address on file</Li><Li>Compose the message and click <B>Send to All</B></Li></Ol>
           <H3>Email Templates</H3>
           <P>Pre-built templates are available for welcome letters, event announcements, follow-up messages, and giving receipts. Edit or create templates under <B>Email Center → Templates</B>.</P>
+          <H3>Attaching Photos</H3>
+          <P>When composing an email, choose <B>Send Directly from App</B>, then click <B>📎 Attach Photo</B> to add up to 5 <B>.jpg</B> or <B>.png</B> images. Photos are automatically resized and stored securely, so they never slow the app down. (Photo attachments aren't available with "Open in My Email App" — that mode hands off to your phone's mail app instead.)</P>
           <H3>Configuring Your Email Provider</H3>
           <P>To send real emails, connect a provider under <B>Email Center → Settings</B>. Supported providers: <B>Resend</B> and <B>SendGrid</B>. Enter your API key, sender email, and sender name, then click Save.</P>
           <Note>Without a configured email provider, sent messages are logged locally but not actually delivered. Set up your provider before relying on this feature in production.</Note>

@@ -31,7 +31,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Email not configured. Add RESEND_API_KEY in your Vercel environment variables." });
   }
 
-  const { to, subject, html, text, cc, bcc, fromName, replyTo } = req.body || {};
+  const { to, subject, html, text, cc, bcc, fromName, replyTo, attachments } = req.body || {};
   if (!to || !subject || (!html && !text)) {
     return res.status(400).json({ error: "Missing required fields: to, subject, and html or text." });
   }
@@ -46,6 +46,17 @@ export default async function handler(req, res) {
     if (cc) payload.cc = Array.isArray(cc) ? cc : [cc];
     if (bcc) payload.bcc = Array.isArray(bcc) ? bcc : [bcc];
     if (replyTo) payload.reply_to = replyTo;
+    // Photo attachments: each item is { filename, path } (a public Storage URL Resend fetches) or
+    // { filename, content } (base64). Kept out of the synced blob — only passed in this send request.
+    if (Array.isArray(attachments) && attachments.length) {
+      const atts = attachments.slice(0, 5).map((a) => {
+        if (!a) return null;
+        if (a.path) return { filename: String(a.filename || "photo.jpg"), path: String(a.path) };
+        if (a.content) return { filename: String(a.filename || "photo.jpg"), content: String(a.content) };
+        return null;
+      }).filter(Boolean);
+      if (atts.length) payload.attachments = atts;
+    }
 
     const r = await fetch("https://api.resend.com/emails", {
       method: "POST",
