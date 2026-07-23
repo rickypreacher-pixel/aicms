@@ -17768,10 +17768,8 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   // Can THIS user see a given chat channel? Used to avoid badging/notifying non-members of private
   // channels. Kept in a ref so the badge subscription doesn't re-run when membership changes.
   const chatCanSeeRef = useRef<(cid:string)=>boolean>(()=>true);
-  useEffect(()=>{
-    const cm = churchSettings?.chatChannelMembers||{}; const uid = currentUser?.id; const staff = isStaff;
-    chatCanSeeRef.current = (cid:string)=>{ const c=CHAT_CHANNELS.find((x:any)=>x.id===cid); if(!c) return true; if(!staff) return true; if(c.id==='staff') return true; if((c as any).private) return (cm[cid]||[]).map((x:any)=>String(x)).includes(String(uid)); const m=cm[cid]; return !m || m.map((x:any)=>String(x)).includes(String(uid)); };
-  },[JSON.stringify(churchSettings?.chatChannelMembers||{}), currentUser?.id, isStaff]);
+  // NOTE: the effect that POPULATES chatCanSeeRef lives below, AFTER `currentUser` is declared —
+  // its dep array reads currentUser, and referencing it up here crashed every render (used-before-declaration).
   const chatAudioRef = useRef<any>(null);
   useEffect(()=>{ chatViewRef.current = view; if(view==='chat'){ setChatUnread(0);
     // First time Staff Chat is opened, ask to enable desktop/phone notifications.
@@ -17842,6 +17840,11 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   const currentUser = isStaff
     ? (users.find(u => u.email && u.email.toLowerCase() === (loggedInEmail||'').toLowerCase() && u.status === 'Active') || null)
     : (users.find(u=>u.superAdmin) || users[0]);
+  // Populate the chat channel-visibility ref (declared earlier) now that currentUser/isStaff exist.
+  useEffect(()=>{
+    const cm = churchSettings?.chatChannelMembers||{}; const uid = currentUser?.id; const staff = isStaff;
+    chatCanSeeRef.current = (cid:string)=>{ const c=CHAT_CHANNELS.find((x:any)=>x.id===cid); if(!c) return true; if(!staff) return true; if(c.id==='staff') return true; if((c as any).private) return (cm[cid]||[]).map((x:any)=>String(x)).includes(String(uid)); const m=cm[cid]; return !m || m.map((x:any)=>String(x)).includes(String(uid)); };
+  },[JSON.stringify(churchSettings?.chatChannelMembers||{}), currentUser?.id, isStaff]);
   // Giving visibility: only Administrator or Office roles can see giving (Pastor role is excluded).
   // Check by matching the logged-in email against Access Control user records.
   const GIVING_ROLES = ['Administrator', 'Office']; // Pastor role intentionally EXCLUDED from Giving & Finances
