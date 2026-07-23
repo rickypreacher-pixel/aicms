@@ -10896,12 +10896,14 @@ function GivingCategory({giving,members,visitors}){
 
 function GivingStatements({giving,members,visitors}:any){
   const [scopeMode,setScopeMode] = useState<"member"|"household">("member");
-  const [periodMode,setPeriodMode] = useState<"monthly"|"yearly"|"custom">("monthly");
+  const [periodMode,setPeriodMode] = useState<"monthly"|"yearly"|"custom"|"all">("monthly");
   const [monthValue,setMonthValue] = useState(()=>td().slice(0,7));
   const [yearValue,setYearValue] = useState(()=>String(new Date().getFullYear()));
   const [customStart,setCustomStart] = useState("");
   const [customEnd,setCustomEnd] = useState("");
   const [selectedRecipientKey,setSelectedRecipientKey] = useState("");
+  const [memberQuery,setMemberQuery] = useState("");   // member search box text
+  const [searchedName,setSearchedName] = useState("");  // full name of the member picked from search
 
   const cs = (window as any).__CS__ || {};
   const TAX_DISCLAIMER = "For tax purposes: Please retain this statement for your records. No goods or services were provided in exchange for these contributions unless otherwise noted.";
@@ -10922,6 +10924,7 @@ function GivingStatements({giving,members,visitors}:any){
   const periodGiving = (giving||[]).filter((g:any)=>{
     const d = String(g?.date||"");
     if(!d) return false;
+    if(periodMode==="all") return true;
     if(periodMode==="monthly") return d.startsWith(monthValue);
     if(periodMode==="yearly") return d.startsWith(yearValue+"-");
     if(customStart && d<customStart) return false;
@@ -10967,7 +10970,24 @@ function GivingStatements({giving,members,visitors}:any){
   // eslint-disable-next-line
   },[scopeMode,periodMode,monthValue,yearValue,customStart,customEnd,JSON.stringify(recipients.map((r:any)=>r.key))]);
 
-  const selectedRecipient:any = recipients.find((r:any)=>r.key===selectedRecipientKey) || null;
+  // Member search autocomplete — pulls from the Member profile list (not just people who gave in the
+  // period), so you can look up anyone. Picking one shows ALL of that member's giving (see the
+  // onMouseDown handler which also flips the period to "All Time").
+  const memberSuggestions = memberQuery.trim().length>0
+    ? (members||[]).filter((m:any)=>((m.first||"")+" "+(m.last||"")).trim().toLowerCase().includes(memberQuery.trim().toLowerCase()))
+        .sort((a:any,b:any)=>String((a.first||"")+" "+(a.last||"")).localeCompare(String((b.first||"")+" "+(b.last||"")))).slice(0,10)
+    : [];
+  const searchedRecipient:any = searchedName ? (()=>{
+    const p = personByName(searchedName);
+    const names = new Set<string>([normalize(searchedName)]);
+    let label = searchedName;
+    if(scopeMode==="household" && p){
+      [...(members||[]),...(visitors||[])].forEach((x:any)=>{ if((p.familyId&&x.familyId===p.familyId)||(p.family&&normalize(p.family)!==""&&x.family===p.family)) names.add(normalize((x.first||"")+" "+(x.last||""))); });
+      label = p.family || ((p.last||searchedName)+" Household");
+    }
+    return {key:"search:"+normalize(searchedName), label, memberNames:names, person:p, primaryPerson:p};
+  })() : null;
+  const selectedRecipient:any = searchedRecipient || (recipients.find((r:any)=>r.key===selectedRecipientKey) || null);
 
   const statementRows = selectedRecipient
     ? periodGiving
@@ -10987,6 +11007,7 @@ function GivingStatements({giving,members,visitors}:any){
       return d.toLocaleDateString("en-US",{month:"long",year:"numeric"});
     }
     if(periodMode==="yearly") return yearValue;
+    if(periodMode==="all") return "All Time";
     return `${customStart?fd(customStart):"Start"} - ${customEnd?fd(customEnd):"Today"}`;
   })();
 
@@ -11074,10 +11095,13 @@ function GivingStatements({giving,members,visitors}:any){
               <option value="monthly">Monthly</option>
               <option value="yearly">Yearly</option>
               <option value="custom">Custom Range</option>
+              <option value="all">All Time</option>
             </select>
           </Fld>
-          <Fld label={periodMode==="monthly"?"Month":periodMode==="yearly"?"Year":"Date Range"}>
-            {periodMode==="monthly" ? (
+          <Fld label={periodMode==="monthly"?"Month":periodMode==="yearly"?"Year":periodMode==="all"?"Period":"Date Range"}>
+            {periodMode==="all" ? (
+              <div style={{padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,color:MU,background:BG}}>All dates</div>
+            ) : periodMode==="monthly" ? (
               <input type="month" value={monthValue} onChange={e=>setMonthValue(e.target.value)} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",boxSizing:"border-box"}}/>
             ) : periodMode==="yearly" ? (
               <input type="number" min={2000} max={2100} value={yearValue} onChange={e=>setYearValue(e.target.value)} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",boxSizing:"border-box"}}/>
@@ -11090,12 +11114,33 @@ function GivingStatements({giving,members,visitors}:any){
           </Fld>
         </div>
 
-        <Fld label={scopeMode==="member"?"Member":"Household"}>
-          <select value={selectedRecipientKey} onChange={e=>setSelectedRecipientKey(e.target.value)} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}>
-            {recipients.length===0 && <option value="">No recipients in selected period</option>}
-            {recipients.map((r:any)=><option key={r.key} value={r.key}>{r.label}</option>)}
-          </select>
+        <Fld label="Search a member (shows all their giving)">
+          {searchedName ? (
+            <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",border:"0.5px solid "+G,borderRadius:8,background:GL+"44"}}>
+              <span style={{flex:1,fontSize:13,fontWeight:600,color:N}}>{searchedName}</span>
+              <button onClick={()=>{setSearchedName("");setMemberQuery("");}} style={{background:"none",border:"none",cursor:"pointer",color:MU,fontSize:12,fontWeight:600}}>✕ Clear</button>
+            </div>
+          ) : (
+            <div style={{position:"relative"}}>
+              <input value={memberQuery} onChange={e=>setMemberQuery(e.target.value)} placeholder="Type a member's name…" style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",boxSizing:"border-box" as any,background:W}}/>
+              {memberSuggestions.length>0 && <div style={{position:"absolute",top:"100%",left:0,right:0,zIndex:10,background:W,border:"0.5px solid "+BR,borderRadius:8,marginTop:4,maxHeight:240,overflowY:"auto",boxShadow:"0 8px 20px rgba(0,0,0,0.14)"}}>
+                {memberSuggestions.map((m:any)=>{ const full=((m.first||"")+" "+(m.last||"")).trim(); return (
+                  <div key={m.id} onMouseDown={e=>{e.preventDefault(); setSearchedName(full); setMemberQuery(""); setPeriodMode("all"); }} style={{padding:"8px 12px",cursor:"pointer",fontSize:13,borderBottom:"0.5px solid "+BR+"55",display:"flex",justifyContent:"space-between",gap:8}} onMouseEnter={e=>((e.currentTarget as any).style.background=BG)} onMouseLeave={e=>((e.currentTarget as any).style.background=W)}>
+                    <span>{full}</span>{m.status&&<span style={{fontSize:10,color:MU}}>{m.status}</span>}
+                  </div>
+                ); })}
+              </div>}
+            </div>
+          )}
         </Fld>
+        {!searchedName && (
+          <Fld label={scopeMode==="member"?"Or pick from givers this period":"Household"}>
+            <select value={selectedRecipientKey} onChange={e=>setSelectedRecipientKey(e.target.value)} style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,boxSizing:"border-box"}}>
+              {recipients.length===0 && <option value="">No recipients in selected period</option>}
+              {recipients.map((r:any)=><option key={r.key} value={r.key}>{r.label}</option>)}
+            </select>
+          </Fld>
+        )}
 
         <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:6}}>
           <Btn onClick={()=>openPrintWindow(true)} disabled={!selectedRecipient} v="primary">Print Statement</Btn>
@@ -11792,7 +11837,7 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
       ) : tab==="pledges" ? (
         <PledgeDrives pledgeDrives={pledgeDrives} setPledgeDrives={setPledgeDrives} pledges={pledges} setPledges={setPledges} giving={visibleGiving} members={members} visitors={visitors}/>
       ) : tab==="statements" ? (
-        <GivingStatements giving={visibleGiving} members={members} visitors={visitors}/>
+        <GivingStatements giving={giving} members={members} visitors={visitors}/>
       ) : (
       <div>
       <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:14,marginBottom:14,display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
@@ -16573,6 +16618,8 @@ function ManualPage(){
           <Ol><Li>Click the <B>Pledges</B> tab within Giving and click <B>+ New Drive</B></Li><Li>Enter the campaign name, goal amount, and deadline</Li><Li>Add individual pledge commitments by member and amount</Li><Li>Track fulfillment as donations are recorded against the drive</Li></Ol>
           <H3>Individual Giving Totals</H3>
           <P>Each member's giving history is visible in their profile under the <B>Activity</B> tab — total given, number of gifts, and gift dates. This data is used for year-end giving statements.</P>
+          <H3>Statements — Look Up a Member's Full Giving</H3>
+          <P>On the Giving page, open the <B>Statements</B> tab and use the <B>Search a member</B> box — start typing a name and pick them from the auto-fill list (it pulls from your whole member list). Their <B>entire giving history</B> loads (the period switches to <B>All Time</B> automatically), with the total, tax-deductible subtotal, and every gift. You can then narrow the period (Monthly / Yearly / Custom) or <B>Print</B>, <B>Download PDF</B>, or <B>Download CSV</B> for a tax statement. Click <B>✕ Clear</B> to look up someone else.</P>
           <H3>Weekly Reports</H3>
           <P>Use the <B>Weekly Reports</B> tab to record and store a weekly financial summary (offering total, expenses, notes) for board records and treasurer reports.</P>
           <H3>Pastor's Draw</H3>
