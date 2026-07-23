@@ -7265,9 +7265,10 @@ function SickVisitLog({members,visitors,sickVisits,setSickVisits,users=[]}:any) 
   const getPersonName = (id:number,type:string) => {const p=getPerson(id,type);return p?p.first+" "+p.last:"Unknown";};
   const save = () => {
     if(!form.personId){setFormError("Please select a person.");return;}
-    const rec={personId:+form.personId,personType:form.personType,assignedDate:form.assignedDate,visitDate:form.visitDate,visitType:form.visitType,facility:form.facility,visitedBy:form.visitedBy,status:form.status,notes:form.notes,nextFollowUp:form.nextFollowUp};
+    const now=new Date().toISOString();
+    const rec={personId:+form.personId,personType:form.personType,assignedDate:form.assignedDate,visitDate:form.visitDate,visitType:form.visitType,facility:form.facility,visitedBy:form.visitedBy,status:form.status,notes:form.notes,nextFollowUp:form.nextFollowUp,updatedAt:now};
     if(editing){setSickVisits((s:any[])=>s.map(x=>x.id===editing.id?{...x,...rec}:x));}
-    else{setSickVisits((s:any[])=>[{...rec,id:nid.current++},...s]);}
+    else{setSickVisits((s:any[])=>[{...rec,id:nid.current++,createdAt:now},...s]);}
     setModal(false); setEditing(null); setForm(blank());
   };
   const del = (id:number)=>{if(confirm("Delete this visit record?"))setSickVisits((s:any[])=>s.filter(x=>x.id!==id));};
@@ -7882,11 +7883,12 @@ function ProspectsPage({prospects,setProspects,members,setView,onOpenSms,isAdmin
   };
   const save = () => {
     if(!form.first||!form.phone){alert("First name and phone number required.");return;}
-    const rec = {first:form.first,last:form.last,phone:form.phone,address:{street:form.street,city:form.city,state:form.state,zip:form.zip},invitedBy:form.invitedBy,invitedById:form.invitedById,status:form.status,notes:form.notes,addedDate:editing?.addedDate||td()};
+    const now=new Date().toISOString();
+    const rec = {first:form.first,last:form.last,phone:form.phone,address:{street:form.street,city:form.city,state:form.state,zip:form.zip},invitedBy:form.invitedBy,invitedById:form.invitedById,status:form.status,notes:form.notes,addedDate:editing?.addedDate||td(),updatedAt:now};
     if(editing){
       setProspects((ps:any[])=>ps.map((p:any)=>String(p.id)===String(editing.id)?{...p,...rec}:p));
     } else {
-      setProspects((ps:any[])=>[{...rec,id:nextProspectId(ps),ownerUserId:currentUserId??null},...ps]);
+      setProspects((ps:any[])=>[{...rec,id:nextProspectId(ps),ownerUserId:currentUserId??null,createdAt:now},...ps]);
     }
     setModal(false);
   };
@@ -7910,7 +7912,7 @@ function ProspectsPage({prospects,setProspects,members,setView,onOpenSms,isAdmin
     setTimeout(()=>setSmsToast(""),2500);
   };
   const updateStatus = (id:number,status:string) => {
-    setProspects((ps:any[])=>ps.map((p:any)=>String(p.id)===String(id)?{...p,status}:p));
+    setProspects((ps:any[])=>ps.map((p:any)=>String(p.id)===String(id)?{...p,status,updatedAt:new Date().toISOString()}:p));
     if(status==="Texted"){
       const prospect = (prospects||[]).find((p:any)=>String(p.id)===String(id));
       if(prospect) launchSmsForProspect(prospect);
@@ -18532,8 +18534,40 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
         });
         return Array.from(byId.values());
       });
-      if(Array.isArray(d.prospects)) setProspects(d.prospects); // trust empty array — removal on another device must propagate
-      if(Array.isArray(d.sickVisits)) setSickVisits(d.sickVisits);
+      if(Array.isArray(d.prospects)) setProspects((cur:any)=>{
+        // MERGE by id (don't blind-replace): a just-added prospect or a status change can blink out /
+        // revert if the 60s sync poll lands before that save reaches the cloud. Cloud is the base (so a
+        // prospect removed/converted on another device still propagates — empty array is trusted), keep
+        // the newer copy by updatedAt, and pin a brand-new local prospect not yet in cloud for a few min.
+        const curArr=Array.isArray(cur)?cur:[];
+        const ts=(r:any)=>new Date(r?.updatedAt||r?.createdAt||0).getTime()||0;
+        const byId=new Map<string,any>();
+        (d.prospects as any[]).forEach((r:any)=>byId.set(String(r.id),r));
+        const recentMs=Date.now()-3*60*1000;
+        curArr.forEach((lr:any)=>{
+          const cr=byId.get(String(lr.id));
+          if(!cr){ if(ts(lr)>recentMs) byId.set(String(lr.id),lr); }
+          else if(ts(lr)>ts(cr)) byId.set(String(lr.id),lr);
+        });
+        return Array.from(byId.values());
+      });
+      if(Array.isArray(d.sickVisits)) setSickVisits((cur:any)=>{
+        // MERGE by id (don't blind-replace): a just-added or just-edited sick/hospital visit can blink
+        // out / revert if the 60s sync poll lands before that save reaches the cloud. Cloud is the base
+        // (removals from other devices propagate), newer updatedAt wins, and a brand-new local record
+        // not yet in cloud is pinned for a few minutes so it never disappears.
+        const curArr=Array.isArray(cur)?cur:[];
+        const ts=(r:any)=>new Date(r?.updatedAt||r?.createdAt||0).getTime()||0;
+        const byId=new Map<string,any>();
+        (d.sickVisits as any[]).forEach((r:any)=>byId.set(String(r.id),r));
+        const recentMs=Date.now()-3*60*1000;
+        curArr.forEach((lr:any)=>{
+          const cr=byId.get(String(lr.id));
+          if(!cr){ if(ts(lr)>recentMs) byId.set(String(lr.id),lr); }
+          else if(ts(lr)>ts(cr)) byId.set(String(lr.id),lr);
+        });
+        return Array.from(byId.values());
+      });
       if(Array.isArray(d.benevolence)) setBenevolence((cur:any)=>{
         // MERGE by id (don't blind-replace): a just-added record posts locally, but the 60s sync
         // poll can land before that save reaches the cloud — a blind replace with the stale cloud
