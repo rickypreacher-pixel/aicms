@@ -7399,6 +7399,7 @@ function BenevolencePage({members,visitors,benevolence,setBenevolence}:any) {
   const [filterStatus,setFilterStatus] = useState("All");
   const [search,setSearch] = useState("");
   const [personQuery,setPersonQuery] = useState("");  // Person auto-fill search text
+  const [provOpenIdx,setProvOpenIdx] = useState(-1);  // which meal-provider slot's autocomplete is open
   const nid = useRef(9800);
   const sf = (k:string) => (v:any) => setForm((f:any)=>({...f,[k]:v}));
   const activeMembers = members.filter((m:any)=>m.status==="Active").sort((a:any,b:any)=>a.last.localeCompare(b.last));
@@ -7538,7 +7539,16 @@ function BenevolencePage({members,visitors,benevolence,setBenevolence}:any) {
                   <option value="">— Day —</option>
                   {MEAL_DAYS.map(dy=><option key={dy} value={dy}>{dy}</option>)}
                 </select>
-                <input list="benMealProviders" autoComplete="off" value={d.providerText!==undefined?d.providerText:memberNameById(d.memberId)} onChange={e=>{const v=e.target.value;const m=activeMembers.find((x:any)=>(x.first+" "+x.last).toLowerCase()===v.trim().toLowerCase());const md=form.mealDays.map((x:any,j:number)=>j===i?{...x,providerText:v,memberId:m?String(m.id):""}:x);sf("mealDays")(md);}} placeholder="Search provider..." style={{padding:"7px 8px",border:"0.5px solid "+BR,borderRadius:7,fontSize:12,outline:"none",background:W,fontFamily:"inherit"}}/>
+                <div style={{position:"relative"}}>
+                  <input autoComplete="off" value={d.providerText!==undefined?d.providerText:memberNameById(d.memberId)} onChange={e=>{const v=e.target.value;const m=activeMembers.find((x:any)=>(x.first+" "+x.last).toLowerCase()===v.trim().toLowerCase());const md=form.mealDays.map((x:any,j:number)=>j===i?{...x,providerText:v,memberId:m?String(m.id):""}:x);sf("mealDays")(md);}} onFocus={()=>setProvOpenIdx(i)} onBlur={()=>setTimeout(()=>setProvOpenIdx((o:number)=>o===i?-1:o),150)} placeholder="Search provider..." style={{width:"100%",padding:"7px 8px",border:"0.5px solid "+BR,borderRadius:7,fontSize:12,outline:"none",background:W,fontFamily:"inherit",boxSizing:"border-box" as any}}/>
+                  {provOpenIdx===i && (()=>{ const q=String(d.providerText!==undefined?d.providerText:(memberNameById(d.memberId)||"")).trim().toLowerCase(); const sugg=q.length>0?activeMembers.filter((m:any)=>((m.first||"")+" "+(m.last||"")).toLowerCase().includes(q)).slice(0,8):[]; if(!sugg.length) return null; return (
+                    <div style={{position:"absolute",top:"100%",left:0,right:0,zIndex:30,background:W,border:"0.5px solid "+BR,borderRadius:7,marginTop:2,maxHeight:200,overflowY:"auto",boxShadow:"0 8px 20px rgba(0,0,0,0.16)"}}>
+                      {sugg.map((m:any)=>{ const full=((m.first||"")+" "+(m.last||"")).trim(); return (
+                        <div key={m.id} onMouseDown={e=>{e.preventDefault(); const md=form.mealDays.map((x:any,j:number)=>j===i?{...x,providerText:full,memberId:String(m.id)}:x); sf("mealDays")(md); setProvOpenIdx(-1);}} style={{padding:"7px 10px",cursor:"pointer",fontSize:12,borderBottom:"0.5px solid "+BR+"55"}} onMouseEnter={e=>((e.currentTarget as any).style.background=BG)} onMouseLeave={e=>((e.currentTarget as any).style.background=W)}>{full}</div>
+                      );})}
+                    </div>
+                  );})()}
+                </div>
                 <input value={d.meal} onChange={e=>{const md=form.mealDays.map((x:any,j:number)=>j===i?{...x,meal:e.target.value}:x);sf("mealDays")(md);}} placeholder="Describe the meal..." style={{padding:"7px 8px",border:"0.5px solid "+BR,borderRadius:7,fontSize:12,outline:"none",fontFamily:"inherit",background:W}}/>
               </div>
             ))}
