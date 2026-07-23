@@ -3470,13 +3470,14 @@ async function sendDirectEmail(config, payload){
 
 // Sends an SMS via the server proxy /api/send-sms (Twilio). Credentials live in the server
 // env (TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN / TWILIO_FROM_NUMBER); the browser never holds the token.
-async function sendDirectSms(config, to, body){
+async function sendDirectSms(config, to, body, mediaUrl){
   if(!to) throw new Error("No recipient phone number.");
   if(!body) throw new Error("Message is empty.");
   // Compliance: ensure every text carries opt-out language (added once, only if not already present).
   const _body = /\bstop\b/i.test(body) ? body : (String(body).replace(/\s+$/,"") + "\nReply STOP to opt out");
+  const _media = Array.isArray(mediaUrl) ? mediaUrl.filter(Boolean) : (mediaUrl ? [mediaUrl] : []);
   const res=await fetch("/api/send-sms",{method:"POST",headers:{"Content-Type":"application/json", ...(await _authHeaders())},
-    body:JSON.stringify({to,body:_body,fromPhone:config?.fromPhone||undefined})});
+    body:JSON.stringify({to,body:_body,fromPhone:config?.fromPhone||undefined,mediaUrl:_media.length?_media:undefined})});
   const data=await res.json().catch(()=>({}));
   if(!res.ok||!data.success) throw new Error(data.error||("SMS failed ("+res.status+")"));
   return data;
@@ -3947,6 +3948,24 @@ function BulkEmailComposer({open,onClose,recipients,initialSubject,initialBody,i
   const [sending,setSending] = useState(false);
   const [errorMsg,setErrorMsg] = useState("");
   const [sendMode,setSendMode] = useState("bcc");
+  const [attachments,setAttachments] = useState<any[]>([]);  // [{filename, path(url)}] — photos, kept out of the sync blob
+  const [attachBusy,setAttachBusy] = useState(false);
+  const onPickAttachments = async (files:FileList|null) => {
+    if(!files || !files.length) return;
+    setErrorMsg("");
+    const room = Math.max(0, 5 - attachments.length);
+    const chosen = Array.from(files).slice(0, room);
+    if(!chosen.length){ setErrorMsg("You can attach up to 5 photos per email."); return; }
+    setAttachBusy(true);
+    try{
+      for(const f of chosen){
+        if(!/image\/(png|jpe?g)/i.test(f.type)){ setErrorMsg("Only .jpg or .png photos can be attached."); continue; }
+        const url = await uploadImageToStorage(f, "email");
+        if(url && !url.startsWith("data:")) setAttachments((a:any[])=>[...a,{filename:(f.name||"photo").replace(/[^\w.\-]/g,"_"),path:url}]);
+        else setErrorMsg("Couldn't upload that photo (storage unavailable). Try again.");
+      }
+    } finally { setAttachBusy(false); }
+  };
 
   useEffect(()=>{
     if(open){
@@ -3954,6 +3973,7 @@ function BulkEmailComposer({open,onClose,recipients,initialSubject,initialBody,i
       setBody(initialBody||"");
       setCategory(initialCategory||"General");
       setErrorMsg(""); setShowTemplates(false);
+      setAttachments([]); setAttachBusy(false);
     }
   },[open,initialSubject,initialBody,initialCategory]);
 
@@ -3984,6 +4004,8 @@ function BulkEmailComposer({open,onClose,recipients,initialSubject,initialBody,i
     if(!subject.trim()){ setErrorMsg("Subject required."); return; }
     if(!body.trim()){ setErrorMsg("Message body required."); return; }
     setErrorMsg("");
+    if(attachBusy){ setErrorMsg("A photo is still uploading — please wait a moment."); return; }
+    if(mode === "mailto" && attachments.length){ setErrorMsg('Photos can only be sent with "Send Directly from App". Switch the send method above, or remove the photos.'); return; }
     if(mode === "mailto"){
       if(sendMode === "bcc"){
         const bccList = validRecipients.map(r=>r.email).join(",");
@@ -4008,7 +4030,7 @@ function BulkEmailComposer({open,onClose,recipients,initialSubject,initialBody,i
       setSending(true);
       try {
         for(const r of validRecipients){
-          await sendDirectEmail(emailConfig, {to:r.email,subject,body,html:htmlMode?buildHtmlEmail(subject,body,cs):null,from:cs?.email,fromName:cs?.name});
+          await sendDirectEmail(emailConfig, {to:r.email,subject,body,html:htmlMode?buildHtmlEmail(subject,body,cs):null,from:cs?.email,fromName:cs?.name,attachments:attachments.length?attachments:undefined});
         }
         if(onSend) onSend({recipients:validRecipients,subject,body,category,htmlMode,method:"direct-bulk",status:"Sent to "+validRecipients.length,relatedType});
         setSending(false);
@@ -4088,10 +4110,31 @@ function BulkEmailComposer({open,onClose,recipients,initialSubject,initialBody,i
           <textarea value={body} onChange={e=>setBody(e.target.value)} rows={9} style={{width:"100%",padding:"10px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",fontFamily:"inherit",resize:"vertical",boxSizing:"border-box",lineHeight:1.7}}/>
         </Fld>
 
+        {/* Photo attachments — only for "Send Directly from App" (mailto links can't carry files). */}
+        <div style={{marginBottom:14}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+            <label style={{display:"inline-flex",alignItems:"center",gap:6,fontSize:12,fontWeight:500,color:mode==="mailto"?MU:N,cursor:mode==="mailto"?"not-allowed":"pointer",background:mode==="mailto"?BG:"#eef2ff",border:"0.5px solid "+(mode==="mailto"?BR:"#c7d2fe"),borderRadius:8,padding:"7px 12px",opacity:mode==="mailto"?0.6:1}}>
+              📎 {attachBusy?"Uploading…":"Attach Photo"}
+              <input type="file" accept="image/jpeg,image/png" multiple disabled={mode==="mailto"||attachBusy||attachments.length>=5} onChange={e=>{ onPickAttachments(e.target.files); (e.target as any).value=""; }} style={{display:"none"}}/>
+            </label>
+            <span style={{fontSize:11,color:MU}}>{mode==="mailto"?'Switch to "Send Directly from App" to attach photos':`Same photos go to all ${validRecipients.length} recipients · JPG/PNG · up to 5 · ${attachments.length}/5`}</span>
+          </div>
+          {attachments.length>0 && (
+            <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:10}}>
+              {attachments.map((a:any,i:number)=>(
+                <div key={i} style={{position:"relative"}}>
+                  <img src={a.path} alt={a.filename} style={{width:64,height:64,objectFit:"cover",borderRadius:8,border:"0.5px solid "+BR}}/>
+                  <button onClick={()=>setAttachments((arr:any[])=>arr.filter((_,j)=>j!==i))} title="Remove" style={{position:"absolute",top:-6,right:-6,width:20,height:20,borderRadius:"50%",border:"none",background:RE,color:"#fff",fontSize:12,lineHeight:"20px",cursor:"pointer",padding:0}}>×</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         {errorMsg && <div style={{background:"#fee2e2",border:"0.5px solid #fca5a5",borderRadius:8,padding:"10px 12px",marginBottom:12,fontSize:12,color:RE}}>{errorMsg}</div>}
 
         <div style={{display:"flex",gap:8}}>
-          <Btn onClick={doSend} v="success" style={{flex:1,justifyContent:"center",padding:"11px"}} disabled={sending}>{sending?"Sending...":"Send to "+validRecipients.length+" Recipient"+(validRecipients.length!==1?"s":"")}</Btn>
+          <Btn onClick={doSend} v="success" style={{flex:1,justifyContent:"center",padding:"11px"}} disabled={sending||attachBusy}>{sending?"Sending...":"Send to "+validRecipients.length+" Recipient"+(validRecipients.length!==1?"s":"")}</Btn>
           <Btn onClick={onClose} v="ghost" style={{padding:"11px 20px"}}>Cancel</Btn>
         </div>
       </div>
@@ -4149,6 +4192,26 @@ function SmsComposer({open,onClose,initialPhone,initialName,initialBody,initialC
   const [copied,setCopied]=useState(false);
   const [errorMsg,setErrorMsg]=useState("");
   const [sending,setSending]=useState(false);
+  const [mms,setMms]=useState<any[]>([]);      // [{filename, path(url)}] — MMS photos, kept out of the sync blob
+  const [mmsBusy,setMmsBusy]=useState(false);
+  // Attach a .jpg/.png photo for MMS: downscale + upload to Storage, keep only the public URL
+  // (Twilio fetches it as the MMS media). Nothing heavy enters the synced blob.
+  const onPickMms=async(files:FileList|null)=>{
+    if(!files||!files.length) return;
+    setErrorMsg("");
+    const room=Math.max(0,3-mms.length);
+    const chosen=Array.from(files).slice(0,room);
+    if(!chosen.length){ setErrorMsg("You can attach up to 3 photos per text."); return; }
+    setMmsBusy(true);
+    try{
+      for(const f of chosen){
+        if(!/image\/(png|jpe?g)/i.test(f.type)){ setErrorMsg("Only .jpg or .png photos can be attached."); continue; }
+        const url=await uploadImageToStorage(f,"sms");
+        if(url && !url.startsWith("data:")) setMms((a:any[])=>[...a,{filename:(f.name||"photo").replace(/[^\w.\-]/g,"_"),path:url}]);
+        else setErrorMsg("Couldn't upload that photo (storage unavailable). Try again.");
+      }
+    } finally { setMmsBusy(false); }
+  };
 
   const stats=smsStats(body);
 
@@ -4160,6 +4223,7 @@ function SmsComposer({open,onClose,initialPhone,initialName,initialBody,initialC
       setCategory(initialCategory||"General");
       setShowTpl(false);setCopied(false);setErrorMsg("");
       setPickerMode("manual");setPickerId("");setPickSearch("");
+      setMms([]);setMmsBusy(false);
     }
   },[open,initialPhone,initialName,initialBody,initialCategory]);
 
@@ -4194,6 +4258,7 @@ function SmsComposer({open,onClose,initialPhone,initialName,initialBody,initialC
   const doSmsLink=()=>{
     if(!phone.trim()){setErrorMsg("Phone number required.");return;}
     if(!body.trim()){setErrorMsg("Message required.");return;}
+    if(mms.length){ setErrorMsg('Photos can only be sent with "✉ Send Text" (MMS). Remove the photos to open your phone\'s SMS app instead.'); return; }
     setErrorMsg("");
     const clean=phone.replace(/\D/g,"");
     window.open("sms:"+clean+"?body="+encodeURIComponent(body),"_blank");
@@ -4212,10 +4277,11 @@ function SmsComposer({open,onClose,initialPhone,initialName,initialBody,initialC
   const doSendTwilio=async()=>{
     if(!phone.trim()){setErrorMsg("Phone number required.");return;}
     if(!body.trim()){setErrorMsg("Message required.");return;}
+    if(mmsBusy){ setErrorMsg("A photo is still uploading — please wait a moment."); return; }
     setErrorMsg(""); setSending(true);
     try{
-      await sendDirectSms(null,phone,body); // creds + From live in the server env (TWILIO_*)
-      if(onSend) onSend({to:phone,toName,body,category,method:"twilio",status:"Sent",relatedType,relatedId});
+      await sendDirectSms(null,phone,body,mms.map((m:any)=>m.path)); // creds + From live in the server env (TWILIO_*)
+      if(onSend) onSend({to:phone,toName,body,category,method:"twilio",status:"Sent"+(mms.length?" (MMS "+mms.length+" photo"+(mms.length>1?"s":"")+")":""),relatedType,relatedId});
       setSending(false); onClose();
     }catch(e){ setErrorMsg(e.message||"SMS failed."); setSending(false); }
   };
@@ -4293,6 +4359,27 @@ function SmsComposer({open,onClose,initialPhone,initialName,initialBody,initialC
           <textarea value={body} onChange={e=>setBody(e.target.value)} rows={5} placeholder={"Type your message... Use {first}, {church}, {pastor} as merge fields"} style={{width:"100%",padding:"10px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",fontFamily:"inherit",resize:"vertical",boxSizing:"border-box",lineHeight:1.7}}/>
         </Fld>
 
+        {/* MMS photo attachments — only "✉ Send Text" (Twilio) can carry them; sending a photo is billed as MMS. */}
+        <div style={{marginBottom:12}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+            <label style={{display:"inline-flex",alignItems:"center",gap:6,fontSize:12,fontWeight:500,color:N,cursor:mms.length>=3?"not-allowed":"pointer",background:"#fff7ed",border:"0.5px solid #fed7aa",borderRadius:8,padding:"7px 12px",opacity:mms.length>=3?0.6:1}}>
+              📎 {mmsBusy?"Uploading…":"Attach Photo"}
+              <input type="file" accept="image/jpeg,image/png" multiple disabled={mmsBusy||mms.length>=3} onChange={e=>{ onPickMms(e.target.files); (e.target as any).value=""; }} style={{display:"none"}}/>
+            </label>
+            <span style={{fontSize:11,color:MU}}>{mms.length?`${mms.length}/3 · sends as MMS (extra carrier cost)`:'JPG or PNG · up to 3 · adds MMS cost'}</span>
+          </div>
+          {mms.length>0 && (
+            <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:10}}>
+              {mms.map((a:any,i:number)=>(
+                <div key={i} style={{position:"relative"}}>
+                  <img src={a.path} alt={a.filename} style={{width:60,height:60,objectFit:"cover",borderRadius:8,border:"0.5px solid "+BR}}/>
+                  <button onClick={()=>setMms((arr:any[])=>arr.filter((_,j)=>j!==i))} title="Remove" style={{position:"absolute",top:-6,right:-6,width:20,height:20,borderRadius:"50%",border:"none",background:RE,color:"#fff",fontSize:12,lineHeight:"20px",cursor:"pointer",padding:0}}>×</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
           <div style={{fontSize:11,color:MU}}>Merge fields: {"{first}"} {"{church}"} {"{pastor}"}</div>
           <div style={{fontSize:11,fontWeight:500,color:segColor}}>{stats.chars} chars · {stats.segments} segment{stats.segments!==1?"s":""} · {stats.remaining} left</div>
@@ -4301,7 +4388,7 @@ function SmsComposer({open,onClose,initialPhone,initialName,initialBody,initialC
         {errorMsg&&<div style={{background:"#fee2e2",border:"0.5px solid #fca5a5",borderRadius:8,padding:"10px 12px",marginBottom:12,fontSize:12,color:RE}}>{errorMsg}</div>}
 
         <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-          <Btn onClick={doSendTwilio} v="gold" disabled={sending} style={{flex:1,justifyContent:"center",minWidth:130}}>{sending?"Sending…":"✉ Send Text"}</Btn>
+          <Btn onClick={doSendTwilio} v="gold" disabled={sending||mmsBusy} style={{flex:1,justifyContent:"center",minWidth:130}}>{sending?"Sending…":(mms.length?"✉ Send Text + Photo":"✉ Send Text")}</Btn>
           <Btn onClick={doSmsLink} v="primary" style={{flex:1,justifyContent:"center",minWidth:130}}>📱 Open SMS App</Btn>
           <Btn onClick={doCopy} v={copied?"success":"outline"} style={{flex:1,justifyContent:"center",minWidth:120}}>{copied?"✓ Copied!":"Copy Message"}</Btn>
           <Btn onClick={onClose} v="ghost" style={{padding:"10px 16px"}}>Cancel</Btn>
@@ -16752,6 +16839,8 @@ function ManualPage(){
 
         <Sec><H id="s13">13. SMS Center</H>
           <P>The <B>SMS Center</B> enables text messaging to members and visitors with a connected SMS provider account.</P>
+          <H3>Sending a Photo (MMS)</H3>
+          <P>In the SMS composer, click <B>📎 Attach Photo</B> to add up to 3 <B>.jpg</B> or <B>.png</B> images, then use <B>✉ Send Text</B>. A text with a photo is sent as an <B>MMS</B>, which your carrier (Twilio) bills at a higher rate than a plain text, and requires an MMS-capable number. Photos can't go through "Open SMS App" — use "Send Text" for picture messages.</P>
           <H3>Sending an SMS</H3>
           <Ol><Li>Go to <B>SMS Center</B> in the sidebar and click <B>+ Compose SMS</B></Li><Li>Select a recipient (must have a phone number on file) or type a number manually</Li><Li>Type your message — keep it under 160 characters for a single SMS segment</Li><Li>Click <B>Send</B></Li></Ol>
           <H3>Bulk SMS</H3>

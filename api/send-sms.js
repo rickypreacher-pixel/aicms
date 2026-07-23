@@ -37,7 +37,7 @@ export default async function handler(req, res) {
   const accountSid = process.env.TWILIO_ACCOUNT_SID || b.accountSid;
   const authToken = process.env.TWILIO_AUTH_TOKEN || b.authToken;
   const fromPhone = process.env.TWILIO_FROM_NUMBER || process.env.TWILIO_FROM || b.fromPhone;
-  const { to, body } = b;
+  const { to, body, mediaUrl } = b;
 
   if (!accountSid || !authToken || !fromPhone) {
     return res.status(400).json({ error: "SMS not configured. Add TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_FROM_NUMBER in your Vercel environment variables." });
@@ -65,11 +65,14 @@ export default async function handler(req, res) {
           Authorization: `Basic ${credentials}`,
           "Content-Type": "application/x-www-form-urlencoded",
         },
-        body: new URLSearchParams({
-          From: formattedFrom,
-          To: formattedTo,
-          Body: body,
-        }).toString(),
+        body: (() => {
+          const params = new URLSearchParams({ From: formattedFrom, To: formattedTo, Body: body });
+          // MMS: attach one or more public image URLs. Adding MediaUrl turns the message into an MMS
+          // (Twilio bills MMS at a higher rate than SMS, and the From number must be MMS-capable).
+          const medias = Array.isArray(mediaUrl) ? mediaUrl : (mediaUrl ? [mediaUrl] : []);
+          medias.slice(0, 10).forEach((u) => { if (u) params.append("MediaUrl", String(u)); });
+          return params.toString();
+        })(),
       }
     );
 
