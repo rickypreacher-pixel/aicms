@@ -17870,8 +17870,10 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
         // Notify staff of the new message unless they're actively looking at the chat.
         const active = chatViewRef.current==='chat' && !document.hidden;
         if(active) return;
-        // Soft chime (best-effort — browsers may block audio until a user gesture).
-        try{ const AC:any=window.AudioContext||(window as any).webkitAudioContext; if(AC){ let ctx=chatAudioRef.current; if(!ctx){ ctx=new AC(); chatAudioRef.current=ctx; } if(ctx.state==='suspended') ctx.resume(); const o=ctx.createOscillator(),g=ctx.createGain(); o.type='sine'; o.frequency.value=880; o.connect(g); g.connect(ctx.destination); const t=ctx.currentTime; g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.15,t+0.02); g.gain.exponentialRampToValueAtTime(0.0001,t+0.35); o.start(t); o.stop(t+0.37); } }catch(e){}
+        // Two-tone chime (best-effort — browsers may block audio until a user gesture).
+        try{ const AC:any=window.AudioContext||(window as any).webkitAudioContext; if(AC){ let ctx=chatAudioRef.current; if(!ctx){ ctx=new AC(); chatAudioRef.current=ctx; } if(ctx.state==='suspended') ctx.resume(); const beep=(freq:number,start:number)=>{ const o=ctx.createOscillator(),g=ctx.createGain(); o.type='sine'; o.frequency.value=freq; o.connect(g); g.connect(ctx.destination); const t=ctx.currentTime+start; g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.2,t+0.02); g.gain.exponentialRampToValueAtTime(0.0001,t+0.28); o.start(t); o.stop(t+0.3); }; beep(880,0); beep(1175,0.16); } }catch(e){}
+        // Buzz the phone (Android Chrome supports the Vibration API; iOS Safari ignores it).
+        try{ if((navigator as any).vibrate) (navigator as any).vibrate([180,80,180]); }catch(e){}
         // Desktop/phone banner notification.
         try{ if('Notification' in window && Notification.permission==='granted'){ const who=m.author_name||'Staff'; const isDm=!!m.recipient_id; const chan=(m.channel&&m.channel!=='staff'&&!isDm)?(' · '+m.channel):''; const title=(isDm?'💬 '+who+' (direct message)':'💬 '+who+chan); const n=new Notification(title,{body:String(m.body||'').slice(0,140),tag:'ntcc-chat'}); n.onclick=()=>{ try{window.focus();}catch(e){} setView('chat'); try{n.close();}catch(e){} }; } }catch(e){}
       })
