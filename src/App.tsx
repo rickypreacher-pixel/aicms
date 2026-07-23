@@ -7416,9 +7416,10 @@ function BenevolencePage({members,visitors,benevolence,setBenevolence}:any) {
   const getPersonName = (id:number,type:string) => {const p=getPerson(id,type);return p?p.first+" "+p.last:"Unknown";};
   const save = () => {
     if(!form.personId||!form.amountRequested){alert("Person and amount required.");return;}
-    const rec={personId:+form.personId,personType:form.personType,requestDate:form.requestDate,category:form.category,amountRequested:+form.amountRequested||0,amountApproved:+form.amountApproved||0,disbursedDate:form.disbursedDate,status:form.status,approvedBy:form.approvedBy,notes:form.notes,mealDays:isMealCat(form.category)?form.mealDays:undefined};
+    const now=new Date().toISOString();
+    const rec={personId:+form.personId,personType:form.personType,requestDate:form.requestDate,category:form.category,amountRequested:+form.amountRequested||0,amountApproved:+form.amountApproved||0,disbursedDate:form.disbursedDate,status:form.status,approvedBy:form.approvedBy,notes:form.notes,mealDays:isMealCat(form.category)?form.mealDays:undefined,updatedAt:now};
     if(editing){setBenevolence((b:any[])=>b.map(x=>x.id===editing.id?{...x,...rec}:x));}
-    else{setBenevolence((b:any[])=>[{...rec,id:nid.current++},...b]);}
+    else{setBenevolence((b:any[])=>[{...rec,id:nid.current++,createdAt:now},...b]);}
     setModal(false); setEditing(null); setForm(blank());
   };
   const del = (id:number)=>{if(confirm("Delete this request?"))setBenevolence((b:any[])=>b.filter(x=>x.id!==id));};
@@ -18509,7 +18510,24 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       });
       if(Array.isArray(d.prospects)) setProspects(d.prospects); // trust empty array — removal on another device must propagate
       if(Array.isArray(d.sickVisits)) setSickVisits(d.sickVisits);
-      if(Array.isArray(d.benevolence)) setBenevolence(d.benevolence);
+      if(Array.isArray(d.benevolence)) setBenevolence((cur:any)=>{
+        // MERGE by id (don't blind-replace): a just-added record posts locally, but the 60s sync
+        // poll can land before that save reaches the cloud — a blind replace with the stale cloud
+        // copy makes the new record blink out until the save pushes it back. Start from cloud (so
+        // other devices' edits/deletes propagate), keep the newer copy by updatedAt, and pin a
+        // brand-new local record (not yet in cloud) for a few minutes so it never disappears.
+        const curArr=Array.isArray(cur)?cur:[];
+        const ts=(r:any)=>new Date(r?.updatedAt||r?.createdAt||0).getTime()||0;
+        const byId=new Map<string,any>();
+        (d.benevolence as any[]).forEach((r:any)=>byId.set(String(r.id),r));
+        const recentMs=Date.now()-3*60*1000;
+        curArr.forEach((lr:any)=>{
+          const cr=byId.get(String(lr.id));
+          if(!cr){ if(ts(lr)>recentMs) byId.set(String(lr.id),lr); }
+          else if(ts(lr)>ts(cr)) byId.set(String(lr.id),lr);
+        });
+        return Array.from(byId.values());
+      });
       if(d.cleaningSchedule && typeof d.cleaningSchedule==='object') setCleaningSchedule(d.cleaningSchedule);
       if(d.eventSchedule && typeof d.eventSchedule==='object') setEventSchedule(d.eventSchedule);
       // servicePlans = service Schedule Planner, keyed by "<service>|<date>". For each plan take the
