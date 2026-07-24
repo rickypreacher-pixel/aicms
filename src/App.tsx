@@ -8401,7 +8401,7 @@ const MiniStat = ({label,value,color=N,sub}:any) => (
     {sub && <div style={{fontSize:10,color:MU,marginTop:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{sub}</div>}
   </div>
 );
-function People({members,setMembers,visitors,setVisitors,attendance,giving,setGiving,prayers,setPrayers,groups,setGroups,grpMeetings,setGrpMeetings,visitRecords,setVisitRecords,checkIns,setCheckIns,setView,canViewGiving,currentUser,roles=[],children=[],setChildren=null,churchId=null,classrooms=[]}:any) {
+function People({members,setMembers,visitors,setVisitors,attendance,giving,setGiving,prayers,setPrayers,groups,setGroups,grpMeetings,setGrpMeetings,visitRecords,setVisitRecords,checkIns,setCheckIns,setView,canViewGiving,currentUser,roles=[],children=[],setChildren=null,churchId=null,classrooms=[],neoDesign=false}:any) {
   const [inviteCopied,setInviteCopied] = useState(false);
   const [tab,setTab] = useState("members");
   const [search,setSearch] = useState("");
@@ -8839,7 +8839,7 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
 
       </div>
       {/* ── Table ────────────────────────────────────────────────── */}
-      <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,overflow:"hidden"}}>
+      <div style={{background:W,border:"0.5px solid "+BR,borderRadius:neoDesign?16:12,overflow:"hidden",boxShadow:neoDesign?"0 1px 2px rgba(20,30,55,.04),0 8px 22px -14px rgba(20,30,55,.14)":undefined}}>
         <table style={{width:"100%",borderCollapse:"collapse"}}>
           <thead><tr style={{background:BG}}>
             <th style={{padding:"10px 12px",width:36}}>
@@ -8856,7 +8856,7 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
                 <td style={{padding:"10px 14px"}} onClick={()=>openDetail(p)}>
                   <div style={{display:"flex",alignItems:"center",gap:10}}>
                     <Av f={p.first} l={p.last}/>
-                    <div><div style={{fontSize:13,fontWeight:500,color:N}}>{p.first} {p.last}</div><div style={{fontSize:11,color:MU}}>{p.email||"No email"}</div></div>
+                    <div><div style={{fontSize:neoDesign?14.5:13,fontWeight:neoDesign?600:500,color:N,fontFamily:neoDesign?"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif":"inherit"}}>{p.first} {p.last}</div><div style={{fontSize:11,color:MU}}>{p.email||"No email"}</div></div>
                   </div>
                 </td>
                 <td style={{padding:"10px 14px",fontSize:13}} onClick={()=>openDetail(p)}>{tab==="members"?(p.role||"Member"):<Badge label={p.stage}/>}</td>
@@ -11529,7 +11529,7 @@ function GivingStatements({giving,members,visitors}:any){
   );
 }
 
-function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledges,members,visitors,weeklyReports,setWeeklyReports,emailTemplates,currentUser=null,roles=[],churchId="",onTxnDeleted=null}:any) {
+function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledges,members,visitors,weeklyReports,setWeeklyReports,emailTemplates,currentUser=null,roles=[],churchId="",onTxnDeleted=null,neoDesign=false}:any) {
   const [tab,setTab] = useState("giving");
   const [modal,setModal] = useState(false);
   const [form,setForm] = useState({date:td(),name:"",category:"Tithe",amount:"",method:"Cash",notes:""});
@@ -12192,12 +12192,23 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
           </div>
         )}
       </div>
+      {neoDesign ? (
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:14,marginBottom:16}}>
+        {[["Week Total",f$(total),GR],["Tithes",f$(tithe),N],["Offerings",f$(offering),G],["Records",visibleGiving.length,N]].map(([l,v,c]:any)=>(
+          <div key={l} style={{background:W,border:"0.5px solid "+BR,borderRadius:16,padding:"16px 18px",boxShadow:"0 1px 2px rgba(20,30,55,.04),0 8px 20px -13px rgba(20,30,55,.13)"}}>
+            <div style={{fontSize:12,color:MU,fontWeight:600}}>{l}</div>
+            <div style={{fontFamily:"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif",fontSize:29,fontWeight:600,color:c,lineHeight:1.05,marginTop:6,fontVariantNumeric:"tabular-nums"}}>{v}</div>
+          </div>
+        ))}
+      </div>
+      ) : (
       <div style={{display:"flex",gap:12,marginBottom:16,flexWrap:"wrap"}}>
         <Stat label="Week Total" value={f$(total)} color={GR}/>
         <Stat label="Tithes" value={f$(tithe)} sub="Selected batch"/>
         <Stat label="Offerings" value={f$(offering)} sub="Selected batch" color={G}/>
         <Stat label="Records" value={visibleGiving.length} sub="Selected batch"/>
       </div>
+      )}
       {/* Pastor's Draw Card */}
       {(()=>{
         const todayMon = getMondayOf(td());
@@ -12214,7 +12225,7 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
               </div>
               <Btn onClick={()=>setTab("tithes")} v="gold" style={{fontSize:11,padding:"5px 12px"}}>Full Tithes View →</Btn>
             </div>
-            <div style={{fontSize:38,fontWeight:700,color:N,marginBottom:4}}>{f$(draw)}</div>
+            <div style={{fontSize:neoDesign?42:38,fontWeight:700,color:N,marginBottom:4,fontFamily:neoDesign?"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif":"inherit",fontVariantNumeric:"tabular-nums"}}>{f$(draw)}</div>
             <div style={{fontSize:11,color:MU,marginBottom:14}}>Based on {f$(cwTithes.tithe)} tithes + {f$(cwTithes.specialGift)} special gift + {f$(cwTithes.sundayMorning)} Sunday morning = {f$(cwTithes.pastorBase)} × 60%</div>
             {last5.length>0&&<div style={{borderTop:"0.5px solid "+BR,paddingTop:12}}>
               <div style={{fontSize:11,color:MU,fontWeight:600,textTransform:"uppercase",letterSpacing:0.5,marginBottom:8}}>Last {last5.length} Weeks</div>
@@ -12271,7 +12282,7 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
         </div>
       </div>
       {viewingClosedBatch && !canEditClosedBatch && <div style={{fontSize:12,color:MU,marginBottom:10}}>Closed batch is read-only. Switch to the current open batch to add/import records.</div>}
-      <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,overflow:"hidden"}}>
+      <div style={{background:W,border:"0.5px solid "+BR,borderRadius:neoDesign?16:12,overflow:"hidden",boxShadow:neoDesign?"0 1px 2px rgba(20,30,55,.04),0 8px 22px -14px rgba(20,30,55,.14)":undefined}}>
         <table style={{width:"100%",borderCollapse:"collapse"}}>
           <thead>
             <tr style={{background:BG}}>
@@ -12287,7 +12298,7 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
                 <td style={{padding:"10px 14px",fontSize:13}}>{fd(g.date)}</td>
                 <td style={{padding:"10px 14px",fontSize:13,fontWeight:500}}>{g.name}</td>
                 <td style={{padding:"10px 14px",fontSize:13}}>{g.category}</td>
-                <td style={{padding:"10px 14px",fontSize:14,fontWeight:500,color:GR}}>{f$(g.amount)}</td>
+                <td style={{padding:"10px 14px",fontSize:neoDesign?15:14,fontWeight:neoDesign?600:500,color:GR,fontFamily:neoDesign?"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif":"inherit",fontVariantNumeric:"tabular-nums"}}>{f$(g.amount)}</td>
                 <td style={{padding:"10px 14px",fontSize:13}}>{g.method}</td>
                 <td style={{padding:"10px 14px",fontSize:13,color:MU}}>{g.notes||"None"}</td>
                 <td style={{padding:"10px 14px"}}>
@@ -19738,7 +19749,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           />}
           {!isMemberPortal && view==="dashboard" && <Dashboard members={members} visitors={visitors} attendance={attendance} giving={giving} prayers={prayers} setView={setView} canViewGiving={canViewGiving} isRestrictedUser={isRestrictedUser} canAddPerson={canAddPerson} checkIns={checkIns} careContacted={careContacted} setCareContacted={setCareContacted} isAdmin={isAdminUser} neoDesign={!churchSettings?.classicDashboard}/>}
           {!isMemberPortal && view==="addperson" && <AddMemberPage members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} currentUser={currentUser} roles={roles} permissions={permissions} setView={setView} prospects={prospects} setProspects={setProspects} children={children} setChildren={setChildren} classrooms={classrooms}/>}
-          {!isMemberPortal && view==="people" && <People members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} setGiving={setGiving} prayers={prayers} setPrayers={setPrayers} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings} visitRecords={visitRecords} setVisitRecords={setVisitRecords} checkIns={checkIns} setCheckIns={setCheckInsSynced} setView={setView} canViewGiving={canViewGiving} currentUser={currentUser} roles={roles} children={children} setChildren={setChildren} churchId={churchId} classrooms={classrooms}/>}
+          {!isMemberPortal && view==="people" && <People members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} setGiving={setGiving} prayers={prayers} setPrayers={setPrayers} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings} visitRecords={visitRecords} setVisitRecords={setVisitRecords} checkIns={checkIns} setCheckIns={setCheckInsSynced} setView={setView} canViewGiving={canViewGiving} currentUser={currentUser} roles={roles} children={children} setChildren={setChildren} churchId={churchId} classrooms={classrooms} neoDesign={!churchSettings?.classicDashboard}/>}
           {!isMemberPortal && view==="groups" && <Groups members={members} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings} currentUser={currentUser} roles={roles}/>}
           {!isMemberPortal && view==="education" && <Education members={members} setMembers={setMembers} visitors={visitors} attendance={attendance} setAttendance={setAttendance} users={users} roles={roles} currentUser={currentUser} children={children} setChildren={setChildren} classrooms={classrooms} setClassrooms={setClassrooms} teacherSchedule={teacherSchedule} setTeacherSchedule={setTeacherSchedule} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckInsSynced} checkIns={checkIns} incidents={incidents} setIncidents={setIncidents} rollCalls={rollCalls} setRollCalls={setRollCalls} progressNotes={progressNotes} setProgressNotes={setProgressNotes} teacherFollowups={teacherFollowups} setTeacherFollowups={setTeacherFollowups} followupDismissedChildIds={followupDismissedChildIds} setFollowupDismissedChildIds={setFollowupDismissedChildIds} cs={churchSettings} setCs={setChurchSettings} addConfidential={addConfidential} printerConfig={printerConfig} setPrinterConfig={setPrinterConfig}/>}
           {!isMemberPortal && view==="maintenance" && <Maintenance users={users} members={members} currentUser={currentUser} roles={roles} permissions={permissions} equipment={equipment} setEquipment={setEquipment} workOrders={workOrders} setWorkOrders={setWorkOrders} schedMaint={schedMaint} setSchedMaint={setSchedMaint} supplies={supplies} setSupplies={setSupplies} checkoutItems={checkoutItems} setCheckoutItems={setCheckoutItems} checkouts={checkouts} setCheckouts={setCheckouts} cleaningSchedule={cleaningSchedule} setCleaningSchedule={setCleaningSchedule}/>}
@@ -19779,7 +19790,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           {!isMemberPortal && view==="counselinglog" && canAccessCounseling && <CounselingLog members={members} visitors={visitors} counselingLogs={counselingLogs} setCounselingLogs={setCounselingLogs}/>}
           {!isMemberPortal && view==="hospitalityfund" && <HospitalityFund members={members} hospitalityFund={hospitalityFund} setHospitalityFund={setHospitalityFund} hospStartBalance={hospStartBalance} setHospStartBalance={(v:any)=>{hospStartReady.current=true;setHospStartBalance(v);}}/>}
           {!isMemberPortal && view==="attendance" && <Attendance attendance={attendance} setAttendance={setAttendance} setView={setView} checkIns={checkIns} setCheckIns={setCheckInsSynced} members={members} visitors={visitors} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckInsSynced} children={children}/>}
-          {!isMemberPortal && view==="giving" && canViewGiving && <Giving giving={giving} setGiving={setGiving} pledgeDrives={pledgeDrives} setPledgeDrives={setPledgeDrives} pledges={pledges} setPledges={setPledges} members={members} visitors={visitors} weeklyReports={weeklyReports} setWeeklyReports={setWeeklyReports} emailTemplates={emailTemplates} currentUser={currentUser} roles={roles} churchId={churchId} onTxnDeleted={(rec:any)=>{ if(rec&&rec.txnId) givingDeletedTxns.current.add(String(rec.txnId)); }}/>}
+          {!isMemberPortal && view==="giving" && canViewGiving && <Giving giving={giving} setGiving={setGiving} pledgeDrives={pledgeDrives} setPledgeDrives={setPledgeDrives} pledges={pledges} setPledges={setPledges} members={members} visitors={visitors} weeklyReports={weeklyReports} setWeeklyReports={setWeeklyReports} emailTemplates={emailTemplates} currentUser={currentUser} roles={roles} churchId={churchId} onTxnDeleted={(rec:any)=>{ if(rec&&rec.txnId) givingDeletedTxns.current.add(String(rec.txnId)); }} neoDesign={!churchSettings?.classicDashboard}/>}
           {!isMemberPortal && view==="prayer" && <Prayer prayers={prayers} setPrayers={setPrayers}/>}
           {/* ── Member Portal hard-gate: only myprofile, media, and prayer allowed ── */}
           {view==="media" && <MediaPage cs={churchSettings}/>}
