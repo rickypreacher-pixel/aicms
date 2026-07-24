@@ -5611,9 +5611,9 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
             <Stat label="Completed" value={visibleRecords.filter(r=>r.stage==="Complete").length} color={TE}/>
             <Stat label="Initial Completion" value={visibleRecords.length ? Math.round((visibleRecords.filter(r=>r.stage==="OngoingCare"||r.stage==="Complete").length)/visibleRecords.length*100)+"%" : "0%"} color={GR}/>
           </div>
-          <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:18,marginBottom:20}}>
+          <div style={{background:W,border:"0.5px solid "+BR,borderRadius:neoDesign?16:12,padding:18,marginBottom:20,boxShadow:neoDesign?"0 1px 2px rgba(20,30,55,.04),0 8px 20px -12px rgba(20,30,55,.14)":undefined}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-              <h3 style={{fontSize:14,fontWeight:500,color:N,margin:0}}>AI Visitation Report</h3>
+              <h3 style={{fontSize:neoDesign?17:14,fontWeight:neoDesign?600:500,color:N,margin:0,fontFamily:neoDesign?"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif":"inherit"}}>AI Visitation Report</h3>
               <div style={{display:"flex",gap:8}}>
                 <Btn onClick={genReport} v="ai" style={{fontSize:12,padding:"5px 10px"}}>{aiLoad?"Generating...":"Generate Report"}</Btn>
                 {aiRep && <Btn onClick={()=>navigator.clipboard.writeText(aiRep)} v="ghost" style={{fontSize:12,padding:"5px 10px"}}>Copy</Btn>}
@@ -5622,7 +5622,7 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
             <div style={{fontSize:13,lineHeight:1.9,color:aiRep?TX:MU,fontStyle:aiRep?"normal":"italic",whiteSpace:"pre-wrap"}}>{aiRep||"Click Generate Report for an AI-powered pastoral visitation narrative, "+pastorDisplayName+"."}</div>
           </div>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,gap:10,flexWrap:"wrap"}}>
-            <h3 style={{fontSize:14,fontWeight:500,color:N,margin:0}}>Detailed Visitor Timeline</h3>
+            <h3 style={{fontSize:neoDesign?17:14,fontWeight:neoDesign?600:500,color:N,margin:0,fontFamily:neoDesign?"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif":"inherit"}}>Detailed Visitor Timeline</h3>
             <Btn onClick={printContactHistory} v="outline" style={{fontSize:12}}>🖨 Print Contact History</Btn>
           </div>
           <div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -5632,11 +5632,11 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
               const isOpen = expandedId===v.id;
               const cs = rec.stage==="OngoingCare" ? careStatus(rec) : null;
               return (
-                <div key={v.id} style={{background:W,border:"0.5px solid "+BR,borderRadius:12,overflow:"hidden"}}>
+                <div key={v.id} style={{background:W,border:"0.5px solid "+BR,borderRadius:neoDesign?16:12,overflow:"hidden",boxShadow:neoDesign?"0 1px 2px rgba(20,30,55,.04),0 8px 20px -13px rgba(20,30,55,.13)":undefined}}>
                   <div onClick={()=>setExpandedId(isOpen?null:v.id)} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 16px",cursor:"pointer"}}>
                     <Av f={v.first} l={v.last} sz={34}/>
                     <div style={{flex:1}}>
-                      <div style={{fontSize:13,fontWeight:500}}>{v.first} {v.last}</div>
+                      <div style={{fontSize:neoDesign?15:13,fontWeight:neoDesign?600:500,fontFamily:neoDesign?"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif":"inherit"}}>{v.first} {v.last}</div>
                       <div style={{fontSize:11,color:MU}}>First visit: {fd(v.firstVisit)} - {rec.contacts.length} contact{rec.contacts.length!==1?"s":""} logged</div>
                     </div>
                     {cs && <span style={{background:cs.bg,color:cs.color,borderRadius:20,padding:"3px 10px",fontSize:11,fontWeight:500}}>{cs.label}</span>}
