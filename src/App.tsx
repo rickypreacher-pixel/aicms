@@ -9694,7 +9694,7 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
 }
 
 // ── ATTENDANCE ──
-function Attendance({attendance,setAttendance,setView,checkIns=[],setCheckIns=()=>{},members=[],visitors=[],kidsCheckIns=[],setKidsCheckIns=()=>{},children=[]}:any) {
+function Attendance({attendance,setAttendance,setView,checkIns=[],setCheckIns=()=>{},members=[],visitors=[],kidsCheckIns=[],setKidsCheckIns=()=>{},children=[],neoDesign=false}:any) {
   const [modal,setModal] = useState(false);
   const [form,setForm] = useState({date:td(),service:"Sunday Morning Worship",count:"",members:"",visitors:"",notes:""});
   const [insight,setInsight] = useState("");
@@ -9847,7 +9847,7 @@ function Attendance({attendance,setAttendance,setView,checkIns=[],setCheckIns=()
       </div>
       {attTab==="weekly"&&(<div>
         <div style={{fontSize:12,color:MU,marginBottom:10}}>Per Sunday: Sunday Morning Worship + Education Department, and the combined total for that Sunday.</div>
-        <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,overflow:"hidden",marginBottom:16}}>
+        <div style={{background:W,border:"0.5px solid "+BR,borderRadius:neoDesign?16:12,overflow:"hidden",marginBottom:16,boxShadow:neoDesign?"0 1px 2px rgba(20,30,55,.04),0 8px 22px -14px rgba(20,30,55,.14)":undefined}}>
           <table style={{width:"100%",borderCollapse:"collapse"}}>
             <thead><tr style={{background:BG}}>
               {["Sunday","Sunday AM Worship","Education Dept","Total (Worship + Education)"].map(h=><th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:11,fontWeight:500,color:MU,textTransform:"uppercase",letterSpacing:0.5,borderBottom:"0.5px solid "+BR}}>{h}</th>)}
@@ -9859,7 +9859,7 @@ function Attendance({attendance,setAttendance,setView,checkIns=[],setCheckIns=()
                   <td style={{padding:"10px 14px",fontSize:13,fontWeight:500}}>{fd(w.week)}</td>
                   <td style={{padding:"10px 14px",fontSize:15,fontWeight:500,color:N}}>{w.worship}</td>
                   <td style={{padding:"10px 14px",fontSize:15,fontWeight:500,color:GR}}>{w.education}</td>
-                  <td style={{padding:"10px 14px",fontSize:16,fontWeight:700,color:BL}}>{w.total}</td>
+                  <td style={{padding:"10px 14px",fontSize:neoDesign?18:16,fontWeight:700,color:BL,fontFamily:neoDesign?"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif":"inherit",fontVariantNumeric:"tabular-nums"}}>{w.total}</td>
                 </tr>
               ))}
             </tbody>
@@ -9867,15 +9867,27 @@ function Attendance({attendance,setAttendance,setView,checkIns=[],setCheckIns=()
         </div>
       </div>)}
       {attTab==="log"&&(<>
+      {neoDesign ? (
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:14,marginBottom:20}}>
+        {[["Services",mergedLog.length,N,""],["Avg Attendance",avg,BL,""],["Best Service",best.count,GR,best.service],["Total Visitors",mergedLog.reduce((a:number,s:any)=>a+(+s.visitors||0),0),AM,""]].map(([l,v,c,sub]:any)=>(
+          <div key={l} style={{background:W,border:"0.5px solid "+BR,borderRadius:16,padding:"16px 18px",boxShadow:"0 1px 2px rgba(20,30,55,.04),0 8px 20px -13px rgba(20,30,55,.13)"}}>
+            <div style={{fontSize:12,color:MU,fontWeight:600}}>{l}</div>
+            <div style={{fontFamily:"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif",fontSize:29,fontWeight:600,color:c,lineHeight:1.05,marginTop:6,fontVariantNumeric:"tabular-nums"}}>{v}</div>
+            {sub?<div style={{fontSize:11,color:MU,marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{sub}</div>:null}
+          </div>
+        ))}
+      </div>
+      ) : (
       <div style={{display:"flex",gap:12,marginBottom:20}}>
         <Stat label="Services" value={mergedLog.length}/>
         <Stat label="Avg Attendance" value={avg} color={BL}/>
         <Stat label="Best Service" value={best.count} sub={best.service} color={GR}/>
         <Stat label="Total Visitors" value={mergedLog.reduce((a:number,s:any)=>a+(+s.visitors||0),0)} color={AM}/>
       </div>
-      <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:16,marginBottom:16}}>
+      )}
+      <div style={{background:W,border:"0.5px solid "+BR,borderRadius:neoDesign?16:12,padding:16,marginBottom:16,boxShadow:neoDesign?"0 1px 2px rgba(20,30,55,.04),0 8px 20px -12px rgba(20,30,55,.14)":undefined}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-          <h3 style={{fontSize:14,fontWeight:500,color:N,margin:0}}>AI Attendance Analysis</h3>
+          <h3 style={{fontSize:neoDesign?17:14,fontWeight:neoDesign?600:500,color:N,margin:0,fontFamily:neoDesign?"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif":"inherit"}}>AI Attendance Analysis</h3>
           <Btn onClick={genAi} v="ai" style={{fontSize:12,padding:"5px 10px"}}>{load?"Analyzing...":"Analyze Trends"}</Btn>
         </div>
         <p style={{fontSize:13,lineHeight:1.7,color:insight?TX:MU,fontStyle:insight?"normal":"italic",margin:0}}>{insight||"Click Analyze Trends for AI-powered attendance insights, Pastor Hall."}</p>
@@ -9887,7 +9899,7 @@ function Attendance({attendance,setAttendance,setView,checkIns=[],setCheckIns=()
           <Btn onClick={()=>setModal(true)}>+ Log Service</Btn>
         </div>
       </div>
-      <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,overflow:"hidden"}}>
+      <div style={{background:W,border:"0.5px solid "+BR,borderRadius:neoDesign?16:12,overflow:"hidden",boxShadow:neoDesign?"0 1px 2px rgba(20,30,55,.04),0 8px 22px -14px rgba(20,30,55,.14)":undefined}}>
         <table style={{width:"100%",borderCollapse:"collapse"}}>
           <thead>
             <tr style={{background:BG}}>
@@ -9899,7 +9911,7 @@ function Attendance({attendance,setAttendance,setView,checkIns=[],setCheckIns=()
               <tr key={a.id} style={{borderBottom:"0.5px solid "+BR,background:a._virtual?"#fafbff":W}}>
                 <td style={{padding:"10px 14px",fontSize:13,fontWeight:500}}>{fd(a.date)}</td>
                 <td style={{padding:"10px 14px",fontSize:13}}>{a.service}{a._virtual&&<span style={{marginLeft:6,fontSize:10,fontWeight:600,color:BL,background:"#eff6ff",borderRadius:10,padding:"1px 7px"}}>check-ins</span>}</td>
-                <td style={{padding:"10px 14px",fontSize:15,fontWeight:500,color:N}}>{a.count}</td>
+                <td style={{padding:"10px 14px",fontSize:neoDesign?16:15,fontWeight:neoDesign?600:500,color:N,fontFamily:neoDesign?"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif":"inherit",fontVariantNumeric:"tabular-nums"}}>{a.count}</td>
                 <td style={{padding:"10px 14px",fontSize:13,color:GR}}>{a.members}</td>
                 <td style={{padding:"10px 14px",fontSize:13,color:AM}}>{a.visitors}</td>
                 <td style={{padding:"10px 14px",fontSize:13,color:"#2563eb"}}>{isKidsSvc(a.service)?a.count:0}</td>
@@ -13336,7 +13348,7 @@ function PrintLabels({ci,child,classroom,onClose,printerConfig,force=false}){
   </>);}
 
 
-function CheckInPortal({classrooms,children,setChildren,kidsCheckIns,setKidsCheckIns,attendance,setAttendance,members,printerConfig,rollCalls,setRollCalls,progressNotes,setProgressNotes,teacherFollowups,setTeacherFollowups,addConfidential,currentUser,roles=[]}){
+function CheckInPortal({classrooms,children,setChildren,kidsCheckIns,setKidsCheckIns,attendance,setAttendance,members,printerConfig,rollCalls,setRollCalls,progressNotes,setProgressNotes,teacherFollowups,setTeacherFollowups,addConfidential,currentUser,roles=[],neoDesign=false}){
   const today=td();
   const ONGOING_CLOSE_ATTENDED_WEEKS = 2;
   const [selDate,setSelDate]=useState(today);
@@ -13499,12 +13511,12 @@ function CheckInPortal({classrooms,children,setChildren,kidsCheckIns,setKidsChec
         <div style={{fontSize:12,color:MU}}>{activeKidCount} in - {outKidCount} out</div>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
-        <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:16}}>
-          <h3 style={{fontSize:14,fontWeight:500,color:N,margin:"0 0 14px"}}>Check In a Child</h3>
+        <div style={{background:W,border:"0.5px solid "+BR,borderRadius:neoDesign?16:12,padding:16,boxShadow:neoDesign?"0 1px 2px rgba(20,30,55,.04),0 8px 22px -14px rgba(20,30,55,.14)":undefined}}>
+          <h3 style={{fontSize:neoDesign?17:14,fontWeight:neoDesign?600:500,color:N,margin:"0 0 14px",fontFamily:neoDesign?"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif":"inherit"}}>Check In a Child</h3>
           {!selChild?(<div><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Type child's name..." style={{width:"100%",padding:"10px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:14,outline:"none",boxSizing:"border-box",marginBottom:8}}/>{search.length<=1&&<div style={{textAlign:"center",padding:16,color:MU,fontSize:12}}>Start typing to find a child</div>}{results.length>0&&(<div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:10,maxHeight:280,overflowY:"auto"}}>{results.map(ch=>{const inn=activeCI.some(c=>c.childId===ch.id);return (<div key={ch.id} onClick={()=>!inn&&pickChild(ch)} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 10px",borderRadius:8,border:"0.5px solid "+(inn?GR+"55":BR),background:inn?"#f0fdf4":W,cursor:inn?"default":"pointer"}}><Av f={ch.first} l={ch.last} sz={32}/><div style={{flex:1}}><div style={{fontSize:13,fontWeight:500}}>{ch.first} {ch.last}</div><div style={{fontSize:11,color:MU}}>Age {calcAge(ch.dob)} · {ch.grade} · {ch.parentName}</div></div>{inn&&<span style={{fontSize:10,background:GR,color:"#fff",borderRadius:10,padding:"2px 7px",fontWeight:500}}>In</span>}</div>);})}</div>)}{search.length>1&&results.length===0&&<div style={{textAlign:"center",padding:16,color:MU,fontSize:12}}>No child found. Add them as new.</div>}<Btn onClick={()=>{setNewModal(true);const p=search.trim().split(" ");setNewChild(n=>({...n,first:p[0]||"",last:p.slice(1).join(" ")||""}));}} v="outline" style={{width:"100%",justifyContent:"center"}}>+ Add New Child</Btn></div>):(<div><div style={{padding:14,background:BG,borderRadius:10,border:"0.5px solid "+BR,marginBottom:12}}><div style={{display:"flex",alignItems:"center",gap:12,marginBottom:10}}><Av f={selChild.first} l={selChild.last} sz={48}/><div style={{flex:1}}><div style={{fontSize:16,fontWeight:500}}>{selChild.first} {selChild.last}</div><div style={{fontSize:12,color:MU}}>Age {calcAge(selChild.dob)} · {selChild.grade}</div><div style={{fontSize:12,color:MU}}>Parent: {selChild.parentName} - {selChild.parentPhone}</div></div><button onClick={()=>{setSelChild(null);setSelClass(null);}} style={{background:"none",border:"none",cursor:"pointer",color:MU,fontSize:16}}>x</button></div>{(selChild.allergies?.length>0||selChild.medical?.length>0)&&<div style={{padding:"7px 10px",background:"#fff5f5",border:"0.5px solid #fca5a5",borderRadius:6,fontSize:11}}><strong style={{color:RE}}>MEDICAL:</strong>{selChild.allergies?.length>0&&" Allergies: "+selChild.allergies.join(", ")+"."}{selChild.medical?.length>0&&" Conditions: "+selChild.medical.join(", ")+"."}{selChild.medicalNotes&&" "+selChild.medicalNotes}</div>}</div><div style={{fontSize:11,color:MU,fontWeight:500,textTransform:"uppercase",letterSpacing:0.5,marginBottom:6}}>Classroom</div><div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(100px,1fr))",gap:6,marginBottom:12}}>{classrooms.filter(cl=>cl.checkin!==false&&cl.id<=6).map(cl=>{const sel=selClass?.id===cl.id;const age=calcAge(selChild.dob);const rec=typeof age==="number"&&age>=cl.ageMin&&age<=cl.ageMax;const count=activeCI.filter(c=>c.classroomId===cl.id).length;const full=count>=cl.capacity;return (<button key={cl.id} onClick={()=>!full&&setSelClass(cl)} disabled={full} style={{padding:"8px 6px",borderRadius:7,border:"1.5px solid "+(sel?cl.color:rec?G:BR),background:sel?cl.color+"14":rec?GL+"44":W,cursor:full?"not-allowed":"pointer",opacity:full?0.4:1,fontSize:11,fontWeight:sel?600:400,color:sel?cl.color:TX,textAlign:"center"}}><div>{cl.name}</div><div style={{fontSize:9,color:MU,marginTop:2}}>{count}/{cl.capacity}</div></button>);})}</div><Btn onClick={doCheckIn} v="success" style={{width:"100%",justifyContent:"center",padding:"12px",fontSize:14}} disabled={!selClass}>Check In and Print Labels</Btn></div>)}
         </div>
-        <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:16}}>
-          <h3 style={{fontSize:14,fontWeight:500,color:N,margin:"0 0 14px"}}>{fd(selDate)} - {activeKidCount} Active</h3>
+        <div style={{background:W,border:"0.5px solid "+BR,borderRadius:neoDesign?16:12,padding:16,boxShadow:neoDesign?"0 1px 2px rgba(20,30,55,.04),0 8px 22px -14px rgba(20,30,55,.14)":undefined}}>
+          <h3 style={{fontSize:neoDesign?17:14,fontWeight:neoDesign?600:500,color:N,margin:"0 0 14px",fontFamily:neoDesign?"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif":"inherit"}}>{fd(selDate)} - {activeKidCount} Active</h3>
           {activeCI.length===0?(<div style={{textAlign:"center",padding:32,color:MU,fontSize:13}}>No active check-ins yet.</div>):(<div style={{display:"flex",flexDirection:"column",gap:8,maxHeight:500,overflowY:"auto"}}>{activeCI.map(ci=>{const ch=children.find(c=>c.id===ci.childId);const cl=classrooms.find(c=>c.id===ci.classroomId);if(!ch||!cl)return null;return (<div key={ci.id} style={{padding:"10px 12px",background:BG,borderRadius:8,border:"0.5px solid "+BR}}><div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6}}><Av f={ch.first} l={ch.last} sz={32}/><div style={{flex:1}}><div style={{fontSize:13,fontWeight:500}}>{ch.first} {ch.last}</div><div style={{fontSize:11,color:cl.color,fontWeight:500}}>{cl.name}</div></div><div style={{textAlign:"right"}}><div style={{fontSize:15,fontWeight:700,color:N,fontFamily:"monospace",letterSpacing:1}}>{ci.code}</div><div style={{fontSize:10,color:MU}}>{ci.time}</div></div></div><div style={{display:"flex",gap:6}}><Btn onClick={()=>reprint(ci.id)} v="ghost" style={{width:"100%",fontSize:11,padding:"4px 8px",justifyContent:"center"}}>Reprint</Btn></div></div>);})}</div>)}
           {dateCI.filter(c=>c.checkedOut).length>0&&<div style={{marginTop:12,paddingTop:12,borderTop:"0.5px solid "+BR}}><div style={{fontSize:11,color:MU,marginBottom:6}}>Checked Out ({outKidCount})</div>{dateCI.filter(c=>c.checkedOut).slice(-5).map(ci=>{const ch=children.find(c=>c.id===ci.childId);return ch?(<div key={ci.id} style={{fontSize:11,color:MU,padding:"2px 0"}}>{ch.first} {ch.last} - {ci.checkOutAt}</div>):null;})}</div>}
         </div>
@@ -15092,7 +15104,7 @@ function TeacherFollowPipeline({children,kidsCheckIns,rollCalls,users,members,cu
   );
 }
 
-function Education({members,setMembers,visitors,attendance,setAttendance,users,roles,currentUser,children,setChildren,classrooms,setClassrooms,teacherSchedule,setTeacherSchedule,kidsCheckIns,setKidsCheckIns,checkIns,incidents,setIncidents,rollCalls,setRollCalls,progressNotes,setProgressNotes,teacherFollowups,setTeacherFollowups,followupDismissedChildIds,setFollowupDismissedChildIds,cs,setCs,addConfidential,printerConfig,setPrinterConfig}:any){
+function Education({members,setMembers,visitors,attendance,setAttendance,users,roles,currentUser,children,setChildren,classrooms,setClassrooms,teacherSchedule,setTeacherSchedule,kidsCheckIns,setKidsCheckIns,checkIns,incidents,setIncidents,rollCalls,setRollCalls,progressNotes,setProgressNotes,teacherFollowups,setTeacherFollowups,followupDismissedChildIds,setFollowupDismissedChildIds,cs,setCs,addConfidential,printerConfig,setPrinterConfig,neoDesign=false}:any){
   const [tab,setTab]=useState("dashboard");
   const checkedOutBadgeCount=(kidsCheckIns as any[]).filter((c:any)=>!!c.checkedOut).length;
   const openIncidents=(incidents as any[]).filter((i:any)=>i.status!=="Resolved").length;
@@ -15116,7 +15128,7 @@ function Education({members,setMembers,visitors,attendance,setAttendance,users,r
         </button>)}
       </div>
       {tab==="dashboard"&&<EdDashboard classrooms={classrooms} children={children} kidsCheckIns={kidsCheckIns} teacherSchedule={teacherSchedule} users={users} members={members} checkIns={checkIns} setTab={setTab}/>}
-      {tab==="checkin"&&<CheckInPortal classrooms={classrooms} children={children} setChildren={setChildren} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckIns} attendance={attendance} setAttendance={setAttendance} members={members} printerConfig={printerConfig} rollCalls={rollCalls} setRollCalls={setRollCalls} progressNotes={progressNotes} setProgressNotes={setProgressNotes} teacherFollowups={teacherFollowups} setTeacherFollowups={setTeacherFollowups} addConfidential={addConfidential} currentUser={currentUser} roles={roles}/>}
+      {tab==="checkin"&&<CheckInPortal classrooms={classrooms} children={children} setChildren={setChildren} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckIns} attendance={attendance} setAttendance={setAttendance} members={members} printerConfig={printerConfig} rollCalls={rollCalls} setRollCalls={setRollCalls} progressNotes={progressNotes} setProgressNotes={setProgressNotes} teacherFollowups={teacherFollowups} setTeacherFollowups={setTeacherFollowups} addConfidential={addConfidential} currentUser={currentUser} roles={roles} neoDesign={neoDesign}/>}
       {tab==="rollcall"&&<ClassRollCall classrooms={classrooms} children={children} rollCalls={rollCalls} setRollCalls={setRollCalls} teacherSchedule={teacherSchedule} users={users} members={members} cs={cs}/>}
       {tab==="children"&&<ChildrenRoster children={children} setChildren={setChildren} classrooms={classrooms} members={members} setMembers={setMembers} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckIns} setRollCalls={setRollCalls} incidents={incidents} setIncidents={setIncidents} progressNotes={progressNotes} setProgressNotes={setProgressNotes} teacherFollowups={teacherFollowups} setTeacherFollowups={setTeacherFollowups} followupDismissedChildIds={followupDismissedChildIds} setFollowupDismissedChildIds={setFollowupDismissedChildIds}/>}
       {tab==="progress"&&<ChildProgress children={children} classrooms={classrooms} rollCalls={rollCalls} progressNotes={progressNotes} setProgressNotes={setProgressNotes} addConfidential={addConfidential} cs={cs}/>}
@@ -19751,7 +19763,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           {!isMemberPortal && view==="addperson" && <AddMemberPage members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} currentUser={currentUser} roles={roles} permissions={permissions} setView={setView} prospects={prospects} setProspects={setProspects} children={children} setChildren={setChildren} classrooms={classrooms}/>}
           {!isMemberPortal && view==="people" && <People members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} setGiving={setGiving} prayers={prayers} setPrayers={setPrayers} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings} visitRecords={visitRecords} setVisitRecords={setVisitRecords} checkIns={checkIns} setCheckIns={setCheckInsSynced} setView={setView} canViewGiving={canViewGiving} currentUser={currentUser} roles={roles} children={children} setChildren={setChildren} churchId={churchId} classrooms={classrooms} neoDesign={!churchSettings?.classicDashboard}/>}
           {!isMemberPortal && view==="groups" && <Groups members={members} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings} currentUser={currentUser} roles={roles}/>}
-          {!isMemberPortal && view==="education" && <Education members={members} setMembers={setMembers} visitors={visitors} attendance={attendance} setAttendance={setAttendance} users={users} roles={roles} currentUser={currentUser} children={children} setChildren={setChildren} classrooms={classrooms} setClassrooms={setClassrooms} teacherSchedule={teacherSchedule} setTeacherSchedule={setTeacherSchedule} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckInsSynced} checkIns={checkIns} incidents={incidents} setIncidents={setIncidents} rollCalls={rollCalls} setRollCalls={setRollCalls} progressNotes={progressNotes} setProgressNotes={setProgressNotes} teacherFollowups={teacherFollowups} setTeacherFollowups={setTeacherFollowups} followupDismissedChildIds={followupDismissedChildIds} setFollowupDismissedChildIds={setFollowupDismissedChildIds} cs={churchSettings} setCs={setChurchSettings} addConfidential={addConfidential} printerConfig={printerConfig} setPrinterConfig={setPrinterConfig}/>}
+          {!isMemberPortal && view==="education" && <Education members={members} setMembers={setMembers} visitors={visitors} attendance={attendance} setAttendance={setAttendance} users={users} roles={roles} currentUser={currentUser} children={children} setChildren={setChildren} classrooms={classrooms} setClassrooms={setClassrooms} teacherSchedule={teacherSchedule} setTeacherSchedule={setTeacherSchedule} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckInsSynced} checkIns={checkIns} incidents={incidents} setIncidents={setIncidents} rollCalls={rollCalls} setRollCalls={setRollCalls} progressNotes={progressNotes} setProgressNotes={setProgressNotes} teacherFollowups={teacherFollowups} setTeacherFollowups={setTeacherFollowups} followupDismissedChildIds={followupDismissedChildIds} setFollowupDismissedChildIds={setFollowupDismissedChildIds} cs={churchSettings} setCs={setChurchSettings} addConfidential={addConfidential} printerConfig={printerConfig} setPrinterConfig={setPrinterConfig} neoDesign={!churchSettings?.classicDashboard}/>}
           {!isMemberPortal && view==="maintenance" && <Maintenance users={users} members={members} currentUser={currentUser} roles={roles} permissions={permissions} equipment={equipment} setEquipment={setEquipment} workOrders={workOrders} setWorkOrders={setWorkOrders} schedMaint={schedMaint} setSchedMaint={setSchedMaint} supplies={supplies} setSupplies={setSupplies} checkoutItems={checkoutItems} setCheckoutItems={setCheckoutItems} checkouts={checkouts} setCheckouts={setCheckouts} cleaningSchedule={cleaningSchedule} setCleaningSchedule={setCleaningSchedule}/>}
           {!isMemberPortal && view==="calendar" && (
             <div style={{height:"calc(100vh - 110px)",display:"flex",flexDirection:"column",margin:-24,overflow:"hidden"}}>
@@ -19789,7 +19801,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           {!isMemberPortal && view==="benevolencefund" && <BenevolencePage members={members} visitors={visitors} benevolence={benevolence} setBenevolence={setBenevolence}/>}
           {!isMemberPortal && view==="counselinglog" && canAccessCounseling && <CounselingLog members={members} visitors={visitors} counselingLogs={counselingLogs} setCounselingLogs={setCounselingLogs}/>}
           {!isMemberPortal && view==="hospitalityfund" && <HospitalityFund members={members} hospitalityFund={hospitalityFund} setHospitalityFund={setHospitalityFund} hospStartBalance={hospStartBalance} setHospStartBalance={(v:any)=>{hospStartReady.current=true;setHospStartBalance(v);}}/>}
-          {!isMemberPortal && view==="attendance" && <Attendance attendance={attendance} setAttendance={setAttendance} setView={setView} checkIns={checkIns} setCheckIns={setCheckInsSynced} members={members} visitors={visitors} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckInsSynced} children={children}/>}
+          {!isMemberPortal && view==="attendance" && <Attendance attendance={attendance} setAttendance={setAttendance} setView={setView} checkIns={checkIns} setCheckIns={setCheckInsSynced} members={members} visitors={visitors} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckInsSynced} children={children} neoDesign={!churchSettings?.classicDashboard}/>}
           {!isMemberPortal && view==="giving" && canViewGiving && <Giving giving={giving} setGiving={setGiving} pledgeDrives={pledgeDrives} setPledgeDrives={setPledgeDrives} pledges={pledges} setPledges={setPledges} members={members} visitors={visitors} weeklyReports={weeklyReports} setWeeklyReports={setWeeklyReports} emailTemplates={emailTemplates} currentUser={currentUser} roles={roles} churchId={churchId} onTxnDeleted={(rec:any)=>{ if(rec&&rec.txnId) givingDeletedTxns.current.add(String(rec.txnId)); }} neoDesign={!churchSettings?.classicDashboard}/>}
           {!isMemberPortal && view==="prayer" && <Prayer prayers={prayers} setPrayers={setPrayers}/>}
           {/* ── Member Portal hard-gate: only myprofile, media, and prayer allowed ── */}
