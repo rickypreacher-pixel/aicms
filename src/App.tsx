@@ -7007,7 +7007,7 @@ function CareRow({row,onContacted}:any){
   );
 }
 
-function Dashboard({members,visitors,attendance,giving,prayers,setView,canViewGiving,isRestrictedUser,canAddPerson,checkIns=[],careContacted={},setCareContacted,isAdmin=false}:any) {
+function Dashboard({members,visitors,attendance,giving,prayers,setView,canViewGiving,isRestrictedUser,canAddPerson,checkIns=[],careContacted={},setCareContacted,isAdmin=false,neoDesign=false}:any) {
   const [insight,setInsight] = useState("");
   const [iLoad,setILoad] = useState(false);
   const [alerts,setAlerts] = useState([]);
@@ -7130,6 +7130,119 @@ function Dashboard({members,visitors,attendance,giving,prayers,setView,canViewGi
     return out;
   },[members,checkIns,careContacted]);
   const markContacted=(id:any)=>{ if(setCareContacted) setCareContacted((p:any)=>({...(p||{}),[id]:td()})); };
+
+  // ===================== REDESIGNED ("Neo") DASHBOARD =====================
+  // Reuses every value computed above (attendance series, giving, Care Pulse, follow-ups) so no
+  // data logic is duplicated. Rendered only when the Settings toggle picks the New design; the
+  // Classic return below is left 100% intact so switching back is instant.
+  const _hr=new Date().getHours();
+  const _greet=_hr<12?"Good morning":_hr<17?"Good afternoon":"Good evening";
+  const _todayLbl=new Date().toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"});
+  const _wkGiving=(d:string)=>{const t0=new Date(d+"T00:00:00").getTime();return giving.filter((g:any)=>{const gd=g.date||"";if(!gd)return false;const gt=new Date(gd+"T00:00:00").getTime();return gt>=t0&&gt<t0+7*86400000;}).reduce((s:number,g:any)=>s+(g.amount||0),0);};
+  const givingBySunday=recentSundays.map(_wkGiving);
+  const _lastMoYM=(()=>{const d=new Date();d.setMonth(d.getMonth()-1);return d.toISOString().slice(0,7);})();
+  const lastMonthG=giving.filter((g:any)=>(g.date||"").startsWith(_lastMoYM)).reduce((a:number,g:any)=>a+g.amount,0);
+  const _pct=(cur:number,prev:number)=>prev>0?Math.round(((cur-prev)/prev)*100):null;
+  const _serif="'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif";
+  const _spark=(data:number[],color:string)=>{const n=Math.max(1,data.length);const mx=Math.max(1,...data);const w=120,h=44;const px=(i:number)=>n<=1?w:i*(w/(n-1));const py=(v:number)=>h-4-(v/mx)*(h-12);const line=data.map((v,i)=>`${px(i).toFixed(1)},${py(v).toFixed(1)}`).join(" ");const area=`0,${h} ${line} ${w},${h}`;return (<svg viewBox={"0 0 "+w+" "+h} preserveAspectRatio="none" style={{position:"absolute",right:0,bottom:0,width:120,height:44}} aria-hidden="true"><polygon points={area} fill={color} opacity={0.12}/><polyline points={line} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round"/><circle cx={px(n-1)} cy={py(data[n-1]||0)} r={3} fill={color}/></svg>);};
+  const _trend=(cur:number,prev:number)=>{const p=_pct(cur,prev);if(p===null)return null;const up=p>=0;return <span style={{display:"inline-flex",alignItems:"center",gap:3,fontSize:12.5,fontWeight:600,color:up?GR:RE}}>{up?"▲":"▼"} {Math.abs(p)}%</span>;};
+  const _firstVis=visitors.filter((v:any)=>v.stage==="First Visit").length;
+  const _activePray=prayers.filter((p:any)=>p.status==="Active").length;
+  const _statCard=(label:string,value:any,sub:any,data:number[]|null,color:string)=>(
+    <div style={{position:"relative",overflow:"hidden",background:W,border:"0.5px solid "+BR,borderRadius:16,padding:"17px 18px 14px"}}>
+      <div style={{fontSize:12.5,color:MU,fontWeight:600}}>{label}</div>
+      <div style={{fontFamily:_serif,fontSize:38,fontWeight:600,color:N,lineHeight:1.05,margin:"7px 0 2px",fontVariantNumeric:"tabular-nums"}}>{value}</div>
+      <div style={{fontSize:12.5,color:MU}}>{sub}</div>
+      {data && _spark(data,color)}
+    </div>
+  );
+  const _attn:any[]=[];
+  if(fu>0) _attn.push({sev:RE,t:fu+" visitor"+(fu>1?"s":"")+" need a follow-up",m:"Follow-Up Needed · Visitation",go:["Open pipeline",()=>setView("visitation")]});
+  if(isAdmin&&carePulse.length) _attn.push({sev:AM,t:carePulse.length+" member"+(carePulse.length>1?"s":"")+" you haven't seen lately",m:"Care Pulse · reach out before they drift",go:["View below",()=>{try{(document.getElementById("neo-carepulse") as any)?.scrollIntoView({behavior:"smooth"});}catch(e){}}]});
+  if(_firstVis>0) _attn.push({sev:BL,t:_firstVis+" new first-time visitor"+(_firstVis>1?"s":""),m:"Welcome them this week",go:["Visitation",()=>setView("visitation")]});
+  if(_activePray>0) _attn.push({sev:GR,t:_activePray+" active prayer request"+(_activePray>1?"s":""),m:"On the prayer wall",go:["Open",()=>setView("prayer")]});
+
+  if(neoDesign) return (
+    <div style={{maxWidth:1180}}>
+      <style>{"@media(max-width:820px){.neo-cols{grid-template-columns:1fr !important}}"}</style>
+      <div style={{margin:"2px 0 22px"}}>
+        <h2 style={{fontFamily:_serif,fontSize:28,fontWeight:600,color:N,margin:"0 0 4px",letterSpacing:0.2}}>{_greet}</h2>
+        <div style={{fontSize:13.5,color:MU}}><span style={{color:G,fontWeight:600}}>{_todayLbl}</span> · Here's your church at a glance.</div>
+      </div>
+
+      {canAddPerson && <div onClick={()=>setView("addperson")} style={{background:"linear-gradient(135deg,"+N+",#2a4a8a)",borderRadius:14,padding:"15px 20px",marginBottom:20,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <div><div style={{color:G,fontSize:10.5,fontWeight:700,textTransform:"uppercase",letterSpacing:1.4,marginBottom:2}}>Central Intake</div><div style={{color:"#fff",fontSize:15.5,fontWeight:500}}>Add a new person to the database</div><div style={{color:"#7a9acc",fontSize:12,marginTop:2}}>Members · Visitors · full intake form</div></div>
+        <div style={{color:"#fff",fontSize:26,opacity:0.5}}>→</div>
+      </div>}
+
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(210px,1fr))",gap:14,marginBottom:24}}>
+        {_statCard("Last Sunday",lastSvc?lastSvc.count:0,_trend(attendanceBySunday[attendanceBySunday.length-1]||0,attendanceBySunday[attendanceBySunday.length-2]||0)||<span>{lastSvc?lastSvc.service:"No services yet"}</span>,attendanceBySunday,G)}
+        {canViewGiving
+          ? _statCard(monthLabel+" Giving",f$(totalG),<span>{_trend(totalG,lastMonthG)} <span style={{color:MU}}>vs last month</span></span>,givingBySunday,GR)
+          : _statCard("Active Members",activeM,"of "+members.length+" total",null,GR)}
+        {_statCard("Visitors",visitors.length,fu+" need follow-up",visitorsBySunday,BL)}
+      </div>
+
+      <div className="neo-cols" style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) 320px",gap:20,alignItems:"start"}}>
+        <div style={{background:W,border:"0.5px solid "+BR,borderRadius:16}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"16px 20px 12px"}}>
+            <h3 style={{fontFamily:_serif,fontSize:17,fontWeight:600,color:N,margin:0}}>Needs your attention</h3>
+            <span style={{fontSize:11.5,fontWeight:700,color:_attn.length?RE:GR,background:(_attn.length?RE:GR)+"18",padding:"3px 9px",borderRadius:20}}>{_attn.length} open</span>
+          </div>
+          {_attn.length===0
+            ? <div style={{padding:"8px 20px 22px",fontSize:13,color:MU,fontStyle:"italic"}}>All clear — nothing needs your attention right now. 🎉</div>
+            : <div style={{borderTop:"0.5px solid "+BR}}>
+                {_attn.map((a:any,i:number)=>(
+                  <div key={i} style={{display:"flex",alignItems:"center",gap:14,padding:"13px 20px",borderBottom:i<_attn.length-1?"0.5px solid "+BR:"none"}}>
+                    <span style={{width:9,height:9,borderRadius:"50%",background:a.sev,boxShadow:"0 0 0 4px "+a.sev+"22",flexShrink:0}}/>
+                    <div style={{minWidth:0,flex:1}}>
+                      <div style={{fontSize:14,fontWeight:600,color:TX}}>{a.t}</div>
+                      <div style={{fontSize:12.5,color:MU,marginTop:1}}>{a.m}</div>
+                    </div>
+                    <button onClick={a.go[1]} style={{border:"0.5px solid "+BR,background:W,color:N,fontSize:12.5,fontWeight:600,padding:"7px 14px",borderRadius:9,cursor:"pointer",whiteSpace:"nowrap"}}>{a.go[0]}</button>
+                  </div>
+                ))}
+              </div>}
+        </div>
+
+        <div style={{display:"flex",flexDirection:"column",gap:20}}>
+          <div style={{background:W,border:"0.5px solid "+BR,borderRadius:16,padding:"16px 18px"}}>
+            <h4 style={{fontFamily:_serif,fontSize:15,fontWeight:600,color:N,margin:"0 0 12px"}}>Quick actions</h4>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+              {qnav.map(([label,id]:any)=>(
+                <button key={id} onClick={()=>setView(id)} style={{border:"0.5px solid "+BR,background:BG,color:N,fontSize:12.5,fontWeight:600,padding:"9px 10px",borderRadius:10,cursor:"pointer",textAlign:"left"}}>{label}</button>
+              ))}
+            </div>
+          </div>
+          <div style={{background:W,border:"0.5px solid "+BR,borderRadius:16,padding:"16px 18px"}}>
+            <h4 style={{fontFamily:_serif,fontSize:15,fontWeight:600,color:N,margin:"0 0 12px"}}>At a glance</h4>
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              {[["Active members",activeM,GR],["First-time visitors",_firstVis,AM],["Follow-ups needed",fu,RE],["Active prayers",_activePray,PU]].map(([l,v,c]:any)=>(
+                <div key={l} style={{display:"flex",alignItems:"center",gap:10,fontSize:13}}>
+                  <span style={{width:7,height:7,borderRadius:"50%",background:c}}/>
+                  <span style={{color:TX}}>{l}</span>
+                  <span style={{marginLeft:"auto",fontWeight:700,color:N,fontVariantNumeric:"tabular-nums"}}>{v}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {isAdmin && <div id="neo-carepulse" style={{background:W,border:"0.5px solid "+BR,borderRadius:16,padding:18,marginTop:20,borderLeft:"3px solid "+(carePulse.length?RE:GR)}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+          <h3 style={{fontFamily:_serif,fontSize:16,fontWeight:600,color:N,margin:0}}>Care Pulse — haven't seen them lately</h3>
+          <span style={{fontSize:12,color:carePulse.length?RE:GR,fontWeight:600}}>{carePulse.length} {carePulse.length===1?"person":"people"}</span>
+        </div>
+        <div style={{fontSize:11.5,color:MU,marginBottom:carePulse.length?6:0}}>Active members whose check-in attendance has dropped off. Reach out before they drift away.</div>
+        {carePulse.length===0
+          ? <div style={{fontSize:12.5,color:MU,fontStyle:"italic",padding:"10px 0"}}>Everyone active has been seen recently. 🎉</div>
+          : <div style={{maxHeight:340,overflowY:"auto"}}>{carePulse.map((row:any)=><CareRow key={row.m.id} row={row} onContacted={markContacted}/>)}</div>}
+      </div>}
+
+      <div style={{marginTop:22,fontSize:11.5,color:MU,textAlign:"center"}}>New dashboard design · switch back anytime in <span style={{color:N,fontWeight:600}}>Settings → Dashboard design</span></div>
+    </div>
+  );
 
   return (
     <div>
@@ -16941,6 +17054,8 @@ function ManualPage(){
           <P>At the top of Settings, the <B>Super Administrator</B> sees a <B>🔄 Refresh All Devices</B> button. Click it after an update to reload the app on <B>every signed-in device</B> — phones, tablets, and computers — to the latest version automatically, within about a minute. No one has to refresh manually. Avoid using it mid-service, since anyone typing something unsaved could lose it.</P>
           <H3>Device Status</H3>
           <P>Just below that, the <B>📶 Device Status</B> panel shows every device signed in right now, who's on it, and which app version it's running. A green <B>✅</B> means that device is on the latest version; a <B>⚠️</B> means it still needs to reload. Use it to confirm everyone picked up an update: after clicking Refresh All Devices, watch the ⚠️ devices flip to ✅ as they reload. A device that stays offline simply isn't open right now — it will be current the next time someone opens it.</P>
+          <H3>Dashboard Design (New / Classic)</H3>
+          <P>In Settings, the <B>🎨 Dashboard design</B> card lets the <B>Super Administrator or Administrator</B> choose the look of the home Dashboard for everyone. <B>New</B> is the redesigned layout — a "Pulse" summary with trend sparklines, a "Needs your attention" list, quick actions, and Care Pulse. <B>Classic</B> is the original with the full attendance/visitor charts, member-mix pies, and AI insights. Your choice syncs to all devices, and you can switch back anytime — nothing is lost either way.</P>
           <H3>General Tab — Church Information</H3>
           <Ul><Li><B>Church Name</B> — displayed in the sidebar header, printed output, and email signatures</Li><Li><B>Pastor Name</B> — shown in the sidebar footer</Li><Li><B>Address</B> — appears in the app header subtitle on every page</Li><Li><B>Phone / Email</B> — church contact info stored in the system for communications</Li><Li><B>Logo URL</B> — URL to your church logo image (use <B>/logo.png</B> if the logo file is placed in the app's public folder)</Li></Ul>
           <P>Click <B>Save Settings</B> after making any changes. Settings take effect immediately across the entire app.</P>
@@ -19529,6 +19644,19 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
             </div>
           )}
           {!isMemberPortal && view==="settings" && isAdminUser && (
+            <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:"14px 16px",marginBottom:16,display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap" as any}}>
+              <div style={{minWidth:0}}>
+                <div style={{fontSize:14,fontWeight:600,color:N}}>🎨 Dashboard design</div>
+                <div style={{fontSize:12,color:MU,marginTop:2,maxWidth:560,lineHeight:1.6}}><strong>New</strong> is the redesigned home Dashboard (Pulse hero, "Needs your attention", refined type). <strong>Classic</strong> is the original with full charts and AI insights. Applies to everyone — switch back anytime.</div>
+              </div>
+              <div style={{display:"flex",gap:0,background:BG,borderRadius:9,padding:3,flexShrink:0}}>
+                {[["New",false],["Classic",true]].map(([lbl,val]:any)=>{ const on=(!!churchSettings?.classicDashboard)===val; return (
+                  <button key={lbl} onClick={()=>setChurchSettings((s:any)=>({...(s||{}),classicDashboard:val}))} style={{padding:"7px 16px",border:"none",borderRadius:7,background:on?W:"transparent",color:on?N:MU,fontSize:12.5,fontWeight:on?600:500,cursor:"pointer",boxShadow:on?"0 1px 3px #00000010":"none"}}>{lbl}</button>
+                );})}
+              </div>
+            </div>
+          )}
+          {!isMemberPortal && view==="settings" && isAdminUser && (
             <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:"14px 16px",marginBottom:16}}>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:6}}>
                 <div style={{fontSize:14,fontWeight:600,color:N}}>📶 Device Status</div>
@@ -19558,7 +19686,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
               s(setMembers,'members');s(setVisitors,'visitors');s(setAttendance,'attendance');s(setGiving,'giving');s(setExpenses,'expenses');s(setBudgets,'budgets');s(setOpeningBalances,'openingBalances',false);s(setPrayers,'prayers');s(setGroups,'groups');s(setGrpMeetings,'grpMeetings');s(setVisitRecords,'visitRecords');s(setSickVisits,'sickVisits');s(setCheckIns,'checkIns');s(setKidsCheckIns,'kidsCheckIns');s(setTeacherFollowups,'teacherFollowups');s(setFollowupDismissedChildIds,'followupDismissedChildIds');s(setEventRsvps,'eventRsvps');s(setEventSchedule,'eventSchedule');s(setServicePlans,'servicePlans');s(setCleaningSchedule,'cleaningSchedule');s(setAnnouncements,'announcements');s(setChildren,'children');s(setClassrooms,'classrooms');s(setProspects,'prospects');s(setPledgeDrives,'pledgeDrives');s(setPledges,'pledges');s(setWeeklyReports,'weeklyReports');s(setEquipment,'equipment');s(setWorkOrders,'workOrders');s(setSchedMaint,'schedMaint');s(setSupplies,'supplies');s(setCheckoutItems,'checkoutItems');s(setCheckouts,'checkouts');s(setUsers,'users');s(setRoles,'roles');s(setPermissions,'permissions',false);s(setPortalMembers,'portalMembers');s(setRecurring,'recurring');s(setCustom,'custom');s(setEmailLog,'emailLog');s(setEmailTemplates,'emailTemplates',false);s(setEmailConfig,'emailConfig',false);s(setSmsLog,'smsLog');s(setSmsTemplates,'smsTemplates',false);s(setSmsConfig,'smsConfig',false);s(setIncidents,'incidents');s(setRollCalls,'rollCalls');s(setProgressNotes,'progressNotes');s(setTeacherSchedule,'teacherSchedule');s(setBenevolence,'benevolence');s(setHospitalityFund,'hospitalityFund');s(setHospStartBalance,'hospStartBalance',false);s(setCounselingLogs,'counselingLogs');s(setCareContacted,'careContacted');s(setAdminNotesRead,'adminNotesRead');if(d.churchSettings&&mode==='replace')setChurchSettings(d.churchSettings);
             }}
           />}
-          {!isMemberPortal && view==="dashboard" && <Dashboard members={members} visitors={visitors} attendance={attendance} giving={giving} prayers={prayers} setView={setView} canViewGiving={canViewGiving} isRestrictedUser={isRestrictedUser} canAddPerson={canAddPerson} checkIns={checkIns} careContacted={careContacted} setCareContacted={setCareContacted} isAdmin={isAdminUser}/>}
+          {!isMemberPortal && view==="dashboard" && <Dashboard members={members} visitors={visitors} attendance={attendance} giving={giving} prayers={prayers} setView={setView} canViewGiving={canViewGiving} isRestrictedUser={isRestrictedUser} canAddPerson={canAddPerson} checkIns={checkIns} careContacted={careContacted} setCareContacted={setCareContacted} isAdmin={isAdminUser} neoDesign={!churchSettings?.classicDashboard}/>}
           {!isMemberPortal && view==="addperson" && <AddMemberPage members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} currentUser={currentUser} roles={roles} permissions={permissions} setView={setView} prospects={prospects} setProspects={setProspects} children={children} setChildren={setChildren} classrooms={classrooms}/>}
           {!isMemberPortal && view==="people" && <People members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} setGiving={setGiving} prayers={prayers} setPrayers={setPrayers} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings} visitRecords={visitRecords} setVisitRecords={setVisitRecords} checkIns={checkIns} setCheckIns={setCheckInsSynced} setView={setView} canViewGiving={canViewGiving} currentUser={currentUser} roles={roles} children={children} setChildren={setChildren} churchId={churchId} classrooms={classrooms}/>}
           {!isMemberPortal && view==="groups" && <Groups members={members} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings} currentUser={currentUser} roles={roles}/>}
