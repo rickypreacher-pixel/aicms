@@ -5435,14 +5435,14 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
                 const last = careContacts[careContacts.length-1] || getLast(rec);
                 const sponsor = getUName(rec.sponsorUserId);
                 return (
-                  <div key={rec.id} style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:16,borderLeft:"4px solid "+(cs?.color||BR)}}>
+                  <div key={rec.id} style={{background:W,border:"0.5px solid "+BR,borderRadius:neoDesign?16:12,padding:neoDesign?18:16,borderLeft:"4px solid "+(cs?.color||BR),boxShadow:neoDesign?"0 1px 2px rgba(20,30,55,.04),0 8px 20px -12px rgba(20,30,55,.14)":undefined}}>
                     <div style={{display:"flex",alignItems:"center",gap:14,flexWrap:"wrap"}}>
                       <div onClick={()=>openVisitorProfile(v)} title="Open contact profile" style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}}>
                         <Av f={v.first} l={v.last} sz={44}/>
                       </div>
                       <div style={{flex:1,minWidth:180}}>
                         <div onClick={()=>openVisitorProfile(v)} title="Open contact profile" style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:3,cursor:"pointer",width:"fit-content"}}>
-                          <span style={{fontSize:15,fontWeight:500,color:N}}>{v.first} {v.last}</span>
+                          <span style={{fontSize:neoDesign?17:15,fontWeight:neoDesign?600:500,color:N,fontFamily:neoDesign?"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif":"inherit"}}>{v.first} {v.last}</span>
                           <span style={{fontSize:11,background:cs.bg,color:cs.color,borderRadius:20,padding:"2px 10px",fontWeight:500}}>
                             {cs.label}{cs.label==="Overdue" && " by "+cs.days+" day"+(cs.days!==1?"s":"")}
                           </span>
@@ -5494,7 +5494,7 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
       {/* VISITOR TRACKER TAB */}
       {tab==="tracker" && (
         <div>
-          <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,overflow:"hidden",marginBottom:14}}>
+          <div style={{background:W,border:"0.5px solid "+BR,borderRadius:neoDesign?16:12,overflow:"hidden",marginBottom:14,boxShadow:neoDesign?"0 1px 2px rgba(20,30,55,.04),0 8px 22px -14px rgba(20,30,55,.14)":undefined}}>
             <table style={{width:"100%",borderCollapse:"collapse"}}>
               <thead>
                 <tr style={{background:BG}}>
@@ -5532,7 +5532,7 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
                         <span style={{background:VC[rec.stage]+"18",color:VC[rec.stage],borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:500}}>{VS[rec.stage]}</span>
                       </td>
                       <td style={{padding:"10px 14px",fontSize:12}}>{getAssigned(rec)}</td>
-                      <td style={{padding:"10px 14px",fontSize:13,fontWeight:500,color:N}}>{rec.contacts.length}</td>
+                      <td style={{padding:"10px 14px",fontSize:neoDesign?16:13,fontWeight:neoDesign?600:500,color:N,fontFamily:neoDesign?"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif":"inherit",fontVariantNumeric:"tabular-nums"}}>{rec.contacts.length}</td>
                       <td style={{padding:"10px 14px"}}>
                         {last
                           ? <div style={{display:"flex",flexDirection:"column",gap:4}}>
