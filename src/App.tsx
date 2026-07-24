@@ -15148,7 +15148,7 @@ function Education({members,setMembers,visitors,attendance,setAttendance,users,r
 const ALLERGY_OPTIONS=["Peanuts","Tree Nuts","Milk/Dairy","Eggs","Wheat/Gluten","Soy","Fish","Shellfish","Latex","Bee Stings","Penicillin","Aspirin","Ibuprofen","Sulfa Drugs"];
 const MEDICAL_OPTIONS=["Diabetes","High Blood Pressure","Heart Condition","Asthma","Epilepsy/Seizures","Mobility Impairment","Vision Impairment","Hearing Impairment","Cancer","Kidney Disease","Thyroid Disorder","Depression/Anxiety","PTSD","Autism Spectrum"];
 
-function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,roles,permissions,setView,prospects,setProspects,children=[],setChildren=null,classrooms=[]}:any){
+function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,roles,permissions,setView,prospects,setProspects,children=[],setChildren=null,classrooms=[],neoDesign=false}:any){
   const canAdd = checkPermission(currentUser,roles,permissions,"directory","create");
   const canAddVisitor = checkPermission(currentUser,roles,permissions,"addvisitor","create");
   const addedByName = (()=>{
@@ -15369,7 +15369,7 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
     return(
       <div style={{maxWidth:520,margin:"60px auto",textAlign:"center",padding:32}}>
         <div style={{width:64,height:64,borderRadius:"50%",background:"#e8f5e9",display:"flex",alignItems:"center",justifyContent:"center",fontSize:28,margin:"0 auto 16px"}}>✓</div>
-        <h2 style={{fontSize:20,fontWeight:500,color:GR,marginBottom:6}}>{saved.name} added!</h2>
+        <h2 style={{fontSize:neoDesign?25:20,fontWeight:neoDesign?600:500,color:GR,marginBottom:6,fontFamily:neoDesign?"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif":"inherit"}}>{saved.name} added!</h2>
         <p style={{fontSize:13,color:MU,marginBottom:saved.familyName?8:24}}>{saved.name} has been added to the database as a {saved.type}.</p>
         {saved.familyName&&<p style={{fontSize:13,color:N,fontWeight:500,marginBottom:24,background:N+"0d",borderRadius:8,padding:"8px 14px"}}>🏠 Family unit created: <strong>{saved.familyName}</strong> — all linked members saved.</p>}
         <div style={{display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"}}>
@@ -15386,7 +15386,7 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
       {/* Page Header */}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20,flexWrap:"wrap",gap:10}}>
         <div>
-          <h2 style={{fontSize:20,fontWeight:500,color:N,margin:0}}>Add Person to Database</h2>
+          <h2 style={{fontSize:neoDesign?25:20,fontWeight:neoDesign?600:500,color:N,margin:0,fontFamily:neoDesign?"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif":"inherit"}}>Add Person to Database</h2>
           <div style={{fontSize:12,color:MU,marginTop:2}}>This is the central intake form. All new members and visitors start here.</div>
         </div>
         <div style={{fontSize:11,color:MU,background:BG,border:"0.5px solid "+BR,borderRadius:8,padding:"6px 12px"}}>
@@ -15434,7 +15434,7 @@ function AddMemberPage({members,setMembers,visitors,setVisitors,currentUser,role
         </div>
       )}
 
-      <div style={{background:W,border:"0.5px solid "+BR,borderRadius:14,padding:24}}>
+      <div style={{background:W,border:"0.5px solid "+BR,borderRadius:neoDesign?18:14,padding:24,boxShadow:neoDesign?"0 1px 2px rgba(20,30,55,.04),0 10px 30px -14px rgba(20,30,55,.16)":undefined}}>
         {/* Type Switcher */}
         <div style={{display:"flex",gap:0,background:BG,borderRadius:10,padding:4,marginBottom:20,width:"fit-content",border:"0.5px solid "+BR}}>
           <button onClick={()=>setPType("member")} style={{padding:"8px 24px",borderRadius:8,border:"none",background:pType==="member"?N:"transparent",color:pType==="member"?"#fff":MU,fontSize:13,fontWeight:pType==="member"?500:400,cursor:"pointer"}}>Church Member</button>
@@ -19760,7 +19760,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
             }}
           />}
           {!isMemberPortal && view==="dashboard" && <Dashboard members={members} visitors={visitors} attendance={attendance} giving={giving} prayers={prayers} setView={setView} canViewGiving={canViewGiving} isRestrictedUser={isRestrictedUser} canAddPerson={canAddPerson} checkIns={checkIns} careContacted={careContacted} setCareContacted={setCareContacted} isAdmin={isAdminUser} neoDesign={!churchSettings?.classicDashboard}/>}
-          {!isMemberPortal && view==="addperson" && <AddMemberPage members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} currentUser={currentUser} roles={roles} permissions={permissions} setView={setView} prospects={prospects} setProspects={setProspects} children={children} setChildren={setChildren} classrooms={classrooms}/>}
+          {!isMemberPortal && view==="addperson" && <AddMemberPage members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} currentUser={currentUser} roles={roles} permissions={permissions} setView={setView} prospects={prospects} setProspects={setProspects} children={children} setChildren={setChildren} classrooms={classrooms} neoDesign={!churchSettings?.classicDashboard}/>}
           {!isMemberPortal && view==="people" && <People members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} setGiving={setGiving} prayers={prayers} setPrayers={setPrayers} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings} visitRecords={visitRecords} setVisitRecords={setVisitRecords} checkIns={checkIns} setCheckIns={setCheckInsSynced} setView={setView} canViewGiving={canViewGiving} currentUser={currentUser} roles={roles} children={children} setChildren={setChildren} churchId={churchId} classrooms={classrooms} neoDesign={!churchSettings?.classicDashboard}/>}
           {!isMemberPortal && view==="groups" && <Groups members={members} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings} currentUser={currentUser} roles={roles}/>}
           {!isMemberPortal && view==="education" && <Education members={members} setMembers={setMembers} visitors={visitors} attendance={attendance} setAttendance={setAttendance} users={users} roles={roles} currentUser={currentUser} children={children} setChildren={setChildren} classrooms={classrooms} setClassrooms={setClassrooms} teacherSchedule={teacherSchedule} setTeacherSchedule={setTeacherSchedule} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckInsSynced} checkIns={checkIns} incidents={incidents} setIncidents={setIncidents} rollCalls={rollCalls} setRollCalls={setRollCalls} progressNotes={progressNotes} setProgressNotes={setProgressNotes} teacherFollowups={teacherFollowups} setTeacherFollowups={setTeacherFollowups} followupDismissedChildIds={followupDismissedChildIds} setFollowupDismissedChildIds={setFollowupDismissedChildIds} cs={churchSettings} setCs={setChurchSettings} addConfidential={addConfidential} printerConfig={printerConfig} setPrinterConfig={setPrinterConfig} neoDesign={!churchSettings?.classicDashboard}/>}
