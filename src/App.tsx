@@ -4836,7 +4836,7 @@ function SmsCenter({smsLog,setSmsLog,smsTemplates,setSmsTemplates,smsConfig,setS
 }
 
 // ── VISITATION ──
-function Visitation({visitors,setVisitors,members,setMembers,users,currentUser,roles,visitRecords,setVisitRecords,setView,canAddVisitor,onOpenVisitationSms}:any) {
+function Visitation({visitors,setVisitors,members,setMembers,users,currentUser,roles,visitRecords,setVisitRecords,setView,canAddVisitor,onOpenVisitationSms,neoDesign=false}:any) {
   const [tab,setTab] = useState("pipeline");
   const [logModal,setLogModal] = useState(null);
   const [assignModal,setAssignModal] = useState(null);
@@ -5253,12 +5253,24 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
 
       {/* PIPELINE TAB */}
       {tab==="pipeline" && (
-        <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:10}}>
+        <div style={{display:"grid",gridTemplateColumns:neoDesign?"repeat(auto-fit,minmax(190px,1fr))":"repeat(6,1fr)",gap:neoDesign?14:10}}>
           {stageList.map(stage=>{
             const recs = visibleRecords.filter(r=>r.stage===stage && isFamilyRep(r.visitorId));
             const overdueInCol = stage==="OngoingCare" ? recs.filter(r=>{if(!visitors.some((v:any)=>String(v.id)===String(r.visitorId)))return false;const s=careStatus(r);return s&&s.label==="Overdue";}).length : 0;
             return (
               <div key={stage}>
+                {neoDesign ? (
+                <div style={{padding:"2px 4px 12px",marginBottom:8,borderBottom:"1px solid "+BR}}>
+                  <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:3}}>
+                    <span style={{width:9,height:9,borderRadius:"50%",background:VC[stage],flexShrink:0}}></span>
+                    <div style={{fontSize:10.5,fontWeight:700,color:VC[stage],textTransform:"uppercase",letterSpacing:0.7}}>{VS[stage]}</div>
+                  </div>
+                  <div style={{display:"flex",alignItems:"baseline",gap:6,paddingLeft:16}}>
+                    <div style={{fontFamily:"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif",fontSize:27,fontWeight:600,color:N,lineHeight:1,fontVariantNumeric:"tabular-nums"}}>{recs.length}</div>
+                    {overdueInCol>0 && <span style={{fontSize:10,background:RE,color:"#fff",borderRadius:10,padding:"1px 6px",fontWeight:600}}>{overdueInCol} overdue</span>}
+                  </div>
+                </div>
+                ) : (
                 <div style={{padding:"8px 12px",background:VC[stage]+"14",borderRadius:"8px 8px 0 0",border:"0.5px solid "+VC[stage]+"44",borderBottom:"2px solid "+VC[stage],marginBottom:10}}>
                   <div style={{fontSize:11,fontWeight:500,color:VC[stage],textTransform:"uppercase",letterSpacing:0.5}}>{VS[stage]}</div>
                   <div style={{display:"flex",alignItems:"baseline",gap:6}}>
@@ -5266,6 +5278,7 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
                     {overdueInCol>0 && <span style={{fontSize:10,background:RE,color:"#fff",borderRadius:10,padding:"1px 6px",fontWeight:600}}>{overdueInCol} overdue</span>}
                   </div>
                 </div>
+                )}
                 <div style={{display:"flex",flexDirection:"column",gap:8}}>
                   {recs.map(rec=>{
                     const v = getV(rec.visitorId);
@@ -5279,7 +5292,7 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
                     const cs = stage==="OngoingCare" ? careStatus(rec) : null;
                     const due = stage==="OngoingCare" ? getNextDue(rec) : null;
                     return (
-                      <div key={rec.id} style={{background:W,border:"0.5px solid "+(cs?.label==="Overdue"?RE+"88":needsAssign?"#fca5a5":BR),borderRadius:10,padding:12,borderLeft:cs?.label==="Overdue"?"3px solid "+RE:undefined}}>
+                      <div key={rec.id} style={{background:W,border:"0.5px solid "+(cs?.label==="Overdue"?RE+"88":needsAssign?"#fca5a5":BR),borderRadius:neoDesign?14:10,padding:neoDesign?"13px 14px":12,borderLeft:cs?.label==="Overdue"?"3px solid "+RE:undefined,boxShadow:neoDesign?"0 1px 2px rgba(20,30,55,.04),0 6px 16px -11px rgba(20,30,55,.13)":undefined}}>
                         <div onClick={()=>openVisitorProfile(v)} title="Open profile" style={{display:"flex",alignItems:"center",gap:8,marginBottom:6,cursor:"pointer"}}>
                           <Av f={v.first} l={v.last} sz={28}/>
                           <div style={{minWidth:0,flex:1}}>
@@ -19760,7 +19773,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
             </div>
           )}
           {!isMemberPortal && view==="prospects" && <ProspectsPage prospects={prospects} setProspects={setProspects} members={members} setView={setView} onOpenSms={(data:any)=>openSmsComposer(data)} isAdmin={!isStaff || isAdminUser} currentUserId={currentUser?.id ?? null} currentUserMemberId={staffMemberRecord?.id ?? null} currentUserName={staffMemberRecord ? (staffMemberRecord.first+" "+staffMemberRecord.last).trim() : (displayName || loggedInEmail || "")}/>}
-          {!isMemberPortal && view==="visitation" && <Visitation visitors={visitors} setVisitors={setVisitors} members={members} setMembers={setMembers} users={users} currentUser={currentUser} roles={roles} visitRecords={visitRecords} setVisitRecords={setVisitRecords} setView={setView} canAddVisitor={canAddVisitor} onOpenVisitationSms={openVisitationSmsComposer}/>}
+          {!isMemberPortal && view==="visitation" && <Visitation visitors={visitors} setVisitors={setVisitors} members={members} setMembers={setMembers} users={users} currentUser={currentUser} roles={roles} visitRecords={visitRecords} setVisitRecords={setVisitRecords} setView={setView} canAddVisitor={canAddVisitor} onOpenVisitationSms={openVisitationSmsComposer} neoDesign={!churchSettings?.classicDashboard}/>}
           {!isMemberPortal && view==="hospitalvisits" && <SickVisitLog members={members} visitors={visitors} sickVisits={sickVisits} setSickVisits={setSickVisits} users={users}/>}
           {!isMemberPortal && view==="benevolencefund" && <BenevolencePage members={members} visitors={visitors} benevolence={benevolence} setBenevolence={setBenevolence}/>}
           {!isMemberPortal && view==="counselinglog" && canAccessCounseling && <CounselingLog members={members} visitors={visitors} counselingLogs={counselingLogs} setCounselingLogs={setCounselingLogs}/>}
