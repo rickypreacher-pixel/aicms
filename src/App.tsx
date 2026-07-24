@@ -6402,7 +6402,7 @@ function FamilyForm({newVis,setNewVis,onSubmit,allPeople}){
   );
 }
 
-function CalendarView({members,visitors,setVisitors,groups,recurring,setRecurring,custom,setCustom,checkIns,setCheckIns,grpMeetings=[],setGrpMeetings=()=>{},prospects=[],setProspects=()=>{},servicePlans={},setServicePlans=()=>{},eventRsvps=[],setEventRsvps=()=>{},eventSchedule={},setEventSchedule=()=>{},children=[],kidsCheckIns=[],setKidsCheckIns=()=>{}}){
+function CalendarView({members,visitors,setVisitors,groups,recurring,setRecurring,custom,setCustom,checkIns,setCheckIns,grpMeetings=[],setGrpMeetings=()=>{},prospects=[],setProspects=()=>{},servicePlans={},setServicePlans=()=>{},eventRsvps=[],setEventRsvps=()=>{},eventSchedule={},setEventSchedule=()=>{},children=[],kidsCheckIns=[],setKidsCheckIns=()=>{},neoDesign=false}){
   const [ctab,setCtab]=useState("calendar");
   // Open on the current month + today. If a DIFFERENT month was last viewed, restore it.
   const _calToday=td();const _calCurY=+_calToday.slice(0,4),_calCurM=+_calToday.slice(5,7)-1;
@@ -6553,6 +6553,42 @@ function CalendarView({members,visitors,setVisitors,groups,recurring,setRecurrin
       </div>
       {ctab==="calendar"&&(
         <div style={{display:"flex",flex:1,overflow:"hidden"}}>
+          {neoDesign ? (
+          <div style={{flex:1,display:"flex",flexDirection:"column",padding:"16px 18px",overflow:"hidden",minWidth:0}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14,flexWrap:"wrap",gap:10}}>
+              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                <h2 style={{fontFamily:"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif",fontSize:24,fontWeight:600,color:N,margin:0,minWidth:180,letterSpacing:0.2}}>{CMONTHS[mo]} <span style={{color:G}}>{yr}</span></h2>
+                <div style={{display:"flex",gap:4}}>
+                  <button onClick={prevMo} style={{width:32,height:32,borderRadius:9,border:"0.5px solid "+BR,background:W,cursor:"pointer",color:N,fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1}}>‹</button>
+                  <button onClick={nextMo} style={{width:32,height:32,borderRadius:9,border:"0.5px solid "+BR,background:W,cursor:"pointer",color:N,fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",lineHeight:1}}>›</button>
+                  <button onClick={()=>{const n=new Date();setYr(n.getFullYear());setMo(n.getMonth());setSelDate(td());}} style={{padding:"0 14px",height:32,borderRadius:9,border:"0.5px solid "+BR,background:W,cursor:"pointer",fontSize:12.5,fontWeight:600,color:N}}>Today</button>
+                </div>
+              </div>
+              <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>{[[N,"Worship"],[G,"Education"],[GR,"Study"],[PU,"Prayer"],["#65a30d","Group"]].map(([c,t])=><div key={t} style={{display:"flex",alignItems:"center",gap:4}}><div style={{width:8,height:8,borderRadius:"50%",background:c}}></div><span style={{fontSize:10.5,color:MU}}>{t}</span></div>)}</div>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:6,marginBottom:6}}>{CDNAMES.map(d=><div key={d} style={{textAlign:"center",fontSize:10.5,fontWeight:700,color:MU,letterSpacing:0.8,textTransform:"uppercase"}}>{d}</div>)}</div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gridAutoRows:"1fr",gap:6,flex:1,overflow:"hidden"}}>
+              {grid.map((cell,i)=>{
+                const evts=cEventsFor(cell.date,recurring,custom,[]);
+                const grpEvts=calGroups.filter(g=>CD2DOW[g.day]===new Date(cell.date+"T00:00:00").getDay());
+                const allEvts=[...evts,...grpEvts];
+                const isToday=cell.date===todayStr;const isSel=cell.date===selDate;const ciCnt=checkIns.filter(c=>c.date===cell.date).length;
+                return(<div key={i} onClick={()=>{setSelDate(cell.date);setSelEvt(null);setSelGrpEvt(null);setSearch("");setNewVis(null);setGrpCISearch("");}}
+                  style={{background:isSel?N+"0a":W,border:"1px solid "+(isSel?N:BR),borderRadius:11,padding:"6px 7px",cursor:"pointer",overflow:"hidden",display:"flex",flexDirection:"column",opacity:cell.cur?1:0.4,boxShadow:isSel?"0 0 0 3px "+N+"18":"none"}}>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:3}}>
+                    <div style={{minWidth:23,height:23,padding:"0 5px",borderRadius:12,background:isToday?N:"transparent",color:isToday?"#fff":TX,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:isToday?700:500,fontVariantNumeric:"tabular-nums"}}>{new Date(cell.date+"T00:00:00").getDate()}</div>
+                    {ciCnt>0&&<span style={{fontSize:9,background:GR+"1f",color:GR,borderRadius:6,padding:"1px 5px",fontWeight:700}}>{ciCnt}</span>}
+                  </div>
+                  <div style={{display:"flex",flexDirection:"column",gap:2,overflow:"hidden"}}>
+                    {evts.slice(0,2).map((e,j)=><div key={j} style={{background:e.color+"18",color:e.color,borderRadius:5,padding:"2px 5px",fontSize:11,fontWeight:600,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",lineHeight:1.5,borderLeft:"2px solid "+e.color}}>{tS(e.time)} {e.name}</div>)}
+                    {grpEvts.slice(0,1).map((g,j)=><div key={"g"+j} style={{background:g.color+"14",color:g.color,borderRadius:5,padding:"2px 5px",fontSize:11,fontWeight:600,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",lineHeight:1.5}}>{g.name}</div>)}
+                    {allEvts.length>3&&<div style={{fontSize:10.5,color:MU,fontWeight:600,paddingLeft:2}}>+{allEvts.length-3} more</div>}
+                  </div>
+                </div>);
+              })}
+            </div>
+          </div>
+          ) : (
           <div style={{flex:1,display:"flex",flexDirection:"column",padding:14,overflow:"hidden",minWidth:0}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10,flexWrap:"wrap",gap:6}}>
               <div style={{display:"flex",alignItems:"center",gap:8}}>
@@ -6585,6 +6621,7 @@ function CalendarView({members,visitors,setVisitors,groups,recurring,setRecurrin
               })}
             </div>
           </div>
+          )}
           <div style={{width:320,borderLeft:"0.5px solid "+BR,background:W,display:"flex",flexDirection:"column",overflow:"hidden",flexShrink:0}}>
             {selDate?(
               <div style={{display:"flex",flexDirection:"column",height:"100%",overflow:"hidden"}}>
@@ -17054,8 +17091,8 @@ function ManualPage(){
           <P>At the top of Settings, the <B>Super Administrator</B> sees a <B>🔄 Refresh All Devices</B> button. Click it after an update to reload the app on <B>every signed-in device</B> — phones, tablets, and computers — to the latest version automatically, within about a minute. No one has to refresh manually. Avoid using it mid-service, since anyone typing something unsaved could lose it.</P>
           <H3>Device Status</H3>
           <P>Just below that, the <B>📶 Device Status</B> panel shows every device signed in right now, who's on it, and which app version it's running. A green <B>✅</B> means that device is on the latest version; a <B>⚠️</B> means it still needs to reload. Use it to confirm everyone picked up an update: after clicking Refresh All Devices, watch the ⚠️ devices flip to ✅ as they reload. A device that stays offline simply isn't open right now — it will be current the next time someone opens it.</P>
-          <H3>Dashboard Design (New / Classic)</H3>
-          <P>In Settings, the <B>🎨 Dashboard design</B> card lets the <B>Super Administrator or Administrator</B> choose the look of the home Dashboard for everyone. <B>New</B> is the redesigned layout — a "Pulse" summary with trend sparklines, a "Needs your attention" list, quick actions, and Care Pulse. <B>Classic</B> is the original with the full attendance/visitor charts, member-mix pies, and AI insights. Your choice syncs to all devices, and you can switch back anytime — nothing is lost either way.</P>
+          <H3>App Design (New / Classic)</H3>
+          <P>In Settings, the <B>🎨 App design</B> card lets the <B>Super Administrator or Administrator</B> choose the look of the app for everyone. <B>New</B> is the redesigned layout — a "Pulse" Dashboard with trend sparklines, a "Needs your attention" list, and a refreshed <B>Event Calendar</B> (larger day cells, color-coded event chips, serif month title). <B>Classic</B> is the original with the full dashboard attendance/visitor charts, member-mix pies, and AI insights. Your choice syncs to all devices, and you can switch back anytime — nothing is lost either way.</P>
           <H3>General Tab — Church Information</H3>
           <Ul><Li><B>Church Name</B> — displayed in the sidebar header, printed output, and email signatures</Li><Li><B>Pastor Name</B> — shown in the sidebar footer</Li><Li><B>Address</B> — appears in the app header subtitle on every page</Li><Li><B>Phone / Email</B> — church contact info stored in the system for communications</Li><Li><B>Logo URL</B> — URL to your church logo image (use <B>/logo.png</B> if the logo file is placed in the app's public folder)</Li></Ul>
           <P>Click <B>Save Settings</B> after making any changes. Settings take effect immediately across the entire app.</P>
@@ -19646,8 +19683,8 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           {!isMemberPortal && view==="settings" && isAdminUser && (
             <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:"14px 16px",marginBottom:16,display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap" as any}}>
               <div style={{minWidth:0}}>
-                <div style={{fontSize:14,fontWeight:600,color:N}}>🎨 Dashboard design</div>
-                <div style={{fontSize:12,color:MU,marginTop:2,maxWidth:560,lineHeight:1.6}}><strong>New</strong> is the redesigned home Dashboard (Pulse hero, "Needs your attention", refined type). <strong>Classic</strong> is the original with full charts and AI insights. Applies to everyone — switch back anytime.</div>
+                <div style={{fontSize:14,fontWeight:600,color:N}}>🎨 App design</div>
+                <div style={{fontSize:12,color:MU,marginTop:2,maxWidth:560,lineHeight:1.6}}><strong>New</strong> is the redesigned look — a refreshed <strong>Dashboard</strong> (Pulse hero, "Needs your attention") and <strong>Event Calendar</strong>. <strong>Classic</strong> is the original (full dashboard charts &amp; AI insights). Applies to everyone — switch back anytime.</div>
               </div>
               <div style={{display:"flex",gap:0,background:BG,borderRadius:9,padding:3,flexShrink:0}}>
                 {[["New",false],["Classic",true]].map(([lbl,val]:any)=>{ const on=(!!churchSettings?.classicDashboard)===val; return (
@@ -19718,6 +19755,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
                 setEventRsvps={setEventRsvps}
                 eventSchedule={eventSchedule}
                 setEventSchedule={setEventSchedule}
+                neoDesign={!churchSettings?.classicDashboard}
               />
             </div>
           )}
