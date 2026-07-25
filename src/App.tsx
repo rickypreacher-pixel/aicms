@@ -3243,7 +3243,7 @@ function PortalTab({members,setMembers=()=>{},portalMembers,setPortalMembers,por
     const id = nextMemberId();
     setMembers((ms:any[])=>[{id,first:s.first||'',last:s.last||'',email:s.email||'',phone:s.phone||'',gender:'Male',status:'Active',joined:td(),notes:'Self-registered via Member Portal'},...(Array.isArray(ms)?ms:[])]);
     const newPerms = Object.fromEntries(PORTAL_PERMS.map(p=>[p.key,true]));
-    setPortalMembers((ps:any[])=>[...(Array.isArray(ps)?ps:[]),{memberId:id,status:"Active",perms:newPerms}]);
+    setPortalMembers((ps:any[])=>[...(Array.isArray(ps)?ps:[]),{memberId:id,status:"Active",perms:newPerms,at:new Date().toISOString()}]);
     setPortalSignups((sg:any[])=>(Array.isArray(sg)?sg:[]).filter((x:any)=>String(x.id)!==String(s.id)));
   };
   const dismissSignup = (s:any)=>{ if(confirm(`Dismiss ${(s.first||'')+' '+(s.last||'')}'s sign-up? They'll keep basic portal access but won't be added to your directory.`)) setPortalSignups((sg:any[])=>(Array.isArray(sg)?sg:[]).filter((x:any)=>String(x.id)!==String(s.id))); };
@@ -3285,14 +3285,14 @@ function PortalTab({members,setMembers=()=>{},portalMembers,setPortalMembers,por
     if(!sel){alert("Select a member.");return;}
     if(!sel.email){ if(!confirm(`${sel.first} ${sel.last} has no email on file. They log in by email, so add their email to their member profile first. Grant access anyway?`)) return; }
     const newPerms = Object.fromEntries(PORTAL_PERMS.map(p=>[p.key,true]));
-    setPortalMembers(ps=>[...ps,{memberId:sel.id,status:"Active",perms:newPerms}]);
+    setPortalMembers(ps=>[...ps,{memberId:sel.id,status:"Active",perms:newPerms,at:new Date().toISOString()}]);
     const justAdded = sel; setSel(null); setMemberSearch(""); setModal(false);
     // Send them the sign-in link: text it if they have a phone, otherwise copy the link.
     if(justAdded.phone) setTimeout(()=>textInvite(justAdded),150);
     else if(justAdded.email) setTimeout(()=>copyInvite(justAdded),100);
   };
-  const togglePerm = (mid,key) => setPortalMembers(ps=>ps.map(p=>p.memberId===mid?{...p,perms:{...p.perms,[key]:!p.perms[key]}}:p));
-  const toggleStatus = mid => setPortalMembers(ps=>ps.map(p=>p.memberId===mid?{...p,status:p.status==="Active"?"Suspended":"Active"}:p));
+  const togglePerm = (mid,key) => setPortalMembers(ps=>ps.map(p=>p.memberId===mid?{...p,perms:{...p.perms,[key]:!p.perms[key]},at:new Date().toISOString()}:p));
+  const toggleStatus = mid => setPortalMembers(ps=>ps.map(p=>p.memberId===mid?{...p,status:p.status==="Active"?"Suspended":"Active",at:new Date().toISOString()}:p));
   const remove = mid => { if(confirm("Remove portal access?")) setPortalMembers(ps=>ps.filter(p=>p.memberId!==mid)); };
 
   return (
@@ -18982,6 +18982,18 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
         curArr.forEach((lr:any)=>{ if(lr&&lr.id!=null && !byId.has(String(lr.id)) && new Date(lr?.at||0).getTime()>recentMs) byId.set(String(lr.id),lr); });
         return Array.from(byId.values());
       });
+      if(Array.isArray(d.portalMembers)) setPortalMembers((cur:any)=>{
+        // MERGE by memberId (portal-access grants). Cloud is the base so a grant/removal on another device
+        // propagates; a just-granted local entry not yet in the cloud is pinned by its recent `at` so it
+        // doesn't blink out before its save lands. (portalMembers used to not persist at all → it vanished
+        // on every refresh; now it's synced like the other arrays.)
+        const curArr=Array.isArray(cur)?cur:[];
+        const byKey=new Map<string,any>();
+        (d.portalMembers as any[]).forEach((r:any)=>{ if(r&&r.memberId!=null) byKey.set(String(r.memberId),r); });
+        const recentMs=Date.now()-5*60*1000;
+        curArr.forEach((lr:any)=>{ if(lr&&lr.memberId!=null && !byKey.has(String(lr.memberId)) && new Date(lr?.at||0).getTime()>recentMs) byKey.set(String(lr.memberId),lr); });
+        return Array.from(byKey.values());
+      });
       if(Array.isArray(d.sickVisits)) setSickVisits((cur:any)=>{
         // MERGE by id (don't blind-replace): a just-added or just-edited sick/hospital visit can blink
         // out / revert if the 60s sync poll lands before that save reaches the cloud. Cloud is the base
@@ -19318,7 +19330,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
         // tables (event_checkins / kids_checkins), loaded authoritatively on mount. With the full
         // check-in history now loaded into state, dual-writing them ballooned the blob (~4.1MB) and
         // caused intermittent save failures ("sync error"); dropping the duplicates fixes that.
-        teacherSchedule,teacherFollowups,eventRsvps,announcements,roles,permissions,churchSettings,users:safeUsers,prospects,portalSignups,
+        teacherSchedule,teacherFollowups,eventRsvps,announcements,roles,permissions,churchSettings,users:safeUsers,prospects,portalSignups,portalMembers,
         followupDismissedChildIds,
         sickVisits,benevolence,hospitalityFund,hospStartBalance:_hospBal,cleaningSchedule,eventSchedule,adminNotesRead,careContacted,servicePlans,
         // Tell the DB no-shrink guard (trg_guard_no_shrink_kids) this client does a correct
@@ -19365,7 +19377,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   },[members,visitors,attendance,prayers,groups,grpMeetings,visitRecords,
     children,classrooms,equipment,workOrders,schedMaint,supplies,checkoutItems,checkouts,
     emailLog,emailTemplates,emailConfig,recurring,custom,rollCalls,
-    teacherSchedule,teacherFollowups,eventRsvps,announcements,roles,permissions,churchSettings,users,prospects,portalSignups,
+    teacherSchedule,teacherFollowups,eventRsvps,announcements,roles,permissions,churchSettings,users,prospects,portalSignups,portalMembers,
     followupDismissedChildIds,
     sickVisits,benevolence,hospitalityFund,hospStartBalance,cleaningSchedule,eventSchedule,adminNotesRead,careContacted,servicePlans]);
 

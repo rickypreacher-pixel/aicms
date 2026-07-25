@@ -29,7 +29,7 @@ const ID_ARRAYS = [
   'children','classrooms','equipment','workOrders','schedMaint','supplies','checkoutItems',
   'checkouts','emailLog','emailTemplates','recurring','custom','checkIns','rollCalls',
   'kidsCheckIns','teacherFollowups','eventRsvps','announcements','roles','users','prospects',
-  'sickVisits','benevolence','hospitalityFund','portalSignups',
+  'sickVisits','benevolence','hospitalityFund','portalSignups','portalMembers',
 ];
 // Arrays of bare scalar values (e.g. ids), merged as a set.
 const SCALAR_ARRAYS = ['followupDismissedChildIds', 'adminNotesRead'];
@@ -63,6 +63,8 @@ function keyFor(field, item) {
   // composite childId|date (one check-in per child per date) so the merge is stable and doesn't
   // collapse distinct records or shrink the array (which the DB no-shrink guard would then revert).
   if (field === 'kidsCheckIns') return String(item && item.childId) + '|' + String(item && item.date);
+  // Portal-access grants are keyed by the member they apply to (no own `id`).
+  if (field === 'portalMembers') return String(item && item.memberId);
   if (SCALAR_ARR_SET.has(field)) return String(item);
   return String(item && item.id);
 }
