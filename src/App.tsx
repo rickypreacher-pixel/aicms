@@ -220,7 +220,7 @@ function EquipmentTab({equipment,setEquipment,workOrders,schedMaint,canEdit,neoD
   </div>);
 }
 
-function WorkOrdersTab({workOrders,setWorkOrders,equipment,users,members,canEdit}){
+function WorkOrdersTab({workOrders,setWorkOrders,equipment,users,members,canEdit,neoDesign=false}){
   const [search,setSearch]=useState("");
   const [filterStatus,setFilterStatus]=useState("all");
   const [filterPriority,setFilterPriority]=useState("all");
@@ -241,19 +241,30 @@ function WorkOrdersTab({workOrders,setWorkOrders,equipment,users,members,canEdit
   const changeStatus=(wo,newStatus,dateOverride)=>{const updated={...wo,status:newStatus,completedDate:newStatus==="Completed"?(dateOverride||wo.completedDate||td()):(newStatus!=="Completed"?null:wo.completedDate)};setWorkOrders(ws=>ws.map(w=>w.id===wo.id?updated:w));if(detail?.id===wo.id) setDetail(updated);};
   const stats={open:workOrders.filter(w=>w.status==="Open").length,inProgress:workOrders.filter(w=>w.status==="In Progress").length,onHold:workOrders.filter(w=>w.status==="On Hold").length,completed:workOrders.filter(w=>w.status==="Completed").length};
   return (<div>
+    {neoDesign ? (
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:14,marginBottom:16}}>
+      {[["Open",stats.open,BL],["In Progress",stats.inProgress,AM],["On Hold",stats.onHold,MU],["Completed",stats.completed,GR]].map(([l,v,c]:any)=>(
+        <div key={l} style={{background:W,border:"0.5px solid "+BR,borderRadius:16,padding:"16px 18px",boxShadow:"0 1px 2px rgba(20,30,55,.04),0 8px 20px -13px rgba(20,30,55,.13)"}}>
+          <div style={{fontSize:12,color:MU,fontWeight:600}}>{l}</div>
+          <div style={{fontFamily:"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif",fontSize:29,fontWeight:600,color:c,lineHeight:1.05,marginTop:6,fontVariantNumeric:"tabular-nums"}}>{v}</div>
+        </div>
+      ))}
+    </div>
+    ) : (
     <div style={{display:"flex",gap:10,marginBottom:16,flexWrap:"wrap"}}>
       <Stat label="Open" value={stats.open} color={BL}/>
       <Stat label="In Progress" value={stats.inProgress} color={AM}/>
       <Stat label="On Hold" value={stats.onHold} color={MU}/>
       <Stat label="Completed" value={stats.completed} color={GR}/>
     </div>
+    )}
     <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap",alignItems:"center"}}>
       <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search work orders..." style={{flex:1,minWidth:200,padding:"8px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}/>
       <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)} style={{padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:12,outline:"none",background:W}}><option value="all">All Statuses</option>{WO_STATUSES.map(s=><option key={s}>{s}</option>)}</select>
       <select value={filterPriority} onChange={e=>setFilterPriority(e.target.value)} style={{padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:12,outline:"none",background:W}}><option value="all">All Priorities</option>{WO_PRIORITIES.map(p=><option key={p}>{p}</option>)}</select>
       <Btn onClick={openAdd} v="primary" disabled={!canEdit}>+ New Work Order</Btn>
     </div>
-    <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,overflow:"hidden"}}>
+    <div style={{background:W,border:"0.5px solid "+BR,borderRadius:neoDesign?16:12,overflow:"hidden",boxShadow:neoDesign?"0 1px 2px rgba(20,30,55,.04),0 8px 22px -14px rgba(20,30,55,.14)":undefined}}>
       {filtered.length===0 ? <div style={{padding:40,textAlign:"center",color:MU}}>No work orders found.</div> : (<table style={{width:"100%",borderCollapse:"collapse"}}>
         <thead><tr style={{background:BG}}>{["Title","Assigned","Priority","Status","Created","Equipment",""].map(h=><th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:11,fontWeight:500,color:MU,textTransform:"uppercase",letterSpacing:0.5,borderBottom:"0.5px solid "+BR}}>{h}</th>)}</tr></thead>
         <tbody>{filtered.map(w=>{const eq=w.equipmentId?equipment.find(e=>e.id===w.equipmentId):null;return (<tr key={w.id} onClick={()=>{setDetail(w);setMarkDate(w.completedDate||td());}} style={{borderBottom:"0.5px solid "+BR,cursor:"pointer"}} onMouseEnter={evt=>evt.currentTarget.style.background="#f8f9fc"} onMouseLeave={evt=>evt.currentTarget.style.background=W}>
@@ -332,7 +343,7 @@ function WorkOrdersTab({workOrders,setWorkOrders,equipment,users,members,canEdit
   </div>);
 }
 
-function SchedMaintTab({schedMaint,setSchedMaint,equipment,users,members,canEdit}){
+function SchedMaintTab({schedMaint,setSchedMaint,equipment,users,members,canEdit,neoDesign=false}){
   const [search,setSearch]=useState("");
   const [filterStatus,setFilterStatus]=useState("all");
   const [modal,setModal]=useState(false);
@@ -355,7 +366,7 @@ function SchedMaintTab({schedMaint,setSchedMaint,equipment,users,members,canEdit
       <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)} style={{padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:12,outline:"none",background:W}}><option value="all">All Statuses</option><option value="overdue">Overdue</option><option value="urgent">Urgent</option><option value="upcoming">Upcoming</option><option value="ontrack">On Track</option><option value="inactive">Inactive</option></select>
       <Btn onClick={openAdd} v="primary" disabled={!canEdit}>+ Schedule Maintenance</Btn>
     </div>
-    <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,overflow:"hidden"}}>
+    <div style={{background:W,border:"0.5px solid "+BR,borderRadius:neoDesign?16:12,overflow:"hidden",boxShadow:neoDesign?"0 1px 2px rgba(20,30,55,.04),0 8px 22px -14px rgba(20,30,55,.14)":undefined}}>
       {filtered.length===0 ? <div style={{padding:40,textAlign:"center",color:MU}}>No scheduled maintenance.</div> : (<table style={{width:"100%",borderCollapse:"collapse"}}>
         <thead><tr style={{background:BG}}>{["Equipment","Task","Frequency","Last Service","Next Service","Status","Assigned",""].map(h=><th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:11,fontWeight:500,color:MU,textTransform:"uppercase",letterSpacing:0.5,borderBottom:"0.5px solid "+BR}}>{h}</th>)}</tr></thead>
         <tbody>{filtered.map(s=>{const eq=equipment.find(e=>e.id===s.equipmentId);const st=maintStatus(s);return (<tr key={s.id} style={{borderBottom:"0.5px solid "+BR,opacity:s.active?1:0.5}}>
@@ -392,7 +403,7 @@ function SchedMaintTab({schedMaint,setSchedMaint,equipment,users,members,canEdit
   </div>);
 }
 
-function MaintReports({equipment,workOrders,schedMaint}){
+function MaintReports({equipment,workOrders,schedMaint,neoDesign=false}){
   const totalCost=equipment.reduce((a,e)=>a+(+e.cost||0),0);
   const byCat={};equipment.forEach(e=>{byCat[e.category]=(byCat[e.category]||0)+1;});
   const woByPriority={};WO_PRIORITIES.forEach(p=>{woByPriority[p]=workOrders.filter(w=>w.priority===p).length;});
@@ -400,6 +411,16 @@ function MaintReports({equipment,workOrders,schedMaint}){
   const avgResolutionDays=(()=>{const done=workOrders.filter(w=>w.status==="Completed"&&w.createdDate&&w.completedDate);if(done.length===0) return 0;return Math.round(done.reduce((a,w)=>a+daysBetween(w.createdDate,w.completedDate),0)/done.length);})();
   const maintHistory=schedMaint.filter(s=>s.lastService).sort((a,b)=>b.lastService.localeCompare(a.lastService)).slice(0,10);
   return (<div>
+    {neoDesign ? (
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:14,marginBottom:20}}>
+      {[["Total Equipment",equipment.length,N],["Total Asset Value","$"+totalCost.toLocaleString(),GR],["Work Orders YTD",workOrders.length,BL],["Completed This Month",completedThisMonth,GR],["Avg Resolution",avgResolutionDays+" days",AM]].map(([l,v,c]:any)=>(
+        <div key={l} style={{background:W,border:"0.5px solid "+BR,borderRadius:16,padding:"16px 18px",boxShadow:"0 1px 2px rgba(20,30,55,.04),0 8px 20px -13px rgba(20,30,55,.13)"}}>
+          <div style={{fontSize:12,color:MU,fontWeight:600}}>{l}</div>
+          <div style={{fontFamily:"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif",fontSize:26,fontWeight:600,color:c,lineHeight:1.05,marginTop:6,fontVariantNumeric:"tabular-nums"}}>{v}</div>
+        </div>
+      ))}
+    </div>
+    ) : (
     <div style={{display:"flex",gap:10,marginBottom:20,flexWrap:"wrap"}}>
       <Stat label="Total Equipment" value={equipment.length}/>
       <Stat label="Total Asset Value" value={"$"+totalCost.toLocaleString()} color={GR}/>
@@ -407,18 +428,19 @@ function MaintReports({equipment,workOrders,schedMaint}){
       <Stat label="Completed This Month" value={completedThisMonth} color={GR}/>
       <Stat label="Avg Resolution" value={avgResolutionDays+" days"} color={AM}/>
     </div>
+    )}
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
-      <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:16}}>
-        <h3 style={{fontSize:14,fontWeight:500,color:N,margin:"0 0 12px"}}>Equipment by Category</h3>
+      <div style={{background:W,border:"0.5px solid "+BR,borderRadius:neoDesign?16:12,padding:16,boxShadow:neoDesign?"0 1px 2px rgba(20,30,55,.04),0 8px 20px -12px rgba(20,30,55,.14)":undefined}}>
+        <h3 style={{fontSize:neoDesign?16:14,fontWeight:neoDesign?600:500,color:N,margin:"0 0 12px",fontFamily:neoDesign?"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif":"inherit"}}>Equipment by Category</h3>
         {Object.entries(byCat).sort((a,b)=>b[1]-a[1]).map(([cat,n])=>{const pct=equipment.length?Math.round(n/equipment.length*100):0;return (<div key={cat} style={{marginBottom:8}}><div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:2}}><span style={{color:MCAT_COLORS[cat]}}>{cat}</span><span style={{fontWeight:500}}>{n} ({pct}%)</span></div><div style={{height:5,background:BG,borderRadius:3,overflow:"hidden"}}><div style={{width:pct+"%",height:"100%",background:MCAT_COLORS[cat]}}></div></div></div>);})}
       </div>
-      <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:16}}>
-        <h3 style={{fontSize:14,fontWeight:500,color:N,margin:"0 0 12px"}}>Work Orders by Priority</h3>
+      <div style={{background:W,border:"0.5px solid "+BR,borderRadius:neoDesign?16:12,padding:16,boxShadow:neoDesign?"0 1px 2px rgba(20,30,55,.04),0 8px 20px -12px rgba(20,30,55,.14)":undefined}}>
+        <h3 style={{fontSize:neoDesign?16:14,fontWeight:neoDesign?600:500,color:N,margin:"0 0 12px",fontFamily:neoDesign?"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif":"inherit"}}>Work Orders by Priority</h3>
         {WO_PRIORITIES.map(p=>{const n=woByPriority[p];const pct=workOrders.length?Math.round(n/workOrders.length*100):0;return (<div key={p} style={{marginBottom:8}}><div style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:2}}><span style={{color:PRI_COLORS[p]}}>{p}</span><span style={{fontWeight:500}}>{n}</span></div><div style={{height:5,background:BG,borderRadius:3,overflow:"hidden"}}><div style={{width:pct+"%",height:"100%",background:PRI_COLORS[p]}}></div></div></div>);})}
       </div>
     </div>
-    {maintHistory.length>0 && <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:16}}>
-      <h3 style={{fontSize:14,fontWeight:500,color:N,margin:"0 0 12px"}}>Recent Maintenance History</h3>
+    {maintHistory.length>0 && <div style={{background:W,border:"0.5px solid "+BR,borderRadius:neoDesign?16:12,padding:16,boxShadow:neoDesign?"0 1px 2px rgba(20,30,55,.04),0 8px 20px -12px rgba(20,30,55,.14)":undefined}}>
+      <h3 style={{fontSize:neoDesign?16:14,fontWeight:neoDesign?600:500,color:N,margin:"0 0 12px",fontFamily:neoDesign?"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif":"inherit"}}>Recent Maintenance History</h3>
       <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
         <thead><tr style={{background:BG}}>{["Date","Equipment","Task","Performed By"].map(h=><th key={h} style={{padding:"7px 10px",textAlign:"left",fontSize:10,fontWeight:500,color:MU,textTransform:"uppercase",letterSpacing:0.5,borderBottom:"0.5px solid "+BR}}>{h}</th>)}</tr></thead>
         <tbody>{maintHistory.map(s=>{const eq=equipment.find(e=>e.id===s.equipmentId);return (<tr key={s.id} style={{borderBottom:"0.5px solid "+BR}}><td style={{padding:"7px 10px"}}>{fd(s.lastService)}</td><td style={{padding:"7px 10px",fontWeight:500}}>{eq?eq.name:"—"}</td><td style={{padding:"7px 10px"}}>{s.taskName}</td><td style={{padding:"7px 10px",color:MU}}>{s.assignedName||"—"}</td></tr>);})}</tbody>
@@ -428,7 +450,7 @@ function MaintReports({equipment,workOrders,schedMaint}){
 }
 
 // ── EQUIPMENT CHECKOUT ──
-function CheckoutsTab({checkoutItems,setCheckoutItems,checkouts,setCheckouts,equipment,members,canEdit}){
+function CheckoutsTab({checkoutItems,setCheckoutItems,checkouts,setCheckouts,equipment,members,canEdit,neoDesign=false}){
   const [tab,setTab]=useState('active'); // 'active' | 'history' | 'catalog'
   const [modal,setModal]=useState(null); // 'checkout'|'return'|'additem'|'edititem'
   const [detail,setDetail]=useState(null);
@@ -510,7 +532,7 @@ function CheckoutsTab({checkoutItems,setCheckoutItems,checkouts,setCheckouts,equ
 
     {tab==='active'&&(<div>
       {activeFiltered.length===0?<div style={{padding:40,textAlign:'center',color:MU,fontSize:14}}>{search?'No results.':'No items currently checked out.'}</div>:(
-        <div style={{background:W,border:'0.5px solid '+BR,borderRadius:12,overflow:'hidden'}}>
+        <div style={{background:W,border:'0.5px solid '+BR,borderRadius:neoDesign?16:12,overflow:'hidden',boxShadow:neoDesign?"0 1px 2px rgba(20,30,55,.04),0 8px 22px -14px rgba(20,30,55,.14)":undefined}}>
           <table style={{width:'100%',borderCollapse:'collapse'}}>
             <thead><tr style={{background:'#f8f9fc'}}>{['Member','Item','Qty','Checked Out','Expected Return','Purpose','Status',''].map(h=><th key={h} style={{padding:'9px 12px',textAlign:'left',fontSize:10,fontWeight:500,color:MU,textTransform:'uppercase',letterSpacing:0.5,borderBottom:'0.5px solid '+BR}}>{h}</th>)}</tr></thead>
             <tbody>{activeFiltered.map(c=>{const ov=isOverdue(c);return(
@@ -534,7 +556,7 @@ function CheckoutsTab({checkoutItems,setCheckoutItems,checkouts,setCheckouts,equ
 
     {tab==='history'&&(<div>
       {historyFiltered.length===0?<div style={{padding:40,textAlign:'center',color:MU,fontSize:14}}>{search?'No results.':'No returned items yet.'}</div>:(
-        <div style={{background:W,border:'0.5px solid '+BR,borderRadius:12,overflow:'hidden'}}>
+        <div style={{background:W,border:'0.5px solid '+BR,borderRadius:neoDesign?16:12,overflow:'hidden',boxShadow:neoDesign?"0 1px 2px rgba(20,30,55,.04),0 8px 22px -14px rgba(20,30,55,.14)":undefined}}>
           <table style={{width:'100%',borderCollapse:'collapse'}}>
             <thead><tr style={{background:'#f8f9fc'}}>{['Member','Item','Qty','Checked Out','Returned','Purpose','Return Notes',''].map(h=><th key={h} style={{padding:'9px 12px',textAlign:'left',fontSize:10,fontWeight:500,color:MU,textTransform:'uppercase',letterSpacing:0.5,borderBottom:'0.5px solid '+BR}}>{h}</th>)}</tr></thead>
             <tbody>{historyFiltered.map(c=><tr key={c.id} style={{borderBottom:'0.5px solid '+BR}}>
@@ -555,7 +577,7 @@ function CheckoutsTab({checkoutItems,setCheckoutItems,checkouts,setCheckouts,equ
     {tab==='catalog'&&(<div>
       <div style={{marginBottom:10,fontSize:12,color:MU}}>Custom items below. Equipment from the Equipment tab is also available at checkout automatically.</div>
       {filteredCatalog.length===0?<div style={{padding:40,textAlign:'center',color:MU,fontSize:14}}>{search?'No results.':'No custom items added yet. Click \"+ Add Item\" or use Equipment tab items directly.'}</div>:(
-        <div style={{background:W,border:'0.5px solid '+BR,borderRadius:12,overflow:'hidden'}}>
+        <div style={{background:W,border:'0.5px solid '+BR,borderRadius:neoDesign?16:12,overflow:'hidden',boxShadow:neoDesign?"0 1px 2px rgba(20,30,55,.04),0 8px 22px -14px rgba(20,30,55,.14)":undefined}}>
           <table style={{width:'100%',borderCollapse:'collapse'}}>
             <thead><tr style={{background:'#f8f9fc'}}>{['Item Name','Category','Notes',''].map(h=><th key={h} style={{padding:'9px 12px',textAlign:'left',fontSize:10,fontWeight:500,color:MU,textTransform:'uppercase',letterSpacing:0.5,borderBottom:'0.5px solid '+BR}}>{h}</th>)}</tr></thead>
             <tbody>{filteredCatalog.map(i=><tr key={i.id} style={{borderBottom:'0.5px solid '+BR}}>
@@ -626,7 +648,7 @@ function CheckoutsTab({checkoutItems,setCheckoutItems,checkouts,setCheckouts,equ
   </div>);
 }
 
-function SuppliesTab({supplies,setSupplies,canEdit}){
+function SuppliesTab({supplies,setSupplies,canEdit,neoDesign=false}){
   const [modal,setModal]=useState(null);
   const [detail,setDetail]=useState(null);
   const [form,setForm]=useState({});
@@ -694,7 +716,7 @@ function SuppliesTab({supplies,setSupplies,canEdit}){
           const barColor=pct<=25?RE:pct<50?AM:GR;
           const expanded=expandedId===item.id;
           const logAll=[...(item.purchaseLog||[]).map((e:any)=>({...e,type:'purchase'})),...(item.usageLog||[]).map((e:any)=>({...e,type:'usage'}))].sort((a:any,b:any)=>b.date.localeCompare(a.date));
-          return(<div key={item.id} style={{background:W,border:'0.5px solid '+(low?'#fca5a5':BR),borderRadius:12,padding:'16px 18px',boxShadow:low?'0 0 0 2px #fca5a522':'none'}}>
+          return(<div key={item.id} style={{background:W,border:'0.5px solid '+(low?'#fca5a5':BR),borderRadius:neoDesign?16:12,padding:'16px 18px',boxShadow:low?'0 0 0 2px #fca5a522':(neoDesign?"0 1px 2px rgba(20,30,55,.04),0 8px 20px -13px rgba(20,30,55,.13)":'none')}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
               <div><div style={{fontWeight:600,color:N,fontSize:15}}>{item.name}</div><div style={{fontSize:12,color:MU,marginTop:2}}>{item.unit}</div></div>
               <div style={{display:'flex',gap:6,alignItems:'center'}}>
@@ -784,7 +806,7 @@ function cleanSlotPeople(slot:any){ if(!slot) return []; return Array.isArray(sl
 // Effective area list = the fixed defaults plus any custom areas stored on the schedule (synced + shown on phones).
 function cleanAreasFor(schedule:any){ const extra=Array.isArray(schedule?._areas)?schedule._areas:[]; return [...CLEANING_AREAS, ...extra.filter((a:string)=>!CLEANING_AREAS.includes(a))]; }
 
-function CleaningScheduleTab({cleaningSchedule,setCleaningSchedule,members,canEdit}:any){
+function CleaningScheduleTab({cleaningSchedule,setCleaningSchedule,members,canEdit,neoDesign=false}:any){
   const now=new Date();
   const [ym,setYm]=useState({y:now.getFullYear(),m:now.getMonth()});
   const [editSlot,setEditSlot]=useState<any>(null); // {week, area}
@@ -842,7 +864,7 @@ function CleaningScheduleTab({cleaningSchedule,setCleaningSchedule,members,canEd
     <div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:10}}>
         <div>
-          <h3 style={{fontSize:15,fontWeight:500,color:N,margin:0}}>🧹 Church Cleaning Schedule</h3>
+          <h3 style={{fontSize:neoDesign?17:15,fontWeight:neoDesign?600:500,color:N,margin:0,fontFamily:neoDesign?"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif":"inherit"}}>🧹 Church Cleaning Schedule</h3>
           <div style={{fontSize:12,color:MU,marginTop:2}}>Weekly assignments by area. {canEdit?"Tap a slot to assign a member.":"Read-only — contact an administrator to make changes."}</div>
         </div>
         <div style={{display:"flex",alignItems:"center",gap:8}}>
@@ -857,7 +879,7 @@ function CleaningScheduleTab({cleaningSchedule,setCleaningSchedule,members,canEd
           const wk=cleaningSchedule?.[week]||{};
           const isCurrent=week===thisWeek;
           return (
-            <div key={week} style={{background:W,border:"0.5px solid "+(isCurrent?G:BR),borderRadius:12,overflow:"hidden"}}>
+            <div key={week} style={{background:W,border:"0.5px solid "+(isCurrent?G:BR),borderRadius:neoDesign?16:12,overflow:"hidden",boxShadow:neoDesign?"0 1px 2px rgba(20,30,55,.04),0 8px 20px -13px rgba(20,30,55,.13)":undefined}}>
               <div style={{padding:"10px 16px",background:isCurrent?GL:BG,borderBottom:"0.5px solid "+BR,display:"flex",alignItems:"center",gap:8}}>
                 <span style={{fontSize:13,fontWeight:600,color:N}}>Week of {fmtWeek(week)}</span>
                 {isCurrent&&<span style={{fontSize:10,background:G,color:"#fff",borderRadius:10,padding:"1px 8px",fontWeight:600}}>This Week</span>}
@@ -1059,12 +1081,12 @@ function Maintenance({users,members,currentUser,roles,permissions,equipment,setE
     </div>
     {tab==="dashboard" && <MaintDashboard equipment={equipment} workOrders={workOrders} schedMaint={schedMaint} alerts={alerts} setTab={setTab} neoDesign={neoDesign}/>}
     {tab==="equipment" && <EquipmentTab equipment={equipment} setEquipment={setEquipment} workOrders={workOrders} schedMaint={schedMaint} canEdit={canEdit} neoDesign={neoDesign}/>}
-    {tab==="workorders" && <WorkOrdersTab workOrders={workOrders} setWorkOrders={setWorkOrders} equipment={equipment} users={users} members={members} canEdit={canEdit}/>}
-    {tab==="scheduled" && <SchedMaintTab schedMaint={schedMaint} setSchedMaint={setSchedMaint} equipment={equipment} users={users} members={members} canEdit={canEdit}/>}
-    {tab==="checkouts" && <CheckoutsTab checkoutItems={checkoutItems||[]} setCheckoutItems={setCheckoutItems} checkouts={checkouts||[]} setCheckouts={setCheckouts} equipment={equipment} members={members} canEdit={canEdit}/>}
-    {tab==="supplies" && <SuppliesTab supplies={supplies||[]} setSupplies={setSupplies} canEdit={canEdit}/>}
-    {tab==="cleaning" && <CleaningScheduleTab cleaningSchedule={cleaningSchedule||{}} setCleaningSchedule={setCleaningSchedule} members={members} canEdit={canEdit}/>}
-    {tab==="reports" && <MaintReports equipment={equipment} workOrders={workOrders} schedMaint={schedMaint}/>}
+    {tab==="workorders" && <WorkOrdersTab workOrders={workOrders} setWorkOrders={setWorkOrders} equipment={equipment} users={users} members={members} canEdit={canEdit} neoDesign={neoDesign}/>}
+    {tab==="scheduled" && <SchedMaintTab schedMaint={schedMaint} setSchedMaint={setSchedMaint} equipment={equipment} users={users} members={members} canEdit={canEdit} neoDesign={neoDesign}/>}
+    {tab==="checkouts" && <CheckoutsTab checkoutItems={checkoutItems||[]} setCheckoutItems={setCheckoutItems} checkouts={checkouts||[]} setCheckouts={setCheckouts} equipment={equipment} members={members} canEdit={canEdit} neoDesign={neoDesign}/>}
+    {tab==="supplies" && <SuppliesTab supplies={supplies||[]} setSupplies={setSupplies} canEdit={canEdit} neoDesign={neoDesign}/>}
+    {tab==="cleaning" && <CleaningScheduleTab cleaningSchedule={cleaningSchedule||{}} setCleaningSchedule={setCleaningSchedule} members={members} canEdit={canEdit} neoDesign={neoDesign}/>}
+    {tab==="reports" && <MaintReports equipment={equipment} workOrders={workOrders} schedMaint={schedMaint} neoDesign={neoDesign}/>}
   </div>);
 }
 
