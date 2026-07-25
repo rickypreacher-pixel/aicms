@@ -18392,11 +18392,15 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
       ? true
       : checkPermission(currentUser, roles, permissions, 'addvisitor', 'create');
 
-  // Member Portal: email/password login whose email matches a member record but is not in the staff users list
-  const _matchMemberByName = (list:any[]) => displayName
+  // Member Portal: email/password login whose email matches a member record but is not in the staff users list.
+  // Name match uses displayName OR the admin_first/admin_last carried in the signup metadata — members who
+  // join via the ?member= link only have admin_first/admin_last (no full_name), so without this fallback the
+  // name match silently fails and they hit the "account isn't linked" screen even though they ARE in the directory.
+  const _portalFullName = (displayName || [adminFirst,adminLast].filter(Boolean).join(' ')).trim();
+  const _matchMemberByName = (list:any[]) => _portalFullName
     ? list.find((m:any) => {
         const mn = ((m.first||'')+' '+(m.last||'')).trim().toLowerCase();
-        return mn && mn === displayName.trim().toLowerCase();
+        return mn && mn === _portalFullName.toLowerCase();
       }) || null
     : null;
   const portalMember = (isStaff && !currentUser)
