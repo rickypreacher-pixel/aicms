@@ -3233,8 +3233,20 @@ function PermTab({roles,permissions,setPermissions,currentUser}){
   );
 }
 
-function PortalTab({members,portalMembers,setPortalMembers,currentUser,roles,churchId}){
+function PortalTab({members,setMembers=()=>{},portalMembers,setPortalMembers,portalSignups=[],setPortalSignups=()=>{},currentUser,roles,churchId}:any){
   const [modal,setModal] = useState(false);
+  // Pending self-registrations still needing review = a portalSignup with no matching directory member yet.
+  const _nameKey=(f:any,l:any)=>((f||'')+' '+(l||'')).trim().toLowerCase();
+  const pendingSignups = (portalSignups||[]).filter((s:any)=>!members.some((m:any)=>(s.email&&m.email&&m.email.toLowerCase()===String(s.email).toLowerCase())||_nameKey(m.first,m.last)===_nameKey(s.first,s.last)));
+  const nextMemberId = ()=> (members.reduce((mx:number,m:any)=>Math.max(mx,+m.id||0),0)+1) || Date.now();
+  const approveSignup = (s:any)=>{
+    const id = nextMemberId();
+    setMembers((ms:any[])=>[{id,first:s.first||'',last:s.last||'',email:s.email||'',phone:s.phone||'',gender:'Male',status:'Active',joined:td(),notes:'Self-registered via Member Portal'},...(Array.isArray(ms)?ms:[])]);
+    const newPerms = Object.fromEntries(PORTAL_PERMS.map(p=>[p.key,true]));
+    setPortalMembers((ps:any[])=>[...(Array.isArray(ps)?ps:[]),{memberId:id,status:"Active",perms:newPerms}]);
+    setPortalSignups((sg:any[])=>(Array.isArray(sg)?sg:[]).filter((x:any)=>String(x.id)!==String(s.id)));
+  };
+  const dismissSignup = (s:any)=>{ if(confirm(`Dismiss ${(s.first||'')+' '+(s.last||'')}'s sign-up? They'll keep basic portal access but won't be added to your directory.`)) setPortalSignups((sg:any[])=>(Array.isArray(sg)?sg:[]).filter((x:any)=>String(x.id)!==String(s.id))); };
   const [sel,setSel] = useState(null);
   const [memberSearch,setMemberSearch] = useState("");
   const [copiedId,setCopiedId] = useState<any>(null);
@@ -3288,6 +3300,25 @@ function PortalTab({members,portalMembers,setPortalMembers,currentUser,roles,chu
       <div style={{background:GL,border:"0.5px solid "+G,borderRadius:10,padding:"12px 16px",marginBottom:16,fontSize:13,color:"#7a5c10",lineHeight:1.7}}>
         <strong>Member Self-Service Portal</strong> — Members sign in with <strong>their own email</strong> to view only their own records (profile, giving, prayer). Grant a member access below — when they have a phone on file, the SMS Center opens automatically to <strong>text them their sign-in link</strong> (or use <strong>📱 Text link</strong> / <strong>🔗 Invite link</strong> anytime). The link pre-fills everything so they just choose a password. They can also use the <strong>“Member”</strong> tab on the login screen, or the passwordless <strong>“Email me a sign-in link”</strong> option. <em>A member's email must match the email on their member profile.</em>
       </div>
+      {pendingSignups.length>0 && (
+        <div style={{background:"#fff8e1",border:"1.5px solid "+AM+"88",borderRadius:12,padding:"14px 16px",marginBottom:16}}>
+          <div style={{fontSize:14,fontWeight:600,color:"#7a4200",marginBottom:2}}>🆕 New Member Sign-Ups — {pendingSignups.length} awaiting review</div>
+          <div style={{fontSize:12,color:"#7a4200",marginBottom:10,lineHeight:1.6}}>These people signed in to the member portal but aren't in your directory yet. <strong>Approve</strong> to add them as a member (with portal access), or <strong>Dismiss</strong> to ignore.</div>
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {pendingSignups.map((s:any)=>(
+              <div key={s.id} style={{background:W,border:"0.5px solid "+BR,borderRadius:10,padding:"10px 12px",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+                <Av f={s.first} l={s.last} sz={36}/>
+                <div style={{flex:1,minWidth:160}}>
+                  <div style={{fontSize:14,fontWeight:600,color:N}}>{(s.first||"")+" "+(s.last||"")||"(no name)"}</div>
+                  <div style={{fontSize:12,color:MU}}>{s.email||"no email"}{s.at?" · signed up "+(()=>{try{return fd(String(s.at).slice(0,10));}catch(e){return "";}})():""}</div>
+                </div>
+                <Btn onClick={()=>approveSignup(s)} v="success" disabled={!isAdmin} style={{fontSize:12}}>✓ Approve &amp; Add</Btn>
+                <Btn onClick={()=>dismissSignup(s)} v="ghost" disabled={!isAdmin} style={{fontSize:12}}>Dismiss</Btn>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
         <div>
           <h3 style={{fontSize:15,fontWeight:500,color:N,margin:0}}>Portal Members ({portalMembers.length})</h3>
@@ -3381,7 +3412,7 @@ function PortalTab({members,portalMembers,setPortalMembers,currentUser,roles,chu
   );
 }
 
-function Access({members,users,setUsers,roles,setRoles,permissions,setPermissions,portalMembers,setPortalMembers,currentUser,churchId}) {
+function Access({members,setMembers,users,setUsers,roles,setRoles,permissions,setPermissions,portalMembers,setPortalMembers,portalSignups=[],setPortalSignups=()=>{},currentUser,churchId}:any) {
   const [tab,setTab] = useState("users");
   const pending = users.filter(u=>u.status==="Pending").length;
   const [visitors,setVisitors] = useState(window.__NTCC_INIT__?.visitors || IVISITORS);
@@ -3409,14 +3440,14 @@ function Access({members,users,setUsers,roles,setRoles,permissions,setPermission
             {t.label}
             {t.id==="users" && pending>0 && <span style={{background:AM,color:"#fff",borderRadius:10,fontSize:10,fontWeight:600,padding:"1px 6px"}}>{pending}</span>}
             {t.id==="roles" && roles.length>0 && <span style={{background:N+"22",color:N,borderRadius:10,fontSize:10,padding:"1px 6px"}}>{roles.length}</span>}
-            {t.id==="portal" && portalMembers.length>0 && <span style={{background:GR+"22",color:GR,borderRadius:10,fontSize:10,padding:"1px 6px"}}>{portalMembers.length}</span>}
+            {t.id==="portal" && (()=>{const pend=(portalSignups||[]).filter((s:any)=>!members.some((m:any)=>(s.email&&m.email&&m.email.toLowerCase()===String(s.email).toLowerCase())||((m.first||'')+' '+(m.last||'')).trim().toLowerCase()===((s.first||'')+' '+(s.last||'')).trim().toLowerCase())).length; return pend>0 ? <span style={{background:AM,color:"#fff",borderRadius:10,fontSize:10,fontWeight:600,padding:"1px 6px"}}>{pend} new</span> : (portalMembers.length>0 && <span style={{background:GR+"22",color:GR,borderRadius:10,fontSize:10,padding:"1px 6px"}}>{portalMembers.length}</span>);})()}
           </button>
         ))}
       </div>
       {tab==="users" && <UsersTab members={members} users={users} setUsers={setUsers} roles={roles} permissions={permissions} currentUser={currentUser} churchId={churchId}/>}
       {tab==="roles" && <RolesTab roles={roles} setRoles={setRoles} permissions={permissions} setPermissions={setPermissions} users={users} currentUser={currentUser}/>}
       {tab==="permissions" && <PermTab roles={roles} permissions={permissions} setPermissions={setPermissions} currentUser={currentUser}/>}
-      {tab==="portal" && <PortalTab members={members} portalMembers={portalMembers} setPortalMembers={setPortalMembers} currentUser={currentUser} roles={roles} churchId={churchId}/>}
+      {tab==="portal" && <PortalTab members={members} setMembers={setMembers} portalMembers={portalMembers} setPortalMembers={setPortalMembers} portalSignups={portalSignups} setPortalSignups={setPortalSignups} currentUser={currentUser} roles={roles} churchId={churchId}/>}
     </div>
   );
 }
@@ -18418,6 +18449,19 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
         ? { id:'portal_'+String(loggedInEmail).toLowerCase(), first:(adminFirst||'').trim()||((displayName||'').trim().split(' ')[0])||'Member', last:(adminFirst||adminLast)?((adminLast||'').trim()):((displayName||'').trim().split(' ').slice(1).join(' ')), email:loggedInEmail, phone:'', status:'Active', _selfRegistered:true }
         : null);
   const isMemberPortal = !!portalMember;
+  // Record a self-registered member into the synced "pending sign-ups" list so an admin can review and
+  // approve them into the directory. Skips if they already match a directory record or are already listed.
+  useEffect(()=>{
+    const pm:any = portalMember;
+    if(!pm || !pm._selfRegistered || !lastSyncAt.current) return;
+    setPortalSignups((sg:any[])=>{
+      const arr = Array.isArray(sg)?sg:[];
+      const em = String(pm.email||'').toLowerCase();
+      if(arr.some((s:any)=>String(s.id)===String(pm.id) || (em && String(s.email||'').toLowerCase()===em))) return arr;
+      return [...arr, {id:pm.id, first:pm.first||'', last:pm.last||'', email:pm.email||'', phone:'', at:new Date().toISOString()}];
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[!!(portalMember as any)?._selfRegistered]);
   // Staff member record: staff user who also has a record in the members list
   // Find the logged-in user's own member record so they can see "My Profile". Match by the
   // explicit user→member link first (most reliable), then login email, then name.
@@ -18447,6 +18491,9 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     try{localStorage.setItem(LS('church_settings'),JSON.stringify(churchSettings));}catch(e){}
   },[JSON.stringify(churchSettings)]);
   const [portalMembers,setPortalMembers] = useState([]);
+  // Pending self-registrations: members who signed up (email+password) but didn't match a directory
+  // record. Synced via the blob so an admin can review + approve them in Access Control → Member Portal.
+  const [portalSignups,setPortalSignups] = useState<any[]>([]);
   // Set initial view for member portal users (once members load from Supabase)
   const _portalViewInitRef = useRef(false);
   useEffect(()=>{
@@ -18924,6 +18971,17 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
         });
         return Array.from(byId.values());
       });
+      if(Array.isArray(d.portalSignups)) setPortalSignups((cur:any)=>{
+        // MERGE by id (union): keep pending self-registrations from every device; a just-recorded local
+        // one not yet in cloud is preserved so it isn't lost before its save lands. Approve/Dismiss on the
+        // admin side removes it, and cloud is the base so that removal propagates.
+        const curArr=Array.isArray(cur)?cur:[];
+        const byId=new Map<string,any>();
+        (d.portalSignups as any[]).forEach((r:any)=>{ if(r&&r.id!=null) byId.set(String(r.id),r); });
+        const recentMs=Date.now()-5*60*1000;
+        curArr.forEach((lr:any)=>{ if(lr&&lr.id!=null && !byId.has(String(lr.id)) && new Date(lr?.at||0).getTime()>recentMs) byId.set(String(lr.id),lr); });
+        return Array.from(byId.values());
+      });
       if(Array.isArray(d.sickVisits)) setSickVisits((cur:any)=>{
         // MERGE by id (don't blind-replace): a just-added or just-edited sick/hospital visit can blink
         // out / revert if the 60s sync poll lands before that save reaches the cloud. Cloud is the base
@@ -19260,7 +19318,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
         // tables (event_checkins / kids_checkins), loaded authoritatively on mount. With the full
         // check-in history now loaded into state, dual-writing them ballooned the blob (~4.1MB) and
         // caused intermittent save failures ("sync error"); dropping the duplicates fixes that.
-        teacherSchedule,teacherFollowups,eventRsvps,announcements,roles,permissions,churchSettings,users:safeUsers,prospects,
+        teacherSchedule,teacherFollowups,eventRsvps,announcements,roles,permissions,churchSettings,users:safeUsers,prospects,portalSignups,
         followupDismissedChildIds,
         sickVisits,benevolence,hospitalityFund,hospStartBalance:_hospBal,cleaningSchedule,eventSchedule,adminNotesRead,careContacted,servicePlans,
         // Tell the DB no-shrink guard (trg_guard_no_shrink_kids) this client does a correct
@@ -19307,7 +19365,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   },[members,visitors,attendance,prayers,groups,grpMeetings,visitRecords,
     children,classrooms,equipment,workOrders,schedMaint,supplies,checkoutItems,checkouts,
     emailLog,emailTemplates,emailConfig,recurring,custom,rollCalls,
-    teacherSchedule,teacherFollowups,eventRsvps,announcements,roles,permissions,churchSettings,users,prospects,
+    teacherSchedule,teacherFollowups,eventRsvps,announcements,roles,permissions,churchSettings,users,prospects,portalSignups,
     followupDismissedChildIds,
     sickVisits,benevolence,hospitalityFund,hospStartBalance,cleaningSchedule,eventSchedule,adminNotesRead,careContacted,servicePlans]);
 
@@ -19869,7 +19927,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           {/* ── Staff / Admin views (never rendered for portal users) ── */}
           {!isMemberPortal && view==="sms" && <SmsCenter smsLog={smsLog} setSmsLog={setSmsLog} smsTemplates={smsTemplates} setSmsTemplates={setSmsTemplates} smsConfig={smsConfig} setSmsConfig={setSmsConfig} members={members} visitors={visitors} cs={churchSettings} onCompose={()=>openSmsComposer({})} onBulkCompose={()=>openBulkSmsComposer({recipients:[...members,...visitors].filter(p=>p.phone).map(p=>({...p,first:p.first,last:p.last,name:p.first+" "+p.last}))})}/>}
           {!isMemberPortal && view==="email" && <EmailCenter emailLog={emailLog} setEmailLog={setEmailLog} emailTemplates={emailTemplates} setEmailTemplates={setEmailTemplates} emailConfig={emailConfig} setEmailConfig={setEmailConfig} members={members} visitors={visitors} cs={churchSettings} onCompose={()=>openEmailComposer({})} onBulkCompose={()=>openBulkEmailComposer({recipients:members.filter(m=>m.email).map(m=>({name:m.first+" "+m.last,first:m.first,last:m.last,email:m.email}))})}/>}
-          {!isMemberPortal && view==="access" && <Access members={members} users={users} setUsers={setUsers} roles={roles} setRoles={setRoles} permissions={permissions} setPermissions={setPermissions} portalMembers={portalMembers} setPortalMembers={setPortalMembers} currentUser={currentUser} churchId={churchId}/>}
+          {!isMemberPortal && view==="access" && <Access members={members} setMembers={setMembers} users={users} setUsers={setUsers} roles={roles} setRoles={setRoles} permissions={permissions} setPermissions={setPermissions} portalMembers={portalMembers} setPortalMembers={setPortalMembers} portalSignups={portalSignups} setPortalSignups={setPortalSignups} currentUser={currentUser} churchId={churchId}/>}
           {!isMemberPortal && isAdminUser && view==="loginactivity" && <LoginActivity churchId={churchId}/>}
           {!isMemberPortal && isAdminUser && view==="auditlog" && <AuditLog churchId={churchId}/>}
           {!isMemberPortal && view==="myfollowups" && (
