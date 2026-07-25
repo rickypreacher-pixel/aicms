@@ -89,11 +89,22 @@ function MaintAlertBanner({alerts}){
   </div>);
 }
 
-function MaintDashboard({equipment,workOrders,schedMaint,alerts,setTab}){
+function MaintDashboard({equipment,workOrders,schedMaint,alerts,setTab,neoDesign=false}){
   const openWOs=workOrders.filter(w=>w.status!=="Completed");
   const recentWOs=[...workOrders].sort((a,b)=>b.createdDate.localeCompare(a.createdDate)).slice(0,5);
   const totalEquipValue=equipment.reduce((a,e)=>a+(+e.cost||0),0);
   return (<div>
+    {neoDesign ? (
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:14,marginBottom:20}}>
+      {[["Active Equipment",equipment.filter(e=>e.status==="Active").length,BL,"$"+totalEquipValue.toLocaleString()+" total value"],["Open Work Orders",openWOs.length,AM,workOrders.filter(w=>w.priority==="Urgent"&&w.status!=="Completed").length+" urgent"],["Scheduled Tasks",schedMaint.filter(s=>s.active).length,N,""],["Overdue",alerts.overdue.length,RE,"Need attention"],["Warranty Alerts",alerts.warrantyExpired.length+alerts.warrantyExpiringSoon.length,AM,alerts.warrantyExpired.length+" expired · "+alerts.warrantyExpiringSoon.length+" soon"]].map(([l,v,c,sub]:any)=>(
+        <div key={l} style={{background:W,border:"0.5px solid "+BR,borderRadius:16,padding:"16px 18px",boxShadow:"0 1px 2px rgba(20,30,55,.04),0 8px 20px -13px rgba(20,30,55,.13)"}}>
+          <div style={{fontSize:12,color:MU,fontWeight:600}}>{l}</div>
+          <div style={{fontFamily:"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif",fontSize:29,fontWeight:600,color:c,lineHeight:1.05,marginTop:6,fontVariantNumeric:"tabular-nums"}}>{v}</div>
+          {sub?<div style={{fontSize:11,color:MU,marginTop:2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{sub}</div>:null}
+        </div>
+      ))}
+    </div>
+    ) : (
     <div style={{display:"flex",gap:10,marginBottom:20,flexWrap:"wrap"}}>
       <Stat label="Active Equipment" value={equipment.filter(e=>e.status==="Active").length} color={BL} sub={"$"+totalEquipValue.toLocaleString()+" total value"}/>
       <Stat label="Open Work Orders" value={openWOs.length} color={AM} sub={workOrders.filter(w=>w.priority==="Urgent"&&w.status!=="Completed").length+" urgent"}/>
@@ -101,25 +112,26 @@ function MaintDashboard({equipment,workOrders,schedMaint,alerts,setTab}){
       <Stat label="Overdue" value={alerts.overdue.length} color={RE} sub="Need attention"/>
       <Stat label="Warranty Alerts" value={alerts.warrantyExpired.length+alerts.warrantyExpiringSoon.length} color={AM} sub={alerts.warrantyExpired.length+" expired · "+alerts.warrantyExpiringSoon.length+" soon"}/>
     </div>
+    )}
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
-      <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:18}}>
+      <div style={{background:W,border:"0.5px solid "+BR,borderRadius:neoDesign?16:12,padding:18,boxShadow:neoDesign?"0 1px 2px rgba(20,30,55,.04),0 8px 20px -12px rgba(20,30,55,.14)":undefined}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-          <h3 style={{fontSize:14,fontWeight:500,color:N,margin:0}}>Maintenance Due Soon</h3>
+          <h3 style={{fontSize:neoDesign?16:14,fontWeight:neoDesign?600:500,color:N,margin:0,fontFamily:neoDesign?"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif":"inherit"}}>Maintenance Due Soon</h3>
           <Btn onClick={()=>setTab("scheduled")} v="ghost" style={{fontSize:11,padding:"4px 9px"}}>View All</Btn>
         </div>
         {alerts.overdue.length===0&&alerts.urgent.length===0&&alerts.upcoming.length===0 ? <div style={{padding:24,textAlign:"center",color:MU,fontSize:13}}>All maintenance on track</div> : (<div style={{display:"flex",flexDirection:"column",gap:8,maxHeight:320,overflowY:"auto"}}>{[...alerts.overdue,...alerts.urgent,...alerts.upcoming].slice(0,8).map(s=>{const eq=equipment.find(e=>e.id===s.equipmentId);const st=maintStatus(s);return (<div key={s.id} style={{padding:"9px 12px",background:BG,borderRadius:8,border:"0.5px solid "+BR,borderLeft:"3px solid "+st.color}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:3,gap:8}}><span style={{fontSize:13,fontWeight:500,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",flex:1}}>{eq?eq.name:"Unknown"}</span><span style={{fontSize:10,background:st.bg,color:st.color,borderRadius:10,padding:"1px 7px",fontWeight:500,flexShrink:0}}>{st.label}{st.label==="Overdue"?" "+st.days+"d":st.days?" in "+st.days+"d":""}</span></div><div style={{fontSize:11,color:MU}}>{s.taskName} · Due {fd(s.nextService)}</div></div>);})}</div>)}
       </div>
-      <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:18}}>
+      <div style={{background:W,border:"0.5px solid "+BR,borderRadius:neoDesign?16:12,padding:18,boxShadow:neoDesign?"0 1px 2px rgba(20,30,55,.04),0 8px 20px -12px rgba(20,30,55,.14)":undefined}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-          <h3 style={{fontSize:14,fontWeight:500,color:N,margin:0}}>Recent Work Orders</h3>
+          <h3 style={{fontSize:neoDesign?16:14,fontWeight:neoDesign?600:500,color:N,margin:0,fontFamily:neoDesign?"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif":"inherit"}}>Recent Work Orders</h3>
           <Btn onClick={()=>setTab("workorders")} v="ghost" style={{fontSize:11,padding:"4px 9px"}}>View All</Btn>
         </div>
         {recentWOs.length===0 ? <div style={{padding:24,textAlign:"center",color:MU,fontSize:13}}>No work orders yet</div> : (<div style={{display:"flex",flexDirection:"column",gap:8}}>{recentWOs.map(wo=>(<div key={wo.id} style={{padding:"9px 12px",background:BG,borderRadius:8,border:"0.5px solid "+BR}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:3,gap:8}}><span style={{fontSize:13,fontWeight:500,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis",flex:1}}>{wo.title}</span><span style={{fontSize:10,background:PRI_COLORS[wo.priority]+"22",color:PRI_COLORS[wo.priority],borderRadius:10,padding:"1px 7px",fontWeight:500,flexShrink:0}}>{wo.priority}</span></div><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontSize:11,color:MU}}>{wo.assignedName||"Unassigned"} · {fd(wo.createdDate)}</span><span style={{fontSize:10,background:WO_STATUS_COLORS[wo.status]+"22",color:WO_STATUS_COLORS[wo.status],borderRadius:10,padding:"1px 7px",fontWeight:500}}>{wo.status}</span></div></div>))}</div>)}
       </div>
     </div>
-    {(alerts.warrantyExpired.length>0||alerts.warrantyExpiringSoon.length>0) && (<div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:18,marginTop:16}}>
+    {(alerts.warrantyExpired.length>0||alerts.warrantyExpiringSoon.length>0) && (<div style={{background:W,border:"0.5px solid "+BR,borderRadius:neoDesign?16:12,padding:18,marginTop:16,boxShadow:neoDesign?"0 1px 2px rgba(20,30,55,.04),0 8px 20px -12px rgba(20,30,55,.14)":undefined}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
-        <h3 style={{fontSize:14,fontWeight:500,color:N,margin:0}}>Warranty Alerts</h3>
+        <h3 style={{fontSize:neoDesign?16:14,fontWeight:neoDesign?600:500,color:N,margin:0,fontFamily:neoDesign?"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif":"inherit"}}>Warranty Alerts</h3>
         <Btn onClick={()=>setTab("equipment")} v="ghost" style={{fontSize:11,padding:"4px 9px"}}>View Equipment</Btn>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(260px,1fr))",gap:10}}>
@@ -129,7 +141,7 @@ function MaintDashboard({equipment,workOrders,schedMaint,alerts,setTab}){
   </div>);
 }
 
-function EquipmentTab({equipment,setEquipment,workOrders,schedMaint,canEdit}){
+function EquipmentTab({equipment,setEquipment,workOrders,schedMaint,canEdit,neoDesign=false}){
   const [search,setSearch]=useState("");
   const [filterCat,setFilterCat]=useState("all");
   const [filterLoc,setFilterLoc]=useState("all");
@@ -157,7 +169,7 @@ function EquipmentTab({equipment,setEquipment,workOrders,schedMaint,canEdit}){
       <select value={filterLoc} onChange={e=>setFilterLoc(e.target.value)} style={{padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:12,outline:"none",background:W}}><option value="all">All Locations</option>{locOpts.map(l=><option key={l} value={l}>{l}</option>)}</select>
       <Btn onClick={openAdd} v="primary" disabled={!canEdit}>+ Add Equipment</Btn>
     </div>
-    <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,overflow:"hidden"}}>
+    <div style={{background:W,border:"0.5px solid "+BR,borderRadius:neoDesign?16:12,overflow:"hidden",boxShadow:neoDesign?"0 1px 2px rgba(20,30,55,.04),0 8px 22px -14px rgba(20,30,55,.14)":undefined}}>
       {filtered.length===0 ? <div style={{padding:40,textAlign:"center",color:MU}}>No equipment found.</div> : (<table style={{width:"100%",borderCollapse:"collapse"}}>
         <thead><tr style={{background:BG}}>{["Equipment","Category","Location","Serial","Warranty","Status",""].map(h=><th key={h} style={{padding:"10px 14px",textAlign:"left",fontSize:11,fontWeight:500,color:MU,textTransform:"uppercase",letterSpacing:0.5,borderBottom:"0.5px solid "+BR}}>{h}</th>)}</tr></thead>
         <tbody>{filtered.map(e=>{const ws=warrantyStatus(e);const activeWOs=workOrders.filter(w=>w.equipmentId===e.id&&w.status!=="Completed").length;return (<tr key={e.id} onClick={()=>setDetail(e)} style={{borderBottom:"0.5px solid "+BR,cursor:"pointer"}} onMouseEnter={evt=>evt.currentTarget.style.background="#f8f9fc"} onMouseLeave={evt=>evt.currentTarget.style.background=W}>
@@ -1030,7 +1042,7 @@ function BigEventScheduler({eventSchedule,setEventSchedule,members,canEdit}:any)
   );
 }
 
-function Maintenance({users,members,currentUser,roles,permissions,equipment,setEquipment,workOrders,setWorkOrders,schedMaint,setSchedMaint,supplies,setSupplies,checkoutItems,setCheckoutItems,checkouts,setCheckouts,cleaningSchedule,setCleaningSchedule}){
+function Maintenance({users,members,currentUser,roles,permissions,equipment,setEquipment,workOrders,setWorkOrders,schedMaint,setSchedMaint,supplies,setSupplies,checkoutItems,setCheckoutItems,checkouts,setCheckouts,cleaningSchedule,setCleaningSchedule,neoDesign=false}){
   const [tab,setTab]=useState("dashboard");
   const alerts=computeMaintAlerts(equipment,schedMaint);
   const totalAlerts=alerts.overdue.length+alerts.urgent.length+alerts.warrantyExpired.length+alerts.warrantyExpiringSoon.length;
@@ -1045,8 +1057,8 @@ function Maintenance({users,members,currentUser,roles,permissions,equipment,setE
     <div style={{display:"flex",marginBottom:20,background:W,borderRadius:10,border:"0.5px solid "+BR,overflow:"hidden",flexWrap:"wrap"}}>
       {TABS.map(t=>(<button key={t.id} onClick={()=>setTab(t.id)} style={{flex:1,padding:"10px 8px",border:"none",borderBottom:"2px solid "+(tab===t.id?G:"transparent"),background:tab===t.id?"#f8f9fc":W,fontSize:12.5,fontWeight:tab===t.id?500:400,color:tab===t.id?N:MU,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:5,minWidth:80}}>{t.label}{(t as any).count!==undefined && (t as any).count>0 && <span style={{background:(t as any).alert>0||t.id==="supplies"?RE+"22":N+"22",color:(t as any).alert>0||t.id==="supplies"?RE:N,borderRadius:10,fontSize:10,padding:"1px 6px"}}>{(t as any).count}</span>}{(t as any).alert>0 && <span style={{background:RE,color:"#fff",borderRadius:10,fontSize:10,padding:"1px 6px",fontWeight:600}}>{(t as any).alert}</span>}{t.id==="dashboard" && totalAlerts>0 && <span style={{background:RE,color:"#fff",borderRadius:10,fontSize:10,padding:"1px 6px",fontWeight:600}}>{totalAlerts}</span>}</button>))}
     </div>
-    {tab==="dashboard" && <MaintDashboard equipment={equipment} workOrders={workOrders} schedMaint={schedMaint} alerts={alerts} setTab={setTab}/>}
-    {tab==="equipment" && <EquipmentTab equipment={equipment} setEquipment={setEquipment} workOrders={workOrders} schedMaint={schedMaint} canEdit={canEdit}/>}
+    {tab==="dashboard" && <MaintDashboard equipment={equipment} workOrders={workOrders} schedMaint={schedMaint} alerts={alerts} setTab={setTab} neoDesign={neoDesign}/>}
+    {tab==="equipment" && <EquipmentTab equipment={equipment} setEquipment={setEquipment} workOrders={workOrders} schedMaint={schedMaint} canEdit={canEdit} neoDesign={neoDesign}/>}
     {tab==="workorders" && <WorkOrdersTab workOrders={workOrders} setWorkOrders={setWorkOrders} equipment={equipment} users={users} members={members} canEdit={canEdit}/>}
     {tab==="scheduled" && <SchedMaintTab schedMaint={schedMaint} setSchedMaint={setSchedMaint} equipment={equipment} users={users} members={members} canEdit={canEdit}/>}
     {tab==="checkouts" && <CheckoutsTab checkoutItems={checkoutItems||[]} setCheckoutItems={setCheckoutItems} checkouts={checkouts||[]} setCheckouts={setCheckouts} equipment={equipment} members={members} canEdit={canEdit}/>}
@@ -19764,7 +19776,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           {!isMemberPortal && view==="people" && <People members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} setGiving={setGiving} prayers={prayers} setPrayers={setPrayers} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings} visitRecords={visitRecords} setVisitRecords={setVisitRecords} checkIns={checkIns} setCheckIns={setCheckInsSynced} setView={setView} canViewGiving={canViewGiving} currentUser={currentUser} roles={roles} children={children} setChildren={setChildren} churchId={churchId} classrooms={classrooms} neoDesign={!churchSettings?.classicDashboard}/>}
           {!isMemberPortal && view==="groups" && <Groups members={members} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings} currentUser={currentUser} roles={roles}/>}
           {!isMemberPortal && view==="education" && <Education members={members} setMembers={setMembers} visitors={visitors} attendance={attendance} setAttendance={setAttendance} users={users} roles={roles} currentUser={currentUser} children={children} setChildren={setChildren} classrooms={classrooms} setClassrooms={setClassrooms} teacherSchedule={teacherSchedule} setTeacherSchedule={setTeacherSchedule} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckInsSynced} checkIns={checkIns} incidents={incidents} setIncidents={setIncidents} rollCalls={rollCalls} setRollCalls={setRollCalls} progressNotes={progressNotes} setProgressNotes={setProgressNotes} teacherFollowups={teacherFollowups} setTeacherFollowups={setTeacherFollowups} followupDismissedChildIds={followupDismissedChildIds} setFollowupDismissedChildIds={setFollowupDismissedChildIds} cs={churchSettings} setCs={setChurchSettings} addConfidential={addConfidential} printerConfig={printerConfig} setPrinterConfig={setPrinterConfig} neoDesign={!churchSettings?.classicDashboard}/>}
-          {!isMemberPortal && view==="maintenance" && <Maintenance users={users} members={members} currentUser={currentUser} roles={roles} permissions={permissions} equipment={equipment} setEquipment={setEquipment} workOrders={workOrders} setWorkOrders={setWorkOrders} schedMaint={schedMaint} setSchedMaint={setSchedMaint} supplies={supplies} setSupplies={setSupplies} checkoutItems={checkoutItems} setCheckoutItems={setCheckoutItems} checkouts={checkouts} setCheckouts={setCheckouts} cleaningSchedule={cleaningSchedule} setCleaningSchedule={setCleaningSchedule}/>}
+          {!isMemberPortal && view==="maintenance" && <Maintenance users={users} members={members} currentUser={currentUser} roles={roles} permissions={permissions} equipment={equipment} setEquipment={setEquipment} workOrders={workOrders} setWorkOrders={setWorkOrders} schedMaint={schedMaint} setSchedMaint={setSchedMaint} supplies={supplies} setSupplies={setSupplies} checkoutItems={checkoutItems} setCheckoutItems={setCheckoutItems} checkouts={checkouts} setCheckouts={setCheckouts} cleaningSchedule={cleaningSchedule} setCleaningSchedule={setCleaningSchedule} neoDesign={!churchSettings?.classicDashboard}/>}
           {!isMemberPortal && view==="calendar" && (
             <div style={{height:"calc(100vh - 110px)",display:"flex",flexDirection:"column",margin:-24,overflow:"hidden"}}>
               <CalendarView
