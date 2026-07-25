@@ -17088,6 +17088,7 @@ function ManualPage(){
           <H3>Role-Based Navigation</H3>
           <P>Staff members only see the sections permitted by their assigned role. The sidebar automatically hides any module their role does not have access to. This applies to:</P>
           <Ul><Li>Sidebar navigation items</Li><Li>Dashboard quick-action shortcuts</Li><Li>Dashboard stat cards (e.g. giving totals are hidden for non-finance roles)</Li></Ul>
+          <Note>Access to <B>Hospital &amp; Visits</B> and <B>Benevolence Fund</B> is limited by role to <B>Administrator</B> and <B>Assistant Pastor</B> only. Any other role or user must be granted <B>View</B> permission for those modules in the <B>Permissions Matrix</B> (Access Control → Permissions) before the page shows up in their sidebar — no other role gets these by default.</Note>
           <Tip>To see what a staff member can access, open their role in the <B>Roles</B> tab and review the enabled permissions. Adjust as needed — changes take effect on their next sign-in.</Tip>
           <H3>Built-In Roles</H3>
           <Ul><Li><B>Super Admin</B> — full unrestricted access including user management</Li><Li><B>Administrator</B> — full access to all features including Giving; excludes Access Control user management</Li><Li><B>Office</B> — full access to all features including Giving</Li><Li><B>Pastor</B> — directory, giving, prayer, visitation, email, AI</Li><Li><B>Staff</B> — directory, attendance, events, groups</Li><Li><B>Volunteer</B> — directory view and event calendar only</Li><Li><B>Check-In</B> — Education check-in portal only</Li><Li><B>Finance</B> — giving records and reports only</Li></Ul>
@@ -19423,8 +19424,11 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     access:"settings", ai:null, settings:"settings", alerts:null, adminnotes:null, manual:null, loginactivity:null, auditlog:null, myfollowups:null,
   };
   const PASTORAL_CARE_SIDEBAR_ROLE_ACCESS:Record<string,string[]> = {
-    hospitalvisits:["Administrator","Assistant Pastor","Staff","Team Supervisor","Team Leader","Sponsor","Hospital & Visits"],
-    benevolencefund:["Administrator","Assistant Pastor","Staff","Team Supervisor","Benevolence Fund"],
+    // Hospital & Visits and Benevolence Fund: granted by ROLE only to Administrator + Assistant Pastor.
+    // Every other role/user must be given "view" explicitly via the Permissions Matrix
+    // (Access Control → Permissions) — no role gets these by default anymore.
+    hospitalvisits:["Administrator","Assistant Pastor"],
+    benevolencefund:["Administrator","Assistant Pastor"],
     counselinglog:["Administrator","Counseling Log"],
     hospitalityfund:["Administrator","Staff","Team Leader","Hospitality Fund"], // Pastor role intentionally EXCLUDED
   };
