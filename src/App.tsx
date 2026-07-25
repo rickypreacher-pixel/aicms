@@ -18403,9 +18403,20 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
         return mn && mn === _portalFullName.toLowerCase();
       }) || null
     : null;
-  const portalMember = (isStaff && !currentUser)
+  // A signed-in account that carries a church_id but is NOT a staff user (not in Access Control → Users)
+  // is a MEMBER. First try to link them to their existing directory record by email or name.
+  const _portalDirMatch = (isStaff && !currentUser)
     ? (members.find((m:any) => m.email && m.email.toLowerCase() === (loggedInEmail||'').toLowerCase()) || _matchMemberByName(members))
     : null;
+  // Self-registration fallback: a member who signed up with email + password but doesn't (yet) match a
+  // directory record STILL gets the Member Portal, built from their sign-in identity. Members must never be
+  // dead-ended on the staff "add me to Access Control → Users" screen. Once the admin adds/links them in the
+  // directory (by email or name), this resolves to their real record automatically. Gated on the cloud having
+  // loaded (lastSyncAt) so we don't synthesize before the real directory arrives.
+  const portalMember = _portalDirMatch
+    || ((isStaff && !currentUser && !!lastSyncAt.current && (loggedInEmail||'').trim())
+        ? { id:'portal_'+String(loggedInEmail).toLowerCase(), first:(adminFirst||'').trim()||((displayName||'').trim().split(' ')[0])||'Member', last:(adminFirst||adminLast)?((adminLast||'').trim()):((displayName||'').trim().split(' ').slice(1).join(' ')), email:loggedInEmail, phone:'', status:'Active', _selfRegistered:true }
+        : null);
   const isMemberPortal = !!portalMember;
   // Staff member record: staff user who also has a record in the members list
   // Find the logged-in user's own member record so they can see "My Profile". Match by the
@@ -19651,7 +19662,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
               <div style={{fontSize:44,marginBottom:10}}>🔗</div>
               <div style={{fontSize:18,fontWeight:600,color:N,marginBottom:8}}>Account Not Linked</div>
               <div style={{fontSize:13,color:MU,lineHeight:1.7,marginBottom:18}}>
-                Your account <strong style={{color:N}}>{loggedInEmail}</strong> isn't linked to a profile in this church yet. Ask your administrator to link it under <strong>Access Control → Users</strong>. In the meantime, here are the latest church announcements:
+                Your account <strong style={{color:N}}>{loggedInEmail}</strong> is being connected to your church. This can take a moment right after you sign up — please reload. If it keeps happening, ask your church to confirm your name and email are on file. In the meantime, here are the latest church announcements:
               </div>
             </div>
             {(()=>{ const today=td(); const list=(announcements||[]).filter((a:any)=>!a.deleted&&(!a.expiresAt||a.expiresAt>=today)).sort((a:any,b:any)=>((b.pinned?1:0)-(a.pinned?1:0))||String(b.date||"").localeCompare(String(a.date||"")));
