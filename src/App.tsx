@@ -18455,18 +18455,18 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     const pm:any = portalMember;
     if(!pm || !pm._selfRegistered || !lastSyncAt.current) return;
     const em = String(pm.email||'').toLowerCase();
-    const already = (portalSignups||[]).some((s:any)=>String(s.id)===String(pm.id) || (em && String(s.email||'').toLowerCase()===em));
-    if(already) return;
+    let appended = false;
     setPortalSignups((sg:any[])=>{
       const arr = Array.isArray(sg)?sg:[];
       if(arr.some((s:any)=>String(s.id)===String(pm.id) || (em && String(s.email||'').toLowerCase()===em))) return arr;
+      appended = true;
       return [...arr, {id:pm.id, first:pm.first||'', last:pm.last||'', email:pm.email||'', phone:'', at:new Date().toISOString()}];
     });
-    // This is a genuine change made right after the cloud load — clear the post-load save-suppression so
-    // the debounced save actually PERSISTS it (otherwise it's swallowed and the admin never sees the sign-up).
-    suppressSave.current = false;
+    // A recorded sign-up is a genuine change made right after the cloud load — clear the post-load
+    // save-suppression so the debounced save PERSISTS it (else it's swallowed and never reaches the admin).
+    if(appended) suppressSave.current = false;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[!!(portalMember as any)?._selfRegistered, portalSignups.length]);
+  },[!!(portalMember as any)?._selfRegistered]);
   // Staff member record: staff user who also has a record in the members list
   // Find the logged-in user's own member record so they can see "My Profile". Match by the
   // explicit user→member link first (most reliable), then login email, then name.
