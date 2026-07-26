@@ -11853,7 +11853,7 @@ function Giving({giving,setGiving,pledgeDrives,setPledgeDrives,pledges,setPledge
     if(editingId) {
       setGiving(giving.map(r=>r.id===editingId ? {...r,date:form.date,category:form.category,amount:+form.amount,method:form.method,notes:form.notes} : r));
     } else {
-      setGiving([{...form,amount:+form.amount,id:nid.current++},...giving]);
+      setGiving([{...form,amount:+form.amount,id:Math.floor(Date.now()*1000+Math.random()*1000)},...giving]);
     }
     setModal(false);
     setEditingId(null);
