@@ -18312,8 +18312,17 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   },[roles,permissions]);
+  const _loginEmailLc = (loggedInEmail||'').toLowerCase();
   const currentUser = isStaff
-    ? (users.find(u => u.email && u.email.toLowerCase() === (loggedInEmail||'').toLowerCase() && u.status === 'Active') || null)
+    // Match this login to a staff user by the user's OWN email, OR — when the user record has no email of
+    // its own (common: admin created the user by linking a member, never typed an email) — by the email on
+    // the MEMBER it's linked to (memberId). Without this, a real staff user with a blank email falls through
+    // and shows as a member-portal user on their device. (e.g. Vivian Sanabria: Check-In user, blank email,
+    // linked to her member record which carries her login email.)
+    ? (users.find(u => u.status === 'Active' && (
+          (u.email && u.email.toLowerCase() === _loginEmailLc) ||
+          (_loginEmailLc && u.memberId != null && members.some((m:any) => String(m.id)===String(u.memberId) && m.email && m.email.toLowerCase() === _loginEmailLc))
+       )) || null)
     : (users.find(u=>u.superAdmin) || users[0]);
   // Populate the chat channel-visibility ref (declared earlier) now that currentUser/isStaff exist.
   useEffect(()=>{
