@@ -76,6 +76,28 @@ function tsOf(item) {
   return Number.isFinite(n) ? n : 0;
 }
 
+// Visit records move only FORWARD through the visitation pipeline. When BOTH devices edited the
+// same record, the more-advanced STAGE must win (timestamp only breaks ties within one stage) —
+// otherwise a stale device whose copy got a newer timestamp (a checkbox, a partial contact) could
+// push the card back to an earlier stage for everyone ("reverted to Pastor Visit later"). Contacts
+// from both sides are unioned so no logged contact is lost. Mirrors the app's load-side merge.
+const VR_RANK = { Pastor: 0, TeamSupervisor: 1, TeamLeader: 2, Sponsor: 3, OngoingCare: 4, Complete: 5, Converted: 6 };
+function mergeVisitRecord(L, R) {
+  const rl = VR_RANK[String((L && L.stage) || '')] ?? 0;
+  const rr = VR_RANK[String((R && R.stage) || '')] ?? 0;
+  const w = rl !== rr ? (rl > rr ? L : R) : (tsOf(L) >= tsOf(R) ? L : R);
+  const m = new Map();
+  const contacts = [...(Array.isArray(L && L.contacts) ? L.contacts : []), ...(Array.isArray(R && R.contacts) ? R.contacts : [])];
+  contacts.forEach((c) => { const key = String(c && c.id); if (!m.has(key)) m.set(key, c); });
+  return { ...w, contacts: Array.from(m.values()) };
+}
+
+// Both sides changed the same record → pick the winner (field-aware).
+function bothChangedWinner(field, L, R) {
+  if (field === 'visitRecords') return mergeVisitRecord(L, R);
+  return tsOf(L) >= tsOf(R) ? L : R; // newer wins, tie → local
+}
+
 function mergeArray(field, baseArr, localArr, remoteArr) {
   baseArr = Array.isArray(baseArr) ? baseArr : [];
   localArr = Array.isArray(localArr) ? localArr : [];
@@ -96,7 +118,7 @@ function mergeArray(field, baseArr, localArr, remoteArr) {
       const rChanged = !inB || !eq(R, B);
       if (lChanged && !rChanged) out.push(L);
       else if (rChanged && !lChanged) out.push(R);
-      else out.push(tsOf(L) >= tsOf(R) ? L : R); // both changed → newer wins, tie → local
+      else out.push(bothChangedWinner(field, L, R)); // both changed → field-aware winner
     } else if (inL && !inR) {
       // Missing from remote. If it existed at base, the other device DELETED it → honor (drop).
       // If it never existed at base, this device ADDED it → keep.

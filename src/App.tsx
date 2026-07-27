@@ -18832,15 +18832,18 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
         // MERGE by id (don't blind-replace): "Log Contact" advances a record's stage locally, but the
         // 60s sync poll can land before that save reaches the cloud — a blind replace with the stale
         // cloud copy snaps the card back to its old stage ("had to log twice", "reverted to Pastor
-        // Visit later"). Keep the copy that's FURTHER ALONG: newer updatedAt wins; if neither has one,
-        // the more-advanced pipeline stage wins; and ALWAYS union the contacts so no logged contact is
-        // lost. Deletes/other-device edits still propagate because cloud is the base.
+        // Visit later"). Keep the copy that's FURTHER ALONG: the pipeline only moves FORWARD, so the
+        // more-advanced STAGE always wins; updatedAt only breaks ties WITHIN the same stage. (Using
+        // updatedAt first was wrong — a stale "Pastor" copy that got a newer timestamp from a checkbox
+        // or partial contact could outrank a real "Team Supervisor" advance, so one device never saw
+        // the move.) ALWAYS union the contacts so no logged contact is lost. Deletes/other-device
+        // edits still propagate because cloud is the base.
         const curArr=Array.isArray(cur)?cur:[];
         const RANK:any={Pastor:0,TeamSupervisor:1,TeamLeader:2,Sponsor:3,OngoingCare:4,Complete:5,Converted:6};
         const ts=(r:any)=>new Date(r?.updatedAt||0).getTime()||0;
         const rank=(r:any)=>RANK[String(r?.stage||"")]??0;
         const mergeContacts=(a:any,b:any)=>{ const m=new Map<string,any>(); [...(Array.isArray(a)?a:[]),...(Array.isArray(b)?b:[])].forEach((c:any)=>{ const k=String(c?.id); if(!m.has(k)) m.set(k,c); }); return Array.from(m.values()); };
-        const pick=(x:any,y:any)=>{ const tx=ts(x),ty=ts(y); const w=(tx||ty)?(tx>=ty?x:y):(rank(x)>=rank(y)?x:y); return {...w,contacts:mergeContacts(x.contacts,y.contacts)}; };
+        const pick=(x:any,y:any)=>{ const rx=rank(x),ry=rank(y); const w=(rx!==ry)?(rx>ry?x:y):((ts(x)>=ts(y))?x:y); return {...w,contacts:mergeContacts(x.contacts,y.contacts)}; };
         const byId=new Map<string,any>();
         (d.visitRecords as any[]).forEach((r:any)=>byId.set(String(r.id),r));
         const recentMs=Date.now()-5*60*1000;
