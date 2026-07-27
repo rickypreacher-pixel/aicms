@@ -14742,7 +14742,7 @@ function PrinterSettings({printerConfig,setPrinterConfig}){
   );
 }
 
-function TeacherFollowPipeline({children,kidsCheckIns,rollCalls,users,members,currentUser,roles,pipeline,setPipeline,dismissedChildIds,setDismissedChildIds,cs,setCs}:any){
+function TeacherFollowPipeline({children,classrooms,kidsCheckIns,rollCalls,users,members,currentUser,roles,pipeline,setPipeline,dismissedChildIds,setDismissedChildIds,cs,setCs}:any){
   const [subTab,setSubTab] = useState("stage1");
   const [assigneeFilter,setAssigneeFilter] = useState("all");
   const MW = Math.max(1, Number(cs?.missedWeeksThreshold)||4); // weeks-missed threshold (church-wide setting)
@@ -14963,8 +14963,21 @@ function TeacherFollowPipeline({children,kidsCheckIns,rollCalls,users,members,cu
   const isMine = (r:any) => String(r?.assignedToUserId||"")===String(currentUser?.id||"");
   // Non-admins are hard-limited to their own assigned children, regardless of the All/My toggle.
   const matchAssignee = (r:any) => canSeeAll ? (assigneeMode!=="my" || isMine(r)) : isMine(r);
+  // Which classroom is this child in? Prefer an explicit classroom assignment on the child record,
+  // then a classroom whose grade matches the child's grade (roll-call model), then the classroom of
+  // their most recent check-in. Returns the classroom object ({id,name,color,grade}) or null.
+  const safeClassrooms = Array.isArray(classrooms) ? classrooms : [];
+  const resolveClassroom = (child:any) => {
+    if(!child) return null;
+    if(child.classroomId!=null){ const c=safeClassrooms.find((x:any)=>String(x.id)===String(child.classroomId)); if(c) return c; }
+    if(child.grade){ const c=safeClassrooms.find((x:any)=>x.grade && String(x.grade)===String(child.grade)); if(c) return c; }
+    const cis=(Array.isArray(kidsCheckIns)?kidsCheckIns:[]).filter((ci:any)=>String(ci.childId)===String(child.id) && ci.classroomId!=null);
+    if(cis.length){ const latest=cis.slice().sort((a:any,b:any)=>String((a.date||"")+(a.time||"")).localeCompare(String((b.date||"")+(b.time||"")))).pop(); const c=safeClassrooms.find((x:any)=>String(x.id)===String(latest.classroomId)); if(c) return c; }
+    return null;
+  };
   const enrichCard = (r:any) => {
     const child = safeChildren.find((c:any)=>String(c.id)===String(r?.childId)) || {first:r?.childFirst||"Unknown",last:r?.childLast||"Child",parentPhone:r?.parentPhone||"",parentName:r?.parentName||""};
+    const classroom = resolveClassroom(child);
     const idStats = checkInStats[String(r?.childId)] || {};
     const last = lastAttendFor(r?.childId, child.first||r?.childFirst, child.last||r?.childLast);
     // Resolve the parent's contact info for outreach: prefer what's on the child record, then fall back
@@ -14978,7 +14991,7 @@ function TeacherFollowPipeline({children,kidsCheckIns,rollCalls,users,members,cu
       address: _addr((child as any).address) || _addr(pm?.address),
       linked: !!pm,
     };
-    return {...r,child,parent,stats:{...idStats,last},missedWeeks:missedWeeksSince(last)};
+    return {...r,child,classroom,parent,stats:{...idStats,last},missedWeeks:missedWeeksSince(last)};
   };
 
   const stage1 = safePipeline.filter((r:any)=>isStage1(r)).map(enrichCard).filter((r:any)=>matchAssignee(r) && (r.manual || r.missedWeeks>=MW));
@@ -15070,6 +15083,7 @@ function TeacherFollowPipeline({children,kidsCheckIns,rollCalls,users,members,cu
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,marginBottom:8}}>
         <div>
           <div style={{fontSize:14,fontWeight:600,color:N}}>{r.child.first} {r.child.last}</div>
+          {r.classroom ? <div style={{fontSize:10,marginTop:2,marginBottom:1,color:r.classroom.color||MU,background:(r.classroom.color||MU)+"1a",borderRadius:10,padding:"2px 8px",display:"inline-block",fontWeight:600}}>🏫 {r.classroom.name}</div> : <div style={{fontSize:10,marginTop:2,marginBottom:1,color:MU,background:MU+"14",borderRadius:10,padding:"2px 8px",display:"inline-block",fontWeight:600}}>🏫 No classroom assigned</div>}
           <div style={{fontSize:11,color:MU}}>Missed {r.missedWeeks} week{r.missedWeeks!==1?"s":""} · Last check-in {r.stats?.last?fd(r.stats.last):"-"}</div>
           <div style={{fontSize:11,color:MU}}>First check-in {r.stats?.first?fd(r.stats.first):"-"}</div>
           {r.manual && <div style={{fontSize:10,marginTop:3,color:"#92400e",background:"#fef3c7",borderRadius:10,padding:"2px 8px",display:"inline-block",fontWeight:600}}>↪ Manually flagged{r.reason?": "+r.reason:""}</div>}
@@ -15199,7 +15213,7 @@ function Education({members,setMembers,visitors,attendance,setAttendance,users,r
       {tab==="progress"&&<ChildProgress children={children} classrooms={classrooms} rollCalls={rollCalls} progressNotes={progressNotes} setProgressNotes={setProgressNotes} addConfidential={addConfidential} cs={cs}/>}
       {tab==="classrooms"&&<ClassroomsManager classrooms={classrooms} setClassrooms={setClassrooms} teacherSchedule={teacherSchedule} users={users} members={members} kidsCheckIns={kidsCheckIns}/>}
       {tab==="teachers"&&<TeacherScheduleMgr classrooms={classrooms} teacherSchedule={teacherSchedule} setTeacherSchedule={setTeacherSchedule} users={users} members={members} roles={roles}/>}
-      {tab==="followup"&&<TeacherFollowPipeline children={children} kidsCheckIns={kidsCheckIns} rollCalls={rollCalls} users={users} members={members} currentUser={currentUser} roles={roles} pipeline={teacherFollowups} setPipeline={setTeacherFollowups} dismissedChildIds={followupDismissedChildIds} setDismissedChildIds={setFollowupDismissedChildIds} cs={cs} setCs={setCs}/>}
+      {tab==="followup"&&<TeacherFollowPipeline children={children} classrooms={classrooms} kidsCheckIns={kidsCheckIns} rollCalls={rollCalls} users={users} members={members} currentUser={currentUser} roles={roles} pipeline={teacherFollowups} setPipeline={setTeacherFollowups} dismissedChildIds={followupDismissedChildIds} setDismissedChildIds={setFollowupDismissedChildIds} cs={cs} setCs={setCs}/>}
       {tab==="incidents"&&<IncidentReports incidents={incidents} setIncidents={setIncidents} addConfidential={addConfidential} children={children} classrooms={classrooms} members={members} cs={cs}/>}
       {tab==="reports"&&<EdReports classrooms={classrooms} children={children} kidsCheckIns={kidsCheckIns} teacherSchedule={teacherSchedule} users={users} members={members} rollCalls={rollCalls} roles={roles}/>}
       {tab==="printer"&&<PrinterSettings printerConfig={printerConfig} setPrinterConfig={setPrinterConfig}/>}
