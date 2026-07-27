@@ -5925,7 +5925,7 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
     </div>
   );
 }
-function Groups({members,groups,setGroups,grpMeetings,setGrpMeetings,currentUser=null,roles=[]}) {
+function Groups({members,groups,setGroups,grpMeetings,setGrpMeetings,currentUser=null,roles=[],prospects=[]}) {
   const [tab,setTab]=useState("groups");
   const [modal,setModal]=useState(false);
   const [editG,setEditG]=useState(null);
@@ -5947,7 +5947,18 @@ function Groups({members,groups,setGroups,grpMeetings,setGrpMeetings,currentUser
   const nid=useRef(Math.max(799,...groups.map((g:any)=>+(g.id)||0),...grpMeetings.map((m:any)=>+(m.id)||0))+1);
   const sf=k=>v=>setForm(f=>({...f,[k]:v}));
   const group=groups.find(g=>g.id===selId);
-  const enrolled=group?members.filter(m=>group.memberIds.includes(m.id)):[];
+  // A group roster can include directory MEMBERS and also PROSPECTS (people invited who haven't
+  // attended church yet). Prospect enrollments are stored in memberIds as "P:<prospectId>" so they
+  // never collide with numeric member ids. personById resolves either kind to a normalized person.
+  const prospectsSafe=Array.isArray(prospects)?prospects:[];
+  const PPFX="P:";
+  const asProspectPerson=(p:any)=>({id:PPFX+String(p.id),first:p.first||"",last:p.last||"",phone:p.phone||"",role:"Prospect",_prospect:true,status:p.status||""});
+  const personById=(id:any)=>{
+    const s=String(id);
+    if(s.startsWith(PPFX)){ const p=prospectsSafe.find((x:any)=>String(x.id)===s.slice(PPFX.length)); return p?asProspectPerson(p):null; }
+    return members.find((m:any)=>String(m.id)===s)||null;
+  };
+  const enrolled=group?(group.memberIds||[]).map(personById).filter(Boolean):[];
   const grpMeets=group?[...grpMeetings].filter(m=>m.groupId===selId).sort((a,b)=>b.date.localeCompare(a.date)):[];
   const leader=group?members.find(m=>m.id===group.leaderId):null;
 
@@ -5992,7 +6003,10 @@ function Groups({members,groups,setGroups,grpMeetings,setGrpMeetings,currentUser
   };
   const attRate=m=>enrolled.length?Math.round(m.presentIds.length/enrolled.length*100):0;
   const pColor=r=>r>=75?GR:r>=50?AM:RE;
-  const avail=group?members.filter(m=>!group.memberIds.includes(m.id)):[];
+  const enrolledIdSet=new Set((group?.memberIds||[]).map((x:any)=>String(x)));
+  const availMembers=group?members.filter((m:any)=>!enrolledIdSet.has(String(m.id))).map((m:any)=>({...m,_prospect:false})):[];
+  const availProspects=group?prospectsSafe.filter((p:any)=>!enrolledIdSet.has(PPFX+String(p.id))).map(asProspectPerson):[];
+  const avail=[...availMembers,...availProspects];
   const _rq=rosterSearch.trim().toLowerCase();
   const availFiltered=_rq?avail.filter((m:any)=>((m.first||"")+" "+(m.last||"")+" "+(m.phone||"")+" "+(m.role||"")).toLowerCase().includes(_rq)):avail;
   const availShown=availFiltered.slice(0,50);
@@ -6097,7 +6111,8 @@ function Groups({members,groups,setGroups,grpMeetings,setGrpMeetings,currentUser
                 </div>
                 {enrolled.length===0?<div style={{padding:32,textAlign:"center",color:MU,fontSize:13}}>No members yet.</div>:enrolled.map(m=>(
                   <div key={m.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 16px",borderBottom:"0.5px solid "+BR}}>
-                    <Av f={m.first} l={m.last} sz={32}/><div style={{flex:1}}><div style={{fontSize:13,fontWeight:500}}>{m.first} {m.last}</div><div style={{fontSize:11,color:MU}}>{m.role||"Member"} · {m.phone}</div></div>
+                    <Av f={m.first} l={m.last} sz={32}/><div style={{flex:1}}><div style={{fontSize:13,fontWeight:500}}>{m.first} {m.last}</div><div style={{fontSize:11,color:MU}}>{m._prospect?"Prospect · hasn't attended yet":(m.role||"Member")}{m.phone?" · "+m.phone:""}</div></div>
+                    {m._prospect&&<span style={{fontSize:10,background:AM+"22",color:AM,borderRadius:10,padding:"2px 8px",fontWeight:600}}>Prospect</span>}
                     {m.id===group.leaderId&&<span style={{fontSize:10,background:group.color+"22",color:group.color,borderRadius:10,padding:"2px 8px",fontWeight:500}}>Leader</span>}
                     <button onClick={()=>removeMember(m.id)} style={{background:"#fee2e2",border:"none",borderRadius:6,padding:"4px 8px",cursor:"pointer",color:RE,fontSize:11}}>Remove</button>
                   </div>
@@ -6106,19 +6121,20 @@ function Groups({members,groups,setGroups,grpMeetings,setGrpMeetings,currentUser
               <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,overflow:"hidden"}}>
                 <div style={{padding:"12px 16px",borderBottom:"0.5px solid "+BR,background:BG}}>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                    <div style={{fontSize:13,fontWeight:500}}>Available Members</div>
-                    <div style={{fontSize:11,color:MU}}>{avail.length} available to add</div>
+                    <div style={{fontSize:13,fontWeight:500}}>Available People</div>
+                    <div style={{fontSize:11,color:MU}}>{avail.length} to add · members + prospects</div>
                   </div>
                   <div style={{position:"relative"}}>
-                    <input value={rosterSearch} onChange={e=>setRosterSearch(e.target.value)} placeholder="Search members to add..." autoComplete="off" style={{width:"100%",boxSizing:"border-box",padding:"8px "+(rosterSearch?"28px":"10px")+" 8px 10px",border:"0.5px solid "+BR,borderRadius:7,fontSize:12,outline:"none",background:W}}/>
+                    <input value={rosterSearch} onChange={e=>setRosterSearch(e.target.value)} placeholder="Search members & prospects to add..." autoComplete="off" style={{width:"100%",boxSizing:"border-box",padding:"8px "+(rosterSearch?"28px":"10px")+" 8px 10px",border:"0.5px solid "+BR,borderRadius:7,fontSize:12,outline:"none",background:W}}/>
                     {rosterSearch&&<button onMouseDown={e=>{e.preventDefault();setRosterSearch("");}} style={{position:"absolute",right:6,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:MU,fontSize:13,lineHeight:1,padding:2}}>✕</button>}
                   </div>
                 </div>
-                {avail.length===0?<div style={{padding:32,textAlign:"center",color:MU,fontSize:13}}>All members are enrolled.</div>
-                 :availFiltered.length===0?<div style={{padding:32,textAlign:"center",color:MU,fontSize:13}}>No available members match “{rosterSearch}”.</div>
+                {avail.length===0?<div style={{padding:32,textAlign:"center",color:MU,fontSize:13}}>Everyone is already enrolled.</div>
+                 :availFiltered.length===0?<div style={{padding:32,textAlign:"center",color:MU,fontSize:13}}>No members or prospects match “{rosterSearch}”.</div>
                  :availShown.map(m=>(
                   <div key={m.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 16px",borderBottom:"0.5px solid "+BR}}>
-                    <Av f={m.first} l={m.last} sz={32}/><div style={{flex:1}}><div style={{fontSize:13,fontWeight:500}}>{m.first} {m.last}</div><div style={{fontSize:11,color:MU}}>{m.role||"Member"} · {m.phone}</div></div>
+                    <Av f={m.first} l={m.last} sz={32}/><div style={{flex:1}}><div style={{fontSize:13,fontWeight:500}}>{m.first} {m.last}</div><div style={{fontSize:11,color:MU}}>{m._prospect?"Prospect · hasn't attended yet":(m.role||"Member")}{m.phone?" · "+m.phone:""}</div></div>
+                    {m._prospect&&<span style={{fontSize:10,background:AM+"22",color:AM,borderRadius:10,padding:"2px 8px",fontWeight:600}}>Prospect</span>}
                     <button onClick={()=>addMember(m.id)} style={{background:"#dcfce7",border:"none",borderRadius:6,padding:"4px 8px",cursor:"pointer",color:GR,fontSize:11,fontWeight:500}}>+ Add</button>
                   </div>
                 ))}
@@ -6170,8 +6186,8 @@ function Groups({members,groups,setGroups,grpMeetings,setGrpMeetings,currentUser
                     </div>
                     {isOpen&&<div style={{borderTop:"0.5px solid "+BR,padding:16}}>
                       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:mt.notes?10:0}}>
-                        <div><div style={{fontSize:11,color:GR,fontWeight:500,marginBottom:6,textTransform:"uppercase",letterSpacing:0.4}}>Present ({mt.presentIds.length})</div>{mt.presentIds.map(id=>{const m=members.find(x=>x.id===id);return m?<div key={id} style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}><Av f={m.first} l={m.last} sz={20}/><span style={{fontSize:12}}>{m.first} {m.last}</span></div>:null;})}{mt.walkIns>0&&<div style={{fontSize:12,color:MU,marginTop:4}}>+{mt.walkIns} walk-in{mt.walkIns!==1?"s":""}</div>}</div>
-                        <div><div style={{fontSize:11,color:RE,fontWeight:500,marginBottom:6,textTransform:"uppercase",letterSpacing:0.4}}>Absent ({mt.absentIds.length})</div>{mt.absentIds.map(id=>{const m=members.find(x=>x.id===id);return m?<div key={id} style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}><Av f={m.first} l={m.last} sz={20}/><span style={{fontSize:12,color:MU}}>{m.first} {m.last}</span></div>:null;})}  {mt.absentIds.length===0&&<div style={{fontSize:12,color:MU,fontStyle:"italic"}}>Everyone present!</div>}</div>
+                        <div><div style={{fontSize:11,color:GR,fontWeight:500,marginBottom:6,textTransform:"uppercase",letterSpacing:0.4}}>Present ({mt.presentIds.length})</div>{mt.presentIds.map(id=>{const m=personById(id);return m?<div key={id} style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}><Av f={m.first} l={m.last} sz={20}/><span style={{fontSize:12}}>{m.first} {m.last}</span></div>:null;})}{mt.walkIns>0&&<div style={{fontSize:12,color:MU,marginTop:4}}>+{mt.walkIns} walk-in{mt.walkIns!==1?"s":""}</div>}</div>
+                        <div><div style={{fontSize:11,color:RE,fontWeight:500,marginBottom:6,textTransform:"uppercase",letterSpacing:0.4}}>Absent ({mt.absentIds.length})</div>{mt.absentIds.map(id=>{const m=personById(id);return m?<div key={id} style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}><Av f={m.first} l={m.last} sz={20}/><span style={{fontSize:12,color:MU}}>{m.first} {m.last}</span></div>:null;})}  {mt.absentIds.length===0&&<div style={{fontSize:12,color:MU,fontStyle:"italic"}}>Everyone present!</div>}</div>
                       </div>
                       {mt.notes&&<div style={{background:BG,borderRadius:8,padding:"8px 12px",fontSize:12}}><strong>Notes:</strong> {mt.notes}</div>}
                     </div>}
@@ -19916,7 +19932,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           {!isMemberPortal && view==="dashboard" && <Dashboard members={members} visitors={visitors} attendance={attendance} giving={giving} prayers={prayers} setView={setView} canViewGiving={canViewGiving} isRestrictedUser={isRestrictedUser} canAddPerson={canAddPerson} checkIns={checkIns} careContacted={careContacted} setCareContacted={setCareContacted} isAdmin={isAdminUser} neoDesign={!churchSettings?.classicDashboard}/>}
           {!isMemberPortal && view==="addperson" && <AddMemberPage members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} currentUser={currentUser} roles={roles} permissions={permissions} setView={setView} prospects={prospects} setProspects={setProspects} children={children} setChildren={setChildren} classrooms={classrooms} neoDesign={!churchSettings?.classicDashboard}/>}
           {!isMemberPortal && view==="people" && <People members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} setGiving={setGiving} prayers={prayers} setPrayers={setPrayers} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings} visitRecords={visitRecords} setVisitRecords={setVisitRecords} checkIns={checkIns} setCheckIns={setCheckInsSynced} setView={setView} canViewGiving={canViewGiving} currentUser={currentUser} roles={roles} children={children} setChildren={setChildren} churchId={churchId} classrooms={classrooms} neoDesign={!churchSettings?.classicDashboard}/>}
-          {!isMemberPortal && view==="groups" && <Groups members={members} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings} currentUser={currentUser} roles={roles}/>}
+          {!isMemberPortal && view==="groups" && <Groups members={members} groups={groups} setGroups={setGroups} grpMeetings={grpMeetings} setGrpMeetings={setGrpMeetings} currentUser={currentUser} roles={roles} prospects={prospects}/>}
           {!isMemberPortal && view==="education" && <Education members={members} setMembers={setMembers} visitors={visitors} attendance={attendance} setAttendance={setAttendance} users={users} roles={roles} currentUser={currentUser} children={children} setChildren={setChildren} classrooms={classrooms} setClassrooms={setClassrooms} teacherSchedule={teacherSchedule} setTeacherSchedule={setTeacherSchedule} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckInsSynced} checkIns={checkIns} incidents={incidents} setIncidents={setIncidents} rollCalls={rollCalls} setRollCalls={setRollCalls} progressNotes={progressNotes} setProgressNotes={setProgressNotes} teacherFollowups={teacherFollowups} setTeacherFollowups={setTeacherFollowups} followupDismissedChildIds={followupDismissedChildIds} setFollowupDismissedChildIds={setFollowupDismissedChildIds} cs={churchSettings} setCs={setChurchSettings} addConfidential={addConfidential} printerConfig={printerConfig} setPrinterConfig={setPrinterConfig} neoDesign={!churchSettings?.classicDashboard}/>}
           {!isMemberPortal && view==="maintenance" && <Maintenance users={users} members={members} currentUser={currentUser} roles={roles} permissions={permissions} equipment={equipment} setEquipment={setEquipment} workOrders={workOrders} setWorkOrders={setWorkOrders} schedMaint={schedMaint} setSchedMaint={setSchedMaint} supplies={supplies} setSupplies={setSupplies} checkoutItems={checkoutItems} setCheckoutItems={setCheckoutItems} checkouts={checkouts} setCheckouts={setCheckouts} cleaningSchedule={cleaningSchedule} setCleaningSchedule={setCleaningSchedule} neoDesign={!churchSettings?.classicDashboard}/>}
           {!isMemberPortal && view==="calendar" && (
