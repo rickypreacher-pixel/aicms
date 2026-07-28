@@ -8224,7 +8224,7 @@ const PROSPECT_STATUSES = [
 // want in the Members or Visitation profiles yet — not until they come back to church at least once
 // more. They live only here, and can be texted about future promotional events (opt-in per person).
 function EventPromoPage({promoContacts,setPromoContacts,cs}:any){
-  const blank=()=>({first:"",last:"",phone:"",promo:"",cameDate:td(),notes:"",textOptIn:true});
+  const blank=()=>({first:"",last:"",phone:"",address:"",promo:"",cameDate:td(),notes:"",textOptIn:true});
   const [form,setForm]=useState<any>(blank());
   const [modal,setModal]=useState(false);
   const [editing,setEditing]=useState<any>(null);
@@ -8236,11 +8236,11 @@ function EventPromoPage({promoContacts,setPromoContacts,cs}:any){
   const newId=()=>Math.floor(Date.now()*1000+Math.random()*1000);
 
   const openAdd=()=>{setEditing(null);setForm(blank());setModal(true);};
-  const openEdit=(p:any)=>{setEditing(p);setForm({first:p.first||"",last:p.last||"",phone:p.phone||"",promo:p.promo||"",cameDate:p.cameDate||td(),notes:p.notes||"",textOptIn:p.textOptIn!==false});setModal(true);};
+  const openEdit=(p:any)=>{setEditing(p);setForm({first:p.first||"",last:p.last||"",phone:p.phone||"",address:p.address||"",promo:p.promo||"",cameDate:p.cameDate||td(),notes:p.notes||"",textOptIn:p.textOptIn!==false});setModal(true);};
   const save=()=>{
     if(!form.first||!form.phone){alert("First name and phone number are required.");return;}
     const now=new Date().toISOString();
-    const rec={first:(form.first||"").trim(),last:(form.last||"").trim(),phone:form.phone,promo:(form.promo||"").trim(),cameDate:form.cameDate||td(),notes:form.notes||"",textOptIn:form.textOptIn!==false,updatedAt:now};
+    const rec={first:(form.first||"").trim(),last:(form.last||"").trim(),phone:form.phone,address:(form.address||"").trim(),promo:(form.promo||"").trim(),cameDate:form.cameDate||td(),notes:form.notes||"",textOptIn:form.textOptIn!==false,updatedAt:now};
     if(editing) setPromoContacts((ps:any[])=>(Array.isArray(ps)?ps:[]).map((p:any)=>String(p.id)===String(editing.id)?{...p,...rec}:p));
     else setPromoContacts((ps:any[])=>[{...rec,id:newId(),createdAt:now},...(Array.isArray(ps)?ps:[])]);
     setModal(false);
@@ -8320,6 +8320,7 @@ function EventPromoPage({promoContacts,setPromoContacts,cs}:any){
                   {p.promo&&<span style={{background:AM+"1a",color:AM,borderRadius:10,padding:"1px 8px",fontWeight:600,fontSize:10.5}}>📣 {p.promo}</span>}
                   {p.cameDate&&<span>· Came {fd(p.cameDate)}</span>}
                 </div>
+                {p.address&&<div style={{fontSize:11.5,color:MU,marginTop:3}}>📍 <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.address)}`} target="_blank" rel="noreferrer" style={{color:N,textDecoration:"none",fontWeight:500}}>{p.address}</a></div>}
                 {p.notes&&<div style={{fontSize:11,color:MU,marginTop:3,fontStyle:"italic"}}>{p.notes}</div>}
               </div>
               <button onClick={()=>toggleOptIn(p)} title="Toggle whether this person receives promotional texts" style={{fontSize:10.5,borderRadius:20,padding:"3px 10px",fontWeight:600,cursor:"pointer",border:"0.5px solid "+(optIn?GR:BR),background:optIn?GR+"18":BG,color:optIn?GR:MU}}>{optIn?"✓ Texts on":"Texts off"}</button>
@@ -8338,6 +8339,7 @@ function EventPromoPage({promoContacts,setPromoContacts,cs}:any){
           <Fld label="Last Name"><Inp value={form.last} onChange={sf("last")} placeholder="Last name"/></Fld>
         </div>
         <Fld label="Phone *"><Inp value={form.phone} onChange={v=>sf("phone")(fmtPhone(v))} placeholder="(555) 123-4567"/></Fld>
+        <Fld label="Address"><Inp value={form.address} onChange={sf("address")} placeholder="Street, City, State ZIP"/></Fld>
         <Fld label="Promotion / Event they came from"><Inp value={form.promo} onChange={sf("promo")} placeholder="e.g. Back to School Giveaway"/></Fld>
         <Fld label="Date they came out"><Inp value={form.cameDate} onChange={sf("cameDate")} type="date"/></Fld>
         <Fld label="Notes"><textarea value={form.notes} onChange={e=>sf("notes")(e.target.value)} rows={3} placeholder="How you met them, anything to remember, etc." style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",fontFamily:"inherit",resize:"vertical",boxSizing:"border-box"}}/></Fld>
