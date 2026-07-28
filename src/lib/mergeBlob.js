@@ -172,7 +172,15 @@ export function mergeChurchData(base, local, remote) {
     if (UNION_SET.has(field)) {
       out[field] = mergeArrayUnion(field, local[field], remote[field]);
     } else if (ID_SET.has(field) || SCALAR_ARR_SET.has(field) || field === 'teacherSchedule') {
-      out[field] = mergeArray(field, base[field], local[field], remote[field]);
+      // A device whose blob LACKS this key entirely is running an older build that predates the
+      // field — it cannot have meaningfully edited or deleted anything here, so its absence must NOT
+      // be read as a mass delete that wipes records the other side added. (This is what made a newly
+      // added list — e.g. Event Promotion — "disappear when someone else adds a person" while some
+      // devices were still on the old version.) Only run the delete-honoring 3-way merge when BOTH
+      // sides actually carry the key; otherwise keep whichever side has it.
+      if (!(field in local) && (field in remote)) out[field] = remote[field];
+      else if (!(field in remote) && (field in local)) out[field] = local[field];
+      else out[field] = mergeArray(field, base[field], local[field], remote[field]);
     } else if (OBJ_SET.has(field)) {
       out[field] = mergeObject(base[field], local[field], remote[field]);
     } else if (SCALAR_SET.has(field)) {
