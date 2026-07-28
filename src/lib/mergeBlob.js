@@ -29,7 +29,7 @@ const ID_ARRAYS = [
   'children','classrooms','equipment','workOrders','schedMaint','supplies','checkoutItems',
   'checkouts','emailLog','emailTemplates','recurring','custom','checkIns','rollCalls',
   'kidsCheckIns','teacherFollowups','eventRsvps','announcements','roles','users','prospects',
-  'sickVisits','benevolence','hospitalityFund','portalSignups','portalMembers',
+  'sickVisits','benevolence','hospitalityFund','portalSignups','portalMembers','promoContacts',
 ];
 // Arrays of bare scalar values (e.g. ids), merged as a set.
 const SCALAR_ARRAYS = ['followupDismissedChildIds', 'adminNotesRead'];

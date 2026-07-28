@@ -8219,6 +8219,141 @@ const PROSPECT_STATUSES = [
   {id:"Confirmed",    label:"Confirmed Coming",color:"#16a34a"},
 ];
 
+// ── EVENT PROMOTION LIST ──
+// A lightweight outreach list for people who showed up from a promotion/event but whom we do NOT
+// want in the Members or Visitation profiles yet — not until they come back to church at least once
+// more. They live only here, and can be texted about future promotional events (opt-in per person).
+function EventPromoPage({promoContacts,setPromoContacts,cs}:any){
+  const blank=()=>({first:"",last:"",phone:"",promo:"",cameDate:td(),notes:"",textOptIn:true});
+  const [form,setForm]=useState<any>(blank());
+  const [modal,setModal]=useState(false);
+  const [editing,setEditing]=useState<any>(null);
+  const [search,setSearch]=useState("");
+  const [promoFilter,setPromoFilter]=useState("All");
+  const [toast,setToast]=useState("");
+  const sf=(k:string)=>(v:any)=>setForm((f:any)=>({...f,[k]:v}));
+  const list=Array.isArray(promoContacts)?promoContacts:[];
+  const newId=()=>Math.floor(Date.now()*1000+Math.random()*1000);
+
+  const openAdd=()=>{setEditing(null);setForm(blank());setModal(true);};
+  const openEdit=(p:any)=>{setEditing(p);setForm({first:p.first||"",last:p.last||"",phone:p.phone||"",promo:p.promo||"",cameDate:p.cameDate||td(),notes:p.notes||"",textOptIn:p.textOptIn!==false});setModal(true);};
+  const save=()=>{
+    if(!form.first||!form.phone){alert("First name and phone number are required.");return;}
+    const now=new Date().toISOString();
+    const rec={first:(form.first||"").trim(),last:(form.last||"").trim(),phone:form.phone,promo:(form.promo||"").trim(),cameDate:form.cameDate||td(),notes:form.notes||"",textOptIn:form.textOptIn!==false,updatedAt:now};
+    if(editing) setPromoContacts((ps:any[])=>(Array.isArray(ps)?ps:[]).map((p:any)=>String(p.id)===String(editing.id)?{...p,...rec}:p));
+    else setPromoContacts((ps:any[])=>[{...rec,id:newId(),createdAt:now},...(Array.isArray(ps)?ps:[])]);
+    setModal(false);
+  };
+  const del=(id:any)=>{if(confirm("Remove this person from the Event Promotion list?"))setPromoContacts((ps:any[])=>(Array.isArray(ps)?ps:[]).filter((p:any)=>String(p.id)!==String(id)));};
+  const toggleOptIn=(p:any)=>setPromoContacts((ps:any[])=>(Array.isArray(ps)?ps:[]).map((x:any)=>String(x.id)===String(p.id)?{...x,textOptIn:!(x.textOptIn!==false),updatedAt:new Date().toISOString()}:x));
+
+  const textOne=(p:any)=>{
+    if(!p.phone){alert("No phone number on file.");return;}
+    const nm=[p.first,p.last].filter(Boolean).join(" ").trim();
+    (window as any).__openSmsComposer__?.({phone:p.phone,to:p.phone,name:nm,toName:nm,category:"Event Promotion",relatedType:"promo",relatedId:p.id});
+    setToast("SMS Center opened for "+(nm||"contact")+".");setTimeout(()=>setToast(""),2200);
+  };
+  const textList=()=>{
+    const recips=shown.filter((p:any)=>p.textOptIn!==false&&p.phone).map((p:any)=>({first:p.first,last:p.last,name:[p.first,p.last].filter(Boolean).join(" ").trim(),phone:p.phone}));
+    if(!recips.length){alert("No opted-in people with a phone number in the current view.");return;}
+    const opener=(window as any).__openBulkSmsComposer__;
+    if(!opener){alert("Bulk SMS isn't available here.");return;}
+    opener({recipients:recips,initialCategory:"Event Promotion",relatedType:"promo"});
+    setToast("Bulk SMS opened for "+recips.length+" "+(recips.length===1?"person":"people")+".");setTimeout(()=>setToast(""),2500);
+  };
+
+  const promos=Array.from(new Set(list.map((p:any)=>String(p.promo||"").trim()).filter(Boolean))).sort();
+  const _q=search.trim().toLowerCase();
+  const shown=list.filter((p:any)=>{
+    const nameMatch=((p.first||"")+" "+(p.last||"")+" "+(p.phone||"")).toLowerCase().includes(_q);
+    const promoMatch=promoFilter==="All"||String(p.promo||"")===promoFilter;
+    return nameMatch&&promoMatch;
+  });
+  const optInCount=shown.filter((p:any)=>p.textOptIn!==false&&p.phone).length;
+
+  return (
+    <div>
+      {toast && <div style={{background:"#dcfce7",border:"0.5px solid #86efac",color:"#166534",padding:"9px 12px",fontSize:12,fontWeight:500,borderRadius:8,marginBottom:10}}>{toast}</div>}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14,flexWrap:"wrap",gap:10}}>
+        <div>
+          <h2 style={{fontSize:19,fontWeight:600,color:N,margin:0}}>📣 Event Promotion List</h2>
+          <div style={{fontSize:12,color:MU,marginTop:3,maxWidth:560,lineHeight:1.5}}>People who came out from a promotion or event. They are kept <strong>separate</strong> from your Members and Visitation profiles until they return to church at least one more time — but you can still text them about future promotional events.</div>
+        </div>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+          <Btn onClick={textList} v="outline" style={{fontSize:12}}>📣 Text This List{optInCount?` (${optInCount})`:""}</Btn>
+          <Btn onClick={openAdd} v="gold" style={{fontSize:12}}>+ Add Person</Btn>
+        </div>
+      </div>
+
+      <div style={{display:"flex",gap:10,marginBottom:14,flexWrap:"wrap"}}>
+        <MiniStat label="On the list" value={list.length}/>
+        <MiniStat label="Opted in to texts" value={list.filter((p:any)=>p.textOptIn!==false&&p.phone).length} color={GR}/>
+        <MiniStat label="Promotions" value={promos.length} color={BL}/>
+      </div>
+
+      <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search name or phone..." style={{flex:1,minWidth:180,padding:"9px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W}}/>
+        <select value={promoFilter} onChange={e=>setPromoFilter(e.target.value)} style={{padding:"9px 12px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W,color:TX}}>
+          <option value="All">All promotions</option>
+          {promos.map((pr:any)=><option key={pr} value={pr}>{pr}</option>)}
+        </select>
+      </div>
+
+      {shown.length===0 ? (
+        <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:40,textAlign:"center",color:MU}}>
+          <div style={{fontSize:15,fontWeight:500,marginBottom:4,color:TX}}>{list.length===0?"No one on the promotion list yet":"No one matches your filter"}</div>
+          <div style={{fontSize:12}}>{list.length===0?"Tap “+ Add Person” to add someone who came out from a promotion.":"Try a different search or promotion filter."}</div>
+        </div>
+      ) : (
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {shown.map((p:any)=>{
+            const nm=[p.first,p.last].filter(Boolean).join(" ").trim();
+            const optIn=p.textOptIn!==false;
+            return (
+            <div key={p.id} style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:"12px 14px",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+              <Av f={p.first} l={p.last} sz={38}/>
+              <div style={{flex:1,minWidth:150}}>
+                <div style={{fontSize:14,fontWeight:600,color:N}}>{nm||"—"}</div>
+                <div style={{fontSize:12,color:MU,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",marginTop:2}}>
+                  {p.phone?<a href={`tel:${String(p.phone).replace(/[^\d+]/g,"")}`} style={{color:N,fontWeight:500,textDecoration:"none"}}>{p.phone}</a>:<span>No phone</span>}
+                  {p.promo&&<span style={{background:AM+"1a",color:AM,borderRadius:10,padding:"1px 8px",fontWeight:600,fontSize:10.5}}>📣 {p.promo}</span>}
+                  {p.cameDate&&<span>· Came {fd(p.cameDate)}</span>}
+                </div>
+                {p.notes&&<div style={{fontSize:11,color:MU,marginTop:3,fontStyle:"italic"}}>{p.notes}</div>}
+              </div>
+              <button onClick={()=>toggleOptIn(p)} title="Toggle whether this person receives promotional texts" style={{fontSize:10.5,borderRadius:20,padding:"3px 10px",fontWeight:600,cursor:"pointer",border:"0.5px solid "+(optIn?GR:BR),background:optIn?GR+"18":BG,color:optIn?GR:MU}}>{optIn?"✓ Texts on":"Texts off"}</button>
+              <button onClick={()=>textOne(p)} style={{background:"#dcfce7",border:"none",borderRadius:7,padding:"6px 10px",cursor:"pointer",color:GR,fontSize:11.5,fontWeight:600}}>Text</button>
+              <button onClick={()=>openEdit(p)} style={{background:BG,border:"0.5px solid "+BR,borderRadius:7,padding:"6px 10px",cursor:"pointer",color:TX,fontSize:11.5}}>Edit</button>
+              <button onClick={()=>del(p.id)} style={{background:"#fee2e2",border:"none",borderRadius:7,padding:"6px 10px",cursor:"pointer",color:RE,fontSize:11.5}}>Remove</button>
+            </div>
+            );
+          })}
+        </div>
+      )}
+
+      <Modal open={modal} onClose={()=>setModal(false)} title={editing?"Edit Promotion Contact":"Add Promotion Contact"}>
+        <div style={{display:"flex",gap:10}}>
+          <Fld label="First Name *"><Inp value={form.first} onChange={sf("first")} placeholder="First name"/></Fld>
+          <Fld label="Last Name"><Inp value={form.last} onChange={sf("last")} placeholder="Last name"/></Fld>
+        </div>
+        <Fld label="Phone *"><Inp value={form.phone} onChange={v=>sf("phone")(fmtPhone(v))} placeholder="(555) 123-4567"/></Fld>
+        <Fld label="Promotion / Event they came from"><Inp value={form.promo} onChange={sf("promo")} placeholder="e.g. Back to School Giveaway"/></Fld>
+        <Fld label="Date they came out"><Inp value={form.cameDate} onChange={sf("cameDate")} type="date"/></Fld>
+        <Fld label="Notes"><textarea value={form.notes} onChange={e=>sf("notes")(e.target.value)} rows={3} placeholder="How you met them, anything to remember, etc." style={{width:"100%",padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",fontFamily:"inherit",resize:"vertical",boxSizing:"border-box"}}/></Fld>
+        <label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:TX,cursor:"pointer",margin:"4px 0 8px"}}>
+          <input type="checkbox" checked={form.textOptIn!==false} onChange={e=>sf("textOptIn")(e.target.checked)} style={{width:16,height:16,cursor:"pointer"}}/>
+          Include in promotional event texts
+        </label>
+        <div style={{display:"flex",gap:8,marginTop:4}}>
+          <Btn onClick={save} style={{flex:1,justifyContent:"center"}}>{editing?"Save Changes":"Add to List"}</Btn>
+          <Btn v="ghost" onClick={()=>setModal(false)} style={{flex:1,justifyContent:"center"}}>Cancel</Btn>
+        </div>
+      </Modal>
+    </div>
+  );
+}
+
 function ProspectsPage({prospects,setProspects,members,setView,onOpenSms,isAdmin=true,currentUserId=null,currentUserMemberId=null,currentUserName="",portalMode=false}:any) {
   const blank = () => ({first:"",last:"",phone:"",street:"",city:"",state:"",zip:"",invitedBy:"",invitedById:null,status:"Not Contacted",notes:""});
   const [form,setForm] = useState(blank());
@@ -18304,6 +18439,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   const [members,setMembers] = useState(lsGet('members') ?? _I.members ?? []);
   const [visitors,setVisitors] = useState(lsGet('visitors') ?? _I.visitors ?? []);
   const [prospects,setProspects] = useState(lsGet('prospects') ?? []);
+  const [promoContacts,setPromoContacts] = useState(lsGet('promoContacts') ?? []);
   const [attendance,setAttendance] = useState(lsGet('attendance') ?? _I.attendance ?? []);
   const [giving,setGiving] = useState([]); // financial data lives in the role-gated church_giving table, not the blob/localStorage
   const [prayers,setPrayers] = useState(lsGet('prayers') ?? _I.prayers ?? []);
@@ -18752,6 +18888,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   useEffect(()=>{lsSave('roles',roles);},[roles]);
   useEffect(()=>{lsSave('permissions',permissions);},[permissions]);
   useEffect(()=>{lsSave('prospects',prospects);},[prospects]);
+  useEffect(()=>{lsSave('promoContacts',promoContacts);},[promoContacts]);
   useEffect(()=>{lsSave('sickVisits',sickVisits);},[sickVisits]);
   useEffect(()=>{lsSave('benevolence',benevolence);},[benevolence]);
   useEffect(()=>{lsSave('cleaning_schedule',cleaningSchedule);},[cleaningSchedule]);
@@ -19010,6 +19147,21 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
         const ts=(r:any)=>new Date(r?.updatedAt||r?.createdAt||0).getTime()||0;
         const byId=new Map<string,any>();
         (d.prospects as any[]).forEach((r:any)=>byId.set(String(r.id),r));
+        const recentMs=Date.now()-3*60*1000;
+        curArr.forEach((lr:any)=>{
+          const cr=byId.get(String(lr.id));
+          if(!cr){ if(ts(lr)>recentMs) byId.set(String(lr.id),lr); }
+          else if(ts(lr)>ts(cr)) byId.set(String(lr.id),lr);
+        });
+        return Array.from(byId.values());
+      });
+      if(Array.isArray(d.promoContacts)) setPromoContacts((cur:any)=>{
+        // MERGE by id (same rationale as prospects): a just-added promotion contact or an opt-in toggle
+        // shouldn't blink out if the 60s poll lands before its save reaches the cloud. Cloud is base.
+        const curArr=Array.isArray(cur)?cur:[];
+        const ts=(r:any)=>new Date(r?.updatedAt||r?.createdAt||0).getTime()||0;
+        const byId=new Map<string,any>();
+        (d.promoContacts as any[]).forEach((r:any)=>byId.set(String(r.id),r));
         const recentMs=Date.now()-3*60*1000;
         curArr.forEach((lr:any)=>{
           const cr=byId.get(String(lr.id));
@@ -19377,7 +19529,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
         // tables (event_checkins / kids_checkins), loaded authoritatively on mount. With the full
         // check-in history now loaded into state, dual-writing them ballooned the blob (~4.1MB) and
         // caused intermittent save failures ("sync error"); dropping the duplicates fixes that.
-        teacherSchedule,teacherFollowups,eventRsvps,announcements,roles,permissions,churchSettings,users:safeUsers,prospects,portalSignups,portalMembers,
+        teacherSchedule,teacherFollowups,eventRsvps,announcements,roles,permissions,churchSettings,users:safeUsers,prospects,promoContacts,portalSignups,portalMembers,
         followupDismissedChildIds,
         sickVisits,benevolence,hospitalityFund,hospStartBalance:_hospBal,cleaningSchedule,eventSchedule,adminNotesRead,careContacted,servicePlans,
         // Tell the DB no-shrink guard (trg_guard_no_shrink_kids) this client does a correct
@@ -19424,7 +19576,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   },[members,visitors,attendance,prayers,groups,grpMeetings,visitRecords,
     children,classrooms,equipment,workOrders,schedMaint,supplies,checkoutItems,checkouts,
     emailLog,emailTemplates,emailConfig,recurring,custom,rollCalls,
-    teacherSchedule,teacherFollowups,eventRsvps,announcements,roles,permissions,churchSettings,users,prospects,portalSignups,portalMembers,
+    teacherSchedule,teacherFollowups,eventRsvps,announcements,roles,permissions,churchSettings,users,prospects,promoContacts,portalSignups,portalMembers,
     followupDismissedChildIds,
     sickVisits,benevolence,hospitalityFund,hospStartBalance,cleaningSchedule,eventSchedule,adminNotesRead,careContacted,servicePlans]);
 
@@ -19509,6 +19661,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
     {id:"addperson",label:"Add Person",icon:"➕",group:"Core"},
     {id:"people",label:"Members Profile",icon:"P",group:"Core"},
     {id:"prospects",label:"Prospects",icon:"🎯",group:"Core"},
+    {id:"promo",label:"Event Promotion",icon:"📣",group:"Core"},
     {id:"visitation",label:"Visitation",icon:"V",group:"Core"},
     {id:"media",label:"Watch Live",icon:"📺",group:"Core"},
     {id:"prayer",label:"Prayer Wall",icon:"Pr",group:"Pastoral Care"},
@@ -19548,7 +19701,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   // Map nav IDs to MODULES keys for permission checking (null = always visible)
   const NAV_MOD_MAP:Record<string,string|null> = {
     dashboard:null, addperson:"addperson", people:"directory",
-    prospects:null,
+    prospects:null, promo:null,
     visitation:"visitation", groups:"groups", education:"education",
     hospitalvisits:"hospitalVisits", benevolencefund:"benevolenceFund", counselinglog:"counselingLog", hospitalityfund:"hospitalityFund",
     maintenance:"maintenance", calendar:"events", attendance:"attendance",
@@ -19977,6 +20130,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           {/* ── Member Portal hard-gate: only myprofile, media, and prayer allowed ── */}
           {view==="media" && <MediaPage cs={churchSettings}/>}
           {isMemberPortal && view==="prospects" && <ProspectsPage prospects={prospects} setProspects={setProspects} members={members} setView={setView} portalMode={true} isAdmin={false} currentUserId={null} currentUserMemberId={portalMember?.id ?? null} currentUserName={(portalMember.first+" "+portalMember.last).trim()}/>}
+          {!isMemberPortal && view==="promo" && <EventPromoPage promoContacts={promoContacts} setPromoContacts={setPromoContacts} cs={churchSettings}/>}
           {isMemberPortal && view!=="prayer" && view!=="media" && view!=="prospects" && <MemberProfilePortal member={portalMember} setMembers={setMembers} giving={giving} onSignOut={onSignOut} roles={roles} users={users} setUsers={setUsers} recurring={recurring} custom={custom} eventRsvps={eventRsvps} setEventRsvps={setEventRsvps} members={members} children={children} announcements={announcements} cleaningSchedule={cleaningSchedule} eventSchedule={eventSchedule} givingUrl={churchSettings?.onlineGivingUrl||"https://myntccglendaleaz.onlinegiving.cc/"} initialTab={view==="give"?"give":view==="news"?"news":"profile"}/>}
           {isMemberPortal && view==="prayer" && <Prayer prayers={prayers} setPrayers={setPrayers} portalMode={true} portalMember={portalMember}/>}
           {/* ── My Profile: every logged-in staff/user. Shows their member record if linked, else a read-only account card. ── */}
