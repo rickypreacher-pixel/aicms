@@ -16941,7 +16941,7 @@ function ManualPage(){
   const [activeSection,setActiveSection]=useState('s1');
   const SECTIONS=[
     {id:'s1',label:'1. Getting Started'},{id:'s2',label:'2. Dashboard'},{id:'s3',label:'3. Adding People'},
-    {id:'s21',label:'4. Prospects'},{id:'s4',label:'5. Members Profile'},{id:'s5',label:'6. Visitation & Follow-Up'},
+    {id:'s21',label:'4. Prospects'},{id:'s21b',label:'4b. Event Promotion List'},{id:'s4',label:'5. Members Profile'},{id:'s5',label:'6. Visitation & Follow-Up'},
     {id:'s6',label:'7. Groups Ministry'},{id:'s7',label:'8. Education & Check-In'},{id:'s8',label:'9. Event Calendar'},
     {id:'s9',label:'10. Attendance'},{id:'s10',label:'11. Giving & Pledges'},{id:'s11',label:'12. Prayer Wall'},
     {id:'s12',label:'13. Email Center'},{id:'s13',label:'14. SMS Center'},{id:'s14',label:'15. Access Control'},
@@ -17043,6 +17043,18 @@ function ManualPage(){
           <H3>When a Prospect Visits</H3>
           <Ol><Li>When they attend a service, go to <B>Add Person</B> and save them as a <B>Visitor</B></Li><Li>Use the same First and Last name as entered in Prospects</Li><Li>ChurchOS will automatically remove them from Prospects on save — no manual deletion needed</Li></Ol>
           <Warn>The auto-removal is name-based (First + Last, case-insensitive). If the name was recorded differently (e.g. “Bob” vs “Robert”), delete the prospect card manually after adding them as a Visitor.</Warn>
+        </Sec>
+
+        <Sec><H id="s21b">4b. Event Promotion List</H>
+          <P>The <B>Event Promotion</B> page is a separate outreach list for people who came out from a promotion or event (a giveaway, community outreach, concert, etc.) but whom you do <B>not</B> want in your Members or Visitation profiles yet — not until they return to church at least one more time.</P>
+          <Note>These contacts live only on this list. They are never added to Members, Visitors, or the Visitation pipeline automatically, so your directory and follow-up numbers stay accurate.</Note>
+          <H3>Adding Someone</H3>
+          <Ol><Li>Click <B>Event Promotion</B> in the sidebar (Core group) and click <B>+ Add Person</B></Li><Li>Enter <B>First Name</B> and <B>Phone</B> (required); Last Name is optional</Li><Li>Fill in the <B>Promotion / Event they came from</B> (e.g. Back to School Giveaway) and the <B>date they came out</B></Li><Li>Leave <B>Include in promotional event texts</B> checked if you want them to receive future promo texts</Li><Li>Click <B>Add to List</B></Li></Ol>
+          <H3>Texting the List About Other Events</H3>
+          <Ul><Li>Each person has a <B>Texts on / Texts off</B> toggle — only people with Texts on (and a phone number) receive promotional texts</Li><Li>Click <B>Text</B> on any card to message that one person through the SMS Center</Li><Li>Click <B>Text This List</B> at the top to open a bulk text to everyone currently shown who is opted in</Li></Ul>
+          <Tip>Use the <B>promotion filter</B> to text just the people from one specific event, or search by name or phone to find someone fast.</Tip>
+          <H3>When They Return to Church</H3>
+          <Ol><Li>Once they come back, add them the normal way through <B>Add Person</B> as a Visitor or Member</Li><Li>Then remove them from the Event Promotion list with the <B>Remove</B> button</Li></Ol>
         </Sec>
 
         <Sec><H id="s4">5. Members Profile</H>
