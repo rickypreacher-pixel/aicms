@@ -6589,7 +6589,7 @@ function CalendarView({members,visitors,setVisitors,groups,recurring,setRecurrin
     if(grpCheckedIds.has(member.id))return;
     const grp=selGrpEvt;
     // Add to calendar check-ins
-    setCheckIns(cs=>[...cs,{id:newCid(),iid:grp.iid,eid:"g"+grp.id,ename:grp.name,date:grp.date,time:grp.time,pid:member.id,ptype:"member",first:member.first,last:member.last,phone:member.phone||"",isNew:false,role:member.role||"Member",family:"",broughtBy:"",dob:"",age:"",allergies:[],medical:[],medNotes:"",at:new Date().toLocaleTimeString(),isGroupCI:true,groupId:grp.id}]);
+    setCheckIns(cs=>[...cs,{id:newCid(),iid:grp.iid,eid:"g"+grp.id,ename:grp.name,date:grp.date,time:grp.time,pid:member.id,ptype:member._prospect?"prospect":"member",first:member.first,last:member.last,phone:member.phone||"",isNew:false,role:member.role||"Member",family:"",broughtBy:"",dob:"",age:"",allergies:[],medical:[],medNotes:"",at:new Date().toLocaleTimeString(),isGroupCI:true,groupId:grp.id}]);
     // Auto-log to Groups Ministry attendance
     const existingMeet=grpMeetings.find(m=>m.groupId===grp.id&&m.date===grp.date);
     if(existingMeet){
@@ -6858,7 +6858,9 @@ function CalendarView({members,visitors,setVisitors,groups,recurring,setRecurrin
                       {dayGrpEvts.map(grp=>{
                         const grpCIs=checkIns.filter(c=>c.iid===grp.iid);
                         const isSel=selGrpEvt?.iid===grp.iid;
-                        const enrolled=members.filter(m=>grp.memberIds.includes(m.id));
+                        // Roster can hold members AND prospects (prospects stored as "P:<id>"). Resolve
+                        // both so a prospect enrolled in the group (e.g. MorningStar) shows for check-in.
+                        const enrolled=(grp.memberIds||[]).map((mid:any)=>{const s=String(mid);if(s.startsWith("P:")){const p=(prospects||[]).find((x:any)=>String(x.id)===s.slice(2));return p?{...p,id:s,ptype:"prospect",_prospect:true,role:"Prospect"}:null;}return members.find(m=>String(m.id)===String(mid))||null;}).filter(Boolean);
                         const leader=members.find(m=>m.id===grp.leaderId);
                         const presentIds=new Set(grpCIs.map(c=>c.pid));
                         return(
@@ -6900,6 +6902,7 @@ function CalendarView({members,visitors,setVisitors,groups,recurring,setRecurrin
                                           <div style={{fontSize:10,color:MU}}>{m.role||"Member"}</div>
                                         </div>
                                         {m.id===grp.leaderId&&<span style={{fontSize:9,background:grp.color+"22",color:grp.color,borderRadius:8,padding:"1px 6px",fontWeight:500}}>Leader</span>}
+                                        {m._prospect&&<span style={{fontSize:9,background:AM+"22",color:AM,borderRadius:8,padding:"1px 6px",fontWeight:600}}>Prospect</span>}
                                         {isIn?<span style={{fontSize:10,color:GR,fontWeight:600}}>Present</span>:<span style={{fontSize:10,background:grp.color,color:"#fff",borderRadius:4,padding:"2px 7px",cursor:"pointer"}}>Mark In</span>}
                                       </div>
                                     );
