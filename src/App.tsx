@@ -609,7 +609,14 @@ function CheckoutsTab({checkoutItems,setCheckoutItems,checkouts,setCheckouts,equ
           {(equipment||[]).length>0&&<optgroup label="Equipment">{(equipment||[]).sort((a,b)=>a.name.localeCompare(b.name)).map(e=><option key={'eq_'+e.id} value={'eq_'+e.id}>{e.name}</option>)}</optgroup>}
         </select>
       </Fld>
-      <Fld label="Quantity"><input type="number" min="1" value={form.qty||'1'} onChange={e=>setForm((f:any)=>({...f,qty:e.target.value}))} style={inp}/></Fld>
+      {/* Stepper instead of a bare number input: phone browsers don't render the up/down spinner
+          arrows, which left mobile users stuck at 1. The − / + buttons are big tap targets that work
+          everywhere; the field itself is still typeable (numeric keypad on phones). */}
+      <Fld label="Quantity"><div style={{display:'flex',alignItems:'center',gap:10}}>
+        <button type="button" aria-label="Decrease quantity" onClick={()=>setForm((f:any)=>({...f,qty:String(Math.max(1,(parseInt(f.qty,10)||1)-1))}))} style={{width:46,height:46,flexShrink:0,borderRadius:10,border:'1px solid '+BR,background:BG,fontSize:24,fontWeight:600,color:N,cursor:'pointer',lineHeight:1}}>−</button>
+        <input type="number" inputMode="numeric" min="1" value={form.qty||'1'} onChange={e=>setForm((f:any)=>({...f,qty:e.target.value.replace(/[^0-9]/g,'')}))} onBlur={e=>setForm((f:any)=>({...f,qty:String(Math.max(1,parseInt((e.target as any).value,10)||1))}))} style={{...inp,textAlign:'center',flex:1,minWidth:0,fontSize:16}}/>
+        <button type="button" aria-label="Increase quantity" onClick={()=>setForm((f:any)=>({...f,qty:String((parseInt(f.qty,10)||1)+1)}))} style={{width:46,height:46,flexShrink:0,borderRadius:10,border:'1px solid '+BR,background:BG,fontSize:24,fontWeight:600,color:N,cursor:'pointer',lineHeight:1}}>+</button>
+      </div></Fld>
       <Fld label="Checkout Date *"><input type="date" value={form.checkoutDate||''} onChange={e=>setForm((f:any)=>({...f,checkoutDate:e.target.value}))} style={inp}/></Fld>
       <Fld label="Expected Return Date"><input type="date" value={form.expectedReturnDate||''} onChange={e=>setForm((f:any)=>({...f,expectedReturnDate:e.target.value}))} style={inp}/></Fld>
       <Fld label="Purpose / Event (optional)"><input value={form.purpose||''} onChange={e=>setForm((f:any)=>({...f,purpose:e.target.value}))} placeholder="e.g. Family Reunion, Birthday Party" style={inp}/></Fld>
