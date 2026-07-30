@@ -5963,7 +5963,7 @@ function Groups({members,groups,setGroups,grpMeetings,setGrpMeetings,currentUser
   const leader=group?members.find(m=>m.id===group.leaderId):null;
 
   const openAdd=()=>{setEditG(null);setForm({name:"",type:"Bible Study",description:"",color:GROUP_COLORS[0],day:"Wednesday",time:"7:00 PM",location:"",leaderId:"",showOnCalendar:true});setLeaderOpen(false);setLeaderSearch("");setModal(true);};
-  const openEdit=g=>{setEditG(g);setForm({name:g.name,type:g.type,description:g.description,color:g.color,day:g.day,time:g.time,location:g.location,leaderId:g.leaderId||""});setLeaderOpen(false);setLeaderSearch("");setModal(true);};
+  const openEdit=g=>{setEditG(g);setForm({name:g.name,type:g.type,description:g.description,color:g.color,day:g.day,time:g.time,location:g.location,leaderId:g.leaderId||"",showOnCalendar:g.showOnCalendar!==false});setLeaderOpen(false);setLeaderSearch("");setModal(true);};
   const saveGroup=()=>{
     if(!form.name.trim()){alert("Group name required.");return;}
     if(editG)setGroups(gs=>gs.map(g=>g.id===editG.id?{...g,...form,leaderId:+form.leaderId||null}:g));
@@ -6534,7 +6534,7 @@ function CalendarView({members,visitors,setVisitors,groups,recurring,setRecurrin
   const newCid=()=>{ const b=Math.floor(Date.now()*1000+Math.random()*1000); cidRef.current=Math.max(cidRef.current+1,b); return cidRef.current; };
   const ef=k=>v=>setEvtForm(f=>({...f,[k]:v}));
   const todayStr=td();const grid=buildCGrid(yr,mo);
-  const calGroups=groups.filter(g=>g.showOnCalendar);
+  const calGroups=groups.filter(g=>g.showOnCalendar!==false);
   const dayEvts=selDate?cEventsFor(selDate,recurring,custom,[]):[];
   const dayGrpEvts=selDate?calGroups.filter(g=>CD2DOW[g.day]===new Date(selDate+"T00:00:00").getDay()).map(g=>({...g,iid:"g"+g.id+"_"+selDate,date:selDate})):[];
   const evtCIs=selEvt?checkIns.filter(c=>c.iid===selEvt.iid):[];
