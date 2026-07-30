@@ -7644,8 +7644,17 @@ function SickVisitLog({members,visitors,sickVisits,setSickVisits,users=[]}:any) 
   const [filterStatus,setFilterStatus] = useState("All");
   const [search,setSearch] = useState("");
   const [formError,setFormError] = useState("");
+  const [personQuery,setPersonQuery] = useState("");  // Person auto-fill search text
   const nid = useRef(9700);
   const sf = (k:string) => (v:any) => {setFormError("");setForm((f:any)=>({...f,[k]:v}));};
+  // Person auto-fill: Active members + visitors, searched by name.
+  const personPool = [
+    ...members.filter((m:any)=>m.status==="Active").map((m:any)=>({id:m.id,type:"member",name:((m.first||"")+" "+(m.last||"")).trim()})),
+    ...(visitors||[]).map((v:any)=>({id:v.id,type:"visitor",name:((v.first||"")+" "+(v.last||"")).trim()})),
+  ];
+  const personSuggestions = personQuery.trim().length>0
+    ? personPool.filter((p:any)=>p.name.toLowerCase().includes(personQuery.trim().toLowerCase())).sort((a:any,b:any)=>a.name.localeCompare(b.name)).slice(0,10)
+    : [];
   const getPerson = (id:number,type:string) => type==="member"?members.find((m:any)=>m.id===id):visitors.find((v:any)=>v.id===id);
   const getPersonName = (id:number,type:string) => {const p=getPerson(id,type);return p?p.first+" "+p.last:"Unknown";};
   const save = () => {
@@ -7715,13 +7724,26 @@ function SickVisitLog({members,visitors,sickVisits,setSickVisits,users=[]}:any) 
           })}
         </div>
       )}
-      <Modal open={modal} onClose={()=>{setModal(false);setEditing(null);setForm(blank());setFormError("");}} title={editing?"Edit Visit":"Log Visit"} width={500}>
+      <Modal open={modal} onClose={()=>{setModal(false);setEditing(null);setForm(blank());setFormError("");setPersonQuery("");}} title={editing?"Edit Visit":"Log Visit"} width={500}>
         <Fld label="Person">
-          <select value={form.personId} onChange={e=>{const opt=e.target.selectedOptions[0];sf("personId")(e.target.value);sf("personType")(opt?.dataset.type||"member");}} style={{width:"100%",padding:"9px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none"}}>
-            <option value="">— Select Person —</option>
-            <optgroup label="Members">{members.filter((m:any)=>m.status==="Active").sort((a:any,b:any)=>a.last.localeCompare(b.last)).map((m:any)=><option key={m.id} value={m.id} data-type="member">{m.last}, {m.first}</option>)}</optgroup>
-            <optgroup label="Visitors">{visitors.sort((a:any,b:any)=>a.last.localeCompare(b.last)).map((v:any)=><option key={v.id} value={v.id} data-type="visitor">{v.last}, {v.first}</option>)}</optgroup>
-          </select>
+          {form.personId ? (
+            <div style={{display:"flex",alignItems:"center",gap:8,padding:"9px 10px",border:"0.5px solid "+G,borderRadius:8,background:GL+"44"}}>
+              <span style={{flex:1,fontSize:13,fontWeight:600,color:N}}>{getPersonName(+form.personId,form.personType)}</span>
+              <span style={{fontSize:10,background:form.personType==="member"?"#dcfce7":"#fff3e0",color:form.personType==="member"?GR:AM,borderRadius:20,padding:"2px 8px",fontWeight:500}}>{form.personType}</span>
+              <button onClick={()=>{sf("personId")("");setPersonQuery("");}} style={{background:"none",border:"none",cursor:"pointer",color:MU,fontSize:12,fontWeight:600}}>✕ Change</button>
+            </div>
+          ) : (
+            <div style={{position:"relative"}}>
+              <input value={personQuery} onChange={e=>setPersonQuery(e.target.value)} placeholder="Search members & visitors by name…" style={{width:"100%",padding:"9px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",boxSizing:"border-box" as any,background:W}}/>
+              {personSuggestions.length>0 && <div style={{position:"absolute",top:"100%",left:0,right:0,zIndex:20,background:W,border:"0.5px solid "+BR,borderRadius:8,marginTop:4,maxHeight:240,overflowY:"auto",boxShadow:"0 8px 20px rgba(0,0,0,0.14)"}}>
+                {personSuggestions.map((p:any)=>(
+                  <div key={p.type+":"+p.id} onMouseDown={e=>{e.preventDefault(); sf("personId")(String(p.id)); sf("personType")(p.type); setPersonQuery(""); }} style={{padding:"8px 12px",cursor:"pointer",fontSize:13,borderBottom:"0.5px solid "+BR+"55",display:"flex",justifyContent:"space-between",gap:8,alignItems:"center"}} onMouseEnter={e=>((e.currentTarget as any).style.background=BG)} onMouseLeave={e=>((e.currentTarget as any).style.background=W)}>
+                    <span>{p.name}</span><span style={{fontSize:10,color:MU}}>{p.type}</span>
+                  </div>
+                ))}
+              </div>}
+            </div>
+          )}
         </Fld>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
           <Fld label="Date Assigned"><Inp type="date" value={form.assignedDate} onChange={sf("assignedDate")}/></Fld>
