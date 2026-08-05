@@ -13613,6 +13613,7 @@ function CheckInPortal({classrooms,children,setChildren,kidsCheckIns,setKidsChec
   const roleNameLc = String(roleName||"").toLowerCase();
   const isAdmin = !!currentUser?.superAdmin || roleNameLc==="administrator" || roleNameLc==="admin" || roleNameLc.includes("admin");
   const isStaff = ["staff","office","team supervisor","team leader"].includes(roleNameLc);
+  const isAssistantPastor = roleNameLc==="assistant pastor";
   const dateCI=kidsCheckIns.filter(c=>c.date===selDate);
   const activeCI=dateCI.filter(c=>!c.checkedOut);
   // Count DISTINCT children (not raw records). Multi-device sync can leave several rows for the same
@@ -13625,13 +13626,10 @@ function CheckInPortal({classrooms,children,setChildren,kidsCheckIns,setKidsChec
     if(!selChild||!selClass)return;
     const selectedDateLabel = new Date(selDate+"T00:00:00").toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric",year:"numeric"});
     const isPastDate = selDate < today;
-    const isSunday = new Date(selDate+"T00:00:00").getDay()===0;
-    if(isPastDate && !isSunday){
-      alert("Check-in blocked for "+selectedDateLabel+". Past-date check-ins are allowed for Sundays only.");
-      return;
-    }
-    if(isPastDate && isSunday && !(isAdmin || isStaff)){
-      alert("Check-in blocked for "+selectedDateLabel+". Only Admin and Staff can enter late Sunday check-ins.");
+    // Back-dating a check-in (adding attendance after the event date has passed) is limited to
+    // Administrators, Staff, and the Assistant Pastor — and now any weekday, not just Sundays.
+    if(isPastDate && !(isAdmin || isStaff || isAssistantPastor)){
+      alert("Check-in blocked for "+selectedDateLabel+". Only an Administrator, Staff, or Assistant Pastor can add a check-in after the event date has passed.");
       return;
     }
     const dup = (kidsCheckIns||[]).some((c:any)=>String(c.childId)===String(selChild.id) && String(c.date)===String(selDate));
