@@ -1331,6 +1331,7 @@ function BackupRestore({backupData,onRestore}:any){
     ['prayers','Prayer Requests'],['groups','Groups'],['grpMeetings','Group Meetings'],
     ['checkIns','Event Check-Ins'],['kidsCheckIns','Kids Check-Ins'],['children','Children'],['classrooms','Classrooms'],
     ['visitRecords','Visitation Records'],['sickVisits','Hospital / Sick Visits'],['prospects','Prospects / Leads'],['promoContacts','Event Promotion List'],
+    ['serveTeams','Serve Teams'],['serveSignups','Serve-Team Signups'],
     ['pledgeDrives','Pledge Drives'],['pledges','Pledges'],['weeklyReports','Weekly Reports'],
     ['equipment','Equipment'],['workOrders','Work Orders'],['schedMaint','Scheduled Maintenance'],
     ['supplies','Supplies'],['checkoutItems','Checkout Items'],['checkouts','Checkouts'],
@@ -2060,6 +2061,19 @@ const IPRAYERS:any[]=[];
 const GROUP_TYPES=["Bible Study","Prayer Group","Ministry Team","Youth Group","Outreach","Worship","Custom"];
 const GROUP_COLORS=["#1a2e5a","#c9a84c","#16a34a","#2563eb","#7c3aed","#dc2626","#d97706","#0891b2","#be185d","#065f46"];
 const DAYS=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+// Starter Serve-Team list (admin-editable). Fixed string ids so two devices seeding independently
+// merge to the same rows instead of duplicating. Members self-sign-up from My Profile → 🙌 Serve.
+const STARTER_SERVE_TEAMS=[
+  {id:'st_greeters',name:'Greeters',day:'Sunday',time:'9:00 AM',color:'#2563eb',description:'Welcome people at the doors',active:true},
+  {id:'st_ushers',name:'Ushers',day:'Sunday',time:'9:30 AM',color:'#7c3aed',description:'Seating, offering, order of service',active:true},
+  {id:'st_worship',name:'Worship Team',day:'Sunday',time:'8:00 AM',color:'#dc2626',description:'Music and worship',active:true},
+  {id:'st_kids',name:'Kids / Nursery',day:'Sunday',time:'9:45 AM',color:'#16a34a',description:"Children's ministry and nursery",active:true},
+  {id:'st_media',name:'Media / Sound',day:'Sunday',time:'8:30 AM',color:'#0891b2',description:'Sound, slides, livestream',active:true},
+  {id:'st_parking',name:'Parking',day:'Sunday',time:'9:00 AM',color:'#d97706',description:'Parking lot and directions',active:true},
+  {id:'st_hospitality',name:'Hospitality',day:'Sunday',time:'10:00 AM',color:'#db2777',description:'Coffee, refreshments, guest care',active:true},
+  {id:'st_prayer',name:'Prayer Team',day:'Sunday',time:'10:30 AM',color:'#4f46e5',description:'Altar and prayer ministry',active:true},
+  {id:'st_cleaning',name:'Cleaning',day:'Saturday',time:'9:00 AM',color:'#059669',description:'Building cleaning and setup',active:true},
+];
 const IGROUPS:any[]=[];
 const IMEETINGS:any[]=[];
 
@@ -17505,6 +17519,11 @@ function ManualPage(){
           <P>The portal's <B>My Profile</B> tab displays the member's personal information pulled directly from the church database:</P>
           <Ul><Li>Full name, phone, email address</Li><Li>Home address (with map link)</Li><Li>Important dates: birthday, anniversary, salvation date, baptism date</Li><Li>Spouse name, occupation, employer</Li><Li>Emergency contact name, phone, and relationship</Li><Li>Children names and birthdays</Li><Li>Medical notes and allergies</Li></Ul>
           <P>Members can click <B>Edit Profile</B> to update their own contact information, address, spouse name, emergency contact, and children. Changes save instantly to the church database — staff see the updated info immediately.</P>
+          <H3>🙌 Serve Tab (Serve-Team Signup + Reminders)</H3>
+          <P>The <B>🙌 Serve</B> tab lets a member sign themselves up for the serve teams they'd like to be part of — Greeters, Ushers, Worship, Kids/Nursery, Media/Sound, Parking, Hospitality, Prayer, Cleaning, and any teams you add.</P>
+          <Ul><Li>The member taps <B>Sign Up</B> on a team to join, or <B>Leave</B> to step off — no approval needed.</Li><Li>Each team shows its serving day/time and how many people are signed up.</Li><Li>When a member is scheduled to serve within the next 7 days, a <B>"🙌 You're serving soon"</B> reminder banner appears at the top of My Profile on every tab, showing the team and how many days away it is (Today / Tomorrow / in N days).</Li></Ul>
+          <Note>Administrators and the Assistant Pastor see a <B>✏️ Manage teams</B> button on the Serve tab to add, rename, re-schedule (day/time), or remove serve teams. Everyone else just sees the sign-up list.</Note>
+          <Tip>Serve teams and signups are backed up with everything else (Settings → Backup, under "Serve Teams" and "Serve-Team Signups").</Tip>
           <H3>My Giving Tab</H3>
           <P>The <B>My Giving</B> tab shows the member's complete personal giving history:</P>
           <Ul><Li>Total given (all time)</Li><Li>Number of gifts recorded</Li><Li>A list of every donation: date, amount, fund, and payment method</Li></Ul>
@@ -17889,7 +17908,7 @@ function StaffChat({churchId,currentUserName,isAdmin,channelMembers={},setChanne
     </div>
   );
 }
-function MemberProfilePortal({member,setMembers,giving,onSignOut,staffMode=false,roles=[],users=[],setUsers,recurring=[],custom=[],eventRsvps=[],setEventRsvps=null,members=[],children=[],announcements=[],cleaningSchedule={},eventSchedule={},servicePlans={},currentUser=null,initialTab="profile",givingUrl=""}:any) {
+function MemberProfilePortal({member,setMembers,giving,onSignOut,staffMode=false,roles=[],users=[],setUsers,recurring=[],custom=[],eventRsvps=[],setEventRsvps=null,members=[],children=[],announcements=[],cleaningSchedule={},eventSchedule={},servicePlans={},serveTeams=[],setServeTeams=null,serveSignups=[],setServeSignups=null,currentUser=null,initialTab="profile",givingUrl=""}:any) {
   const [tab,setTab] = useState(initialTab);
   // Let the sidebar open the portal directly to a given tab (e.g. 📢 Announcements → News).
   useEffect(()=>{ setTab(initialTab); },[initialTab]);
@@ -17897,6 +17916,8 @@ function MemberProfilePortal({member,setMembers,giving,onSignOut,staffMode=false
   const [bigView,setBigView] = useState("mine");
   const [expandedRsvp,setExpandedRsvp] = useState<any>(null);
   const [editMode,setEditMode] = useState(false);
+  const [serveManage,setServeManage] = useState(false);
+  const [newTeam,setNewTeam] = useState({name:"",day:"Sunday",time:""});
   const [form,setForm] = useState({...member,address:member.address||{...EMPTY_ADDR},children:member.children||[],allergies:member.allergies||[],medical:member.medical||[]});
   const linkedUser = users.find((u:any)=>String(u.memberId)===String(member.id));
   const [permRoleId,setPermRoleId] = useState(()=>(users.find((u:any)=>String(u.memberId)===String(member.id))?.roleId)||"");
@@ -18010,10 +18031,29 @@ function MemberProfilePortal({member,setMembers,giving,onSignOut,staffMode=false
     .filter((x:any)=>{ const k=(x.name+"|"+x.date).toLowerCase().replace(/\s+/g," ").trim(); if(_seenPlan.has(k))return false; _seenPlan.add(k); return true; })
     .map((x:any)=>({...x,time:_svcTime(x.name)}))
     .sort((a:any,b:any)=>String(a.date).localeCompare(String(b.date))||String(a.name).localeCompare(String(b.name)));
+  // ── Serve Teams (self-signup + in-app reminder banner) ──
+  const _serveTeams = (Array.isArray(serveTeams)?serveTeams:[]).filter((t:any)=>t && t.active!==false);
+  const _serveSignups = Array.isArray(serveSignups)?serveSignups:[];
+  const mySignupFor = (teamId:any)=> _serveSignups.find((s:any)=>String(s.teamId)===String(teamId) && String(s.memberId)===String(member.id));
+  const myServeTeamIds = new Set(_serveSignups.filter((s:any)=>String(s.memberId)===String(member.id)).map((s:any)=>String(s.teamId)));
+  const myServeTeams = _serveTeams.filter((t:any)=>myServeTeamIds.has(String(t.id)));
+  const teamCount = (teamId:any)=> _serveSignups.filter((s:any)=>String(s.teamId)===String(teamId)).length;
+  const canManageServe = !!((currentUser as any)?.superAdmin || (linkedUser as any)?.superAdmin) || _viewerRoleNames.some((rn:string)=>["Administrator","Assistant Pastor"].includes(rn));
+  const _newSid = ()=> Math.floor(Date.now()*1000+Math.random()*1000);
+  const joinTeam = (t:any)=>{ if(!setServeSignups||mySignupFor(t.id)) return; setServeSignups((prev:any[])=>[...(Array.isArray(prev)?prev:[]),{id:_newSid(),teamId:t.id,memberId:member.id,memberName:(member.first+" "+member.last).trim(),at:new Date().toISOString()}]); };
+  const leaveTeam = (t:any)=>{ const s=mySignupFor(t.id); if(!setServeSignups||!s) return; setServeSignups((prev:any[])=>(Array.isArray(prev)?prev:[]).filter((x:any)=>String(x.id)!==String(s.id))); };
+  const addTeam = ()=>{ if(!setServeTeams||!newTeam.name.trim()) return; setServeTeams((prev:any[])=>[...(Array.isArray(prev)?prev:[]),{id:'st_custom_'+_newSid(),name:newTeam.name.trim(),day:newTeam.day||"Sunday",time:newTeam.time||"",color:'#334155',description:"",active:true,updatedAt:new Date().toISOString()}]); setNewTeam({name:"",day:"Sunday",time:""}); };
+  const updTeam = (id:any,patch:any)=> setServeTeams&&setServeTeams((prev:any[])=>(Array.isArray(prev)?prev:[]).map((t:any)=>String(t.id)===String(id)?{...t,...patch,updatedAt:new Date().toISOString()}:t));
+  const removeTeam = (id:any)=>{ if(!setServeTeams||!confirm("Remove this serve team? Members on it will be unsubscribed.")) return; setServeTeams((prev:any[])=>(Array.isArray(prev)?prev:[]).map((t:any)=>String(t.id)===String(id)?{...t,active:false,updatedAt:new Date().toISOString()}:t)); if(setServeSignups) setServeSignups((prev:any[])=>(Array.isArray(prev)?prev:[]).filter((s:any)=>String(s.teamId)!==String(id))); };
+  // Upcoming serve days within the next 7 days → the in-app reminder banner.
+  const _dowIdx:any={Sunday:0,Monday:1,Tuesday:2,Wednesday:3,Thursday:4,Friday:5,Saturday:6};
+  const serveReminders = myServeTeams.map((t:any)=>{ const di=_dowIdx[t.day]; if(di===undefined) return null; const delta=(di-new Date().getDay()+7)%7; return {team:t,days:delta}; }).filter(Boolean).sort((a:any,b:any)=>a.days-b.days);
+  const _serveInp:any={padding:"7px 9px",border:"0.5px solid "+BR,borderRadius:7,fontSize:12,outline:"none",background:W,boxSizing:"border-box"};
+
   const TABS = [
     ...(staffMode
-      ? [{id:"profile",label:"Personal Info"},{id:"give",label:"💝 Give"},{id:"events",label:"📅 Events"},{id:"news",label:"📢 News"},{id:"cleaning",label:"🧹 Cleaning"},{id:"bigevents",label:"🎉 Big Events"}]
-      : [{id:"profile",label:"Personal Info"},{id:"give",label:"💝 Give"},{id:"giving",label:"My Giving"},{id:"events",label:"📅 Events"},{id:"news",label:"📢 News"},{id:"cleaning",label:"🧹 Cleaning"},{id:"bigevents",label:"🎉 Big Events"}]),
+      ? [{id:"profile",label:"Personal Info"},{id:"give",label:"💝 Give"},{id:"events",label:"📅 Events"},{id:"news",label:"📢 News"},{id:"serve",label:"🙌 Serve"},{id:"cleaning",label:"🧹 Cleaning"},{id:"bigevents",label:"🎉 Big Events"}]
+      : [{id:"profile",label:"Personal Info"},{id:"give",label:"💝 Give"},{id:"giving",label:"My Giving"},{id:"events",label:"📅 Events"},{id:"news",label:"📢 News"},{id:"serve",label:"🙌 Serve"},{id:"cleaning",label:"🧹 Cleaning"},{id:"bigevents",label:"🎉 Big Events"}]),
     ...(canViewPlanner ? [{id:"planner",label:"📋 Schedule Planner"}] : []),
   ];
 
@@ -18035,8 +18075,25 @@ function MemberProfilePortal({member,setMembers,giving,onSignOut,staffMode=false
         </div>
       </div>
 
+      {/* In-app serve reminder — shows on every tab when the member is serving within the next week */}
+      {serveReminders.length>0 && (
+        <div style={{background:"#eef6ff",border:"0.5px solid #bfdbfe",borderRadius:12,padding:"12px 16px",marginBottom:16}}>
+          <div style={{fontSize:12,fontWeight:700,color:"#1e40af",marginBottom:6}}>🙌 You're serving soon</div>
+          <div style={{display:"flex",flexDirection:"column",gap:5}}>
+            {serveReminders.slice(0,5).map((r:any)=>(
+              <div key={r.team.id} style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:TX}}>
+                <span style={{width:8,height:8,borderRadius:2,background:r.team.color||"#2563eb",flexShrink:0}}></span>
+                <span style={{fontWeight:600}}>{r.team.name}</span>
+                <span style={{color:MU}}>· {r.team.day}{r.team.time?" "+r.team.time:""}</span>
+                <span style={{marginLeft:"auto",fontSize:11,fontWeight:700,color:r.days===0?"#dc2626":"#2563eb"}}>{r.days===0?"Today":r.days===1?"Tomorrow":"in "+r.days+" days"}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Tabs */}
-      <div style={{display:"flex",gap:6,marginBottom:14}}>
+      <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
         {TABS.map(t=>(
           <button key={t.id} onClick={()=>setTab(t.id)} style={{padding:"7px 16px",borderRadius:8,border:"0.5px solid "+BR,background:tab===t.id?N:"#fff",color:tab===t.id?"#fff":TX,fontWeight:500,fontSize:13,cursor:"pointer"}}>
             {t.label}{t.id==="giving"&&myGiving.length?<span style={{marginLeft:6,background:G,color:N,borderRadius:10,fontSize:10,padding:"1px 7px",fontWeight:700}}>{myGiving.length}</span>:null}
@@ -18276,6 +18333,57 @@ function MemberProfilePortal({member,setMembers,giving,onSignOut,staffMode=false
           })()}
         </div>
       )}
+      {tab==="serve"&&(
+        <div>
+          <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:18,marginBottom:14}}>
+            <div style={{fontSize:15,fontWeight:600,color:N,marginBottom:4}}>🙌 Serve Teams</div>
+            <div style={{fontSize:12,color:MU,lineHeight:1.5}}>Tap <strong>Sign Up</strong> to join a team you'd like to serve on. You'll get a reminder at the top of My Profile before you serve. You can leave a team anytime.</div>
+          </div>
+          {canManageServe && (
+            <div style={{marginBottom:12}}>
+              <button onClick={()=>setServeManage((m:any)=>!m)} style={{padding:"6px 12px",borderRadius:8,border:"0.5px solid "+BR,background:serveManage?N:W,color:serveManage?"#fff":TX,fontSize:12,fontWeight:600,cursor:"pointer"}}>{serveManage?"✓ Done managing":"✏️ Manage teams"}</button>
+              {serveManage && (
+                <div style={{background:BG,border:"0.5px solid "+BR,borderRadius:10,padding:12,marginTop:8}}>
+                  <div style={{fontSize:10,fontWeight:700,color:MU,letterSpacing:0.4,marginBottom:8}}>ADD A TEAM</div>
+                  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                    <input value={newTeam.name} onChange={e=>setNewTeam((t:any)=>({...t,name:e.target.value}))} placeholder="Team name" style={{...(_serveInp as any),flex:1,minWidth:130}}/>
+                    <select value={newTeam.day} onChange={e=>setNewTeam((t:any)=>({...t,day:e.target.value}))} style={_serveInp}>{DAYS.map((d:string)=><option key={d} value={d}>{d}</option>)}</select>
+                    <input value={newTeam.time} onChange={e=>setNewTeam((t:any)=>({...t,time:e.target.value}))} placeholder="Time (e.g. 9:00 AM)" style={{...(_serveInp as any),width:120}}/>
+                    <button onClick={addTeam} style={{background:GR,color:"#fff",border:"none",borderRadius:7,padding:"7px 14px",fontSize:12,fontWeight:600,cursor:"pointer"}}>Add</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            {_serveTeams.length===0 && <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:28,textAlign:"center",color:MU,fontSize:13}}>No serve teams yet.</div>}
+            {_serveTeams.map((t:any)=>{ const joined=myServeTeamIds.has(String(t.id)); const cnt=teamCount(t.id); return (
+              <div key={t.id} style={{background:W,border:"0.5px solid "+(joined?(t.color||"#2563eb"):BR),borderRadius:12,padding:"12px 14px"}}>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <span style={{width:10,height:10,borderRadius:3,background:t.color||"#2563eb",flexShrink:0}}></span>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:14,fontWeight:600,color:N}}>{t.name}</div>
+                    <div style={{fontSize:11,color:MU}}>{t.day}{t.time?" · "+t.time:""}{t.description?" · "+t.description:""}</div>
+                    <div style={{fontSize:10,color:MU,marginTop:1}}>{cnt} serving</div>
+                  </div>
+                  {joined
+                    ? <button onClick={()=>leaveTeam(t)} style={{background:"#fee2e2",border:"none",borderRadius:8,padding:"7px 14px",color:RE,fontSize:12,fontWeight:600,cursor:"pointer"}}>Leave</button>
+                    : <button onClick={()=>joinTeam(t)} style={{background:t.color||N,color:"#fff",border:"none",borderRadius:8,padding:"7px 18px",fontSize:12,fontWeight:600,cursor:"pointer"}}>Sign Up</button>}
+                </div>
+                {joined && <div style={{fontSize:11,color:GR,fontWeight:600,marginTop:6}}>✓ You're on this team</div>}
+                {canManageServe && serveManage && (
+                  <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:8,borderTop:"0.5px solid "+BR,paddingTop:8}}>
+                    <input value={t.name} onChange={e=>updTeam(t.id,{name:e.target.value})} style={{...(_serveInp as any),flex:1,minWidth:120}}/>
+                    <select value={t.day} onChange={e=>updTeam(t.id,{day:e.target.value})} style={_serveInp}>{DAYS.map((d:string)=><option key={d} value={d}>{d}</option>)}</select>
+                    <input value={t.time||""} onChange={e=>updTeam(t.id,{time:e.target.value})} placeholder="Time" style={{...(_serveInp as any),width:110}}/>
+                    <button onClick={()=>removeTeam(t.id)} style={{background:"#fee2e2",border:"none",borderRadius:7,padding:"7px 12px",color:RE,fontSize:12,fontWeight:600,cursor:"pointer"}}>Remove</button>
+                  </div>
+                )}
+              </div>
+            );})}
+          </div>
+        </div>
+      )}
       {tab==="cleaning"&&(
         <div>
           <div style={{fontSize:12,color:MU,marginBottom:10}}>Church cleaning schedule for {new Date().toLocaleDateString("en-US",{month:"long",year:"numeric"})}.</div>
@@ -18484,6 +18592,8 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   const [visitors,setVisitors] = useState(lsGet('visitors') ?? _I.visitors ?? []);
   const [prospects,setProspects] = useState(lsGet('prospects') ?? []);
   const [promoContacts,setPromoContacts] = useState(lsGet('promoContacts') ?? []);
+  const [serveTeams,setServeTeams] = useState(lsGet('serveTeams') ?? STARTER_SERVE_TEAMS);
+  const [serveSignups,setServeSignups] = useState(lsGet('serveSignups') ?? []);
   const [attendance,setAttendance] = useState(lsGet('attendance') ?? _I.attendance ?? []);
   const [giving,setGiving] = useState([]); // financial data lives in the role-gated church_giving table, not the blob/localStorage
   const [prayers,setPrayers] = useState(lsGet('prayers') ?? _I.prayers ?? []);
@@ -18933,6 +19043,8 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   useEffect(()=>{lsSave('permissions',permissions);},[permissions]);
   useEffect(()=>{lsSave('prospects',prospects);},[prospects]);
   useEffect(()=>{lsSave('promoContacts',promoContacts);},[promoContacts]);
+  useEffect(()=>{lsSave('serveTeams',serveTeams);},[serveTeams]);
+  useEffect(()=>{lsSave('serveSignups',serveSignups);},[serveSignups]);
   useEffect(()=>{lsSave('sickVisits',sickVisits);},[sickVisits]);
   useEffect(()=>{lsSave('benevolence',benevolence);},[benevolence]);
   useEffect(()=>{lsSave('cleaning_schedule',cleaningSchedule);},[cleaningSchedule]);
@@ -19212,6 +19324,27 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           if(!cr){ if(ts(lr)>recentMs) byId.set(String(lr.id),lr); }
           else if(ts(lr)>ts(cr)) byId.set(String(lr.id),lr);
         });
+        return Array.from(byId.values());
+      });
+      if(Array.isArray(d.serveTeams)) setServeTeams((cur:any)=>{
+        // Merge by id: admin edits/adds to serve teams shouldn't blink out on a poll. Cloud is base.
+        const curArr=Array.isArray(cur)?cur:[];
+        const ts=(r:any)=>new Date(r?.updatedAt||0).getTime()||0;
+        const byId=new Map<string,any>();
+        (d.serveTeams as any[]).forEach((r:any)=>byId.set(String(r.id),r));
+        const recentMs=Date.now()-3*60*1000;
+        curArr.forEach((lr:any)=>{ const cr=byId.get(String(lr.id)); if(!cr){ if(ts(lr)>recentMs) byId.set(String(lr.id),lr); } else if(ts(lr)>ts(cr)) byId.set(String(lr.id),lr); });
+        return Array.from(byId.values());
+      });
+      if(Array.isArray(d.serveSignups)) setServeSignups((cur:any)=>{
+        // Merge by id (union): a member self-signing-up on their phone must not be dropped by a poll.
+        // Cloud is base so a "Leave" (removal) on another device still propagates; recent local pinned.
+        const curArr=Array.isArray(cur)?cur:[];
+        const ts=(r:any)=>new Date(r?.at||0).getTime()||0;
+        const byId=new Map<string,any>();
+        (d.serveSignups as any[]).forEach((r:any)=>{ if(r&&r.id!=null) byId.set(String(r.id),r); });
+        const recentMs=Date.now()-3*60*1000;
+        curArr.forEach((lr:any)=>{ if(lr&&lr.id!=null && !byId.has(String(lr.id)) && ts(lr)>recentMs) byId.set(String(lr.id),lr); });
         return Array.from(byId.values());
       });
       if(Array.isArray(d.portalSignups)) setPortalSignups((cur:any)=>{
@@ -19573,7 +19706,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
         // tables (event_checkins / kids_checkins), loaded authoritatively on mount. With the full
         // check-in history now loaded into state, dual-writing them ballooned the blob (~4.1MB) and
         // caused intermittent save failures ("sync error"); dropping the duplicates fixes that.
-        teacherSchedule,teacherFollowups,eventRsvps,announcements,roles,permissions,churchSettings,users:safeUsers,prospects,promoContacts,portalSignups,portalMembers,
+        teacherSchedule,teacherFollowups,eventRsvps,announcements,roles,permissions,churchSettings,users:safeUsers,prospects,promoContacts,serveTeams,serveSignups,portalSignups,portalMembers,
         followupDismissedChildIds,
         sickVisits,benevolence,hospitalityFund,hospStartBalance:_hospBal,cleaningSchedule,eventSchedule,adminNotesRead,careContacted,servicePlans,
         // Tell the DB no-shrink guard (trg_guard_no_shrink_kids) this client does a correct
@@ -19620,7 +19753,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
   },[members,visitors,attendance,prayers,groups,grpMeetings,visitRecords,
     children,classrooms,equipment,workOrders,schedMaint,supplies,checkoutItems,checkouts,
     emailLog,emailTemplates,emailConfig,recurring,custom,rollCalls,
-    teacherSchedule,teacherFollowups,eventRsvps,announcements,roles,permissions,churchSettings,users,prospects,promoContacts,portalSignups,portalMembers,
+    teacherSchedule,teacherFollowups,eventRsvps,announcements,roles,permissions,churchSettings,users,prospects,promoContacts,serveTeams,serveSignups,portalSignups,portalMembers,
     followupDismissedChildIds,
     sickVisits,benevolence,hospitalityFund,hospStartBalance,cleaningSchedule,eventSchedule,adminNotesRead,careContacted,servicePlans]);
 
@@ -20120,10 +20253,10 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
             </div>
           )}
           {!isMemberPortal && view==="settings" && isAdminUser && <ChurchSettingsPage cs={churchSettings} setCs={setChurchSettings} churchId={churchId} members={members} setMembers={setMembers} visitors={visitors} setVisitors={setVisitors} attendance={attendance} giving={giving} prayers={prayers} groups={groups} grpMeetings={grpMeetings} visitRecords={visitRecords} checkIns={checkIns} kidsCheckIns={kidsCheckIns} children={children} pledgeDrives={pledgeDrives} pledges={pledges} weeklyReports={weeklyReports} equipment={equipment} workOrders={workOrders} schedMaint={schedMaint}
-            backupData={{members,visitors,attendance,giving,expenses,budgets,openingBalances,prayers,groups,grpMeetings,visitRecords,sickVisits,checkIns,kidsCheckIns,teacherFollowups,followupDismissedChildIds,eventRsvps,eventSchedule,servicePlans,cleaningSchedule,announcements,children,classrooms,prospects,promoContacts,pledgeDrives,pledges,weeklyReports,equipment,workOrders,schedMaint,supplies,checkoutItems,checkouts,users:(users||[]).map((u:any)=>{const{password,pin,...r}=u||{};return r;}),roles,permissions,portalMembers,recurring,custom,emailLog,emailTemplates,emailConfig:(()=>{const{apiKey,...r}=(emailConfig||{});return r;})(),smsLog,smsTemplates,smsConfig,incidents,rollCalls,progressNotes,teacherSchedule,churchSettings,benevolence,hospitalityFund,hospStartBalance,counselingLogs,careContacted,adminNotesRead}}
+            backupData={{members,visitors,attendance,giving,expenses,budgets,openingBalances,prayers,groups,grpMeetings,visitRecords,sickVisits,checkIns,kidsCheckIns,teacherFollowups,followupDismissedChildIds,eventRsvps,eventSchedule,servicePlans,cleaningSchedule,announcements,children,classrooms,prospects,promoContacts,serveTeams,serveSignups,pledgeDrives,pledges,weeklyReports,equipment,workOrders,schedMaint,supplies,checkoutItems,checkouts,users:(users||[]).map((u:any)=>{const{password,pin,...r}=u||{};return r;}),roles,permissions,portalMembers,recurring,custom,emailLog,emailTemplates,emailConfig:(()=>{const{apiKey,...r}=(emailConfig||{});return r;})(),smsLog,smsTemplates,smsConfig,incidents,rollCalls,progressNotes,teacherSchedule,churchSettings,benevolence,hospitalityFund,hospStartBalance,counselingLogs,careContacted,adminNotesRead}}
             onRestore={(d:any,mode:string)=>{
               const s=(setter:any,key:string,isArr=true)=>{if(d[key]===undefined)return;if(mode==='replace'){setter(d[key]);}else{if(isArr&&Array.isArray(d[key])){setter((cur:any[])=>[...cur,...d[key].filter((n:any)=>!cur.find(x=>String(x.id)===String(n.id)))]);}else{setter(d[key]);}}};
-              s(setMembers,'members');s(setVisitors,'visitors');s(setAttendance,'attendance');s(setGiving,'giving');s(setExpenses,'expenses');s(setBudgets,'budgets');s(setOpeningBalances,'openingBalances',false);s(setPrayers,'prayers');s(setGroups,'groups');s(setGrpMeetings,'grpMeetings');s(setVisitRecords,'visitRecords');s(setSickVisits,'sickVisits');s(setCheckIns,'checkIns');s(setKidsCheckIns,'kidsCheckIns');s(setTeacherFollowups,'teacherFollowups');s(setFollowupDismissedChildIds,'followupDismissedChildIds');s(setEventRsvps,'eventRsvps');s(setEventSchedule,'eventSchedule');s(setServicePlans,'servicePlans');s(setCleaningSchedule,'cleaningSchedule');s(setAnnouncements,'announcements');s(setChildren,'children');s(setClassrooms,'classrooms');s(setProspects,'prospects');s(setPromoContacts,'promoContacts');s(setPledgeDrives,'pledgeDrives');s(setPledges,'pledges');s(setWeeklyReports,'weeklyReports');s(setEquipment,'equipment');s(setWorkOrders,'workOrders');s(setSchedMaint,'schedMaint');s(setSupplies,'supplies');s(setCheckoutItems,'checkoutItems');s(setCheckouts,'checkouts');s(setUsers,'users');s(setRoles,'roles');s(setPermissions,'permissions',false);s(setPortalMembers,'portalMembers');s(setRecurring,'recurring');s(setCustom,'custom');s(setEmailLog,'emailLog');s(setEmailTemplates,'emailTemplates',false);s(setEmailConfig,'emailConfig',false);s(setSmsLog,'smsLog');s(setSmsTemplates,'smsTemplates',false);s(setSmsConfig,'smsConfig',false);s(setIncidents,'incidents');s(setRollCalls,'rollCalls');s(setProgressNotes,'progressNotes');s(setTeacherSchedule,'teacherSchedule');s(setBenevolence,'benevolence');s(setHospitalityFund,'hospitalityFund');s(setHospStartBalance,'hospStartBalance',false);s(setCounselingLogs,'counselingLogs');s(setCareContacted,'careContacted');s(setAdminNotesRead,'adminNotesRead');if(d.churchSettings&&mode==='replace')setChurchSettings(d.churchSettings);
+              s(setMembers,'members');s(setVisitors,'visitors');s(setAttendance,'attendance');s(setGiving,'giving');s(setExpenses,'expenses');s(setBudgets,'budgets');s(setOpeningBalances,'openingBalances',false);s(setPrayers,'prayers');s(setGroups,'groups');s(setGrpMeetings,'grpMeetings');s(setVisitRecords,'visitRecords');s(setSickVisits,'sickVisits');s(setCheckIns,'checkIns');s(setKidsCheckIns,'kidsCheckIns');s(setTeacherFollowups,'teacherFollowups');s(setFollowupDismissedChildIds,'followupDismissedChildIds');s(setEventRsvps,'eventRsvps');s(setEventSchedule,'eventSchedule');s(setServicePlans,'servicePlans');s(setCleaningSchedule,'cleaningSchedule');s(setAnnouncements,'announcements');s(setChildren,'children');s(setClassrooms,'classrooms');s(setProspects,'prospects');s(setPromoContacts,'promoContacts');s(setServeTeams,'serveTeams');s(setServeSignups,'serveSignups');s(setPledgeDrives,'pledgeDrives');s(setPledges,'pledges');s(setWeeklyReports,'weeklyReports');s(setEquipment,'equipment');s(setWorkOrders,'workOrders');s(setSchedMaint,'schedMaint');s(setSupplies,'supplies');s(setCheckoutItems,'checkoutItems');s(setCheckouts,'checkouts');s(setUsers,'users');s(setRoles,'roles');s(setPermissions,'permissions',false);s(setPortalMembers,'portalMembers');s(setRecurring,'recurring');s(setCustom,'custom');s(setEmailLog,'emailLog');s(setEmailTemplates,'emailTemplates',false);s(setEmailConfig,'emailConfig',false);s(setSmsLog,'smsLog');s(setSmsTemplates,'smsTemplates',false);s(setSmsConfig,'smsConfig',false);s(setIncidents,'incidents');s(setRollCalls,'rollCalls');s(setProgressNotes,'progressNotes');s(setTeacherSchedule,'teacherSchedule');s(setBenevolence,'benevolence');s(setHospitalityFund,'hospitalityFund');s(setHospStartBalance,'hospStartBalance',false);s(setCounselingLogs,'counselingLogs');s(setCareContacted,'careContacted');s(setAdminNotesRead,'adminNotesRead');if(d.churchSettings&&mode==='replace')setChurchSettings(d.churchSettings);
             }}
           />}
           {!isMemberPortal && view==="dashboard" && <Dashboard members={members} visitors={visitors} attendance={attendance} giving={giving} prayers={prayers} setView={setView} canViewGiving={canViewGiving} isRestrictedUser={isRestrictedUser} canAddPerson={canAddPerson} checkIns={checkIns} careContacted={careContacted} setCareContacted={setCareContacted} isAdmin={isAdminUser} neoDesign={!churchSettings?.classicDashboard}/>}
@@ -20175,11 +20308,11 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           {view==="media" && <MediaPage cs={churchSettings}/>}
           {isMemberPortal && view==="prospects" && <ProspectsPage prospects={prospects} setProspects={setProspects} members={members} setView={setView} portalMode={true} isAdmin={false} currentUserId={null} currentUserMemberId={portalMember?.id ?? null} currentUserName={(portalMember.first+" "+portalMember.last).trim()}/>}
           {!isMemberPortal && view==="promo" && <EventPromoPage promoContacts={promoContacts} setPromoContacts={setPromoContacts} cs={churchSettings}/>}
-          {isMemberPortal && view!=="prayer" && view!=="media" && view!=="prospects" && <MemberProfilePortal member={portalMember} setMembers={setMembers} giving={giving} onSignOut={onSignOut} roles={roles} users={users} setUsers={setUsers} recurring={recurring} custom={custom} eventRsvps={eventRsvps} setEventRsvps={setEventRsvps} members={members} children={children} announcements={announcements} cleaningSchedule={cleaningSchedule} eventSchedule={eventSchedule} givingUrl={churchSettings?.onlineGivingUrl||"https://myntccglendaleaz.onlinegiving.cc/"} initialTab={view==="give"?"give":view==="news"?"news":"profile"}/>}
+          {isMemberPortal && view!=="prayer" && view!=="media" && view!=="prospects" && <MemberProfilePortal member={portalMember} setMembers={setMembers} giving={giving} onSignOut={onSignOut} roles={roles} users={users} setUsers={setUsers} recurring={recurring} custom={custom} eventRsvps={eventRsvps} setEventRsvps={setEventRsvps} members={members} children={children} announcements={announcements} cleaningSchedule={cleaningSchedule} eventSchedule={eventSchedule} serveTeams={serveTeams} setServeTeams={setServeTeams} serveSignups={serveSignups} setServeSignups={setServeSignups} givingUrl={churchSettings?.onlineGivingUrl||"https://myntccglendaleaz.onlinegiving.cc/"} initialTab={view==="give"?"give":view==="news"?"news":"profile"}/>}
           {isMemberPortal && view==="prayer" && <Prayer prayers={prayers} setPrayers={setPrayers} portalMode={true} portalMember={portalMember}/>}
           {/* ── My Profile: every logged-in staff/user. Shows their member record if linked, else a read-only account card. ── */}
           {!isMemberPortal && view==="myprofile" && (staffMemberRecord
-            ? <MemberProfilePortal member={staffMemberRecord} setMembers={setMembers} giving={giving} onSignOut={()=>setView("dashboard")} staffMode={true} roles={roles} users={users} setUsers={setUsers} recurring={recurring} custom={custom} eventRsvps={eventRsvps} setEventRsvps={setEventRsvps} members={members} children={children} announcements={announcements} cleaningSchedule={cleaningSchedule} eventSchedule={eventSchedule} servicePlans={servicePlans} currentUser={currentUser} givingUrl={churchSettings?.onlineGivingUrl||"https://myntccglendaleaz.onlinegiving.cc/"}/>
+            ? <MemberProfilePortal member={staffMemberRecord} setMembers={setMembers} giving={giving} onSignOut={()=>setView("dashboard")} staffMode={true} roles={roles} users={users} setUsers={setUsers} recurring={recurring} custom={custom} eventRsvps={eventRsvps} setEventRsvps={setEventRsvps} members={members} children={children} announcements={announcements} cleaningSchedule={cleaningSchedule} eventSchedule={eventSchedule} servicePlans={servicePlans} serveTeams={serveTeams} setServeTeams={setServeTeams} serveSignups={serveSignups} setServeSignups={setServeSignups} currentUser={currentUser} givingUrl={churchSettings?.onlineGivingUrl||"https://myntccglendaleaz.onlinegiving.cc/"}/>
             : <MyAccountFallback currentUser={currentUser} roles={roles} loggedInEmail={loggedInEmail} displayName={displayName} onBack={()=>setView("dashboard")}/>)}
           {/* ── Staff / Admin views (never rendered for portal users) ── */}
           {!isMemberPortal && view==="sms" && <SmsCenter smsLog={smsLog} setSmsLog={setSmsLog} smsTemplates={smsTemplates} setSmsTemplates={setSmsTemplates} smsConfig={smsConfig} setSmsConfig={setSmsConfig} members={members} visitors={visitors} cs={churchSettings} onCompose={()=>openSmsComposer({})} onBulkCompose={()=>openBulkSmsComposer({recipients:[...members,...visitors].filter(p=>p.phone).map(p=>({...p,first:p.first,last:p.last,name:p.first+" "+p.last}))})}/>}
