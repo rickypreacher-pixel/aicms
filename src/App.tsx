@@ -6417,6 +6417,21 @@ const CALLERGIES=["Peanuts","Tree Nuts","Dairy/Lactose","Gluten/Wheat","Eggs","S
 const CMEDICAL=["Asthma","Diabetes","Epilepsy/Seizures","Heart Condition","ADHD","Autism","Sickle Cell","Down Syndrome"];
 
 function calcAge(dob){if(!dob)return "";const t=new Date();const b=new Date(dob+"T00:00:00");let a=t.getFullYear()-b.getFullYear();const m=t.getMonth()-b.getMonth();if(m<0||(m===0&&t.getDate()<b.getDate()))a--;return a>=0?a:"";}
+
+// ── Privacy & consent (member-set preferences + minor safeguarding) ──
+// Single source of truth used everywhere data is shared or broadcast. A member controls whether they
+// appear in shared/printed directories, which fields may be shared, and which bulk messages they get.
+// A minor (under 18 by birthdate) is, by safeguarding default, hidden from shared directories AND
+// excluded from bulk texts/emails UNLESS a parent/guardian consent (name + date) is on file.
+function personAge(p:any){ const a = calcAge(p?.birthday||p?.dob||""); return typeof a==="number" ? a : null; }
+function isPersonMinor(p:any){ const a = personAge(p); return a!=null && a < 18; }
+function hasGuardianConsent(p:any){ return !!(p && p.guardianConsent && p.guardianConsent.at); }
+function privacyOf(p:any){ const x=(p&&p.privacy)||{}; return {listed:x.listed!==false, showPhone:x.showPhone!==false, showEmail:x.showEmail!==false, showAddress:x.showAddress===true}; }
+function notifyOf(p:any){ const n=(p&&p.notify)||{}; return {sms:n.sms!==false, email:n.email!==false, announcements:n.announcements!==false, events:n.events!==false, serve:n.serve!==false}; }
+function minorBlocked(p:any){ return isPersonMinor(p) && !hasGuardianConsent(p); }
+function canListInDirectory(p:any){ return !minorBlocked(p) && privacyOf(p).listed; }
+function canBulkText(p:any){ return !minorBlocked(p) && notifyOf(p).sms; }
+function canBulkEmailPerson(p:any){ return !minorBlocked(p) && notifyOf(p).email; }
 function buildCGrid(yr,mo){const fdow=new Date(yr,mo,1).getDay();const dim=new Date(yr,mo+1,0).getDate();const pmd=new Date(yr,mo,0).getDate();const g=[];for(let i=fdow-1;i>=0;i--){const d=new Date(yr,mo-1,pmd-i);g.push({date:d.toISOString().split("T")[0],cur:false});}for(let i=1;i<=dim;i++){const d=new Date(yr,mo,i);g.push({date:d.toISOString().split("T")[0],cur:true});}let nx=1;while(g.length<42){const d=new Date(yr,mo+1,nx++);g.push({date:d.toISOString().split("T")[0],cur:false});}return g;}
 function cEventsFor(dateStr,rec,custom,groups){const dow=new Date(dateStr+"T00:00:00").getDay();const res=[];rec.filter(e=>e.dow===dow).forEach(e=>res.push({...e,date:dateStr,iid:e.id+"_"+dateStr}));custom.filter(e=>e.date===dateStr).forEach(e=>res.push({...e,iid:e.id+"_"+dateStr}));groups.filter(g=>CD2DOW[g.day]===dow).forEach(g=>res.push({id:"g"+g.id,iid:"g"+g.id+"_"+dateStr,name:g.name,time:g.time,color:g.color,type:"Group",location:g.location||"",date:dateStr,isGroup:true}));return res.sort((a,b)=>a.time.localeCompare(b.time));}
 
@@ -9069,16 +9084,29 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
         <Btn onClick={()=>setView("addperson")}>+ Add {tab==="members"?"Member":"Visitor"}</Btn>
       </div>
 
+      {/* Members who used My Profile → Privacy to request data removal — surfaced for admin review. */}
+      {tab==="members" && (()=>{ const reqs=(members||[]).filter((m:any)=>m.dataRemovalRequestedAt); return reqs.length>0 ? (
+        <div style={{background:"#fff7ed",border:"0.5px solid #fed7aa",borderRadius:10,padding:"9px 13px",marginBottom:8,fontSize:12.5,color:"#9a3412"}}>
+          <strong>🔒 {reqs.length} data-removal {reqs.length===1?"request":"requests"}:</strong> {reqs.slice(0,6).map((m:any)=>((m.first||"")+" "+(m.last||"")).trim()).join(", ")}{reqs.length>6?` +${reqs.length-6} more`:""}. Open a member to review, then edit/delete their record if appropriate.
+        </div>
+      ) : null; })()}
+
       {/* ── Bulk Action Toolbar (appears when items selected) ────── */}
       {selected.size>0 && (
         <div style={{display:"flex",alignItems:"center",gap:6,padding:"8px 14px",background:GL,border:"0.5px solid "+G,borderRadius:10,marginBottom:8,flexWrap:"wrap"}}>
           <span style={{fontSize:12,fontWeight:600,color:N,marginRight:4}}>{selected.size} selected</span>
           <Btn v="primary" style={{fontSize:11,padding:"5px 10px"}} onClick={()=>{
-            const recips = selectedPeople.map(p=>({name:p.first+" "+p.last,email:p.email||""}));
+            const ok = selectedPeople.filter((p:any)=>canBulkEmailPerson(p)); const skipped=selectedPeople.length-ok.length;
+            const recips = ok.map(p=>({name:p.first+" "+p.last,email:p.email||""}));
+            if(skipped>0) alert(skipped+" of the selected "+(skipped===1?"person was":"people were")+" left out — they've opted out of emails or are a minor without guardian consent.");
+            if(!recips.length){ return; }
             if(window.__openBulkEmailComposer__) window.__openBulkEmailComposer__({recipients:recips,relatedType:"member"});
           }}>📧 Email</Btn>
           <Btn v="primary" style={{fontSize:11,padding:"5px 10px"}} onClick={()=>{
-            const recips = selectedPeople.map(p=>({name:p.first+" "+p.last,phone:p.phone||""}));
+            const ok = selectedPeople.filter((p:any)=>canBulkText(p)); const skipped=selectedPeople.length-ok.length;
+            const recips = ok.map(p=>({name:p.first+" "+p.last,phone:p.phone||""}));
+            if(skipped>0) alert(skipped+" of the selected "+(skipped===1?"person was":"people were")+" left out — they've opted out of texts or are a minor without guardian consent.");
+            if(!recips.length){ return; }
             if(window.__openBulkSmsComposer__) window.__openBulkSmsComposer__({recipients:recips,relatedType:"member"});
           }}>📱 SMS</Btn>
           <Btn v="gold" style={{fontSize:11,padding:"5px 10px"}} onClick={()=>exportCSV(selectedPeople)}>📤 Export CSV</Btn>
@@ -16607,7 +16635,9 @@ function AlertPage({members,visitors,giving,checkIns,kidsCheckIns,rollCalls=[],c
   const lowGivers = stewardAlertMembers(members, users, giving, today.getTime());
 
   // ── TAB 3: All active members with phone numbers ──
-  const phoneList = (members||[]).filter((m:any)=>m.status==="Active"&&m.phone).sort((a:any,b:any)=>(a.last||"").localeCompare(b.last||""));
+  // Honor each member's privacy: exclude anyone who opted out of the shared directory (and minors
+  // without guardian consent), and blank a phone/email they chose not to share here.
+  const phoneList = (members||[]).filter((m:any)=>m.status==="Active"&&m.phone&&canListInDirectory(m)).map((m:any)=>{const pr=privacyOf(m);return {...m,phone:pr.showPhone?m.phone:"",email:pr.showEmail?m.email:""};}).filter((m:any)=>m.phone).sort((a:any,b:any)=>(a.last||"").localeCompare(b.last||""));
 
   // ── TAB 4: Children missing 4 consecutive Sunday sessions (kids check-in) ──
   // Mirror the Education Follow-up: attendance counts BOTH the check-in portal AND roll-call "Present"
@@ -17524,6 +17554,11 @@ function ManualPage(){
           <Ul><Li>The member taps <B>Sign Up</B> on a team to join, or <B>Leave</B> to step off — no approval needed.</Li><Li>Each team shows its serving day/time and how many people are signed up.</Li><Li>When a member is scheduled to serve within the next 7 days, a <B>"🙌 You're serving soon"</B> reminder banner appears at the top of My Profile on every tab, showing the team and how many days away it is (Today / Tomorrow / in N days).</Li></Ul>
           <Note>Administrators and the Assistant Pastor see a <B>✏️ Manage teams</B> button on the Serve tab to add, rename, re-schedule (day/time), or remove serve teams. Everyone else just sees the sign-up list.</Note>
           <Tip>Serve teams and signups are backed up with everything else (Settings → Backup, under "Serve Teams" and "Serve-Team Signups").</Tip>
+          <H3>🔒 Privacy &amp; Consent Tab</H3>
+          <P>The <B>🔒 Privacy</B> tab gives every member plain-language control over their own data. It states clearly that only staff can see their profile and that other members cannot browse them, then lets them set:</P>
+          <Ul><Li><B>Directory &amp; sharing</B> — whether they appear in a shared/printed directory at all, and whether their phone, email, and home address may be included. The <B>Phone Directory</B> report and its CSV export honor these choices (people who opt out are left off; hidden fields are blanked).</Li><Li><B>Notifications</B> — turn Texts (SMS) and Emails on/off, plus categories (Announcements, Event reminders, Serve reminders). <B>Bulk sends skip anyone who's opted out</B> — the "Send to all" pools and the Members-page bulk Email/SMS filter them out (and tell you how many were left off).</Li><Li><B>Your data</B> — <B>Download my data</B> saves a copy of their record; <B>Request my data be removed</B> flags it for admin review (nothing is auto-deleted).</Li></Ul>
+          <Warn>Minors (under 18 by birthdate) are safeguarded automatically: a minor is <B>never</B> listed in shared directories and is <B>excluded from bulk texts/emails</B> unless a <B>parent/guardian consent</B> (name + date) is recorded on the Privacy tab. Until consent is on file, all sharing and messaging for that minor stays off regardless of the other toggles.</Warn>
+          <Note>When a member requests data removal, an amber banner listing those requests appears at the top of <B>Members Profile</B> so an administrator can review and action them. All privacy settings, consent records, and removal requests are stored on the member record and included in Backups.</Note>
           <H3>My Giving Tab</H3>
           <P>The <B>My Giving</B> tab shows the member's complete personal giving history:</P>
           <Ul><Li>Total given (all time)</Li><Li>Number of gifts recorded</Li><Li>A list of every donation: date, amount, fund, and payment method</Li></Ul>
@@ -18144,10 +18179,31 @@ function MemberProfilePortal({member,setMembers,giving,onSignOut,staffMode=false
   const serveReminders = myServeTeams.map((t:any)=>{ const di=_dowIdx[t.day]; if(di===undefined) return null; const delta=(di-new Date().getDay()+7)%7; return {team:t,days:delta}; }).filter(Boolean).sort((a:any,b:any)=>a.days-b.days);
   const _serveInp:any={padding:"7px 9px",border:"0.5px solid "+BR,borderRadius:7,fontSize:12,outline:"none",background:W,boxSizing:"border-box"};
 
+  // ── Privacy & Consent (member-set) ──
+  const _priv = privacyOf(member);
+  const _notif = notifyOf(member);
+  const _isMinor = isPersonMinor(member);
+  const _guardianOK = hasGuardianConsent(member);
+  const _minorLock = _isMinor && !_guardianOK;
+  const setPriv = (k:string,v:boolean)=> setMembers&&setMembers((ms:any[])=>ms.map((m:any)=>m.id===member.id?{...m,privacy:{...(m.privacy||{}),[k]:v},privacyUpdatedAt:new Date().toISOString()}:m));
+  const setNotif = (k:string,v:boolean)=> setMembers&&setMembers((ms:any[])=>ms.map((m:any)=>m.id===member.id?{...m,notify:{...(m.notify||{}),[k]:v}}:m));
+  const [guardianName,setGuardianName] = useState((member?.guardianConsent?.guardianName)||"");
+  const grantGuardian = ()=>{ if(!guardianName.trim()){alert("Enter the parent/guardian name.");return;} setMembers&&setMembers((ms:any[])=>ms.map((m:any)=>m.id===member.id?{...m,guardianConsent:{guardianName:guardianName.trim(),at:new Date().toISOString()}}:m)); };
+  const revokeGuardian = ()=> setMembers&&setMembers((ms:any[])=>ms.map((m:any)=>m.id===member.id?{...m,guardianConsent:null}:m));
+  const downloadMyData = ()=>{ try{ const b=new Blob([JSON.stringify(member,null,2)],{type:"application/json"}); const u=URL.createObjectURL(b); const a=document.createElement("a"); a.href=u; a.download=(((member.first||"my")+"_"+(member.last||"data"))+"_data.json").replace(/\s+/g,"_"); document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),1000);}catch(e){alert("Could not prepare the download.");} };
+  const requestRemoval = ()=>{ if(!confirm("Send a request to the church office to remove your personal data? An administrator will review it — nothing is deleted immediately.")) return; setMembers&&setMembers((ms:any[])=>ms.map((m:any)=>m.id===member.id?{...m,dataRemovalRequestedAt:new Date().toISOString(),dataRemovalRequestedBy:((member.first||"")+" "+(member.last||"")).trim()}:m)); alert("Your request has been sent to the church office."); };
+  const cancelRemoval = ()=> setMembers&&setMembers((ms:any[])=>ms.map((m:any)=>m.id===member.id?{...m,dataRemovalRequestedAt:null,dataRemovalRequestedBy:null}:m));
+  const Tog = ({on,onToggle,label,sub,disabled=false}:any)=>(
+    <div onClick={()=>!disabled&&onToggle(!on)} style={{display:"flex",alignItems:"center",gap:12,padding:"11px 14px",borderRadius:10,border:"0.5px solid "+(on&&!disabled?GR+"66":BR),background:disabled?BG:(on?"#f0fdf4":W),cursor:disabled?"not-allowed":"pointer",opacity:disabled?0.55:1,marginBottom:8}}>
+      <div style={{width:40,height:22,borderRadius:11,background:on&&!disabled?GR:BR,position:"relative",flexShrink:0}}><div style={{position:"absolute",top:3,left:on?20:3,width:16,height:16,borderRadius:"50%",background:W}}></div></div>
+      <div style={{flex:1}}><div style={{fontSize:13,fontWeight:500,color:TX}}>{label}</div>{sub&&<div style={{fontSize:11,color:MU,marginTop:1}}>{sub}</div>}</div>
+    </div>
+  );
+
   const TABS = [
     ...(staffMode
-      ? [{id:"profile",label:"Personal Info"},{id:"give",label:"💝 Give"},{id:"events",label:"📅 Events"},{id:"news",label:"📢 News"},{id:"serve",label:"🙌 Serve"},{id:"cleaning",label:"🧹 Cleaning"},{id:"bigevents",label:"🎉 Big Events"}]
-      : [{id:"profile",label:"Personal Info"},{id:"give",label:"💝 Give"},{id:"giving",label:"My Giving"},{id:"events",label:"📅 Events"},{id:"news",label:"📢 News"},{id:"serve",label:"🙌 Serve"},{id:"cleaning",label:"🧹 Cleaning"},{id:"bigevents",label:"🎉 Big Events"}]),
+      ? [{id:"profile",label:"Personal Info"},{id:"give",label:"💝 Give"},{id:"events",label:"📅 Events"},{id:"news",label:"📢 News"},{id:"serve",label:"🙌 Serve"},{id:"privacy",label:"🔒 Privacy"},{id:"cleaning",label:"🧹 Cleaning"},{id:"bigevents",label:"🎉 Big Events"}]
+      : [{id:"profile",label:"Personal Info"},{id:"give",label:"💝 Give"},{id:"giving",label:"My Giving"},{id:"events",label:"📅 Events"},{id:"news",label:"📢 News"},{id:"serve",label:"🙌 Serve"},{id:"privacy",label:"🔒 Privacy"},{id:"cleaning",label:"🧹 Cleaning"},{id:"bigevents",label:"🎉 Big Events"}]),
     ...(canViewPlanner ? [{id:"planner",label:"📋 Schedule Planner"}] : []),
   ];
 
@@ -18425,6 +18481,59 @@ function MemberProfilePortal({member,setMembers,giving,onSignOut,staffMode=false
                   </div>
                 ))}</div>;
           })()}
+        </div>
+      )}
+      {tab==="privacy"&&(
+        <div>
+          <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:18,marginBottom:14}}>
+            <div style={{fontSize:15,fontWeight:600,color:N,marginBottom:6}}>🔒 Your Privacy &amp; Consent</div>
+            <div style={{fontSize:12.5,color:TX,lineHeight:1.65}}>We keep your contact details so the church can stay in touch and care for you. <strong>Only church staff</strong> can see your full profile — <strong>other members cannot browse your information</strong>. You control everything below: what may appear in a shared or printed directory, and which messages you receive. Change it anytime.</div>
+            {member.dataRemovalRequestedAt && <div style={{marginTop:10,background:"#fff7ed",border:"0.5px solid #fed7aa",borderRadius:8,padding:"8px 11px",fontSize:12,color:"#9a3412"}}>⏳ You've asked us to remove your data — the church office has been notified. <button onClick={cancelRemoval} style={{background:"none",border:"none",color:N,fontWeight:600,cursor:"pointer",fontSize:12,padding:0,textDecoration:"underline"}}>Cancel request</button></div>}
+          </div>
+
+          {_isMinor && (
+            <div style={{background:_guardianOK?"#f0fdf4":"#fef2f2",border:"0.5px solid "+(_guardianOK?"#86efac":"#fca5a5"),borderRadius:12,padding:16,marginBottom:14}}>
+              <div style={{fontSize:13,fontWeight:700,color:_guardianOK?"#166534":"#991b1b",marginBottom:6}}>👶 This profile is a minor (under 18)</div>
+              <div style={{fontSize:12,color:TX,lineHeight:1.6,marginBottom:10}}>For safeguarding, a minor is <strong>never</strong> listed in shared directories and <strong>won't</strong> receive bulk texts or emails unless a parent or guardian gives consent here.{_guardianOK?"":" Until then, all sharing and messaging stays off no matter the settings below."}</div>
+              {_guardianOK ? (
+                <div style={{fontSize:12,color:"#166534"}}>✓ Consent on file — <strong>{member.guardianConsent.guardianName}</strong>{member.guardianConsent.at?" on "+fd(String(member.guardianConsent.at).slice(0,10)):""}. <button onClick={revokeGuardian} style={{background:"none",border:"none",color:RE,fontWeight:600,cursor:"pointer",fontSize:12,padding:0,textDecoration:"underline"}}>Revoke</button></div>
+              ) : (
+                <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
+                  <input value={guardianName} onChange={e=>setGuardianName(e.target.value)} placeholder="Parent / guardian full name" style={{flex:1,minWidth:190,padding:"8px 10px",border:"0.5px solid "+BR,borderRadius:8,fontSize:13,outline:"none",background:W}}/>
+                  <button onClick={grantGuardian} style={{background:GR,color:"#fff",border:"none",borderRadius:8,padding:"8px 14px",fontSize:12,fontWeight:600,cursor:"pointer"}}>I consent as parent/guardian</button>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:16,marginBottom:14}}>
+            <div style={{fontSize:13,fontWeight:600,color:N,marginBottom:2}}>Directory &amp; sharing</div>
+            <div style={{fontSize:11.5,color:MU,marginBottom:12}}>Whether you appear in a shared or printed church directory, and which details may be included.</div>
+            {Tog({on:_priv.listed,onToggle:(v:boolean)=>setPriv("listed",v),label:"List me in the church directory",sub:_priv.listed?"You may appear in shared / printed directories":"You'll be left out of shared / printed directories",disabled:_minorLock})}
+            {Tog({on:_priv.showPhone,onToggle:(v:boolean)=>setPriv("showPhone",v),label:"Show my phone number",disabled:_minorLock})}
+            {Tog({on:_priv.showEmail,onToggle:(v:boolean)=>setPriv("showEmail",v),label:"Show my email address",disabled:_minorLock})}
+            {Tog({on:_priv.showAddress,onToggle:(v:boolean)=>setPriv("showAddress",v),label:"Show my home address",disabled:_minorLock})}
+          </div>
+
+          <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:16,marginBottom:14}}>
+            <div style={{fontSize:13,fontWeight:600,color:N,marginBottom:2}}>Notifications</div>
+            <div style={{fontSize:11.5,color:MU,marginBottom:12}}>How the church may contact you. Bulk messages skip anyone who's turned a channel off.</div>
+            {Tog({on:_notif.sms,onToggle:(v:boolean)=>setNotif("sms",v),label:"Text messages (SMS)",disabled:_minorLock})}
+            {Tog({on:_notif.email,onToggle:(v:boolean)=>setNotif("email",v),label:"Emails",disabled:_minorLock})}
+            <div style={{fontSize:10,color:MU,margin:"10px 0 6px",fontWeight:700,textTransform:"uppercase" as any,letterSpacing:0.4}}>Send me</div>
+            {Tog({on:_notif.announcements,onToggle:(v:boolean)=>setNotif("announcements",v),label:"Announcements",disabled:_minorLock})}
+            {Tog({on:_notif.events,onToggle:(v:boolean)=>setNotif("events",v),label:"Event reminders",disabled:_minorLock})}
+            {Tog({on:_notif.serve,onToggle:(v:boolean)=>setNotif("serve",v),label:"Serve-team reminders",disabled:_minorLock})}
+          </div>
+
+          <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:16}}>
+            <div style={{fontSize:13,fontWeight:600,color:N,marginBottom:2}}>Your data</div>
+            <div style={{fontSize:11.5,color:MU,marginBottom:12}}>It's your information. Take a copy anytime, or ask us to remove it.</div>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+              <button onClick={downloadMyData} style={{background:BG,border:"0.5px solid "+BR,borderRadius:8,padding:"9px 14px",fontSize:12.5,fontWeight:600,color:TX,cursor:"pointer"}}>⬇ Download my data</button>
+              {!member.dataRemovalRequestedAt && <button onClick={requestRemoval} style={{background:"#fef2f2",border:"0.5px solid #fca5a5",borderRadius:8,padding:"9px 14px",fontSize:12.5,fontWeight:600,color:RE,cursor:"pointer"}}>Request my data be removed</button>}
+            </div>
+          </div>
         </div>
       )}
       {tab==="serve"&&(
@@ -20409,8 +20518,8 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
             ? <MemberProfilePortal member={staffMemberRecord} setMembers={setMembers} giving={giving} onSignOut={()=>setView("dashboard")} staffMode={true} roles={roles} users={users} setUsers={setUsers} recurring={recurring} custom={custom} eventRsvps={eventRsvps} setEventRsvps={setEventRsvps} members={members} children={children} announcements={announcements} cleaningSchedule={cleaningSchedule} eventSchedule={eventSchedule} servicePlans={servicePlans} serveTeams={serveTeams} setServeTeams={setServeTeams} serveSignups={serveSignups} setServeSignups={setServeSignups} currentUser={currentUser} givingUrl={churchSettings?.onlineGivingUrl||"https://myntccglendaleaz.onlinegiving.cc/"}/>
             : <MyAccountFallback currentUser={currentUser} roles={roles} loggedInEmail={loggedInEmail} displayName={displayName} onBack={()=>setView("dashboard")} serveTeams={serveTeams} setServeTeams={setServeTeams} serveSignups={serveSignups} setServeSignups={setServeSignups}/>)}
           {/* ── Staff / Admin views (never rendered for portal users) ── */}
-          {!isMemberPortal && view==="sms" && <SmsCenter smsLog={smsLog} setSmsLog={setSmsLog} smsTemplates={smsTemplates} setSmsTemplates={setSmsTemplates} smsConfig={smsConfig} setSmsConfig={setSmsConfig} members={members} visitors={visitors} cs={churchSettings} onCompose={()=>openSmsComposer({})} onBulkCompose={()=>openBulkSmsComposer({recipients:[...members,...visitors].filter(p=>p.phone).map(p=>({...p,first:p.first,last:p.last,name:p.first+" "+p.last}))})}/>}
-          {!isMemberPortal && view==="email" && <EmailCenter emailLog={emailLog} setEmailLog={setEmailLog} emailTemplates={emailTemplates} setEmailTemplates={setEmailTemplates} emailConfig={emailConfig} setEmailConfig={setEmailConfig} members={members} visitors={visitors} cs={churchSettings} onCompose={()=>openEmailComposer({})} onBulkCompose={()=>openBulkEmailComposer({recipients:members.filter(m=>m.email).map(m=>({name:m.first+" "+m.last,first:m.first,last:m.last,email:m.email}))})}/>}
+          {!isMemberPortal && view==="sms" && <SmsCenter smsLog={smsLog} setSmsLog={setSmsLog} smsTemplates={smsTemplates} setSmsTemplates={setSmsTemplates} smsConfig={smsConfig} setSmsConfig={setSmsConfig} members={members} visitors={visitors} cs={churchSettings} onCompose={()=>openSmsComposer({})} onBulkCompose={()=>openBulkSmsComposer({recipients:[...members,...visitors].filter(p=>p.phone&&canBulkText(p)).map(p=>({...p,first:p.first,last:p.last,name:p.first+" "+p.last}))})}/>}
+          {!isMemberPortal && view==="email" && <EmailCenter emailLog={emailLog} setEmailLog={setEmailLog} emailTemplates={emailTemplates} setEmailTemplates={setEmailTemplates} emailConfig={emailConfig} setEmailConfig={setEmailConfig} members={members} visitors={visitors} cs={churchSettings} onCompose={()=>openEmailComposer({})} onBulkCompose={()=>openBulkEmailComposer({recipients:members.filter(m=>m.email&&canBulkEmailPerson(m)).map(m=>({name:m.first+" "+m.last,first:m.first,last:m.last,email:m.email}))})}/>}
           {!isMemberPortal && view==="access" && <Access members={members} setMembers={setMembers} users={users} setUsers={setUsers} roles={roles} setRoles={setRoles} permissions={permissions} setPermissions={setPermissions} portalMembers={portalMembers} setPortalMembers={setPortalMembers} portalSignups={portalSignups} setPortalSignups={setPortalSignups} currentUser={currentUser} churchId={churchId}/>}
           {!isMemberPortal && isAdminUser && view==="loginactivity" && <LoginActivity churchId={churchId}/>}
           {!isMemberPortal && isAdminUser && view==="auditlog" && <AuditLog churchId={churchId}/>}
