@@ -17765,36 +17765,35 @@ function ServeTeamsPanel({serveTeams,setServeTeams,serveSignups,setServeSignups,
   return (
     <div>
       {showBanner && serveReminders.length>0 && (
-        <div style={{background:"#eff6ff",border:"0.5px solid #bfdbfe",borderRadius:_cardR,padding:"12px 16px",marginBottom:14,boxShadow:_cardSh}}>
-          <div style={{fontSize:12,fontWeight:700,color:"#1e40af",marginBottom:6}}>🙌 You're serving soon</div>
-          <div style={{display:"flex",flexDirection:"column",gap:5}}>
+        <div style={{background:W,border:"0.5px solid "+BR,borderLeft:"3px solid "+N,borderRadius:_cardR,padding:"13px 16px",marginBottom:14,boxShadow:_cardSh}}>
+          <div style={{fontSize:10,fontWeight:700,color:N,marginBottom:8,textTransform:"uppercase" as any,letterSpacing:0.7}}>Upcoming — you're scheduled to serve</div>
+          <div style={{display:"flex",flexDirection:"column",gap:7}}>
             {serveReminders.slice(0,5).map((r:any)=>(
-              <div key={r.team.id} style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:TX}}>
-                <span style={{width:8,height:8,borderRadius:2,background:r.team.color||"#2563eb",flexShrink:0}}></span>
-                <span style={{fontWeight:600}}>{r.team.name}</span>
-                <span style={{color:MU}}>· {r.team.day}{r.team.time?" "+r.team.time:""}</span>
-                <span style={{marginLeft:"auto",fontSize:11,fontWeight:700,color:r.days===0?"#dc2626":"#2563eb"}}>{r.days===0?"Today":r.days===1?"Tomorrow":"in "+r.days+" days"}</span>
+              <div key={r.team.id} style={{display:"flex",alignItems:"center",gap:9,fontSize:13,color:TX}}>
+                <span style={{width:6,height:6,borderRadius:"50%",background:r.team.color||N,flexShrink:0}}></span>
+                <span style={{fontWeight:600,color:N}}>{r.team.name}</span>
+                <span style={{color:MU,fontSize:12}}>{r.team.day}{r.team.time?" · "+r.team.time:""}</span>
+                <span style={{marginLeft:"auto",fontSize:11,fontWeight:600,color:r.days===0?RE:MU}}>{r.days===0?"Today":r.days===1?"Tomorrow":"in "+r.days+" days"}</span>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      <div style={{background:W,border:"0.5px solid "+BR,borderRadius:_cardR,padding:NEO?22:18,marginBottom:14,boxShadow:_cardSh,position:"relative",overflow:"hidden"}}>
-        {NEO && <div style={{position:"absolute",top:0,left:0,right:0,height:3,background:"linear-gradient(90deg,"+N+" 0%,"+G+" 100%)"}}></div>}
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12,flexWrap:"wrap"}}>
+      <div style={{background:W,border:"0.5px solid "+BR,borderRadius:_cardR,padding:NEO?"22px 24px":18,marginBottom:14,boxShadow:_cardSh}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:14,flexWrap:"wrap"}}>
           <div style={{flex:1,minWidth:200}}>
-            <div style={{fontSize:NEO?19:16,fontWeight:600,color:N,fontFamily:_serif}}>🙌 Serve Teams</div>
-            <div style={{fontSize:12,color:MU,lineHeight:1.55,marginTop:4,maxWidth:480}}>{canManage?"Manage your church's serve teams and see who has signed up. Tap a team to add yourself, or use Manage teams to add, rename, recolor, reschedule, or remove.":"Tap Sign Up to join a team you'd like to serve on. You'll get a reminder before you serve, and can leave anytime."}</div>
+            <div style={{fontSize:NEO?20:16,fontWeight:600,color:N,fontFamily:_serif,letterSpacing:NEO?"-0.01em":"normal"}}>Serve Teams</div>
+            <div style={{fontSize:12.5,color:MU,lineHeight:1.55,marginTop:4,maxWidth:520}}>{canManage?"Manage your church's serve teams and review who has signed up.":"Join a team you'd like to serve on. You'll get a reminder before you serve, and can leave anytime."}</div>
           </div>
-          {canManage && <button onClick={()=>setServeManage((m:any)=>!m)} style={{padding:"8px 14px",borderRadius:10,border:"0.5px solid "+(serveManage?N:BR),background:serveManage?N:W,color:serveManage?"#fff":TX,fontSize:12.5,fontWeight:600,cursor:"pointer",flexShrink:0,boxShadow:serveManage?_cardSh:undefined}}>{serveManage?"✓ Done managing":"✏️ Manage teams"}</button>}
+          {canManage && <button onClick={()=>setServeManage((m:any)=>!m)} style={{padding:"8px 15px",borderRadius:9,border:"1px solid "+(serveManage?N:BR),background:serveManage?N:W,color:serveManage?"#fff":N,fontSize:12.5,fontWeight:600,cursor:"pointer",flexShrink:0}}>{serveManage?"Done":"Manage teams"}</button>}
         </div>
         {canManage && (
-          <div style={{display:"flex",gap:10,marginTop:16,flexWrap:"wrap"}}>
-            {[["Teams",_serveTeams.length,N],["Volunteers",totalVolunteers,GR],["Need help",openTeams,openTeams>0?AM:MU]].map(([l,v,c]:any)=>(
-              <div key={l} style={{flex:1,minWidth:92,background:BG,border:"0.5px solid "+BR,borderRadius:12,padding:"11px 13px"}}>
-                <div style={{fontSize:23,fontWeight:700,color:c,fontVariantNumeric:"tabular-nums" as any,lineHeight:1}}>{v}</div>
-                <div style={{fontSize:10,color:MU,textTransform:"uppercase" as any,letterSpacing:0.4,fontWeight:700,marginTop:3}}>{l}</div>
+          <div style={{display:"flex",marginTop:18,borderTop:"0.5px solid "+BR,paddingTop:16}}>
+            {[["Teams",_serveTeams.length,N],["Volunteers",totalVolunteers,N],["Unfilled",openTeams,openTeams>0?AM:N]].map(([l,v,c]:any,i:number)=>(
+              <div key={l} style={{flex:1,textAlign:"center",borderRight:i<2?"0.5px solid "+BR:"none",padding:"0 8px"}}>
+                <div style={{fontSize:26,fontWeight:700,color:c,fontVariantNumeric:"tabular-nums" as any,lineHeight:1,fontFamily:_serif}}>{v}</div>
+                <div style={{fontSize:10,color:MU,textTransform:"uppercase" as any,letterSpacing:0.8,fontWeight:600,marginTop:6}}>{l}</div>
               </div>
             ))}
           </div>
@@ -17802,51 +17801,51 @@ function ServeTeamsPanel({serveTeams,setServeTeams,serveSignups,setServeSignups,
       </div>
 
       {canManage && serveManage && (
-        <div style={{background:W,border:"1px dashed "+(NEO?N+"55":BR),borderRadius:_cardR,padding:14,marginBottom:12,boxShadow:_cardSh}}>
-          <div style={{fontSize:10.5,fontWeight:700,color:MU,letterSpacing:0.4,marginBottom:9,textTransform:"uppercase" as any}}>➕ Add a team</div>
+        <div style={{background:BG,border:"0.5px solid "+BR,borderRadius:_cardR,padding:14,marginBottom:12}}>
+          <div style={{fontSize:10,fontWeight:700,color:MU,letterSpacing:0.8,marginBottom:10,textTransform:"uppercase" as any}}>Add a team</div>
           <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
             <input value={newTeam.name} onChange={e=>setNewTeam((t2:any)=>({...t2,name:e.target.value}))} placeholder="Team name" style={{...(_serveInp as any),flex:1,minWidth:150}}/>
             <select value={newTeam.day} onChange={e=>setNewTeam((t2:any)=>({...t2,day:e.target.value}))} style={_serveInp}>{DAYS.map((d:string)=><option key={d} value={d}>{d}</option>)}</select>
             <input value={newTeam.time} onChange={e=>setNewTeam((t2:any)=>({...t2,time:e.target.value}))} placeholder="Time (e.g. 9:00 AM)" style={{...(_serveInp as any),width:130}}/>
-            <button onClick={addTeam} style={{background:GR,color:"#fff",border:"none",borderRadius:8,padding:"8px 16px",fontSize:12.5,fontWeight:600,cursor:"pointer"}}>Add team</button>
+            <button onClick={addTeam} style={{background:N,color:"#fff",border:"none",borderRadius:8,padding:"8px 16px",fontSize:12.5,fontWeight:600,cursor:"pointer"}}>Add</button>
           </div>
         </div>
       )}
 
-      <div style={{display:"flex",flexDirection:"column",gap:NEO?12:10}}>
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>
         {_serveTeams.length===0 && <div style={{background:W,border:"0.5px solid "+BR,borderRadius:_cardR,padding:32,textAlign:"center",color:MU,fontSize:13,boxShadow:_cardSh}}>No serve teams yet.{canManage?" Use “Manage teams” to add one.":""}</div>}
-        {_serveTeams.map((t2:any)=>{ const joined=myServeTeamIds.has(String(t2.id)); const cnt=teamCount(t2.id); const roster=rosterFor(t2.id); const clr=t2.color||"#2563eb"; const shownRoster=roster.slice(0,canManage?30:8); return (
-          <div key={t2.id} style={{background:W,border:"0.5px solid "+BR,borderLeft:"4px solid "+clr,borderRadius:_cardR,boxShadow:_cardSh,overflow:"hidden"}}>
-            <div style={{padding:NEO?"15px 17px":"13px 15px"}}>
-              <div style={{display:"flex",alignItems:"center",gap:11}}>
-                <div style={{width:38,height:38,borderRadius:11,background:clr+"1a",color:clr,display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0}}>🙌</div>
+        {_serveTeams.map((t2:any)=>{ const joined=myServeTeamIds.has(String(t2.id)); const cnt=teamCount(t2.id); const roster=rosterFor(t2.id); const clr=t2.color||N; const shownRoster=roster.slice(0,canManage?30:10); return (
+          <div key={t2.id} style={{background:W,border:"0.5px solid "+BR,borderLeft:"3px solid "+clr,borderRadius:_cardR,boxShadow:_cardSh,overflow:"hidden"}}>
+            <div style={{padding:NEO?"16px 18px":"13px 15px"}}>
+              <div style={{display:"flex",alignItems:"center",gap:12}}>
                 <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:NEO?16:14,fontWeight:600,color:N,fontFamily:_serif}}>{t2.name}</div>
-                  <div style={{fontSize:11.5,color:MU,marginTop:1}}>{t2.day}{t2.time?" · "+t2.time:""}{t2.description?" · "+t2.description:""}</div>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <span style={{width:8,height:8,borderRadius:"50%",background:clr,flexShrink:0}}></span>
+                    <span style={{fontSize:NEO?15.5:14,fontWeight:600,color:N}}>{t2.name}</span>
+                  </div>
+                  <div style={{fontSize:12,color:MU,marginTop:3,marginLeft:16}}>{t2.day}{t2.time?" · "+t2.time:""}{t2.description?" · "+t2.description:""}</div>
                 </div>
-                <div style={{textAlign:"center",flexShrink:0,minWidth:44}}>
-                  <div style={{fontSize:20,fontWeight:700,color:cnt>0?clr:MU,fontVariantNumeric:"tabular-nums" as any,lineHeight:1}}>{cnt}</div>
-                  <div style={{fontSize:9,color:MU,marginTop:1}}>serving</div>
-                </div>
+                <div style={{fontSize:12,color:MU,fontWeight:500,flexShrink:0,fontVariantNumeric:"tabular-nums" as any}}><span style={{color:cnt>0?N:MU,fontWeight:700}}>{cnt}</span> serving</div>
                 {meId!=null && (joined
-                  ? <button onClick={()=>leaveTeam(t2)} style={{background:"#fee2e2",border:"none",borderRadius:9,padding:"8px 15px",color:RE,fontSize:12,fontWeight:600,cursor:"pointer",flexShrink:0}}>Leave</button>
-                  : <button onClick={()=>joinTeam(t2)} style={{background:clr,color:"#fff",border:"none",borderRadius:9,padding:"8px 18px",fontSize:12,fontWeight:600,cursor:"pointer",flexShrink:0}}>Sign Up</button>)}
+                  ? <button onClick={()=>leaveTeam(t2)} style={{background:W,border:"1px solid "+BR,borderRadius:8,padding:"7px 14px",color:RE,fontSize:12,fontWeight:600,cursor:"pointer",flexShrink:0}}>Leave</button>
+                  : <button onClick={()=>joinTeam(t2)} style={{background:N,color:"#fff",border:"none",borderRadius:8,padding:"7px 18px",fontSize:12,fontWeight:600,cursor:"pointer",flexShrink:0}}>Sign Up</button>)}
               </div>
               {cnt>0 ? (
-                <div style={{display:"flex",flexWrap:"wrap",gap:5,marginTop:11}}>
-                  {shownRoster.map((s:any)=>(<span key={s.id} style={{fontSize:11,background:BG,border:"0.5px solid "+BR,borderRadius:20,padding:"3px 10px",color:TX,fontWeight:500}}>{s.memberName||"Member"}</span>))}
-                  {roster.length>shownRoster.length && <span style={{fontSize:11,color:MU,padding:"3px 4px",alignSelf:"center"}}>+{roster.length-shownRoster.length} more</span>}
+                <div style={{display:"flex",flexWrap:"wrap",gap:6,marginTop:12,marginLeft:16,alignItems:"center"}}>
+                  <span style={{fontSize:9.5,color:MU,textTransform:"uppercase" as any,letterSpacing:0.7,fontWeight:700,marginRight:2}}>Team</span>
+                  {shownRoster.map((s:any)=>(<span key={s.id} style={{fontSize:11.5,background:BG,border:"0.5px solid "+BR,borderRadius:6,padding:"3px 9px",color:TX}}>{s.memberName||"Member"}</span>))}
+                  {roster.length>shownRoster.length && <span style={{fontSize:11,color:MU}}>+{roster.length-shownRoster.length}</span>}
                 </div>
-              ) : (canManage && <div style={{fontSize:11,color:AM,fontWeight:600,marginTop:9}}>⚠ No one signed up yet</div>)}
-              {joined && <div style={{fontSize:11,color:GR,fontWeight:600,marginTop:8}}>✓ You're on this team</div>}
+              ) : (canManage && <div style={{fontSize:11.5,color:AM,fontWeight:500,marginTop:10,marginLeft:16}}>No one has signed up yet.</div>)}
+              {joined && <div style={{fontSize:11.5,color:GR,fontWeight:600,marginTop:10,marginLeft:16}}>✓ You're on this team</div>}
             </div>
             {canManage && serveManage && (
-              <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center",padding:NEO?"11px 17px":"10px 15px",borderTop:"0.5px solid "+BR,background:BG}}>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center",padding:NEO?"12px 18px":"10px 15px",borderTop:"0.5px solid "+BR,background:BG}}>
                 <input value={t2.name} onChange={e=>updTeam(t2.id,{name:e.target.value})} style={{...(_serveInp as any),flex:1,minWidth:120}}/>
                 <select value={t2.day} onChange={e=>updTeam(t2.id,{day:e.target.value})} style={_serveInp}>{DAYS.map((d:string)=><option key={d} value={d}>{d}</option>)}</select>
                 <input value={t2.time||""} onChange={e=>updTeam(t2.id,{time:e.target.value})} placeholder="Time" style={{...(_serveInp as any),width:100}}/>
-                <div style={{display:"flex",gap:3,alignItems:"center"}}>{SERVE_COLORS.map((c:string)=><button key={c} onClick={()=>updTeam(t2.id,{color:c})} title="Set colour" style={{width:18,height:18,borderRadius:5,background:c,border:(t2.color||"#2563eb")===c?"2px solid "+N:"1px solid "+BR,cursor:"pointer",padding:0}}/>)}</div>
-                <button onClick={()=>removeTeam(t2.id)} style={{background:"#fee2e2",border:"none",borderRadius:8,padding:"7px 12px",color:RE,fontSize:12,fontWeight:600,cursor:"pointer",marginLeft:"auto"}}>Remove</button>
+                <div style={{display:"flex",gap:3,alignItems:"center"}}>{SERVE_COLORS.map((c:string)=><button key={c} onClick={()=>updTeam(t2.id,{color:c})} title="Set colour" style={{width:17,height:17,borderRadius:"50%",background:c,border:(t2.color||N)===c?"2px solid "+N:"1px solid "+BR,cursor:"pointer",padding:0}}/>)}</div>
+                <button onClick={()=>removeTeam(t2.id)} style={{background:W,border:"1px solid "+BR,borderRadius:8,padding:"7px 12px",color:RE,fontSize:12,fontWeight:600,cursor:"pointer",marginLeft:"auto"}}>Remove</button>
               </div>
             )}
           </div>
