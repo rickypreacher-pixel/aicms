@@ -17698,7 +17698,96 @@ function ManualPage(){
 // ── MEMBER PORTAL — self-service profile + giving view for email/password members ──
 // Shown for a logged-in staff/user whose login isn't linked to a member record yet, so "My Profile"
 // is never blank — read-only account info, no data created.
-function MyAccountFallback({currentUser,roles=[],loggedInEmail="",displayName="",onBack}:any){
+// Reusable Serve-Team panel (used in My Profile's Serve tab AND in the account fallback, so an admin
+// whose login isn't linked to a member record can still sign up / manage teams). meId/meName identify
+// who is signing up (a member id, or a user id for an unlinked staff account).
+function ServeTeamsPanel({serveTeams,setServeTeams,serveSignups,setServeSignups,meId,meName,canManage=false,showBanner=true}:any){
+  const [serveManage,setServeManage]=useState(false);
+  const [newTeam,setNewTeam]=useState({name:"",day:"Sunday",time:""});
+  const _serveTeams=(Array.isArray(serveTeams)?serveTeams:[]).filter((t2:any)=>t2 && t2.active!==false);
+  const _serveSignups=Array.isArray(serveSignups)?serveSignups:[];
+  const mySignupFor=(teamId:any)=>_serveSignups.find((s:any)=>String(s.teamId)===String(teamId)&&meId!=null&&String(s.memberId)===String(meId));
+  const myServeTeamIds=new Set(_serveSignups.filter((s:any)=>meId!=null&&String(s.memberId)===String(meId)).map((s:any)=>String(s.teamId)));
+  const myServeTeams=_serveTeams.filter((t2:any)=>myServeTeamIds.has(String(t2.id)));
+  const teamCount=(teamId:any)=>_serveSignups.filter((s:any)=>String(s.teamId)===String(teamId)).length;
+  const _newSid=()=>Math.floor(Date.now()*1000+Math.random()*1000);
+  const joinTeam=(t2:any)=>{if(!setServeSignups||meId==null||mySignupFor(t2.id))return;setServeSignups((prev:any[])=>[...(Array.isArray(prev)?prev:[]),{id:_newSid(),teamId:t2.id,memberId:meId,memberName:meName||"",at:new Date().toISOString()}]);};
+  const leaveTeam=(t2:any)=>{const s=mySignupFor(t2.id);if(!setServeSignups||!s)return;setServeSignups((prev:any[])=>(Array.isArray(prev)?prev:[]).filter((x:any)=>String(x.id)!==String(s.id)));};
+  const addTeam=()=>{if(!setServeTeams||!newTeam.name.trim())return;setServeTeams((prev:any[])=>[...(Array.isArray(prev)?prev:[]),{id:'st_custom_'+_newSid(),name:newTeam.name.trim(),day:newTeam.day||"Sunday",time:newTeam.time||"",color:'#334155',description:"",active:true,updatedAt:new Date().toISOString()}]);setNewTeam({name:"",day:"Sunday",time:""});};
+  const updTeam=(id:any,patch:any)=>setServeTeams&&setServeTeams((prev:any[])=>(Array.isArray(prev)?prev:[]).map((t2:any)=>String(t2.id)===String(id)?{...t2,...patch,updatedAt:new Date().toISOString()}:t2));
+  const removeTeam=(id:any)=>{if(!setServeTeams||!confirm("Remove this serve team? Members on it will be unsubscribed."))return;setServeTeams((prev:any[])=>(Array.isArray(prev)?prev:[]).map((t2:any)=>String(t2.id)===String(id)?{...t2,active:false,updatedAt:new Date().toISOString()}:t2));if(setServeSignups)setServeSignups((prev:any[])=>(Array.isArray(prev)?prev:[]).filter((s:any)=>String(s.teamId)!==String(id)));};
+  const _dowIdx:any={Sunday:0,Monday:1,Tuesday:2,Wednesday:3,Thursday:4,Friday:5,Saturday:6};
+  const serveReminders=myServeTeams.map((t2:any)=>{const di=_dowIdx[t2.day];if(di===undefined)return null;const delta=(di-new Date().getDay()+7)%7;return {team:t2,days:delta};}).filter(Boolean).sort((a:any,b:any)=>a.days-b.days);
+  const _serveInp:any={padding:"7px 9px",border:"0.5px solid "+BR,borderRadius:7,fontSize:12,outline:"none",background:W,boxSizing:"border-box"};
+  return (
+    <div>
+      {showBanner && serveReminders.length>0 && (
+        <div style={{background:"#eef6ff",border:"0.5px solid #bfdbfe",borderRadius:12,padding:"12px 16px",marginBottom:14}}>
+          <div style={{fontSize:12,fontWeight:700,color:"#1e40af",marginBottom:6}}>🙌 You're serving soon</div>
+          <div style={{display:"flex",flexDirection:"column",gap:5}}>
+            {serveReminders.slice(0,5).map((r:any)=>(
+              <div key={r.team.id} style={{display:"flex",alignItems:"center",gap:8,fontSize:13,color:TX}}>
+                <span style={{width:8,height:8,borderRadius:2,background:r.team.color||"#2563eb",flexShrink:0}}></span>
+                <span style={{fontWeight:600}}>{r.team.name}</span>
+                <span style={{color:MU}}>· {r.team.day}{r.team.time?" "+r.team.time:""}</span>
+                <span style={{marginLeft:"auto",fontSize:11,fontWeight:700,color:r.days===0?"#dc2626":"#2563eb"}}>{r.days===0?"Today":r.days===1?"Tomorrow":"in "+r.days+" days"}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:18,marginBottom:14}}>
+        <div style={{fontSize:15,fontWeight:600,color:N,marginBottom:4}}>🙌 Serve Teams</div>
+        <div style={{fontSize:12,color:MU,lineHeight:1.5}}>Tap <strong>Sign Up</strong> to join a team you'd like to serve on. You'll get a reminder before you serve, and can leave anytime.{canManage?" As an admin you can also add/edit teams below.":""}</div>
+      </div>
+      {canManage && (
+        <div style={{marginBottom:12}}>
+          <button onClick={()=>setServeManage((m:any)=>!m)} style={{padding:"6px 12px",borderRadius:8,border:"0.5px solid "+BR,background:serveManage?N:W,color:serveManage?"#fff":TX,fontSize:12,fontWeight:600,cursor:"pointer"}}>{serveManage?"✓ Done managing":"✏️ Manage teams"}</button>
+          {serveManage && (
+            <div style={{background:BG,border:"0.5px solid "+BR,borderRadius:10,padding:12,marginTop:8}}>
+              <div style={{fontSize:10,fontWeight:700,color:MU,letterSpacing:0.4,marginBottom:8}}>ADD A TEAM</div>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                <input value={newTeam.name} onChange={e=>setNewTeam((t2:any)=>({...t2,name:e.target.value}))} placeholder="Team name" style={{...(_serveInp as any),flex:1,minWidth:130}}/>
+                <select value={newTeam.day} onChange={e=>setNewTeam((t2:any)=>({...t2,day:e.target.value}))} style={_serveInp}>{DAYS.map((d:string)=><option key={d} value={d}>{d}</option>)}</select>
+                <input value={newTeam.time} onChange={e=>setNewTeam((t2:any)=>({...t2,time:e.target.value}))} placeholder="Time (e.g. 9:00 AM)" style={{...(_serveInp as any),width:120}}/>
+                <button onClick={addTeam} style={{background:GR,color:"#fff",border:"none",borderRadius:7,padding:"7px 14px",fontSize:12,fontWeight:600,cursor:"pointer"}}>Add</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        {_serveTeams.length===0 && <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:28,textAlign:"center",color:MU,fontSize:13}}>No serve teams yet.</div>}
+        {_serveTeams.map((t2:any)=>{ const joined=myServeTeamIds.has(String(t2.id)); const cnt=teamCount(t2.id); return (
+          <div key={t2.id} style={{background:W,border:"0.5px solid "+(joined?(t2.color||"#2563eb"):BR),borderRadius:12,padding:"12px 14px"}}>
+            <div style={{display:"flex",alignItems:"center",gap:10}}>
+              <span style={{width:10,height:10,borderRadius:3,background:t2.color||"#2563eb",flexShrink:0}}></span>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:14,fontWeight:600,color:N}}>{t2.name}</div>
+                <div style={{fontSize:11,color:MU}}>{t2.day}{t2.time?" · "+t2.time:""}{t2.description?" · "+t2.description:""}</div>
+                <div style={{fontSize:10,color:MU,marginTop:1}}>{cnt} serving</div>
+              </div>
+              {meId!=null && (joined
+                ? <button onClick={()=>leaveTeam(t2)} style={{background:"#fee2e2",border:"none",borderRadius:8,padding:"7px 14px",color:RE,fontSize:12,fontWeight:600,cursor:"pointer"}}>Leave</button>
+                : <button onClick={()=>joinTeam(t2)} style={{background:t2.color||N,color:"#fff",border:"none",borderRadius:8,padding:"7px 18px",fontSize:12,fontWeight:600,cursor:"pointer"}}>Sign Up</button>)}
+            </div>
+            {joined && <div style={{fontSize:11,color:GR,fontWeight:600,marginTop:6}}>✓ You're on this team</div>}
+            {canManage && serveManage && (
+              <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:8,borderTop:"0.5px solid "+BR,paddingTop:8}}>
+                <input value={t2.name} onChange={e=>updTeam(t2.id,{name:e.target.value})} style={{...(_serveInp as any),flex:1,minWidth:120}}/>
+                <select value={t2.day} onChange={e=>updTeam(t2.id,{day:e.target.value})} style={_serveInp}>{DAYS.map((d:string)=><option key={d} value={d}>{d}</option>)}</select>
+                <input value={t2.time||""} onChange={e=>updTeam(t2.id,{time:e.target.value})} placeholder="Time" style={{...(_serveInp as any),width:110}}/>
+                <button onClick={()=>removeTeam(t2.id)} style={{background:"#fee2e2",border:"none",borderRadius:7,padding:"7px 12px",color:RE,fontSize:12,fontWeight:600,cursor:"pointer"}}>Remove</button>
+              </div>
+            )}
+          </div>
+        );})}
+      </div>
+    </div>
+  );
+}
+
+function MyAccountFallback({currentUser,roles=[],loggedInEmail="",displayName="",onBack,serveTeams=[],setServeTeams=null,serveSignups=[],setServeSignups=null}:any){
   const roleName = (roles||[]).find((r:any)=>r.id===currentUser?.roleId)?.name || (currentUser?.superAdmin?"Super Admin":"");
   const name = displayName || currentUser?.name || loggedInEmail || "My Account";
   const email = currentUser?.email || loggedInEmail || "";
@@ -17714,6 +17803,11 @@ function MyAccountFallback({currentUser,roles=[],loggedInEmail="",displayName=""
         <Row label="Email" value={email}/>
         <Row label="Role" value={roleName}/>
         <div style={{marginTop:14,fontSize:12,color:MU,background:BG,borderRadius:8,padding:"10px 12px"}}>This is your account information. Your full member profile isn’t linked to your login yet — an administrator can link it from <strong>Access → Users</strong> so your personal details show here.</div>
+      </div>
+      {/* Serve Teams are available here too, so an admin whose login isn't linked to a member record
+          can still sign up and (if an admin) manage the teams. */}
+      <div style={{marginTop:20}}>
+        <ServeTeamsPanel serveTeams={serveTeams} setServeTeams={setServeTeams} serveSignups={serveSignups} setServeSignups={setServeSignups} meId={currentUser?.id ?? null} meName={name} canManage={!!currentUser?.superAdmin || [(roles||[]).find((r:any)=>r.id===currentUser?.roleId)?.name, (roles||[]).find((r:any)=>r.id===currentUser?.secondaryRoleId)?.name].some((n:any)=>["Administrator","Assistant Pastor"].includes(n))} showBanner={true}/>
       </div>
     </div>
   );
@@ -20313,7 +20407,7 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           {/* ── My Profile: every logged-in staff/user. Shows their member record if linked, else a read-only account card. ── */}
           {!isMemberPortal && view==="myprofile" && (staffMemberRecord
             ? <MemberProfilePortal member={staffMemberRecord} setMembers={setMembers} giving={giving} onSignOut={()=>setView("dashboard")} staffMode={true} roles={roles} users={users} setUsers={setUsers} recurring={recurring} custom={custom} eventRsvps={eventRsvps} setEventRsvps={setEventRsvps} members={members} children={children} announcements={announcements} cleaningSchedule={cleaningSchedule} eventSchedule={eventSchedule} servicePlans={servicePlans} serveTeams={serveTeams} setServeTeams={setServeTeams} serveSignups={serveSignups} setServeSignups={setServeSignups} currentUser={currentUser} givingUrl={churchSettings?.onlineGivingUrl||"https://myntccglendaleaz.onlinegiving.cc/"}/>
-            : <MyAccountFallback currentUser={currentUser} roles={roles} loggedInEmail={loggedInEmail} displayName={displayName} onBack={()=>setView("dashboard")}/>)}
+            : <MyAccountFallback currentUser={currentUser} roles={roles} loggedInEmail={loggedInEmail} displayName={displayName} onBack={()=>setView("dashboard")} serveTeams={serveTeams} setServeTeams={setServeTeams} serveSignups={serveSignups} setServeSignups={setServeSignups}/>)}
           {/* ── Staff / Admin views (never rendered for portal users) ── */}
           {!isMemberPortal && view==="sms" && <SmsCenter smsLog={smsLog} setSmsLog={setSmsLog} smsTemplates={smsTemplates} setSmsTemplates={setSmsTemplates} smsConfig={smsConfig} setSmsConfig={setSmsConfig} members={members} visitors={visitors} cs={churchSettings} onCompose={()=>openSmsComposer({})} onBulkCompose={()=>openBulkSmsComposer({recipients:[...members,...visitors].filter(p=>p.phone).map(p=>({...p,first:p.first,last:p.last,name:p.first+" "+p.last}))})}/>}
           {!isMemberPortal && view==="email" && <EmailCenter emailLog={emailLog} setEmailLog={setEmailLog} emailTemplates={emailTemplates} setEmailTemplates={setEmailTemplates} emailConfig={emailConfig} setEmailConfig={setEmailConfig} members={members} visitors={visitors} cs={churchSettings} onCompose={()=>openEmailComposer({})} onBulkCompose={()=>openBulkEmailComposer({recipients:members.filter(m=>m.email).map(m=>({name:m.first+" "+m.last,first:m.first,last:m.last,email:m.email}))})}/>}
