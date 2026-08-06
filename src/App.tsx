@@ -18037,7 +18037,7 @@ function StaffChat({churchId,currentUserName,isAdmin,channelMembers={},setChanne
     </div>
   );
 }
-function MemberProfilePortal({member,setMembers,giving,onSignOut,staffMode=false,roles=[],users=[],setUsers,recurring=[],custom=[],eventRsvps=[],setEventRsvps=null,members=[],children=[],announcements=[],cleaningSchedule={},eventSchedule={},servicePlans={},serveTeams=[],setServeTeams=null,serveSignups=[],setServeSignups=null,currentUser=null,initialTab="profile",givingUrl=""}:any) {
+function MemberProfilePortal({member,setMembers,giving,onSignOut,staffMode=false,roles=[],users=[],setUsers,recurring=[],custom=[],eventRsvps=[],setEventRsvps=null,members=[],children=[],announcements=[],cleaningSchedule={},eventSchedule={},servicePlans={},serveTeams=[],setServeTeams=null,serveSignups=[],setServeSignups=null,currentUser=null,initialTab="profile",givingUrl="",neoDesign=false}:any) {
   const [tab,setTab] = useState(initialTab);
   // Let the sidebar open the portal directly to a given tab (e.g. 📢 Announcements → News).
   useEffect(()=>{ setTab(initialTab); },[initialTab]);
@@ -18207,21 +18207,26 @@ function MemberProfilePortal({member,setMembers,giving,onSignOut,staffMode=false
     ...(canViewPlanner ? [{id:"planner",label:"📋 Schedule Planner"}] : []),
   ];
 
+  const NEO = !!neoDesign;
+  const _cardR = NEO?16:12;
+  const _cardSh:any = NEO?"0 1px 2px rgba(20,30,55,.04),0 8px 20px -13px rgba(20,30,55,.13)":undefined;
+  const _serif:any = NEO?"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif":undefined;
   return (
-    <div style={{maxWidth:700,margin:"0 auto",padding:"0 4px"}}>
+    <div style={{maxWidth:NEO?720:700,margin:"0 auto",padding:"0 4px"}}>
       {/* Header card */}
-      <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:20,marginBottom:16,display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}>
-        <Av f={member.first} l={member.last} sz={56}/>
+      <div style={{background:W,border:"0.5px solid "+BR,borderRadius:_cardR,padding:NEO?"24px 26px":20,marginBottom:16,display:"flex",alignItems:"center",gap:NEO?18:16,flexWrap:"wrap",boxShadow:_cardSh,position:"relative",overflow:"hidden"}}>
+        {NEO && <div style={{position:"absolute",top:0,left:0,right:0,height:3,background:"linear-gradient(90deg,"+N+" 0%,"+G+" 100%)"}}></div>}
+        <div style={{borderRadius:"50%",padding:NEO?3:0,background:NEO?"linear-gradient(135deg,"+N+"22,"+G+"33)":"transparent",flexShrink:0}}><Av f={member.first} l={member.last} sz={NEO?58:56}/></div>
         <div style={{flex:1,minWidth:160}}>
-          <div style={{fontSize:20,fontWeight:600,color:N}}>{member.first} {member.last}</div>
-          <div style={{fontSize:13,color:MU,marginTop:2}}>{member.role||"Member"} · {member.status||"Active"}</div>
-          {member.email&&<div style={{fontSize:12,color:MU,marginTop:2}}>{member.email}</div>}
+          <div style={{fontSize:NEO?24:20,fontWeight:600,color:N,fontFamily:_serif,letterSpacing:NEO?"-0.015em":"normal",lineHeight:1.15}}>{member.first} {member.last}</div>
+          <div style={{fontSize:12.5,color:MU,marginTop:NEO?5:2,display:"flex",alignItems:"center",gap:7,flexWrap:"wrap"}}><span style={{fontWeight:500,color:TX}}>{member.role||"Member"}</span><span style={{width:3,height:3,borderRadius:"50%",background:MU,display:"inline-block"}}></span><span style={{fontSize:10.5,fontWeight:700,textTransform:"uppercase" as any,letterSpacing:0.5,color:(member.status||"Active")==="Active"?GR:MU,background:((member.status||"Active")==="Active"?GR:MU)+"18",borderRadius:20,padding:"1px 8px"}}>{member.status||"Active"}</span></div>
+          {member.email&&<div style={{fontSize:12,color:MU,marginTop:3}}>{member.email}</div>}
         </div>
         <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
           {editMode
             ?<><Btn onClick={save}>Save Changes</Btn><Btn v="ghost" onClick={()=>setEditMode(false)}>Cancel</Btn></>
             :<Btn v="gold" onClick={()=>setEditMode(true)}>Edit Profile</Btn>}
-          <button onClick={onSignOut} style={{padding:"7px 14px",background:staffMode?"#f0f4ff":"#fee2e2",border:"0.5px solid "+(staffMode?"#bfcbff":"#fca5a5"),borderRadius:8,fontSize:12,fontWeight:600,color:staffMode?"#2563eb":"#dc2626",cursor:"pointer"}}>{staffMode?"← Back":"Sign Out"}</button>
+          <button onClick={onSignOut} style={{padding:"7px 14px",background:staffMode?"#f0f4ff":"#fee2e2",border:"0.5px solid "+(staffMode?"#bfcbff":"#fca5a5"),borderRadius:NEO?10:8,fontSize:12,fontWeight:600,color:staffMode?"#2563eb":"#dc2626",cursor:"pointer"}}>{staffMode?"← Back":"Sign Out"}</button>
         </div>
       </div>
 
@@ -18243,17 +18248,17 @@ function MemberProfilePortal({member,setMembers,giving,onSignOut,staffMode=false
       )}
 
       {/* Tabs */}
-      <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
-        {TABS.map(t=>(
-          <button key={t.id} onClick={()=>setTab(t.id)} style={{padding:"7px 16px",borderRadius:8,border:"0.5px solid "+BR,background:tab===t.id?N:"#fff",color:tab===t.id?"#fff":TX,fontWeight:500,fontSize:13,cursor:"pointer"}}>
-            {t.label}{t.id==="giving"&&myGiving.length?<span style={{marginLeft:6,background:G,color:N,borderRadius:10,fontSize:10,padding:"1px 7px",fontWeight:700}}>{myGiving.length}</span>:null}
+      <div style={{display:"flex",gap:NEO?4:6,marginBottom:16,flexWrap:"wrap",...(NEO?{background:BG,padding:5,borderRadius:13,border:"0.5px solid "+BR}:{})}}>
+        {TABS.map(t=>{const act=tab===t.id;return (
+          <button key={t.id} onClick={()=>setTab(t.id)} style={{padding:NEO?"7px 14px":"7px 16px",borderRadius:NEO?9:8,border:NEO?"none":"0.5px solid "+BR,background:act?N:(NEO?"transparent":"#fff"),color:act?"#fff":(NEO?MU:TX),fontWeight:act?600:500,fontSize:12.5,cursor:"pointer",boxShadow:(NEO&&act)?"0 1px 2px rgba(20,30,55,.06),0 6px 14px -9px rgba(20,30,55,.35)":"none",transition:"background .12s,color .12s"}}>
+            {t.label}{t.id==="giving"&&myGiving.length?<span style={{marginLeft:6,background:act?"#ffffff33":G,color:act?"#fff":N,borderRadius:10,fontSize:10,padding:"1px 7px",fontWeight:700}}>{myGiving.length}</span>:null}
           </button>
-        ))}
+        );})}
       </div>
 
       {/* Personal Info Tab */}
       {tab==="profile"&&(
-        <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:18}}>
+        <div style={{background:W,border:"0.5px solid "+BR,borderRadius:_cardR,padding:NEO?22:18,boxShadow:_cardSh}}>
           {editMode?(
             <div style={{display:"flex",flexDirection:"column",gap:10}}>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
@@ -18485,8 +18490,8 @@ function MemberProfilePortal({member,setMembers,giving,onSignOut,staffMode=false
       )}
       {tab==="privacy"&&(
         <div>
-          <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:18,marginBottom:14}}>
-            <div style={{fontSize:15,fontWeight:600,color:N,marginBottom:6}}>🔒 Your Privacy &amp; Consent</div>
+          <div style={{background:W,border:"0.5px solid "+BR,borderRadius:_cardR,padding:NEO?22:18,marginBottom:14,boxShadow:_cardSh}}>
+            <div style={{fontSize:NEO?17:15,fontWeight:600,color:N,marginBottom:6,fontFamily:_serif}}>🔒 Your Privacy &amp; Consent</div>
             <div style={{fontSize:12.5,color:TX,lineHeight:1.65}}>We keep your contact details so the church can stay in touch and care for you. <strong>Only church staff</strong> can see your full profile — <strong>other members cannot browse your information</strong>. You control everything below: what may appear in a shared or printed directory, and which messages you receive. Change it anytime.</div>
             {member.dataRemovalRequestedAt && <div style={{marginTop:10,background:"#fff7ed",border:"0.5px solid #fed7aa",borderRadius:8,padding:"8px 11px",fontSize:12,color:"#9a3412"}}>⏳ You've asked us to remove your data — the church office has been notified. <button onClick={cancelRemoval} style={{background:"none",border:"none",color:N,fontWeight:600,cursor:"pointer",fontSize:12,padding:0,textDecoration:"underline"}}>Cancel request</button></div>}
           </div>
@@ -18538,8 +18543,8 @@ function MemberProfilePortal({member,setMembers,giving,onSignOut,staffMode=false
       )}
       {tab==="serve"&&(
         <div>
-          <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:18,marginBottom:14}}>
-            <div style={{fontSize:15,fontWeight:600,color:N,marginBottom:4}}>🙌 Serve Teams</div>
+          <div style={{background:W,border:"0.5px solid "+BR,borderRadius:_cardR,padding:NEO?22:18,marginBottom:14,boxShadow:_cardSh}}>
+            <div style={{fontSize:NEO?17:15,fontWeight:600,color:N,marginBottom:4,fontFamily:_serif}}>🙌 Serve Teams</div>
             <div style={{fontSize:12,color:MU,lineHeight:1.5}}>Tap <strong>Sign Up</strong> to join a team you'd like to serve on. You'll get a reminder at the top of My Profile before you serve. You can leave a team anytime.</div>
           </div>
           {canManageServe && (
@@ -20511,11 +20516,11 @@ export default function App({churchId,churchName,adminFirst,adminLast,onSignOut,
           {view==="media" && <MediaPage cs={churchSettings}/>}
           {isMemberPortal && view==="prospects" && <ProspectsPage prospects={prospects} setProspects={setProspects} members={members} setView={setView} portalMode={true} isAdmin={false} currentUserId={null} currentUserMemberId={portalMember?.id ?? null} currentUserName={(portalMember.first+" "+portalMember.last).trim()}/>}
           {!isMemberPortal && view==="promo" && <EventPromoPage promoContacts={promoContacts} setPromoContacts={setPromoContacts} cs={churchSettings}/>}
-          {isMemberPortal && view!=="prayer" && view!=="media" && view!=="prospects" && <MemberProfilePortal member={portalMember} setMembers={setMembers} giving={giving} onSignOut={onSignOut} roles={roles} users={users} setUsers={setUsers} recurring={recurring} custom={custom} eventRsvps={eventRsvps} setEventRsvps={setEventRsvps} members={members} children={children} announcements={announcements} cleaningSchedule={cleaningSchedule} eventSchedule={eventSchedule} serveTeams={serveTeams} setServeTeams={setServeTeams} serveSignups={serveSignups} setServeSignups={setServeSignups} givingUrl={churchSettings?.onlineGivingUrl||"https://myntccglendaleaz.onlinegiving.cc/"} initialTab={view==="give"?"give":view==="news"?"news":"profile"}/>}
+          {isMemberPortal && view!=="prayer" && view!=="media" && view!=="prospects" && <MemberProfilePortal member={portalMember} setMembers={setMembers} giving={giving} onSignOut={onSignOut} roles={roles} users={users} setUsers={setUsers} recurring={recurring} custom={custom} eventRsvps={eventRsvps} setEventRsvps={setEventRsvps} members={members} children={children} announcements={announcements} cleaningSchedule={cleaningSchedule} eventSchedule={eventSchedule} serveTeams={serveTeams} setServeTeams={setServeTeams} serveSignups={serveSignups} setServeSignups={setServeSignups} givingUrl={churchSettings?.onlineGivingUrl||"https://myntccglendaleaz.onlinegiving.cc/"} neoDesign={!churchSettings?.classicDashboard} initialTab={view==="give"?"give":view==="news"?"news":"profile"}/>}
           {isMemberPortal && view==="prayer" && <Prayer prayers={prayers} setPrayers={setPrayers} portalMode={true} portalMember={portalMember}/>}
           {/* ── My Profile: every logged-in staff/user. Shows their member record if linked, else a read-only account card. ── */}
           {!isMemberPortal && view==="myprofile" && (staffMemberRecord
-            ? <MemberProfilePortal member={staffMemberRecord} setMembers={setMembers} giving={giving} onSignOut={()=>setView("dashboard")} staffMode={true} roles={roles} users={users} setUsers={setUsers} recurring={recurring} custom={custom} eventRsvps={eventRsvps} setEventRsvps={setEventRsvps} members={members} children={children} announcements={announcements} cleaningSchedule={cleaningSchedule} eventSchedule={eventSchedule} servicePlans={servicePlans} serveTeams={serveTeams} setServeTeams={setServeTeams} serveSignups={serveSignups} setServeSignups={setServeSignups} currentUser={currentUser} givingUrl={churchSettings?.onlineGivingUrl||"https://myntccglendaleaz.onlinegiving.cc/"}/>
+            ? <MemberProfilePortal member={staffMemberRecord} setMembers={setMembers} giving={giving} onSignOut={()=>setView("dashboard")} staffMode={true} roles={roles} users={users} setUsers={setUsers} recurring={recurring} custom={custom} eventRsvps={eventRsvps} setEventRsvps={setEventRsvps} members={members} children={children} announcements={announcements} cleaningSchedule={cleaningSchedule} eventSchedule={eventSchedule} servicePlans={servicePlans} serveTeams={serveTeams} setServeTeams={setServeTeams} serveSignups={serveSignups} setServeSignups={setServeSignups} currentUser={currentUser} givingUrl={churchSettings?.onlineGivingUrl||"https://myntccglendaleaz.onlinegiving.cc/"} neoDesign={!churchSettings?.classicDashboard}/>
             : <MyAccountFallback currentUser={currentUser} roles={roles} loggedInEmail={loggedInEmail} displayName={displayName} onBack={()=>setView("dashboard")} serveTeams={serveTeams} setServeTeams={setServeTeams} serveSignups={serveSignups} setServeSignups={setServeSignups}/>)}
           {/* ── Staff / Admin views (never rendered for portal users) ── */}
           {!isMemberPortal && view==="sms" && <SmsCenter smsLog={smsLog} setSmsLog={setSmsLog} smsTemplates={smsTemplates} setSmsTemplates={setSmsTemplates} smsConfig={smsConfig} setSmsConfig={setSmsConfig} members={members} visitors={visitors} cs={churchSettings} onCompose={()=>openSmsComposer({})} onBulkCompose={()=>openBulkSmsComposer({recipients:[...members,...visitors].filter(p=>p.phone&&canBulkText(p)).map(p=>({...p,first:p.first,last:p.last,name:p.first+" "+p.last}))})}/>}
