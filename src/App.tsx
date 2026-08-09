@@ -2603,8 +2603,9 @@ function UsersTab({members,users,setUsers,roles,permissions,currentUser,churchId
 
   const filtered = users.filter(u=>{
     const m = memberOf(u.id);
-    if(!m) return false;
-    if(search && !(m.first+" "+m.last+" "+(m.email||"")).toLowerCase().includes(search.toLowerCase())) return false;
+    // Show the user even if their linked member record is missing (deleted / not yet linked) — we fall
+    // back to a usable name in the row below — so a user can never silently vanish from Access Control.
+    if(search){ const hay=(m?((m.first||"")+" "+(m.last||"")+" "+(m.email||"")):((u.name||"")+" "+(u.email||""))).toLowerCase(); if(!hay.includes(search.toLowerCase())) return false; }
     if(filterRole!=="all" && u.roleId!==filterRole && u.secondaryRoleId!==filterRole && !(filterRole==="super"&&u.superAdmin)) return false;
     if(filterStatus!=="all" && u.status!==filterStatus) return false;
     return true;
@@ -2735,6 +2736,12 @@ function UsersTab({members,users,setUsers,roles,permissions,currentUser,churchId
             <tbody>
               {filtered.map(u=>{
                 const m = memberOf(u.id);
+                // Fallbacks so an unlinked user still shows a name instead of disappearing/crashing.
+                const _fullNm = m ? (((m.first||"")+" "+(m.last||"")).trim() || "Member #"+u.memberId) : (String(u.name||"").trim() || String(u.email||"").split("@")[0] || ("User #"+u.id));
+                const _np = _fullNm.split(" ");
+                const _avF=_np[0]||"U", _avL=_np.slice(1).join(" ")||"";
+                const _sub = m ? (m.role||"Member") : (u.superAdmin?"Super Administrator":"⚠ Not linked to a member");
+                const _email = (m&&m.email)||u.email||"—";
                 const r = roles.find(x=>x.id===u.roleId);
                 const s = statusColors[u.status]||{bg:BG,c:MU};
                 const overrideCount = u.overrides ? Object.values(u.overrides).reduce((a,mod)=>a+Object.values(mod||{}).filter(v=>v!==undefined&&v!==null).length,0) : 0;
@@ -2742,11 +2749,11 @@ function UsersTab({members,users,setUsers,roles,permissions,currentUser,churchId
                   <tr key={u.id} onClick={()=>setDetailU(u)} style={{borderBottom:"0.5px solid "+BR,cursor:"pointer"}} onMouseEnter={e=>e.currentTarget.style.background="#f8f9fc"} onMouseLeave={e=>e.currentTarget.style.background=W}>
                     <td style={{padding:"11px 14px"}}>
                       <div style={{display:"flex",alignItems:"center",gap:10}}>
-                        <Av f={m.first} l={m.last} sz={34}/>
-                        <div><div style={{fontSize:13,fontWeight:500,color:N}}>{m.first} {m.last}</div><div style={{fontSize:11,color:MU}}>{m.role||"Member"}</div></div>
+                        <Av f={_avF} l={_avL} sz={34}/>
+                        <div><div style={{fontSize:13,fontWeight:500,color:N}}>{_fullNm}</div><div style={{fontSize:11,color:m?MU:AM}}>{_sub}</div></div>
                       </div>
                     </td>
-                    <td style={{padding:"11px 14px",fontSize:12,color:MU}}>{m.email||"—"}</td>
+                    <td style={{padding:"11px 14px",fontSize:12,color:MU}}>{_email}</td>
                     <td style={{padding:"11px 14px"}}>
                       {u.superAdmin ? <span style={{background:"#fef2f2",color:RE,border:"0.5px solid "+RE+"44",borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:500}}>Super Admin</span>
                       : r ? <span style={{background:r.color+"18",color:r.color,border:"0.5px solid "+r.color+"44",borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:500}}>{r.name}{(()=>{const sr=u.secondaryRoleId&&roles.find(x=>x.id===u.secondaryRoleId);return sr?" • "+sr.name:"";})()}</span>
@@ -2845,6 +2852,9 @@ function UsersTab({members,users,setUsers,roles,permissions,currentUser,churchId
       <Modal open={!!detailU} onClose={()=>setDetailU(null)} title="" width={620}>
         {detailU && (()=>{
           const m = memberOf(detailU.id);
+          const _dNm = m ? (((m.first||"")+" "+(m.last||"")).trim() || "Member #"+detailU.memberId) : (String(detailU.name||"").trim() || String(detailU.email||"").split("@")[0] || ("User #"+detailU.id));
+          const _dp=_dNm.split(" "); const _dF=_dp[0]||"U", _dL=_dp.slice(1).join(" ")||"";
+          const _dEmail=(m&&m.email)||detailU.email||"—";
           const r = roles.find(x=>x.id===detailU.roleId);
           const eff = effectivePermissions(detailU, roles, permissions);
           const rolePerms = (()=>{
@@ -2862,15 +2872,15 @@ function UsersTab({members,users,setUsers,roles,permissions,currentUser,churchId
           return (
             <div style={{marginTop:-14}}>
               <div style={{display:"flex",alignItems:"center",gap:14,padding:"12px 0 16px",borderBottom:"0.5px solid "+BR,marginBottom:16}}>
-                <Av f={m.first} l={m.last} sz={54}/>
+                <Av f={_dF} l={_dL} sz={54}/>
                 <div style={{flex:1}}>
-                  <div style={{fontSize:18,fontWeight:500,color:N}}>{m.first} {m.last}</div>
+                  <div style={{fontSize:18,fontWeight:500,color:N}}>{_dNm}</div>
                   <div style={{display:"flex",alignItems:"center",gap:8,marginTop:4,flexWrap:"wrap"}}>
                     {detailU.superAdmin ? <span style={{background:"#fef2f2",color:RE,border:"0.5px solid "+RE+"44",borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:500}}>Super Admin</span>
                     : r ? <span style={{background:r.color+"18",color:r.color,border:"0.5px solid "+r.color+"44",borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:500}}>{r.name}{(()=>{const sr=detailU.secondaryRoleId&&roles.find(x=>x.id===detailU.secondaryRoleId);return sr?" • "+sr.name:"";})()}</span> : null}
                     <span style={{background:(statusColors[detailU.status]||{bg:BG}).bg,color:(statusColors[detailU.status]||{c:MU}).c,borderRadius:20,padding:"2px 10px",fontSize:11,fontWeight:500}}>{detailU.status}</span>
                   </div>
-                  <div style={{fontSize:12,color:MU,marginTop:3}}>{m.email||"—"}</div>
+                  <div style={{fontSize:12,color:MU,marginTop:3}}>{_dEmail}</div>
                 </div>
                 {isAdmin && !detailU.superAdmin && (
                   <Btn onClick={()=>setOverrideModal(detailU)} v="gold" style={{fontSize:12}}>Override Permissions</Btn>
