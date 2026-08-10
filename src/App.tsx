@@ -14200,7 +14200,7 @@ function TeacherScheduleMgr({classrooms,teacherSchedule,setTeacherSchedule,users
 }
 
 // ── CLASS ROLL CALL ──
-function ClassRollCall({classrooms,children,rollCalls,setRollCalls,teacherSchedule,users,members,cs}){
+function ClassRollCall({classrooms,children,rollCalls,setRollCalls,teacherSchedule,users,members,cs,kidsCheckIns=[]}){
   const [selDate,setSelDate]=useState(td());
   const [selClassId,setSelClassId]=useState((classrooms.find((c:any)=>c.id<=6)||classrooms[0])?.id||0);
   const [notes,setNotes]=useState("");
@@ -14224,7 +14224,13 @@ function ClassRollCall({classrooms,children,rollCalls,setRollCalls,teacherSchedu
   const searchMatches=q?(isYouth?youthRoster.filter((c:any)=>(c.first+" "+c.last).toLowerCase().includes(q)):children.filter((c:any)=>c.status==="Active"&&((c.first+" "+c.last).toLowerCase().includes(q)||String(c.parentName||"").toLowerCase().includes(q)))):[];
   const existing=rollCalls.find((r:any)=>r.date===selDate&&r.classroomId===selClassId);
   useEffect(()=>{setNotes((rollCalls.find((r:any)=>r.date===selDate&&r.classroomId===selClassId) as any)?.teacherNotes||"");},[selDate,selClassId]);
-  const getStatus=(childId:any,cid:any=selClassId)=>{const rc=(rollCalls as any[]).find((r:any)=>r.date===selDate&&r.classroomId===cid);return rc?.entries?.find((e:any)=>e.childId===childId)?.status||"";};
+  // Did this child check in (kids Check-In portal) on the selected date? (Any classroom — checkout still counts as attended.)
+  const checkedInToday=(childId:any)=>(Array.isArray(kidsCheckIns)?kidsCheckIns:[]).some((c:any)=>String(c.childId)===String(childId)&&String(c.date)===String(selDate));
+  // Effective status: a teacher's EXPLICIT Present/Absent/Excused mark always wins; otherwise a child
+  // who checked in that day is auto-shown as Present. This keeps Roll Call in sync with Check-In even
+  // when the check-in room (by age) differs from the roll-call room (by grade), without overwriting edits.
+  const getStatus=(childId:any,cid:any=selClassId)=>{const rc=(rollCalls as any[]).find((r:any)=>r.date===selDate&&r.classroomId===cid);const ex=rc?.entries?.find((e:any)=>e.childId===childId)?.status;if(ex)return ex;if(checkedInToday(childId))return "Present";return "";};
+  const isAutoPresent=(childId:any,cid:any=selClassId)=>{const rc=(rollCalls as any[]).find((r:any)=>r.date===selDate&&r.classroomId===cid);const ex=rc?.entries?.find((e:any)=>e.childId===childId)?.status;return !ex && checkedInToday(childId);};
   const setEntry=(childId:any,status:any,cid:any=selClassId)=>{
     if(cid==null)return;
     setRollCalls((prev:any)=>{
@@ -14246,9 +14252,10 @@ function ClassRollCall({classrooms,children,rollCalls,setRollCalls,teacherSchedu
     });
     setSaved(true);setTimeout(()=>setSaved(false),2000);
   };
-  const presentN=((existing as any)?.entries||[]).filter((e:any)=>e.status==="Present").length;
-  const absentN=((existing as any)?.entries||[]).filter((e:any)=>e.status==="Absent").length;
-  const excusedN=((existing as any)?.entries||[]).filter((e:any)=>e.status==="Excused").length;
+  // Counts use the EFFECTIVE status over the visible roster, so auto-present (checked-in) children count.
+  const presentN=(roster as any[]).filter((ch:any)=>getStatus(ch.id)==="Present").length;
+  const absentN=(roster as any[]).filter((ch:any)=>getStatus(ch.id)==="Absent").length;
+  const excusedN=(roster as any[]).filter((ch:any)=>getStatus(ch.id)==="Excused").length;
   const contactParent=(ch:any)=>{if(ch.parentPhone){(window as any).__openSmsComposer__&&(window as any).__openSmsComposer__({phone:ch.parentPhone,name:ch.parentName||"Parent",category:"Follow-Up",body:"Hi "+(ch.parentName?.split(" ")[0]||"there")+", this is "+((cs as any)?.name||"the church")+" reaching out about "+ch.first+". Please give us a call. Thank you!"});}};
   const todaySch=(teacherSchedule as any[]).filter((t:any)=>t.date===selDate&&t.classroomId===selClassId);
   const leadU=todaySch[0]?.leadId&&(users as any[]).find((u:any)=>u.id===todaySch[0].leadId);
@@ -14259,7 +14266,7 @@ function ClassRollCall({classrooms,children,rollCalls,setRollCalls,teacherSchedu
     return(
       <div key={ch.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 16px",borderBottom:"0.5px solid "+BR+"66"}}>
         <Av f={ch.first} l={ch.last} sz={34}/>
-        <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:500}}>{ch.first} {ch.last}</div><div style={{fontSize:11,color:MU}}>Age {calcAge(ch.dob)}{ch.parentName?" · "+ch.parentName:""}{cc?" · "+cc.name:(showClass?" · No classroom":"")}</div></div>
+        <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:500,display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>{ch.first} {ch.last}{isAutoPresent(ch.id,cid)&&<span style={{fontSize:9.5,background:"#dcfce7",color:GR,border:"0.5px solid #86efac",borderRadius:10,padding:"1px 7px",fontWeight:700}} title="Marked present automatically from Check-In">✓ Checked in</span>}</div><div style={{fontSize:11,color:MU}}>Age {calcAge(ch.dob)}{ch.parentName?" · "+ch.parentName:""}{cc?" · "+cc.name:(showClass?" · No classroom":"")}</div></div>
         {cid!=null?(
           <div style={{display:"flex",gap:5}}>
             {([["Present","P",GR,"#dcfce7"],["Absent","A",RE,"#fee2e2"],["Excused","E",AM,"#fef3c7"]] as any[]).map(([lbl,sh,col,bg]:any)=>(
@@ -15510,7 +15517,7 @@ function Education({members,setMembers,visitors,attendance,setAttendance,users,r
       </div>
       {tab==="dashboard"&&<EdDashboard classrooms={classrooms} children={children} kidsCheckIns={kidsCheckIns} teacherSchedule={teacherSchedule} users={users} members={members} checkIns={checkIns} setTab={setTab}/>}
       {tab==="checkin"&&<CheckInPortal classrooms={classrooms} children={children} setChildren={setChildren} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckIns} attendance={attendance} setAttendance={setAttendance} members={members} printerConfig={printerConfig} rollCalls={rollCalls} setRollCalls={setRollCalls} progressNotes={progressNotes} setProgressNotes={setProgressNotes} teacherFollowups={teacherFollowups} setTeacherFollowups={setTeacherFollowups} addConfidential={addConfidential} currentUser={currentUser} roles={roles} neoDesign={neoDesign}/>}
-      {tab==="rollcall"&&<ClassRollCall classrooms={classrooms} children={children} rollCalls={rollCalls} setRollCalls={setRollCalls} teacherSchedule={teacherSchedule} users={users} members={members} cs={cs}/>}
+      {tab==="rollcall"&&<ClassRollCall classrooms={classrooms} children={children} rollCalls={rollCalls} setRollCalls={setRollCalls} teacherSchedule={teacherSchedule} users={users} members={members} cs={cs} kidsCheckIns={kidsCheckIns}/>}
       {tab==="children"&&<ChildrenRoster children={children} setChildren={setChildren} classrooms={classrooms} members={members} setMembers={setMembers} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckIns} setRollCalls={setRollCalls} incidents={incidents} setIncidents={setIncidents} progressNotes={progressNotes} setProgressNotes={setProgressNotes} teacherFollowups={teacherFollowups} setTeacherFollowups={setTeacherFollowups} followupDismissedChildIds={followupDismissedChildIds} setFollowupDismissedChildIds={setFollowupDismissedChildIds}/>}
       {tab==="birthdays"&&<ChildBirthdays children={children} classrooms={classrooms}/>}
       {tab==="progress"&&<ChildProgress children={children} classrooms={classrooms} rollCalls={rollCalls} progressNotes={progressNotes} setProgressNotes={setProgressNotes} addConfidential={addConfidential} cs={cs}/>}
