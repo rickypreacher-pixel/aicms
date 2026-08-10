@@ -4946,6 +4946,17 @@ function Visitation({visitors,setVisitors,members,setMembers,users,currentUser,r
   const [tyBody,setTyBody] = useState("");
   const [tyGenerating,setTyGenerating] = useState(false);
   const [liteProfile,setLiteProfile] = useState<any>(null);
+  // Type-to-filter search shared by the Visitor Tracker, Ongoing Care, and Reports tabs.
+  const [search,setSearch] = useState("");
+  const _sq = search.trim().toLowerCase();
+  const matchV = (v:any)=> !_sq || (((v?.first||"")+" "+(v?.last||"")+" "+(v?.email||"")).toLowerCase().includes(_sq));
+  const SearchBar = ({placeholder}:any)=>(
+    <div style={{position:"relative",marginBottom:14,maxWidth:420}}>
+      <input value={search} onChange={e=>setSearch(e.target.value)} placeholder={placeholder||"Search by name…"} autoComplete="off" style={{width:"100%",boxSizing:"border-box" as any,padding:"9px "+(search?"32px":"12px")+" 9px 34px",border:"0.5px solid "+BR,borderRadius:neoDesign?12:8,fontSize:13,outline:"none",background:W}}/>
+      <span style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",color:MU,fontSize:13,pointerEvents:"none" as any}}>🔍</span>
+      {search&&<button onMouseDown={e=>{e.preventDefault();setSearch("");}} style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",color:MU,fontSize:14,lineHeight:1,padding:2}}>✕</button>}
+    </div>
+  );
   const nid = useRef(Math.max(699,...(visitRecords||[]).map((r:any)=>+(r.id)||0))+1);
   const pastorDisplayName = (()=>{ const pm = members.find((m:any)=>(m.role||'').toLowerCase().includes('pastor')); return pm ? pm.first+' '+pm.last : (window.__CS__?.pastorName||'Pastor'); })();
   const openVisitorProfile = (v:any) => setLiteProfile(v);
@@ -5509,6 +5520,7 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
             <Stat label="On Track" value={ongoingRecords.length-overdueRecords.length-dueSoonRecords.length} color={GR}/>
           </div>
 
+          {ongoingRecords.length>0 && SearchBar({placeholder:"Search visitors by name…"})}
           {ongoingRecords.length===0 ? (
             <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:48,textAlign:"center"}}>
               <h3 style={{fontSize:15,fontWeight:500,color:N,marginBottom:6}}>No visitors in ongoing care yet</h3>
@@ -5516,7 +5528,7 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
             </div>
           ) : (
             <div style={{display:"flex",flexDirection:"column",gap:10}}>
-              {[...ongoingRecords].sort((a,b)=>{
+              {[...ongoingRecords.filter((r:any)=>matchV(getV(r.visitorId)))].sort((a,b)=>{
                 const sa = careStatus(a), sb = careStatus(b);
                 const order = {Overdue:0,"Due Today":1,"Due Soon":2,"On Track":3};
                 return (order[sa?.label]||9) - (order[sb?.label]||9);
@@ -5590,6 +5602,7 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
       {/* VISITOR TRACKER TAB */}
       {tab==="tracker" && (
         <div>
+          {SearchBar({placeholder:"Search visitors by name…"})}
           <div style={{background:W,border:"0.5px solid "+BR,borderRadius:neoDesign?16:12,overflow:"hidden",marginBottom:14,boxShadow:neoDesign?"0 1px 2px rgba(20,30,55,.04),0 8px 22px -14px rgba(20,30,55,.14)":undefined}}>
             <table style={{width:"100%",borderCollapse:"collapse"}}>
               <thead>
@@ -5600,7 +5613,7 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
                 </tr>
               </thead>
               <tbody>
-                {visitors.map(v=>{
+                {visitors.filter((v:any)=>matchV(v)).map(v=>{
                   const rec = getRec(v.id);
                   if(!rec) return null;
                   const spouseDisplay = getSpouseDisplay(v);
@@ -5721,8 +5734,9 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
             <h3 style={{fontSize:neoDesign?17:14,fontWeight:neoDesign?600:500,color:N,margin:0,fontFamily:neoDesign?"'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif":"inherit"}}>Detailed Visitor Timeline</h3>
             <Btn onClick={printContactHistory} v="outline" style={{fontSize:12}}>🖨 Print Contact History</Btn>
           </div>
+          {SearchBar({placeholder:"Search visitors by name…"})}
           <div style={{display:"flex",flexDirection:"column",gap:10}}>
-            {visitors.map(v=>{
+            {visitors.filter((v:any)=>matchV(v)).map(v=>{
               const rec = getRec(v.id);
               if(!rec) return null;
               const isOpen = expandedId===v.id;
