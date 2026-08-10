@@ -5215,6 +5215,7 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
       }
       // From the "Text" flow, assigning hands the visitor off to the next stage.
       if(thenText && targetStage) upd = {...upd, stage:targetStage};
+      upd = {...upd, updatedAt:nowIso};   // stamp so this assignment wins the same-stage sync merge
       return upd;
     }));
     setAssignModal(null); setAssignUid("");
@@ -5477,6 +5478,12 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
                         )}
                         {due && <div style={{fontSize:10,color:cs?.color||MU,marginBottom:6,fontWeight:500}}>Next check-in: {fd(due)}</div>}
                         <div style={{fontSize:11,color:MU,marginBottom:8}}>To: {getAssigned(rec)}</div>
+                        {/* Assign the missing role directly from the card when it shows "Needs Assignment". */}
+                        {(()=>{ const canAssign=isAdmin||String(rec.teamSupervisorUserId)===String(currentUser?.id)||String(rec.teamLeaderUserId)===String(currentUser?.id); if(!canAssign) return null;
+                          const need = (stage==="TeamSupervisor"&&!rec.teamSupervisorUserId)?{t:"TeamSupervisor",l:"Team Supervisor"}:(stage==="TeamLeader"&&!rec.teamLeaderUserId)?{t:"TeamLeader",l:"Team Leader"}:((stage==="Sponsor"||stage==="OngoingCare")&&!rec.sponsorUserId)?{t:"Sponsor",l:"Sponsor"}:null;
+                          if(!need) return null;
+                          return <Btn onClick={()=>{setAssignModal({rec,type:need.t});setAssignUid("");}} v="gold" style={{fontSize:11,padding:"4px 8px",width:"100%",justifyContent:"center",marginBottom:6,fontWeight:600}}>➕ Assign {need.l}</Btn>;
+                        })()}
                         {(stage==="Sponsor"||stage==="OngoingCare") && rec.sponsorUserId && (isAdmin||String(rec.teamSupervisorUserId)===String(currentUser?.id)||String(rec.teamLeaderUserId)===String(currentUser?.id)) && <Btn onClick={()=>{setAssignModal({rec,type:"Sponsor"});setAssignUid(String(rec.sponsorUserId||""));}} v="ghost" style={{fontSize:11,padding:"4px 8px",width:"100%",justifyContent:"center",marginBottom:6}}>🔄 Change Sponsor</Btn>}
                         {stage!=="Complete" && <Btn onClick={()=>{setLogModal(rec);setLogForm({method:"Call",date:td(),notes:"",completed:false});}} v="ai" style={{fontSize:11,padding:"4px 8px",width:"100%",justifyContent:"center"}}>Log Contact</Btn>}
                         {v.fromMemberId && stage!=="Complete" && <Btn onClick={()=>returnToMembers(rec,v)} v="ghost" style={{fontSize:11,padding:"4px 8px",width:"100%",justifyContent:"center",marginTop:6}}>↩ Return to Members</Btn>}
@@ -5585,6 +5592,7 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
                       <Btn onClick={()=>{setLogModal(rec);setLogForm({method:"Call",date:td(),notes:"",completed:true});}} v="ai">Log Check-In</Btn>
                       {v.phone && <a href={"tel:"+v.phone} style={{textDecoration:"none"}}><Btn v="ghost" style={{fontSize:12}}>Call</Btn></a>}
                       {v.phone && <Btn onClick={()=>openTextFromLog(rec)} v="ghost" style={{fontSize:12}}>Text</Btn>}
+                      {(isAdmin||String(rec.teamSupervisorUserId)===String(currentUser?.id)||String(rec.teamLeaderUserId)===String(currentUser?.id)) && <Btn onClick={()=>{setAssignModal({rec,type:"Sponsor"});setAssignUid(String(rec.sponsorUserId||""));}} v={rec.sponsorUserId?"ghost":"gold"} style={{fontSize:12,fontWeight:rec.sponsorUserId?400:600}}>{rec.sponsorUserId?"🔄 Change Sponsor":"➕ Assign Sponsor"}</Btn>}
                       <div style={{flex:1}}></div>
                       {careContacts.length>=5 && (
                         <Btn onClick={()=>convertToMember(rec)} v="gold" style={{fontSize:12,fontWeight:600}}>{getV(rec.visitorId)?.fromMemberId?"Return to Members":"Convert to Member"}</Btn>
@@ -5910,7 +5918,9 @@ Keep it to 3-4 short paragraphs. Professional yet warm in tone.`;
                     const names=[u.roleId,u.secondaryRoleId].map((rid:any)=>roles.find((x:any)=>x.id===rid)?.name);
                     if(isTS) return names.includes("Team Supervisor");
                     if(isTL) return names.includes("Team Leader");
-                    return names.includes("Sponsor");
+                    // A Sponsor OR a Team Leader may take on sponsor/ongoing care — so a team leader can
+                    // be assigned when no dedicated sponsor is available.
+                    return names.includes("Sponsor")||names.includes("Team Leader");
                   }).map(u=>{
                     const m = members.find(x=>x.id===u.memberId);
                     return m ? <option key={u.id} value={u.id}>{m.first} {m.last}</option> : null;
