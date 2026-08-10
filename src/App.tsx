@@ -15418,6 +15418,73 @@ function TeacherFollowPipeline({children,classrooms,kidsCheckIns,rollCalls,users
   );
 }
 
+// Children's birthdays — a per-month list of children (ages 0–18) with a birthday that month, plus an
+// "upcoming within 10 days" banner, mirroring the Birthdays alert under Tools → Alerts. Children carry
+// their birthdate in `dob` (some legacy records use `birthday`), so we read either.
+function ChildBirthdays({children,classrooms}:any){
+  const now=new Date();
+  const [ym,setYm]=useState<{y:number,m:number}>({y:now.getFullYear(),m:now.getMonth()});
+  const monthName=new Date(ym.y,ym.m,1).toLocaleString("en-US",{month:"long",year:"numeric"});
+  const isCurMonth=ym.y===now.getFullYear()&&ym.m===now.getMonth();
+  const dobOf=(c:any)=>String(c.dob||c.birthday||"");
+  const ageOf=(c:any)=>{const a=calcAge(dobOf(c));return typeof a==="number"?a:null;};
+  const inAge=(c:any)=>{const a=ageOf(c);return a==null||(a>=0&&a<=18);};
+  const gradeFor=(c:any)=>{const cl=c.classroomId!=null?(classrooms||[]).find((x:any)=>String(x.id)===String(c.classroomId)):null;return cl?cl.name:(c.grade||"");};
+  const list=(children||[]).filter((c:any)=>{if(c.status && String(c.status).toLowerCase()!=="active")return false;const p=dobOf(c).split("-");if(p.length<2)return false;if(!inAge(c))return false;return parseInt(p[1],10)===(ym.m+1);}).sort((a:any,b:any)=>(parseInt(dobOf(a).split("-")[2]||"0",10))-(parseInt(dobOf(b).split("-")[2]||"0",10)));
+  const upcoming=(()=>{const start=new Date(now.getFullYear(),now.getMonth(),now.getDate());const out:any[]=[];(children||[]).forEach((c:any)=>{if(c.status && String(c.status).toLowerCase()!=="active")return;if(!inAge(c))return;const p=dobOf(c).split("-");if(p.length<3)return;const mm=parseInt(p[1],10),dd=parseInt(p[2],10);if(!mm||!dd)return;let next=new Date(start.getFullYear(),mm-1,dd);if(next<start)next=new Date(start.getFullYear()+1,mm-1,dd);const du=Math.round((next.getTime()-start.getTime())/86400000);if(du>=0&&du<=10)out.push({...c,du});});return out.sort((a,b)=>a.du-b.du);})();
+  const step=(d:number)=>setYm((p:any)=>{let m=p.m+d,y=p.y;if(m<0){m=11;y--;}if(m>11){m=0;y++;}return{y,m};});
+  const _btn:any={height:30,minWidth:30,borderRadius:8,border:"0.5px solid "+BR,background:W,cursor:"pointer",fontSize:14,color:N,lineHeight:1,padding:0};
+  const exportCsv=()=>{const rows=[["Name","Birthday","Age","Class","Parent","Parent Phone"],...list.map((c:any)=>{const p=dobOf(c).split("-");const bd=p.length>=3?new Date(ym.y,ym.m,parseInt(p[2],10)).toLocaleDateString("en-US",{month:"long",day:"numeric"}):"";return [((c.first||"")+" "+(c.last||"")).trim(),bd,String(ageOf(c)??""),gradeFor(c),c.parentName||"",c.parentPhone||""];})];const csv=rows.map((r:any)=>r.map((x:any)=>'"'+String(x==null?"":x).replace(/"/g,'""')+'"').join(",")).join("\n");const b=new Blob([csv],{type:"text/csv"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download="children-birthdays.csv";a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);};
+  const TDs:any={padding:"11px 14px",fontSize:13,color:TX,borderBottom:"0.5px solid "+BR};
+  const THs:any={padding:"9px 14px",fontSize:10.5,fontWeight:700,color:MU,textTransform:"uppercase" as any,letterSpacing:0.5,textAlign:"left" as any,borderBottom:"0.5px solid "+BR,background:BG};
+  return (
+    <div>
+      <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,overflow:"hidden"}}>
+        <div style={{padding:"12px 16px",borderBottom:"0.5px solid "+BR,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
+          <div>
+            <div style={{fontSize:14,fontWeight:600,color:N}}>🎂 Children's Birthdays — {monthName}</div>
+            <div style={{fontSize:12,color:MU,marginTop:2}}>{list.length} {list.length===1?"child":"children"} (ages 0–18){isCurMonth&&upcoming.length>0?<> · <span style={{color:RE,fontWeight:600}}>{upcoming.length} within 10 days</span></>:null}</div>
+          </div>
+          <div style={{display:"flex",gap:6,alignItems:"center"}}>
+            <button onClick={()=>step(-1)} style={{...(_btn as any),width:30}} title="Previous month">‹</button>
+            <button onClick={()=>setYm({y:now.getFullYear(),m:now.getMonth()})} style={{...(_btn as any),padding:"0 12px",fontSize:12,fontWeight:600}}>Today</button>
+            <button onClick={()=>step(1)} style={{...(_btn as any),width:30}} title="Next month">›</button>
+            <button onClick={exportCsv} style={{...(_btn as any),padding:"0 12px",fontSize:12,fontWeight:600}}>Export CSV</button>
+          </div>
+        </div>
+        {isCurMonth && upcoming.length>0 && (
+          <div style={{margin:"12px 16px",background:"#fff7ed",border:"0.5px solid #fed7aa",borderRadius:10,padding:"10px 14px"}}>
+            <div style={{fontSize:12,fontWeight:600,color:"#9a3412",marginBottom:8}}>🎂 {upcoming.length} birthday{upcoming.length!==1?"s":""} within the next 10 days</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+              {upcoming.map((c:any)=>(<span key={c.id} style={{fontSize:12,background:"#fff",border:"0.5px solid #fed7aa",borderRadius:8,padding:"3px 9px",color:TX}}>{c.first} {c.last} — <strong style={{color:AM}}>{c.du===0?"Today 🎉":c.du===1?"Tomorrow":"in "+c.du+" days"}</strong></span>))}
+            </div>
+          </div>
+        )}
+        {list.length===0 ? (
+          <div style={{padding:36,textAlign:"center",color:MU,fontSize:13}}>No children's birthdays in {monthName}.</div>
+        ) : (
+          <div style={{overflowX:"auto"}}>
+            <table style={{width:"100%",borderCollapse:"collapse"}}>
+              <thead><tr><th style={THs}>Child</th><th style={THs}>Birthday</th><th style={{...THs,textAlign:"center" as any}}>Age</th><th style={THs}>Class</th><th style={THs}>Parent</th></tr></thead>
+              <tbody>
+                {list.map((c:any)=>{const p=dobOf(c).split("-");const day=p[2]?parseInt(p[2],10):null;const isToday=isCurMonth && day===now.getDate();const a=ageOf(c);return (
+                  <tr key={c.id}>
+                    <td style={TDs}><div style={{display:"flex",alignItems:"center",gap:9}}><Av f={c.first} l={c.last} sz={30}/><span style={{fontWeight:500}}>{c.first} {c.last}</span>{isToday&&<span style={{background:AM,color:"#fff",borderRadius:10,fontSize:10,padding:"1px 7px",fontWeight:600}}>Today! 🎂</span>}</div></td>
+                    <td style={{...TDs,fontWeight:500,color:PU}}>{new Date(ym.y,ym.m,day||1).toLocaleString("en-US",{month:"long"})} {day??"?"}</td>
+                    <td style={{...TDs,textAlign:"center" as any,fontVariantNumeric:"tabular-nums" as any}}>{a==null?"—":a}</td>
+                    <td style={TDs}>{gradeFor(c)||<span style={{color:MU}}>—</span>}</td>
+                    <td style={TDs}>{c.parentName?<span>{c.parentName}{c.parentPhone?<span style={{color:MU}}> · {c.parentPhone}</span>:null}</span>:<span style={{color:MU}}>—</span>}</td>
+                  </tr>
+                );})}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function Education({members,setMembers,visitors,attendance,setAttendance,users,roles,currentUser,children,setChildren,classrooms,setClassrooms,teacherSchedule,setTeacherSchedule,kidsCheckIns,setKidsCheckIns,checkIns,incidents,setIncidents,rollCalls,setRollCalls,progressNotes,setProgressNotes,teacherFollowups,setTeacherFollowups,followupDismissedChildIds,setFollowupDismissedChildIds,cs,setCs,addConfidential,printerConfig,setPrinterConfig,neoDesign=false}:any){
   const [tab,setTab]=useState("dashboard");
   const checkedOutBadgeCount=(kidsCheckIns as any[]).filter((c:any)=>!!c.checkedOut).length;
@@ -15430,7 +15497,7 @@ function Education({members,setMembers,visitors,attendance,setAttendance,users,r
   const _tfVisible = _edIsAdmin ? _tf : _tf.filter((r:any)=>String(r.assignedToUserId||"")===String(currentUser?.id||""));
   const stage1Count = _tfVisible.filter((r:any)=>r.stage==="stage1").length;
   const stage2Count = _tfVisible.filter((r:any)=>r.stage==="stage2").length;
-  const TABS=[{id:"dashboard",label:"Overview"},{id:"checkin",label:"Check-In"},{id:"rollcall",label:"Roll Call"},{id:"children",label:"Children"},{id:"progress",label:"Progress"},{id:"classrooms",label:"Classrooms"},{id:"teachers",label:"Teachers"},{id:"followup",label:"Follow-Up"},{id:"incidents",label:"Incidents"},{id:"reports",label:"Reports"},{id:"printer",label:"🖨 Printer"}];
+  const TABS=[{id:"dashboard",label:"Overview"},{id:"checkin",label:"Check-In"},{id:"rollcall",label:"Roll Call"},{id:"children",label:"Children"},{id:"birthdays",label:"🎂 Birthdays"},{id:"progress",label:"Progress"},{id:"classrooms",label:"Classrooms"},{id:"teachers",label:"Teachers"},{id:"followup",label:"Follow-Up"},{id:"incidents",label:"Incidents"},{id:"reports",label:"Reports"},{id:"printer",label:"🖨 Printer"}];
   return(
     <div>
       <div style={{display:"flex",marginBottom:20,background:W,borderRadius:10,border:"0.5px solid "+BR,overflow:"hidden",flexWrap:"wrap"}}>
@@ -15445,6 +15512,7 @@ function Education({members,setMembers,visitors,attendance,setAttendance,users,r
       {tab==="checkin"&&<CheckInPortal classrooms={classrooms} children={children} setChildren={setChildren} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckIns} attendance={attendance} setAttendance={setAttendance} members={members} printerConfig={printerConfig} rollCalls={rollCalls} setRollCalls={setRollCalls} progressNotes={progressNotes} setProgressNotes={setProgressNotes} teacherFollowups={teacherFollowups} setTeacherFollowups={setTeacherFollowups} addConfidential={addConfidential} currentUser={currentUser} roles={roles} neoDesign={neoDesign}/>}
       {tab==="rollcall"&&<ClassRollCall classrooms={classrooms} children={children} rollCalls={rollCalls} setRollCalls={setRollCalls} teacherSchedule={teacherSchedule} users={users} members={members} cs={cs}/>}
       {tab==="children"&&<ChildrenRoster children={children} setChildren={setChildren} classrooms={classrooms} members={members} setMembers={setMembers} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckIns} setRollCalls={setRollCalls} incidents={incidents} setIncidents={setIncidents} progressNotes={progressNotes} setProgressNotes={setProgressNotes} teacherFollowups={teacherFollowups} setTeacherFollowups={setTeacherFollowups} followupDismissedChildIds={followupDismissedChildIds} setFollowupDismissedChildIds={setFollowupDismissedChildIds}/>}
+      {tab==="birthdays"&&<ChildBirthdays children={children} classrooms={classrooms}/>}
       {tab==="progress"&&<ChildProgress children={children} classrooms={classrooms} rollCalls={rollCalls} progressNotes={progressNotes} setProgressNotes={setProgressNotes} addConfidential={addConfidential} cs={cs}/>}
       {tab==="classrooms"&&<ClassroomsManager classrooms={classrooms} setClassrooms={setClassrooms} teacherSchedule={teacherSchedule} users={users} members={members} kidsCheckIns={kidsCheckIns}/>}
       {tab==="teachers"&&<TeacherScheduleMgr classrooms={classrooms} teacherSchedule={teacherSchedule} setTeacherSchedule={setTeacherSchedule} users={users} members={members} roles={roles}/>}
