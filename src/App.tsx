@@ -2108,6 +2108,48 @@ const ICLASSROOMS=CHURCH_LEVELS.map(l=>({...l}));
 function classroomGrades(classrooms){const seen:string[]=[];((classrooms&&classrooms.length)?classrooms:CHURCH_LEVELS).forEach((c:any)=>{const g=String((c&&(c.grade||c.name))||"").trim();if(g&&!seen.includes(g))seen.push(g);});return seen;}
 // Best classroom grade tag for a given age, using the classrooms' own age ranges (falls back to levelFromAge).
 function classroomGradeForAge(classrooms,age){if(typeof age!=="number"||age<0)return"";const list=(classrooms&&classrooms.length)?classrooms:CHURCH_LEVELS;const hit=list.find((c:any)=>typeof c.ageMin==="number"&&typeof c.ageMax==="number"&&age>=c.ageMin&&age<=c.ageMax);return hit?String(hit.grade||hit.name||""):levelFromAge(age);}
+// ── ANNUAL GRADUATION / PROMOTION (Aug 1) ──────────────────────────────
+// Once a year (Aug 1) children move up a classroom as their age crosses the
+// next room's range. These helpers figure out who is eligible; nothing mutates
+// until a leader clicks Promote (children's records are never silently rewritten).
+function _roomsByAge(classrooms:any){return [...(Array.isArray(classrooms)?classrooms:[])].filter((c:any)=>typeof c.ageMin==="number"&&typeof c.ageMax==="number").sort((a:any,b:any)=>a.ageMin-b.ageMin);}
+function _currentRoom(child:any,classrooms:any){
+  if(child.classroomId!=null){const r=(classrooms||[]).find((c:any)=>String(c.id)===String(child.classroomId));if(r)return r;}
+  if(child.grade){const r=(classrooms||[]).find((c:any)=>c.name===child.grade||c.grade===child.grade);if(r)return r;}
+  return null;
+}
+// Age the child reaches ON Aug 1 of `year` (the fixed promotion date), so a
+// birthday later in August doesn't bump them a year early.
+function ageOnAug1(dob:any,year:number){
+  if(!dob)return null;const b=new Date(String(dob)+"T00:00:00");if(isNaN(b.getTime()))return null;
+  const ref=new Date(year,7,1);let a=ref.getFullYear()-b.getFullYear();const m=ref.getMonth()-b.getMonth();
+  if(m<0||(m===0&&ref.getDate()<b.getDate()))a--;return a>=0?a:null;
+}
+function _targetRoom(classrooms:any,age:number|null){
+  const rooms=_roomsByAge(classrooms);if(!rooms.length||age==null)return null;
+  const hit=rooms.find((c:any)=>age>=c.ageMin&&age<=c.ageMax);if(hit)return hit;
+  if(age>rooms[rooms.length-1].ageMax)return rooms[rooms.length-1];// aged past the top room
+  return null;// younger than the youngest room
+}
+// Returns {eligible, missing} for the promotion as-of Aug 1 of `year`.
+// eligible = active children whose age-appropriate room is HIGHER than their
+// current one (each item carries the from/target rooms + an `out` flag for kids
+// aging out of the check-in rooms entirely, e.g. into Young Adult).
+function computeGraduations(children:any,classrooms:any,year:number){
+  const eligible:any[]=[],missing:any[]=[];
+  (Array.isArray(children)?children:[]).forEach((c:any)=>{
+    if(c.status&&String(c.status).toLowerCase()!=="active")return;
+    const dob=String(c.dob||c.birthday||"");
+    const age=ageOnAug1(dob,year);
+    if(age==null){missing.push(c);return;}
+    const tgt=_targetRoom(classrooms,age);if(!tgt)return;
+    const cur=_currentRoom(c,classrooms);
+    if(cur&&String(cur.id)===String(tgt.id))return;// already in the right room
+    if(cur&&!(tgt.ageMin>cur.ageMin))return;// never demote / sideways
+    eligible.push({child:c,from:cur||null,target:tgt,age,out:tgt.checkin===false});
+  });
+  return {eligible,missing};
+}
 const ICHILDREN:any[]=[];
 const ITEACHERSCHEDULE=[];
 const IKIDSCHECKINS=[];
@@ -15518,6 +15560,117 @@ function ChildBirthdays({children,classrooms}:any){
   );
 }
 
+function GraduationTab({children,setChildren,classrooms,cs,setCs,canManage}:any){
+  const now=new Date();
+  const year=now.getFullYear();
+  const {eligible,missing}=computeGraduations(children,classrooms,year);
+  const [doneMsg,setDoneMsg]=useState("");
+  const lastRun=cs?.lastGraduationYear;
+  const inSeason=now.getMonth()>7||(now.getMonth()===7&&now.getDate()>=1); // on/after Aug 1
+  const seasonPending=inSeason&&lastRun!==year&&eligible.length>0;
+  const gradOut=eligible.filter((r:any)=>r.out);
+  const groups:any[]=(()=>{const m=new Map();eligible.forEach((r:any)=>{const key=(r.from?r.from.name:"Unassigned")+" → "+r.target.name;if(!m.has(key))m.set(key,{key,from:r.from,target:r.target,items:[]});m.get(key).items.push(r);});return Array.from(m.values()).sort((a:any,b:any)=>a.target.ageMin-b.target.ageMin);})();
+
+  const promote=(recs:any[])=>{
+    if(!canManage||!recs.length)return;
+    const map=new Map(recs.map((r:any)=>[String(r.child.id),r.target]));
+    const stamp=new Date().toISOString();
+    setChildren((arr:any[])=>(Array.isArray(arr)?arr:[]).map((c:any)=>{const t:any=map.get(String(c.id));return t?{...c,classroomId:t.id,grade:t.grade||t.name,promotedAt:stamp,gradYear:year,updatedAt:stamp}:c;}));
+    setDoneMsg("Promoted "+recs.length+" child"+(recs.length!==1?"ren":"")+" for "+year+".");
+    setTimeout(()=>setDoneMsg(""),6000);
+  };
+  const promoteAll=()=>{promote(eligible);if(setCs)setCs((s:any)=>({...(s||{}),lastGraduationYear:year}));};
+  const dismissSeason=()=>{if(setCs)setCs((s:any)=>({...(s||{}),lastGraduationYear:year}));};
+  const exportCsv=()=>{const rows=[["Child","Age on Aug 1","Current Class","Promotes To","Leaves Kids' Rooms","Parent"],...eligible.map((r:any)=>[((r.child.first||"")+" "+(r.child.last||"")).trim(),String(r.age),r.from?r.from.name:"Unassigned",r.target.name,r.out?"Yes":"",r.child.parentName||""])];const csv=rows.map((r:any)=>r.map((x:any)=>'"'+String(x==null?"":x).replace(/"/g,'""')+'"').join(",")).join("\n");const b=new Blob([csv],{type:"text/csv"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download="graduation-eligible-"+year+".csv";a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);};
+
+  const tile=(label:string,val:any,color:string)=>(<div style={{flex:1,minWidth:120,background:W,border:"0.5px solid "+BR,borderRadius:12,padding:"12px 14px"}}><div style={{fontSize:24,fontWeight:700,color,fontVariantNumeric:"tabular-nums" as any}}>{val}</div><div style={{fontSize:11,color:MU,marginTop:2}}>{label}</div></div>);
+  const chip=(txt:string,color:string)=>(<span style={{fontSize:11,fontWeight:600,color,background:color+"14",border:"0.5px solid "+color+"33",borderRadius:8,padding:"2px 9px"}}>{txt}</span>);
+
+  return (
+    <div style={{display:"flex",flexDirection:"column",gap:14}}>
+      <div>
+        <div style={{fontSize:15,fontWeight:600,color:N}}>🎓 Graduation &amp; Promotion</div>
+        <div style={{fontSize:12,color:MU,marginTop:2}}>Once a year on <strong>August 1</strong>, children move up to the next classroom as their age crosses into the next room. Ages are figured as of Aug 1, {year}.{lastRun?<> Last run: <strong>{lastRun}</strong>.</>:null}</div>
+      </div>
+
+      {seasonPending && (
+        <div style={{background:"#fffbeb",border:"1px solid #fcd34d",borderRadius:12,padding:"14px 16px"}}>
+          <div style={{fontSize:14,fontWeight:700,color:"#92400e"}}>🎓 It's promotion time — August 1, {year}</div>
+          <div style={{fontSize:12.5,color:"#92400e",marginTop:4,marginBottom:10}}>{eligible.length} child{eligible.length!==1?"ren are":" is"} eligible to move up a classroom this year. Review the list below, then promote everyone at once or one at a time.</div>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+            {canManage&&<Btn onClick={promoteAll} v="primary" style={{fontSize:13}}>Promote all {eligible.length} eligible</Btn>}
+            {canManage&&<Btn onClick={dismissSeason} v="ghost" style={{fontSize:13}}>Not now — remind me next year</Btn>}
+          </div>
+        </div>
+      )}
+
+      {doneMsg&&<div style={{background:"#f0fdf4",border:"0.5px solid "+GR+"55",borderRadius:10,padding:"10px 14px",fontSize:13,color:"#166534",fontWeight:500}}>✓ {doneMsg}</div>}
+
+      <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+        {tile("Eligible to move up",eligible.length,eligible.length>0?AM:GR)}
+        {tile("Graduating out of kids' rooms",gradOut.length,gradOut.length>0?PU:MU)}
+        {tile("Missing birthdate",missing.length,missing.length>0?RE:MU)}
+      </div>
+
+      {!canManage&&<div style={{fontSize:12,color:MU,fontStyle:"italic"}}>You can review who's eligible, but only an administrator or pastor can promote children.</div>}
+
+      {eligible.length===0 ? (
+        <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:36,textAlign:"center"}}>
+          <div style={{fontSize:30,marginBottom:6}}>✅</div>
+          <div style={{fontSize:14,fontWeight:600,color:N}}>Everyone's in the right classroom for their age.</div>
+          <div style={{fontSize:12,color:MU,marginTop:4}}>No children are due to move up as of Aug 1, {year}.{lastRun===year?" This year's graduation has been run.":""}</div>
+        </div>
+      ) : (
+        <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,overflow:"hidden"}}>
+          <div style={{padding:"12px 16px",borderBottom:"0.5px solid "+BR,display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
+            <div style={{fontSize:13,fontWeight:600,color:N}}>Eligible to graduate ({eligible.length})</div>
+            <div style={{display:"flex",gap:6}}>
+              <button onClick={exportCsv} style={{height:30,borderRadius:8,border:"0.5px solid "+BR,background:W,cursor:"pointer",fontSize:12,fontWeight:600,color:N,padding:"0 12px"}}>Export CSV</button>
+              {canManage&&<Btn onClick={promoteAll} v="primary" style={{fontSize:12}}>Promote all {eligible.length}</Btn>}
+            </div>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:0}}>
+            {groups.map((g:any)=>(
+              <div key={g.key} style={{padding:"12px 16px",borderBottom:"0.5px solid "+BR}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:10}}>
+                  {chip(g.from?g.from.name:"Unassigned",g.from?g.from.color||MU:MU)}
+                  <span style={{color:MU,fontSize:13}}>→</span>
+                  {chip(g.target.name,g.target.color||G)}
+                  <span style={{fontSize:12,color:MU}}>· {g.items.length} child{g.items.length!==1?"ren":""}</span>
+                  {g.target.checkin===false&&<span style={{fontSize:10.5,fontWeight:600,color:PU,background:PU+"14",borderRadius:8,padding:"2px 8px"}}>Leaves check-in rooms</span>}
+                  {canManage&&<button onClick={()=>promote(g.items)} style={{marginLeft:"auto",height:28,borderRadius:8,border:"0.5px solid "+G+"66",background:G+"11",color:G,cursor:"pointer",fontSize:12,fontWeight:600,padding:"0 12px"}}>Promote group</button>}
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                  {g.items.map((r:any)=>(
+                    <div key={r.child.id} style={{display:"flex",alignItems:"center",gap:10,padding:"7px 10px",background:BG,borderRadius:8,border:"0.5px solid "+BR}}>
+                      <Av f={r.child.first} l={r.child.last} sz={30}/>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:13,fontWeight:500}}>{r.child.first} {r.child.last}</div>
+                        <div style={{fontSize:11,color:MU}}>Turns {r.age} by Aug 1{r.child.parentName?" · "+r.child.parentName:""}</div>
+                      </div>
+                      {canManage&&<button onClick={()=>promote([r])} style={{height:28,borderRadius:8,border:"0.5px solid "+BR,background:W,cursor:"pointer",fontSize:12,fontWeight:600,color:N,padding:"0 12px"}}>Promote</button>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {missing.length>0 && (
+        <div style={{background:W,border:"0.5px solid "+BR,borderRadius:12,padding:"12px 16px"}}>
+          <div style={{fontSize:12.5,fontWeight:600,color:N,marginBottom:6}}>⚠ {missing.length} child{missing.length!==1?"ren":""} can't be evaluated — no birthdate on file</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+            {missing.map((c:any)=><span key={c.id} style={{fontSize:12,background:BG,border:"0.5px solid "+BR,borderRadius:8,padding:"3px 9px",color:TX}}>{c.first} {c.last}</span>)}
+          </div>
+          <div style={{fontSize:11,color:MU,marginTop:8}}>Add each child's birthday under Children so they're included in next year's graduation.</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Education({members,setMembers,visitors,attendance,setAttendance,users,roles,currentUser,children,setChildren,classrooms,setClassrooms,teacherSchedule,setTeacherSchedule,kidsCheckIns,setKidsCheckIns,checkIns,incidents,setIncidents,rollCalls,setRollCalls,progressNotes,setProgressNotes,teacherFollowups,setTeacherFollowups,followupDismissedChildIds,setFollowupDismissedChildIds,cs,setCs,addConfidential,printerConfig,setPrinterConfig,neoDesign=false}:any){
   const [tab,setTab]=useState("dashboard");
   const checkedOutBadgeCount=(kidsCheckIns as any[]).filter((c:any)=>!!c.checkedOut).length;
@@ -15530,7 +15683,9 @@ function Education({members,setMembers,visitors,attendance,setAttendance,users,r
   const _tfVisible = _edIsAdmin ? _tf : _tf.filter((r:any)=>String(r.assignedToUserId||"")===String(currentUser?.id||""));
   const stage1Count = _tfVisible.filter((r:any)=>r.stage==="stage1").length;
   const stage2Count = _tfVisible.filter((r:any)=>r.stage==="stage2").length;
-  const TABS=[{id:"dashboard",label:"Overview"},{id:"checkin",label:"Check-In"},{id:"rollcall",label:"Roll Call"},{id:"children",label:"Children"},{id:"birthdays",label:"🎂 Birthdays"},{id:"progress",label:"Progress"},{id:"classrooms",label:"Classrooms"},{id:"teachers",label:"Teachers"},{id:"followup",label:"Follow-Up"},{id:"incidents",label:"Incidents"},{id:"reports",label:"Reports"},{id:"printer",label:"🖨 Printer"}];
+  const _edCanPromote = _edIsAdmin || _edRoleLc.includes("pastor");
+  const _gradEligible = computeGraduations(children,classrooms,new Date().getFullYear()).eligible.length;
+  const TABS=[{id:"dashboard",label:"Overview"},{id:"checkin",label:"Check-In"},{id:"rollcall",label:"Roll Call"},{id:"children",label:"Children"},{id:"birthdays",label:"🎂 Birthdays"},{id:"graduation",label:"🎓 Graduation"},{id:"progress",label:"Progress"},{id:"classrooms",label:"Classrooms"},{id:"teachers",label:"Teachers"},{id:"followup",label:"Follow-Up"},{id:"incidents",label:"Incidents"},{id:"reports",label:"Reports"},{id:"printer",label:"🖨 Printer"}];
   return(
     <div>
       <div style={{display:"flex",marginBottom:20,background:W,borderRadius:10,border:"0.5px solid "+BR,overflow:"hidden",flexWrap:"wrap"}}>
@@ -15539,6 +15694,7 @@ function Education({members,setMembers,visitors,attendance,setAttendance,users,r
           {t.id==="checkin"&&checkedOutBadgeCount>0&&<span style={{background:GR,color:"#fff",borderRadius:10,fontSize:10,padding:"1px 6px"}}>{checkedOutBadgeCount}</span>}
           {t.id==="followup"&&(stage1Count+stage2Count)>0&&<span style={{background:AM,color:"#fff",borderRadius:10,fontSize:10,padding:"1px 6px"}}>{stage1Count+stage2Count}</span>}
           {t.id==="incidents"&&openIncidents>0&&<span style={{background:RE,color:"#fff",borderRadius:10,fontSize:10,padding:"1px 6px"}}>{openIncidents}</span>}
+          {t.id==="graduation"&&_gradEligible>0&&<span style={{background:AM,color:"#fff",borderRadius:10,fontSize:10,padding:"1px 6px"}}>{_gradEligible}</span>}
         </button>)}
       </div>
       {tab==="dashboard"&&<EdDashboard classrooms={classrooms} children={children} kidsCheckIns={kidsCheckIns} teacherSchedule={teacherSchedule} users={users} members={members} checkIns={checkIns} setTab={setTab}/>}
@@ -15546,6 +15702,7 @@ function Education({members,setMembers,visitors,attendance,setAttendance,users,r
       {tab==="rollcall"&&<ClassRollCall classrooms={classrooms} children={children} rollCalls={rollCalls} setRollCalls={setRollCalls} teacherSchedule={teacherSchedule} users={users} members={members} cs={cs} kidsCheckIns={kidsCheckIns}/>}
       {tab==="children"&&<ChildrenRoster children={children} setChildren={setChildren} classrooms={classrooms} members={members} setMembers={setMembers} kidsCheckIns={kidsCheckIns} setKidsCheckIns={setKidsCheckIns} setRollCalls={setRollCalls} incidents={incidents} setIncidents={setIncidents} progressNotes={progressNotes} setProgressNotes={setProgressNotes} teacherFollowups={teacherFollowups} setTeacherFollowups={setTeacherFollowups} followupDismissedChildIds={followupDismissedChildIds} setFollowupDismissedChildIds={setFollowupDismissedChildIds}/>}
       {tab==="birthdays"&&<ChildBirthdays children={children} classrooms={classrooms}/>}
+      {tab==="graduation"&&<GraduationTab children={children} setChildren={setChildren} classrooms={classrooms} cs={cs} setCs={setCs} canManage={_edCanPromote}/>}
       {tab==="progress"&&<ChildProgress children={children} classrooms={classrooms} rollCalls={rollCalls} progressNotes={progressNotes} setProgressNotes={setProgressNotes} addConfidential={addConfidential} cs={cs}/>}
       {tab==="classrooms"&&<ClassroomsManager classrooms={classrooms} setClassrooms={setClassrooms} teacherSchedule={teacherSchedule} users={users} members={members} kidsCheckIns={kidsCheckIns}/>}
       {tab==="teachers"&&<TeacherScheduleMgr classrooms={classrooms} teacherSchedule={teacherSchedule} setTeacherSchedule={setTeacherSchedule} users={users} members={members} roles={roles}/>}
@@ -17338,7 +17495,7 @@ function ManualPage(){
         <Sec><H id="s7">7. Education Department & Check-In</H>
           <P>The <B>Education</B> section is a full children's ministry platform: secure check-in with printed security labels, classroom and roster management, roll call, teacher scheduling, an automated follow-up pipeline for children who stop coming, incident tracking, and reports.</P>
           <H3>Tabs Overview</H3>
-          <Ul><Li><B>Dashboard</B> — live overview: today's check-ins, classroom counts, teachers on duty</Li><Li><B>Check-In</B> — search and check children in/out with printable name tags + parent pickup stubs</Li><Li><B>Roll Call</B> — structured attendance by classroom for a service date</Li><Li><B>Children</B> — searchable roster with medical/allergy info, parents, and an <B>↪ Follow-Up</B> action</Li><Li><B>Progress</B> — individual child spiritual-development notes</Li><Li><B>Classrooms</B> — room names, age ranges, capacities, colors</Li><Li><B>Teachers</B> — weekly schedule of lead teachers and helpers, plus who actually taught</Li><Li><B>Follow-Up</B> — a pipeline that chases children who've stopped attending</Li><Li><B>Incidents</B> — log and track behavioral or medical incidents</Li><Li><B>Reports</B> — per-Sunday attendance snapshots and the Monthly Teacher Competition</Li><Li><B>🖨 Printer</B> — choose your label size and print a test label</Li></Ul>
+          <Ul><Li><B>Dashboard</B> — live overview: today's check-ins, classroom counts, teachers on duty</Li><Li><B>Check-In</B> — search and check children in/out with printable name tags + parent pickup stubs</Li><Li><B>Roll Call</B> — structured attendance by classroom for a service date</Li><Li><B>Children</B> — searchable roster with medical/allergy info, parents, and an <B>↪ Follow-Up</B> action</Li><Li><B>🎂 Birthdays</B> — a per-month list of children's birthdays (ages 0–18) with an upcoming-10-days banner and CSV export</Li><Li><B>🎓 Graduation</B> — the once-a-year (Aug 1) promotion of children to the next classroom by age</Li><Li><B>Progress</B> — individual child spiritual-development notes</Li><Li><B>Classrooms</B> — room names, age ranges, capacities, colors</Li><Li><B>Teachers</B> — weekly schedule of lead teachers and helpers, plus who actually taught</Li><Li><B>Follow-Up</B> — a pipeline that chases children who've stopped attending</Li><Li><B>Incidents</B> — log and track behavioral or medical incidents</Li><Li><B>Reports</B> — per-Sunday attendance snapshots and the Monthly Teacher Competition</Li><Li><B>🖨 Printer</B> — choose your label size and print a test label</Li></Ul>
           <H3>Checking In a Child</H3>
           <Ol><Li>Go to <B>Education → Check-In</B></Li><Li>Type the child's name in the search box — results appear after 2 characters</Li><Li>Click the child's name to select them — a classroom is auto-suggested based on their age</Li><Li>Confirm or select a different classroom if needed</Li><Li>Click <B>Check In and Print Labels</B></Li><Li>The label preview opens — click <B>Print Both Labels</B> to print</Li><Li>Two labels print: a <B>child name tag</B> and a <B>parent pickup stub</B> with a 4-character security code</Li></Ol>
           <H3>Checking Out a Child</H3>
@@ -17359,6 +17516,10 @@ function ManualPage(){
           <Ul><Li><B>📅 Sunday Snapshot</B> — pick any Sunday from the date dropdown to see that day's check-ins, classroom attendance, and who served.</Li><Li><B>🏆 Monthly Competition</B> — a friendly teacher leaderboard. Each classroom is scored on its <B>attendance rate</B> plus its <B>returning-children rate</B> (kids who came back 2+ Sundays), credited to the teacher who led it most that month, with a monthly winner banner.</Li></Ul>
           <H3>Setting Up the Label Printer</H3>
           <Ol><Li>Go to <B>Education → 🖨 Printer</B> and pick the preset matching your printer and label stock (Dymo, Brother, Zebra, or Avery sheets)</Li><Li>Click <B>🖨 Print a Test Label</B> to confirm the printer prints and cuts correctly — no real check-in needed</Li><Li>Your selection saves automatically. See <B>Section 22</B> for full label-printer details</Li></Ol>
+          <H3>🎓 Graduation &amp; Promotion (once a year, August 1)</H3>
+          <P>Each year children should move up to the next classroom as they age. The <B>Education → 🎓 Graduation</B> tab does this. It compares every active child's age <B>as of August 1</B> against your classroom age ranges and lists everyone whose age-appropriate room is now <B>higher</B> than the room they're in.</P>
+          <Ol><Li>Open <B>Education → 🎓 Graduation</B>. An amber number on the tab shows how many children are eligible to move up.</Li><Li>On or after <B>August 1</B>, a <B>"It's promotion time"</B> banner appears. (You can open the tab any time of year to preview who's coming up.)</Li><Li>Review the list — children are grouped <B>From → To</B> (e.g. <em>Pre-K → Kindergarten</em>). Each child shows the age they reach by Aug 1.</Li><Li>Click <B>Promote all</B> to move everyone at once, <B>Promote group</B> for one classroom jump, or <B>Promote</B> on a single child.</Li><Li>Children aging past the top kids' room are tagged <B>"Leaves check-in rooms"</B> (they graduate out of the checked-in classrooms, e.g. into Young Adult).</Li></Ol>
+          <Note>Only a <B>Super Admin, Administrator, or Pastor</B> can promote children — everyone else can view the list but the Promote buttons are hidden. Promotion updates each child's classroom and level; nothing is ever changed automatically without a click. Children with <B>no birthdate on file</B> are listed separately so you can add their date and include them next year. Ages are figured on <B>Aug 1</B>, so a child whose birthday falls later in August isn't bumped a year early.</Note>
           <H3>Finding &amp; Merging Duplicate Children</H3>
           <P>If the same child was entered more than once (e.g. registered at the kiosk <em>and</em> added on a parent’s profile), open <B>Education → Children</B> and click <B>🔁 Find duplicates</B> — a count shows when any are detected. The tool groups likely duplicates (children sharing a <B>name plus a parent or date of birth</B>) and lets you choose which record to <B>keep</B>; merging moves the others’ check-ins, follow-ups, notes, and parent link onto the kept record, then removes the extras. New children are also given collision-proof IDs so fresh duplicates stop forming. Two different children who merely share a name are never grouped.</P>
           <Warn>Merges cannot be undone — take a <B>Backup</B> (Section 20) before working through a large list.</Warn>
