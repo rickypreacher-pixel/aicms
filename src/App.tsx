@@ -8783,7 +8783,9 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
     const _pNm = String((p.first||"")+" "+(p.last||"")).trim().toLowerCase();
     const personCIs = checkIns.filter(c => String(c.pid) === String(p.id) || (_pNm.length>1 && String((c.first||"")+" "+(c.last||"")).trim().toLowerCase()===_pNm));
     const lastAttended = personCIs.length ? [...personCIs].sort((a,b)=>b.date.localeCompare(a.date))[0].date : null;
-    const uniqueEvents = new Set(personCIs.map(c => (c.eid||"") + "_" + c.date)).size;
+    // Count distinct DAYS attended (times they came) — a first-time visitor checked
+    // into two events on one day is one visit, not two. Avoids the 0/1/2 inconsistency.
+    const uniqueEvents = new Set(personCIs.map(c => c.date)).size;
 
     const groupAttendance = memberGroups.map(g => {
       const meets = grpMeetings.filter(m => m.groupId === g.id);
@@ -9372,7 +9374,7 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
               <div>
                 {/* KPI Summary Cards */}
                 <div style={{display:"flex",gap:8,marginBottom:12}}>
-                  <MiniStat label="Services" value={stats.uniqueEvents} sub={stats.lastAttended?"Last "+fd(stats.lastAttended):"None yet"} color={BL}/>
+                  <MiniStat label="Times Attended" value={stats.uniqueEvents} sub={stats.lastAttended?"Last "+fd(stats.lastAttended):"None yet"} color={BL}/>
                   <MiniStat label="Total Given" value={f$(stats.totalGiven)} sub={stats.gives.length+" gift"+(stats.gives.length!==1?"s":"")} color={GR}/>
                   <MiniStat label="Groups" value={stats.memberGroups.length} sub={stats.ledGroups.length>0?"Leads "+stats.ledGroups.length:"Member"} color={PU}/>
                   <MiniStat label="Prayer" value={stats.personPrayers.length} sub={stats.activePrayers+" active"} color={AM}/>
@@ -9559,7 +9561,7 @@ function People({members,setMembers,visitors,setVisitors,attendance,giving,setGi
                   <div>
                     <SectionCard title="Attendance Summary">
                       <div style={{display:"flex",gap:8,marginBottom:8}}>
-                        <MiniStat label="Services Attended" value={stats.uniqueEvents} color={BL}/>
+                        <MiniStat label="Times Attended" value={stats.uniqueEvents} color={BL}/>
                         <MiniStat label="Check-Ins" value={stats.personCIs.length} color={N}/>
                       </div>
                       <InfoRow label="Last Attended" value={stats.lastAttended?fd(stats.lastAttended):""}/>
